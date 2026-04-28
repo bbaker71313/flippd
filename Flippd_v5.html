@@ -872,9 +872,10 @@ body::before{
           <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:2px">Whole shelf ranked</div>
         </div>
       </div>
-      <input class="setup-input" id="api-key-input" type="password" placeholder="Enter your access code" autocomplete="off" autocorrect="off" spellcheck="false"/>
-      <button class="btn btn-green" onclick="saveApiKey()" style="margin-bottom:12px">Unlock Flippd →</button>
-      <p class="setup-hint" style="text-align:center;font-size:11px">Need an access code? <a href="mailto:hello@flippd.app" style="color:var(--accent)">Get early access →</a></p>
+      <input class="setup-input" id="email-input" type="email" placeholder="Enter your email" autocomplete="email" spellcheck="false"/>
+      <button class="btn btn-green" onclick="requestMagicLink()" style="margin-bottom:12px">Send Login Link →</button>
+      <p class="setup-hint" style="text-align:center;font-size:11px">7-day free trial. No credit card required.</p>
+      <div id="trial-banner" style="display:none;background:var(--green-bg);border:1px solid var(--green-border);border-radius:6px;padding:10px;margin-top:12px;font-size:11px;color:var(--text);text-align:center"></div>
     </div>
   </div>
   <div id="src-view-settings" style="display:none">
@@ -3591,12 +3592,17 @@ function updateStyle(val) {
 // SOURCING — VIEWS
 // ══════════════════════════════════════════════════
 let apiKey = localStorage.getItem('fif_api_key') || '';
-const PROXY_URL = null; // Manus proxy — set to URL when ready. For now, use direct API.
+const API_BASE = 'https://flippd-backend.replit.app';
+const PROXY_URL = API_BASE; // Backend proxy
+let currentUser = null;
+
 function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
-function getApiUrl() { return PROXY_URL || 'https://api.anthropic.com/v1/messages'; }
+function getApiUrl() { return API_BASE + '/v1/messages'; }
 function getApiHeaders() {
-  if (PROXY_URL) return {'Content-Type':'application/json','x-flippd-key':apiKey};
-  return {'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + apiKey
+  };
 }
 let imgB64 = null, imgType = 'image/jpeg', srcMode = 'single';
 const MAX_IMG_SIZE = 500000; // 500KB limit for base64 image
@@ -3714,7 +3720,7 @@ if (typeof screen !== 'undefined' && screen.orientation) {
 }
 
 async function callClaude(system,msg,maxTok=1500) {
-  if (!isUnlocked()) throw new Error('Access code not set. Go to SCOUT tab and enter your access code first.');
+  if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
   
   const content=[];
   if(imgB64) content.push({type:'image',source:{type:'base64',media_type:imgType,data:imgB64}});
@@ -3733,7 +3739,7 @@ async function callClaude(system,msg,maxTok=1500) {
       const errText = await res.text();
       console.error('HTTP Error:', res.status, errText.substring(0, 200));
       if (res.status === 401 || res.status === 403) {
-        throw new Error('Invalid or expired access code. Check SCOUT tab.');
+        throw new Error('Session expired. Please log in again.');
       } else if (res.status === 429) {
         throw new Error('Rate limited — wait a moment and try again');
       } else if (res.status >= 500) {
@@ -4674,31 +4680,117 @@ function initFormSelects() {
   if (statSel) statSel.innerHTML = STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
 
-function saveApiKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (!k) { showToast('Enter your access code'); return; }
-  localStorage.setItem('fif_api_key', k);
-  apiKey = k;
-  showSrcView('input');
-  showToast('✓ Welcome to Flippd!');
+async function requestMagicLink() {
+  const email = document.getElementById('email-input').value.trim();
+  if (!email || !email.includes('@')) {
+    showToast('Enter a valid email');
+    return;
+  }
+  try {
+    const res = await fetch(API_BASE + '/auth/request-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Check your email for the login link!');
+    } else {
+      showToast('Error: ' + (data.error || 'Unknown'));
+    }
+  } catch (err) {
+    showToast('Network error: ' + err.message);
+  }
+}
+
+async function loadUserInfo() {
+  try {
+    const res = await fetch(API_BASE + '/auth/me', {
+      headers: getApiHeaders()
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        localStorage.removeItem('flippd_jwt');
+        apiKey = '';
+        location.reload();
+      }
+      return;
+    }
+    const user = await res.json();
+    currentUser = user;
+    
+    if (user.tier === 'trial') {
+      const daysLeft = Math.ceil((new Date(user.trialEndsAt) - new Date()) / (1000*60*60*24));
+      const banner = document.getElementById('trial-banner');
+      if (banner) {
+        banner.style.display = 'block';
+        banner.textContent = `Trial: ${daysLeft} days left. Upgrade to keep all features.`;
+      }
+    }
+    return user;
+  } catch (err) {
+    console.error('Failed to load user:', err);
+  }
+}
+
+async function startCheckout(tier, interval) {
+  try {
+    const res = await fetch(API_BASE + '/stripe/checkout', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ tier, interval })
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  } catch (err) {
+    showToast('Checkout failed: ' + err.message);
+  }
+}
+
+async function openCustomerPortal() {
+  try {
+    const res = await fetch(API_BASE + '/stripe/portal', {
+      method: 'POST',
+      headers: getApiHeaders()
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  } catch (err) {
+    showToast('Portal failed: ' + err.message);
+  }
 }
 
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
-window.onload = () => {
-  // Auto-inject API key
-  if (!localStorage.getItem('fif_api_key')) {
-    localStorage.setItem('fif_api_key', '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');
-    apiKey = localStorage.getItem('fif_api_key');
+
+// Check for JWT from magic link redirect
+window.addEventListener('DOMContentLoaded', () => {
+  const jwt = localStorage.getItem('flippd_jwt');
+  if (jwt) {
+    apiKey = jwt;
+    localStorage.setItem('fif_api_key', jwt);
+    showApp();
+    loadUserInfo();
   }
+  
+  // Migration: clear old access codes
+  const oldKey = localStorage.getItem('fif_api_key');
+  if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
+    localStorage.removeItem('fif_api_key');
+    apiKey = '';
+  }
+});
+
+window.onload = () => {
+  // Initialize app
   loadItems();
   pnlLoad();
   filterCat = 'All'; filterStatus = 'All';
   initFormSelects();
   if (isUnlocked()) {
     showSrcView('input');
-    // first-scan prompt handled by showSrcView()
+    loadUserInfo();
   } else {
     showSrcView('setup');
   }
