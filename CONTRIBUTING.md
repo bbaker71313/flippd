@@ -1,247 +1,153 @@
 # Contributing to Flippd
 
-Thanks for your interest in contributing to Flippd! This guide explains how to report bugs, suggest features, and submit code.
+Thanks for your interest in contributing! Flippd is built by resellers, for resellers. We welcome bug reports, feature ideas, and pull requests.
 
 ---
 
-## 🐛 Reporting Bugs
+## Getting Started
 
-### Before You Report
-- Check the [issue tracker](https://github.com/bbaker71313/flippd/issues) — your bug might already be reported
-- Test on a fresh browser with cache cleared
-- Note your device/browser (iPhone 12 Safari, Android Chrome, etc.)
-
-### How to Report
-1. Go to [Issues](https://github.com/bbaker71313/flippd/issues)
-2. Click **New Issue**
-3. Include:
-   - What you were doing
-   - What happened
-   - What you expected to happen
-   - Device/browser/OS
-   - Screenshots if visual
-
-**Example:**
-```
-Title: Shelf scan buy button unresponsive after 5+ items
-
-Device: iPhone 13, Safari
-OS: iOS 16
-
-Steps to reproduce:
-1. Open Flippd
-2. Take a shelf photo with 8+ items
-3. AI ranks items
-4. Click "🛒 Buy" on item #6
-
-Expected: Item added to inventory
-Actual: Nothing happens, no error message
-```
+1. **Fork the repo** on GitHub
+2. **Clone your fork** locally
+3. **Create a branch** for your work: `git checkout -b feature/your-feature-name`
+4. **Make your changes** (see style guide below)
+5. **Test thoroughly** (especially on iOS/mobile)
+6. **Push and open a PR** with a clear description
 
 ---
 
-## 💡 Suggesting Features
+## Development Setup
 
-### Before You Suggest
-- Check [Roadmap](./ROADMAP.md) — feature might already be planned
-- Check [Discussions](https://github.com/bbaker71313/flippd/discussions) — might already be discussed
+### Frontend (Flippd_v5.html)
 
-### How to Suggest
-1. Go to [Discussions](https://github.com/bbaker71313/flippd/discussions)
-2. Click **New discussion**
-3. Category: **Ideas**
-4. Describe:
-   - The use case (what problem are you solving?)
-   - How it would work
-   - Example workflow
+- Single HTML file, no build step
+- Works offline, saved to localStorage
+- Test on a real mobile device when possible
+- Use Safari on iPhone or Chrome DevTools mobile mode
 
-**Example:**
-```
-Title: Auto-refresh inventory sell prices from eBay API
+**Key rules:**
+- Never hardcode API URLs — use `getApiUrl()` and `getApiHeaders()`
+- Never hardcode eBay fees — always use `S.ebayFee`
+- Keep file under 10,000 lines (refactor to separate module if needed)
+- Test with 13% fee rate, $1.25 packaging cost, but verify logic works with any values
 
-Use case: I sold 5 items this week but manually mark each one sold. 
-It would be faster if Flippd checked eBay API and auto-updated.
+### Backend (Replit/Manus)
 
-How it could work:
-1. In STATS tab, add "Sync with eBay" button
-2. User authenticates with eBay once
-3. Click sync → app fetches sold orders
-4. Auto-mark matching items as "Sold"
-
-This would save ~5 mins per week of manual marking.
-```
+- FastAPI + SQLModel + Anthropic proxy
+- Magic link auth via Resend
+- Stripe webhooks for subscriptions
+- Type hints required on all functions
+- Run tests before PR: `pytest`
 
 ---
 
-## 💻 Contributing Code
+## Code Style
 
-### Development Setup
+### JavaScript (HTML/JS)
+- Use ES6+ (arrow functions, template literals, const/let)
+- Camel case for variables: `ebayFeePercent`, `itemCost`
+- Commented sections for major features
+- No console.logs in production code (use `trackEvent()` for analytics)
 
-```bash
-# 1. Clone the repo
-git clone https://github.com/your-username/flippd.git
-cd flippd
-
-# 2. No build step needed — just edit and test
-# Open Flippd_v5.html in your browser (works offline)
-
-# 3. Make changes to Flippd_v5.html
-
-# 4. Test thoroughly:
-# - Desktop browser (Chrome DevTools mobile simulation)
-# - Real iOS device if possible
-# - Try multiple scans (check memory)
-# - Test offline mode (close DevTools network)
-
-# 5. Commit your changes
-git add Flippd_v5.html
-git commit -m "Fix: shelf scan buy button unresponsive"
-
-# 6. Push and open a PR
-git push origin fix/shelf-buy-button
-```
-
-### Code Style
-
-**JavaScript:**
-- No external dependencies (vanilla JS only)
-- Functions under 100 lines
-- Google-style JSDoc comments
-
-```javascript
-/**
- * Calculate profit after eBay fees.
- *
- * @param {number} sellPrice - Sale price in cents
- * @param {number} costCents - Cost in cents
- * @param {number} feePercent - eBay fee percentage (default 13)
- * @returns {number} Profit in cents
- */
-function calcProfit(sellPrice, costCents, feePercent = 13) {
-  const fee = Math.round(sellPrice * (feePercent / 100));
-  return sellPrice - costCents - fee;
-}
-```
-
-**CSS:**
-- Mobile-first (max-width 540px)
-- Use CSS variables for theme colors
-- Keep specificity low
-
-```css
-/* Good */
-.action-btn {
-  background: var(--green);
-  padding: 8px 16px;
-  border-radius: 8px;
-}
-
-/* Avoid */
-.tab-panel .inventory-section .action-button {
-  background: #00cc66;
-}
-```
-
-**HTML:**
-- Semantic HTML where possible
-- No `<form>` tags (use onclick handlers)
-- Keep attribute values short
-
-### What to Work On
-
-**Easy (good first issue):**
-- Typos in docs or UI copy
-- UI improvements (spacing, colors)
-- Better error messages
-- Performance optimizations
-
-**Medium:**
-- New feature development (see Roadmap)
-- Cross-platform testing
-- Mobile responsiveness fixes
-
-**Hard:**
-- eBay API integration
-- Large refactors affecting multiple features
-- Complex algorithmic changes
-
-### Commit Messages
-
-Be clear and specific:
-
-```
-✅ Good:
-"Fix: shelf scan buy button unresponsive on item #6+"
-"Feat: add image size limit (500KB) to prevent memory leak"
-"Docs: update ROADMAP with Phase 3 timeline"
-"Refactor: extract shelf item render logic to helper function"
-
-❌ Avoid:
-"Fixed bugs"
-"Update code"
-"WIP"
-```
-
-### Pull Request Process
-
-1. **Create a branch** — name it descriptively
-   ```bash
-   git checkout -b fix/shelf-buy-button
-   git checkout -b feat/add-poshmark-formatter
-   git checkout -b docs/update-roadmap
-   ```
-
-2. **Make your changes** — commit frequently with clear messages
-
-3. **Test thoroughly:**
-   - Desktop browser (DevTools mobile view)
-   - Real mobile device if possible
-   - Multiple scans in a row (memory check)
-   - Switch between tabs
-   - Test offline
-
-4. **Open a pull request:**
-   - Title should clearly describe change
-   - Link related issues: "Fixes #42"
-   - Describe what you changed and why
-   - Include before/after screenshots if visual
-
-5. **Review process:**
-   - I'll review within 48 hours
-   - May ask for changes or clarifications
-   - Once approved, merge to main
-
-### Testing Checklist
-
-Before submitting a PR:
-
-- [ ] Feature works on mobile (iOS/Android)
-- [ ] Feature works offline
-- [ ] No console errors
-- [ ] Memory usage stable (no leaks)
-- [ ] All existing features still work
-- [ ] Tested with different data (empty, large dataset)
-- [ ] Code follows style guide
-- [ ] Commit messages are clear
+### Python (Backend)
+- Black formatter: `black .`
+- Type hints on every function
+- Google-style docstrings
+- Tests mirror app structure
 
 ---
 
-## 📋 Release Process
+## What We're Looking For
 
-Version format: `vX.Y.Z` (Semantic Versioning)
+### High Priority (please PR!)
+- Bug fixes (especially iOS camera, landscape orientation, fee calculation)
+- Performance improvements
+- Accessibility fixes (contrast, keyboard nav)
+- Documentation improvements
 
-- **Major (X):** Breaking changes, complete redesigns
-- **Minor (Y):** New features, non-breaking additions
-- **Patch (Z):** Bug fixes, performance improvements
+### Medium Priority
+- UX improvements (if validated with users first)
+- New features in ROADMAP.md
+- Test coverage improvements
 
-Current version: **v5.2.1** (Production Ready)
+### Low Priority / Not Wanted
+- Refactors without functional change
+- UI customization (colors, fonts) — we have a specific design system
+- New tabs or major structural changes (discuss first)
 
 ---
 
-## 🙏 Questions?
+## Testing
 
-- Check existing [Issues](https://github.com/bbaker71313/flippd/issues)
-- Start a [Discussion](https://github.com/bbaker71313/flippd/discussions)
-- Email: [your-email@example.com]
+### Frontend
+- Test on iPhone 12+ (the minimum device)
+- Test in landscape and portrait
+- Test with 0 items, 100+ items (edge cases)
+- Test with slow network (DevTools throttle)
+- Verify profit math: cost $100, sell $300, fee 13%, pkg $1.25 → profit should be $185.75
 
-Thanks for contributing!
+### Backend
+- Unit tests for all fee calculation logic
+- Mock all external API calls (Anthropic, Stripe, Resend)
+- Test auth flows (magic link, JWT, token refresh)
+- Run `pytest -v` before PR
+
+---
+
+## Pull Request Process
+
+1. **Title:** Use format: `[FRONTEND] [BACKEND] [DOCS] — Brief description`
+   - Example: `[FRONTEND] Fix iOS camera double-fire on shelf scan`
+
+2. **Description:** Include:
+   - What problem this solves
+   - How you tested it
+   - Any breaking changes
+   - Screenshots if UI change
+
+3. **Review:** At least one approval before merge
+   - Britt reviews strategy/GTM changes
+   - Claude reviews code quality and fee logic
+
+---
+
+## Reporting Bugs
+
+Use the bug template (see `.github/ISSUE_TEMPLATE/`). Include:
+- Clear steps to reproduce
+- Expected vs. actual behavior
+- Screenshots/logs if possible
+- Device and browser info
+
+**Critical bugs** (profit math wrong, auth broken, data lost) get priority.
+
+---
+
+## Feature Ideas
+
+Discuss in an issue first before building. We use ROADMAP.md as the source of truth for priorities.
+
+**Bad PR:** Implement a feature that wasn't discussed
+**Good PR:** Discuss in an issue → get feedback → implement → PR
+
+---
+
+## Questions?
+
+- **Product questions:** Open an issue
+- **Code questions:** Comment on the PR
+- **Security issues:** Email directly (don't open public issue)
+
+---
+
+## Code of Conduct
+
+- Be respectful and inclusive
+- Assume good intent
+- Give actionable feedback
+- Celebrate wins
+
+We're building a tool for resellers. That means hustle, directness, and respect for each other's time.
+
+---
+
+Thanks for building with us! 🎉

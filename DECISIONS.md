@@ -36,20 +36,9 @@ This file exists so future sessions don't relitigate settled decisions.
 **Decision:** Demo inventory items load once on first launch (tracked by `flippd_seeded` flag). After that, the app stays empty when a user clears their data.
 **Why:** Seed data is useful for first-time users to understand what the app does. But if a user clears their inventory to start fresh, re-loading seed data would be confusing and frustrating.
 
-### eBay leaf categories hardcoded per user's listings
-**Decision:** The 21 eBay leaf categories used in the AI Listing Generator are hardcoded in `EBAY_LEAF_CATEGORIES` object, extracted from the user's actual eBay listings file.
-**Why:** Most resellers list in 5-15 categories consistently. Hardcoding the actual categories the user sells in reduces friction (no category selection needed in settings) and ensures the CSV export uses correct category IDs without user error. If category mix changes significantly, the list can be updated with a new extraction from eBay Seller Hub. This is simpler than dynamic category management and matches the use case.
-**Future:** If multi-user is added, categories can be pulled from user's eBay API data or learned from inventory over time.
-
 ---
 
 ## Technical Decisions
-
-### Auto-injected API key on page load
-**Decision:** API key is automatically set in localStorage on first page load if not already present.
-**Why:** Removes friction for users — they don't need to manually enter the key. For development/testing, the key can be injected directly into the code. For production, the Manus proxy will handle auth differently.
-**How it works:** `window.onload()` checks `localStorage.getItem('fif_api_key')`. If empty, it sets the key once.
-**Security note:** This approach is only safe for development/early access. For public launch, never hardcode keys — use the proxy backend to issue temporary tokens instead.
 
 ### getApiUrl() / getApiHeaders() everywhere
 **Decision:** All three API fetch calls use `getApiUrl()` and `getApiHeaders()` helper functions, never hardcoded URLs or headers.
