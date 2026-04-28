@@ -896,6 +896,7 @@ body::before{
       <h2 style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--text);margin-bottom:4px">Flippd Settings</h2>
       <p style="color:var(--muted);font-size:12px;line-height:1.6;font-weight:500">Set your fee rate, profit targets, and sourcing style.</p>
     </div>
+    <div id="settings-user-info" style="background:#0f0f0f;border:1px solid #2a2a2a;border-radius:4px;padding:12px 14px;margin-bottom:16px;font-family:'IBM Plex Mono',monospace"></div>
     <div class="card">
       <div class="card-title">🎯 Decision Thresholds</div>
       <div class="setting-row">
@@ -3578,6 +3579,72 @@ function showSourcingSettings() {
   if (activeTab !== 'sourcing') switchTab('sourcing');
   populateSettingsUI();
   showSrcView('settings');
+  loadSettingsUserInfo();
+}
+
+async function loadSettingsUserInfo() {
+  try {
+    if (!isUnlocked()) return;
+    const res = await fetch(API_BASE + '/auth/me', { headers: getApiHeaders() });
+    if (!res.ok) return;
+    const user = await res.json();
+    const el = document.getElementById('settings-user-info');
+    if (!el) return;
+    const tier = user.tier || 'scout';
+    const scansUsed = user.scansThisMonth || 0;
+    const scanLimit = user.scanLimit;
+    const scanDisplay = scanLimit ? `${scansUsed} / ${scanLimit} scans this month` : 'Unlimited scans';
+    const tierColors = { trial: '#00e676', scout: '#a89880', hustle: '#00e676', stack: '#d4a843', empire: '#ff6b35' };
+    const tierColor = tierColors[tier] || '#a89880';
+    el.innerHTML = `
+      <div style="font-size:11px;color:#a89880;margin-bottom:4px">${user.email}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:700;color:${tierColor};text-transform:uppercase;letter-spacing:0.1em">${tier}</span>
+        <span style="font-size:11px;color:#5a5248">${scanDisplay}</span>
+      </div>
+      ${scanLimit && scansUsed >= scanLimit * 0.8 ? '<div style="font-size:11px;color:#f5a623;margin-top:6px">\u26a0 Running low \u2014 <button onclick=\"startCheckout(\'hustle\',\'month\')\" style=\"background:none;border:none;color:#00e676;font-family:\'IBM Plex Mono\',monospace;font-size:11px;cursor:pointer;text-decoration:underline;padding:0\">upgrade now</button></div>' : ''}
+    `;
+  } catch(e) {}
+}
+
+function showScanLimitModal(data) {
+  const existing = document.getElementById('scan-limit-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'scan-limit-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#161616;border:1px solid #d4a843;border-radius:8px;padding:28px 22px;max-width:340px;width:100%;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">&#x1F4CA;</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:#f0ead8;margin-bottom:8px">Scan limit reached</div>
+      <p style="font-size:13px;color:#a89880;line-height:1.6;margin-bottom:20px">${data.message || 'Upgrade to keep scanning.'}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="startCheckout('hustle','month');document.getElementById('scan-limit-modal').remove()" style="background:#00e676;color:#000;border:none;border-radius:4px;padding:13px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer">Hustle &#x2014; $19/mo (Unlimited scans)</button>
+        <button onclick="startCheckout('stack','month');document.getElementById('scan-limit-modal').remove()" style="background:#d4a843;color:#000;border:none;border-radius:4px;padding:13px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer">Stack &#x2014; $49/mo (Unlimited everything)</button>
+        <button onclick="document.getElementById('scan-limit-modal').remove()" style="background:transparent;border:none;color:#5a5248;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;padding:8px">Not now</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function showInventoryLimitModal(data) {
+  const existing = document.getElementById('inv-limit-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'inv-limit-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#161616;border:1px solid #d4a843;border-radius:8px;padding:28px 22px;max-width:340px;width:100%;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">&#x1F4E6;</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:#f0ead8;margin-bottom:8px">Inventory full</div>
+      <p style="font-size:13px;color:#a89880;line-height:1.6;margin-bottom:20px">${data.message || 'Upgrade to add more items.'}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="startCheckout('hustle','month');document.getElementById('inv-limit-modal').remove()" style="background:#00e676;color:#000;border:none;border-radius:4px;padding:13px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer">Hustle &#x2014; $19/mo (500 items)</button>
+        <button onclick="startCheckout('stack','month');document.getElementById('inv-limit-modal').remove()" style="background:#d4a843;color:#000;border:none;border-radius:4px;padding:13px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer">Stack &#x2014; $49/mo (Unlimited items)</button>
+        <button onclick="document.getElementById('inv-limit-modal').remove()" style="background:transparent;border:none;color:#5a5248;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;padding:8px">Not now</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
 }
 
 function populateSettingsUI() {
@@ -3750,6 +3817,13 @@ async function callClaude(system,msg,maxTok=1500) {
       if (res.status === 401 || res.status === 403) {
         apiKey = ''; localStorage.removeItem('fif_api_key'); showSrcView('setup'); throw new Error('Session expired — please sign in again.');
       } else if (res.status === 429) {
+        try {
+          const limitData = JSON.parse(errText);
+          if (limitData.error === 'scan_limit_reached') {
+            showScanLimitModal(limitData);
+            throw new Error(limitData.message || 'Scan limit reached');
+          }
+        } catch(parseErr) { if (parseErr.message && parseErr.message.includes('scan')) throw parseErr; }
         throw new Error('Rate limited — wait a moment and try again');
       } else if (res.status >= 500) {
         throw new Error('API server error — try again in a moment');
