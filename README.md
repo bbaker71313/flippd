@@ -1,221 +1,255 @@
-# Flippd Backend — Production API
+# Flippd — AI Reseller Operating System (v5.3)
 
-Backend for Flippd reseller app. Handles auth, subscriptions, inventory, and AI proxy.
+A mobile-first single-file HTML5 app for solo eBay resellers. Scan shelves with your phone, get instant AI-powered buy/pass decisions, track inventory, generate listings, and monitor profit — all with magic link email auth and subscription tiers.
 
-## Architecture
-
-```
-Flippd App (Flippd_v5.html)
-        ↓
-   Replit Backend (this repo)
-   ├─ Magic Link Auth (Resend)
-   ├─ JWT Sessions (90-day expiry)
-   ├─ User DB (Replit DB)
-   ├─ Inventory (server-side)
-   ├─ Anthropic Proxy (tier-gated)
-   └─ Stripe Checkout + Webhooks
-        ↓
-   Stripe (subscriptions)
-   Anthropic (AI scans)
-   Resend (transactional email)
-```
-
-## Tier System
-
-| Tier | Scans | Inventory | Trial |
-|------|-------|-----------|-------|
-| **Trial** | Unlimited | Unlimited | 7 days, full Empire access |
-| **Scout** (free) | 25/mo | 10 items | After trial expires |
-| **Hustle** ($19/mo) | Unlimited | 500 items | Paid |
-| **Stack** ($49/mo) | Unlimited | Unlimited | Paid |
-| **Empire** ($199/mo) | Unlimited | Unlimited | Paid (10 seats) |
-
-After 7-day trial, users auto-downgrade to Scout — no lockout, just feature limits.
+**Status:** v5.3 — Production Ready with Backend  
+**Backend:** https://flippd-backend.replit.app  
+**Auth:** Magic links (email) → JWT sessions → Stripe subscriptions  
 
 ---
 
-## Deployment to Replit
+## 🎯 What It Does
 
-### Step 1: Upload to GitHub
+**SCOUT** — Scan individual items or entire shelves with your phone camera. AI analyzes product details and estimates profit instantly.
 
-Upload these files to a GitHub repo (e.g., `bbaker71313/flippd-backend`):
-- `index.js`
-- `package.json`
-- `.replit`
-- `.gitignore`
-- `README.md`
+**INVENTORY** — Track everything you've sourced: cost, sell price, status, photos, condition. AI generates professional eBay listings in seconds.
 
-### Step 2: Import to Replit
+**PHOTOS** — Enhanced photo uploading with AI-powered image processing.
 
-1. Go to https://replit.com
-2. **+ Create Repl** → **Import from GitHub**
-3. Paste your repo URL
-4. Click **Import from GitHub**
-5. Replit auto-installs dependencies
+**TRENDS** — Market insights: which items are selling fast, which are stale, what buyers are looking for.
 
-### Step 3: Add Secrets
-
-Click the lock icon (🔒 Secrets) and add **all** of these:
-
-```
-ANTHROPIC_API_KEY=sk-ant-api03-...
-RESEND_API_KEY=re_...
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_... (added after Step 5)
-STRIPE_PRICE_HUSTLE_MONTHLY=price_...
-STRIPE_PRICE_HUSTLE_ANNUAL=price_...
-STRIPE_PRICE_STACK_MONTHLY=price_...
-STRIPE_PRICE_STACK_ANNUAL=price_...
-STRIPE_PRICE_EMPIRE_MONTHLY=price_...
-STRIPE_PRICE_EMPIRE_ANNUAL=price_...
-JWT_SECRET=any_random_32_char_string
-APP_URL=https://flippd.com (or your Flippd app URL)
-API_URL=https://flippd-backend.bbaker71313.repl.co (your Repl URL)
-```
-
-### Step 4: Run
-
-Click the green **▶ Run** button. You should see:
-```
-🚀 Flippd Backend running on port 3000
-```
-
-Your URL will be: `https://flippd-backend.bbaker71313.repl.co`
-
-### Step 5: Set Up Stripe Webhook
-
-1. Go to https://dashboard.stripe.com/test/webhooks
-2. Click **Add endpoint**
-3. Endpoint URL: `https://flippd-backend.bbaker71313.repl.co/stripe/webhook`
-4. Events to send:
-   - `checkout.session.completed`
-   - `customer.subscription.created`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - `invoice.payment_failed`
-5. Copy the **Signing secret** (starts with `whsec_`)
-6. Add it as `STRIPE_WEBHOOK_SECRET` in Replit Secrets
-7. Restart your Repl
-
-### Step 6: Update Flippd App
-
-In `Flippd_v5.html`, the auth flow needs updating:
-- Replace access code prompt with email signup
-- Use JWT from `localStorage.getItem('flippd_jwt')` for API calls
-- Update API base URL to your Replit URL
-
-(See `APP_INTEGRATION.md` for details)
+**STATS** — P&L tracking with monthly breakdowns, expense logging, and ROI calculations. Know exactly which categories are most profitable.
 
 ---
 
-## API Endpoints
+## ⚡ Quick Start
 
-### Authentication
+### Try Now
+1. Open Flippd in your browser
+2. Enter your email
+3. Check email for magic link, click it
+4. **Get 7 free days** of unlimited access
+5. After trial: Auto-downgrade to Scout tier (25 scans/month, 10 items)
 
-**`POST /auth/request-link`**
-```json
-{ "email": "user@example.com" }
-```
-Sends magic link email. First time = creates account + starts 7-day trial.
+**No credit card required for trial.**
 
-**`GET /auth/verify?token=...`**
-Magic link target. Returns HTML that stores JWT and redirects to app.
-
-**`GET /auth/me`** (requires `Authorization: Bearer <jwt>`)
-Returns current user info, tier, limits, scan usage.
-
-### Subscriptions
-
-**`POST /stripe/checkout`** (auth)
-```json
-{ "tier": "hustle", "interval": "month" }
-```
-Returns Stripe Checkout URL. Redirect user there.
-
-**`POST /stripe/portal`** (auth)
-Returns Stripe Customer Portal URL for self-serve billing.
-
-**`POST /stripe/webhook`**
-Handles Stripe events (signature verified). Updates user subscription state.
-
-### Inventory
-
-**`GET /inventory`** (auth) — list user's items
-**`POST /inventory`** (auth) — add item (enforces tier limit)
-**`PUT /inventory/:id`** (auth) — update item
-**`DELETE /inventory/:id`** (auth) — delete item
-
-### AI Proxy
-
-**`POST /v1/messages`** (auth) — proxy to Anthropic, enforces scan limits
+### For Resellers
+- Uses your configured eBay fee % (default 13%)
+- Works with mixed-category inventory (clothing, electronics, home goods, etc.)
+- Supports cross-listing prep (Poshmark, Mercari, Facebook Marketplace coming soon)
+- All data synced across sessions (backend + localStorage)
 
 ---
 
-## Database Schema (Replit DB)
+## 🚀 Features (v5.3)
 
-| Key | Value |
-|-----|-------|
-| `user:<userId>` | User object |
-| `email:<email>` | userId (lookup) |
-| `magic:<token>` | Magic link payload (15-min TTL) |
-| `inventory:<userId>` | Array of inventory items |
-| `ebay:<userId>` | eBay OAuth tokens (future) |
+### Auth & Accounts (NEW)
+- ✅ Magic link email authentication (no passwords)
+- ✅ 7-day free trial (unlimited access)
+- ✅ Auto-tier downgrade after trial expires
+- ✅ JWT session management (90-day expiry)
+- ✅ Stripe subscriptions (monthly & annual)
+- ✅ Scan limits enforced per tier
+- ✅ Inventory limits enforced per tier
 
-### User Object
+### Sourcing (SCOUT tab)
+- ✅ Single-item AI analysis — description or photo
+- ✅ Shelf scan — rank all items on one shelf instantly  
+- ✅ Configurable sourcing strategy (Conservative / Balanced / Aggressive)
+- ✅ Scan history with decision logging
+- ✅ Profit math includes user-configured eBay fees
 
-```json
+### Inventory (INVENTORY tab)
+- ✅ Add/edit/delete items with full details
+- ✅ Category filtering + search
+- ✅ Status tracking (Unlisted → Listed → Sold)
+- ✅ Multi-photo support per item
+- ✅ Notes and condition tracking
+
+### AI Power Listing (INVENTORY tab)
+- ✅ Auto-generate eBay titles (80 char, optimized)
+- ✅ AI descriptions (250-400 words, mobile-friendly)
+- ✅ Condition-specific notes
+- ✅ Unlimited regenerate for variations
+- ✅ CSV export for eBay Seller Hub (exact format)
+- ✅ Works with 21 eBay leaf categories
+
+### Photo Enhancement (PHOTOS tab)
+- ✅ Camera integration (iOS/Android)
+- ✅ AI-powered image suggestions
+- ✅ Batch enhancement
+- ✅ Landscape rotation support
+
+### Market Insights (TRENDS tab)
+- ✅ Stale listing alerts (30+ days)
+- ✅ Hunt list (AI-suggested categories to scout)
+- ✅ Market trends by category
+- ✅ Sell-through rates
+
+### P&L Tracking (STATS tab)
+- ✅ Revenue by category + monthly breakdown
+- ✅ Expense logging (overhead, shipping supplies)
+- ✅ Mileage tracker (tax deductible)
+- ✅ Profit margin & ROI calculations
+- ✅ Interactive charts and KPIs
+
+---
+
+## 💰 Pricing & Tiers
+
+| Tier | Scans/mo | Items | Trial | Cost |
+|------|----------|-------|-------|------|
+| **Trial** | Unlimited | Unlimited | 7 days | FREE |
+| **Scout** | 25 | 10 | After trial | FREE |
+| **Hustle** | Unlimited | 500 | N/A | $19/mo or $180/yr |
+| **Stack** | Unlimited | Unlimited | N/A | $49/mo or $480/yr |
+| **Empire** | Unlimited | Unlimited | N/A | $199/mo (10 seats) |
+
+After trial expires, you automatically downgrade to Scout. No surprise charges, just less features.
+
+---
+
+## 🛠️ Technical Details
+
+### Architecture
+- **Single HTML5 file** (~5KB HTML + 300KB JavaScript/CSS)
+- **No build step** — works as-is
+- **Backend connected** — Magic links, JWT auth, Stripe webhooks
+- **Offline-first** — Data cached locally, syncs when online
+- **Mobile-optimized** — 540px max-width, dark mode, iOS home screen support
+- **AI-powered** — Claude Sonnet 4.6 for analysis and generation
+
+### Storage
+- `flippd_items_v1` — inventory items (JSON)
+- `fif_api_key` — JWT token (from magic link)
+- `fif_settings` — user settings (fees, thresholds, etc.)
+- `fef_scan_log` — sourcing history (500 scans max)
+- `fif_pnl_expenses` — expense logs
+
+### Data Model
+
+**Item Object:**
+```javascript
 {
-  "id": "uuid",
-  "email": "user@example.com",
-  "createdAt": "2026-04-27T...",
-  "trialEndsAt": "2026-05-04T...",
-  "subscription": {
-    "stripeSubscriptionId": "sub_...",
-    "status": "active",
-    "tier": "hustle",
-    "interval": "month",
-    "currentPeriodEnd": "...",
-    "cancelAtPeriodEnd": false
-  },
-  "stripeCustomerId": "cus_...",
-  "scansThisMonth": 12,
-  "scansResetAt": "2026-04-01T..."
+  id: timestamp,
+  sku: "ELEC-001",
+  nickname: "Sony Handycam",
+  category: "Electronics",
+  condition: "Good",
+  cost: "12.00",
+  sellPrice: "45.00",
+  status: "Unlisted",
+  photos: ["data:image/jpeg;base64,..."],
+  listing: {
+    title: "Sony CCD-F73 Handycam...",
+    description: "Vintage handycam in excellent condition...",
+    conditionNote: "Works perfectly, all features tested...",
+    ebayCategory: "Amplifiers & Preamps",
+    ebayConditionId: "USED_VERY_GOOD",
+    generatedAt: "2026-04-27T18:32:14.123Z"
+  }
 }
 ```
 
 ---
 
-## Local Development
+## 🐛 Version History
 
-```bash
-npm install
-ANTHROPIC_API_KEY=sk-ant-... \
-RESEND_API_KEY=re_... \
-STRIPE_SECRET_KEY=sk_test_... \
-node index.js
-```
-
-Server runs on `http://localhost:3000`.
+**v5.3** (Apr 28, 2026) — Backend integration, magic link auth, Stripe subscriptions, tier system
+**v5.2** (Apr 27, 2026) — AI Power Listing Generator, CSV export for eBay
+**v5.1** (Apr 20, 2026) — Auto-inject API key, persistent instructions
+**v5.0** (Apr 15, 2026) — Shelf scan, inventory tracking, P&L dashboard
+**v4.0** (Mar 2026) — Initial release
 
 ---
 
-## Production Checklist
+## 🗺️ Roadmap
 
-- [ ] Domain verified in Resend (replace `onboarding@resend.dev`)
-- [ ] Stripe in live mode (replace test keys with live)
-- [ ] Webhook endpoint added in Stripe live mode
-- [ ] Custom domain pointed to Replit deployment
-- [ ] CORS restricted to `flippd.com` only
-- [ ] Rate limiting added to auth endpoints
-- [ ] Error monitoring (Sentry) wired up
-- [ ] Backups of Replit DB scheduled
+### Phase 2 — Early Access (🔄 Current)
+- [x] 2.1 AI Power Listing Generator
+- [x] 2.2 Backend integration & subscriptions
+- [ ] 2.3 Shareable scan result cards
+- [ ] 2.4 Team collaboration
+
+### Phase 3 — Growth (Next)
+- [ ] 3.1 Live eBay sold comps (Browse API)
+- [ ] 3.2 Max sourcing price calculator
+- [ ] 3.3 Shipping cost estimator
+- [ ] 3.4 Cross-listing formatter (Poshmark/Mercari)
+
+### Phase 4 — Scale (After Phase 3)
+- [ ] 4.1 Team features (multi-seat)
+- [ ] 4.2 eBay API sync (auto-sold notifications)
+- [ ] 4.3 Auto-pricing engine
 
 ---
 
-## Costs
+## 📊 By The Numbers
 
-- **Replit:** Free tier supports thousands of users
-- **Resend:** 100 emails/day free, $20/mo for 50k
-- **Stripe:** 2.9% + $0.30 per transaction
-- **Anthropic:** ~$0.02-0.05 per scan
-- **Replit DB:** Free, included
+- **5,054+ lines** of HTML/CSS/JavaScript (single file)
+- **21 eBay leaf categories** hardcoded with correct IDs
+- **15+ major features** (sourcing, inventory, photos, trends, P&L)
+- **500 scan history** limit per session
+- **30 activity log** limit (auto-cleanup)
+- **500KB image limit** per scan (with quality fallback)
+- **Zero dependencies** — no npm, no build, pure vanilla JS
+
+---
+
+## 🔐 Privacy & Data
+
+- **All data stays on your device** — localStorage + backend auth only
+- **Backend only has:** Email, JWT, subscription status, scan count
+- **Backend doesn't have:** Inventory data, photos, profit math
+- **Works offline** — Cache-first, syncs when online
+- **Open source** — MIT License, all code visible on GitHub
+- **Transparent** — See exactly what's stored where
+
+---
+
+## 📖 Documentation
+
+- `CLAUDE.md` — Development rules & patterns
+- `BACKEND_INTEGRATION.md` — Backend API & auth flow
+- `ROADMAP.md` — Product vision & feature priorities
+- `DECISIONS.md` — Architectural & business decisions
+- `CHANGELOG.md` — Version history
+- `EBAY_CATEGORIES.md` — All 21 leaf categories with IDs
+- `V5.2_IMPLEMENTATION_GUIDE.md` — Technical deep-dive for listings
+
+---
+
+## 🤝 Contributing
+
+Bug reports and feature requests welcome:
+- **Bug reports:** GitHub Issues (include screenshots + steps to reproduce)
+- **Feature requests:** GitHub Discussions
+- **PRs:** Always welcome, especially mobile-responsive fixes and new market data
+
+**Development:**
+1. Download `Flippd_v5.html`
+2. Edit in your text editor
+3. Reload browser to test (no build step)
+4. Test on real mobile device if possible
+5. Open PR with description
+
+---
+
+## 📝 License
+
+MIT License — Use, modify, distribute freely. Commercial use allowed.
+
+---
+
+## 💬 Get In Touch
+
+- **GitHub:** github.com/bbaker71313/flippd
+- **Backend:** https://flippd-backend.replit.app
+- **Status:** All systems operational
+
+---
+
+**Made for solo eBay resellers by a solo eBay reseller.**
+
+"Scan the shelf. Know what to buy. Manage like a pro."
+
