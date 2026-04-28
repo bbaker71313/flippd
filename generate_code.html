@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flippd Code Generator</title>
+<style>
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: #f2ece0;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .container {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  h1 {
+    color: #3a2410;
+    margin-bottom: 20px;
+  }
+  .form-group {
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    margin-bottom: 8px;
+    color: #3a2410;
+    font-weight: bold;
+  }
+  input, select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #c8b89a;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    box-sizing: border-box;
+  }
+  button {
+    background: #00bb66;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    font-size: 16px;
+  }
+  button:hover {
+    background: #009944;
+  }
+  .result {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e6fff2;
+    border: 2px solid #00bb66;
+    border-radius: 4px;
+    display: none;
+  }
+  .result.show {
+    display: block;
+  }
+  .code {
+    font-size: 18px;
+    font-weight: bold;
+    color: #00993d;
+    word-break: break-all;
+    margin: 10px 0;
+  }
+  .error {
+    background: #ffe6e6;
+    border-color: #dd0000;
+    color: #dd0000;
+  }
+  .loading {
+    text-align: center;
+    color: #3a2410;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🔑 Flippd Access Code Generator</h1>
+  
+  <div class="form-group">
+    <label for="tier">Select Tier:</label>
+    <select id="tier">
+      <option value="scout">Scout (25 scans/month)</option>
+      <option value="hustle" selected>Hustle (Unlimited)</option>
+      <option value="stack">Stack (Unlimited)</option>
+      <option value="empire">Empire (Team)</option>
+    </select>
+  </div>
+
+  <button onclick="generateCode()">Generate Access Code</button>
+
+  <div id="result" class="result">
+    <div id="resultContent"></div>
+  </div>
+</div>
+
+<script>
+async function generateCode() {
+  const tier = document.getElementById('tier').value;
+  const result = document.getElementById('result');
+  const content = document.getElementById('resultContent');
+  
+  result.className = 'result show';
+  content.innerHTML = '<div class="loading">Generating code...</div>';
+  
+  try {
+    const response = await fetch('https://flippd-proxy.bbaker71313.workers.dev/admin/codes/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': 'KxF9mP2vQ8wL5rN3jD6bT4hC7sE1aW0yG'
+      },
+      body: JSON.stringify({ tier })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.code) {
+      content.innerHTML = `
+        <strong>✅ Code Generated!</strong>
+        <div class="code">${data.code}</div>
+        <p><strong>Tier:</strong> ${data.tier}</p>
+        <p><strong>Expires:</strong> ${new Date(data.expiresAt).toLocaleDateString()}</p>
+        <p><strong>Scan Limit:</strong> ${data.scanLimit}</p>
+        <p style="margin-top: 15px; font-size: 14px; color: #3a2410;">
+          Copy this code and paste it into Flippd to unlock your account.
+        </p>
+      `;
+    } else {
+      result.classList.add('error');
+      content.innerHTML = `
+        <strong>❌ Error</strong>
+        <p>${data.error || 'Failed to generate code'}</p>
+      `;
+    }
+  } catch (err) {
+    result.classList.add('error');
+    content.innerHTML = `
+      <strong>❌ Network Error</strong>
+      <p>${err.message}</p>
+    `;
+  }
+}
+</script>
+
+</body>
+</html>
