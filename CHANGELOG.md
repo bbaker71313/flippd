@@ -5,7 +5,53 @@ Format: [Version] — Date — Summary of changes and *why* they were made.
 
 ---
 
+## [v5.3] — April 28, 2026
+
+### Why this version exists
+Production backend (Replit) now live. App needed auth flow updated from access codes → magic link emails → JWT sessions. Enables subscription tiers, scan limits, trial period, and Stripe payments. Resellers now have full freemium model: 7-day unlimited trial, then auto-downgrade to Scout tier with limits.
+
+### New Features
+- **Magic link email authentication** — Instead of access codes, users enter email → receive magic link → auto-login via JWT
+- **7-day free trial** — All features unlimited for 7 days, then auto-downgrade to Scout tier
+- **Subscription tiers** — Scout (free, limited), Hustle ($19/mo), Stack ($49/mo), Empire ($199/mo, 10 seats)
+- **Stripe integration** — Checkout modal, customer portal, subscription management
+- **Scan limits** — Scout: 25/month, others: unlimited. Enforced server-side.
+- **Inventory limits** — Scout: 10, Hustle: 500, others: unlimited
+- **Backend proxy** — All AI calls now go through backend (https://flippd-backend.replit.app) for auth + limits
+- **User info display** — Trial days remaining, current tier, scan usage shown in UI
+- **Auto-logout** — Expired JWTs trigger re-authentication
+- **Old code migration** — Access codes automatically cleared on first visit
+
+### Technical Implementation
+- **Auth:** Magic link (Resend) → JWT (90-day expiry) → stored in localStorage
+- **API:** Backend at https://flippd-backend.replit.app handles /auth/request-link, /auth/verify, /auth/me, /stripe/checkout, /stripe/portal, /v1/messages (proxy)
+- **Headers:** Changed from `x-api-key` → `Authorization: Bearer <jwt>`
+- **Error handling:** 401 → logout, 403 → rate limited, 429 → wait and retry
+- **Backwards compat:** Old access codes cleared automatically, no user disruption
+
+### Code Changes
+- Replaced API config: `const API_BASE = 'https://flippd-backend.replit.app'`
+- Replaced welcome screen: Access code input → Email input + magic link button
+- Added `requestMagicLink()` — Send email
+- Added `loadUserInfo()` — Fetch user tier, trial status, limits
+- Added `startCheckout(tier, interval)` — Open Stripe checkout
+- Added `openCustomerPortal()` — Manage subscription
+- Added DOMContentLoaded JWT restoration: Auto-unlock when returning from magic link
+- Updated `getApiHeaders()` to use JWT
+- Updated `getApiUrl()` to point to backend
+- Updated error messages in `callClaude()` to reference session vs access codes
+
+### Files Affected
+- `Flippd_v5.html` (complete backend integration)
+- `BACKEND_INTEGRATION.md` (new) — Full integration guide + testing checklist
+
+### Status
+✅ Backend live and tested. Email signup working. JWT auth working. Stripe integration ready. Trial period enforced. Scan/inventory limits working. All tiers functional. Ready for users.
+
+---
+
 ## [v5.2] — April 27, 2026
+
 
 ### Why this version exists
 Roadmap Phase 2.1: AI Listing Generator complete. Resellers spend 20+ minutes writing eBay listings manually. v5.2 generates professional titles, descriptions, and condition notes in seconds using Claude AI, then exports directly to eBay CSV format.
