@@ -5,10 +5,10 @@ Updated as decisions are made. Not a commitment — a direction.
 
 ---
 
-## Current State (v5.2)
+## Current State (v4.0)
 
-The app works end-to-end: scan → decide → list → export → track profit.
-All Phase 2.1 features live. The proxy backend is the only thing standing between the current build and a real public launch.
+The app works. Core loop is complete: scan → decide → add to inventory → track P&L.
+The proxy backend is the only thing standing between the current build and a real public launch.
 
 **What's live:**
 - AI FLIP/PASS sourcing (single item + shelf scan)
@@ -16,8 +16,7 @@ All Phase 2.1 features live. The proxy backend is the only thing standing betwee
 - Photo enhancer
 - Market trends + hunt list + stale alerts
 - P&L tracker (revenue, expenses, mileage)
-- **AI Power Listing Generator** — Auto-generate titles/descriptions, export to eBay CSV
-- CSV export to eBay Seller Hub (with generated listings)
+- CSV export to eBay Seller Hub
 - JSON backup + CSV import
 - Access code unlock (proxy-ready)
 - Analytics event tracking (local)
@@ -32,8 +31,8 @@ Everything here must be done before sharing with any external user.
 **What:** Cloudflare Worker or Vercel function that sits between Flippd and Anthropic API.
 **Why:** Without this, every user needs an Anthropic API key. That's a technical barrier that kills adoption for the exact audience Flippd is built for.
 **Owner:** Manus
-**Status:** In progress — URL delivery pending
-**How to wire in:** Update `PROXY_URL = null` to the real URL in Flippd_v5.html. One line change.
+**Status:** In progress — 2pm reminder set for April 26
+**How to wire in:** Update `PROXY_URL = null` to the real URL in Flippd_v4.html. One line change.
 
 ### 1.2 Real Access Code System
 **What:** Replace the current single-code unlock with a system where Britt can give out unique codes to early access users and track who has access.
@@ -54,25 +53,10 @@ Everything here must be done before sharing with any external user.
 Share with real resellers. Learn fast.
 
 ### 2.1 AI Listing Generator
-**Status:** ✅ COMPLETE (v5.2)
-**What:** Takes an inventory item and generates eBay-ready title (80 chars), description (250-400 words), and condition note (50-100 words). Exports all listings to CSV in exact eBay format.
-**Why:** "I used to spend 20 minutes writing one listing" is the second most common complaint. Listing generation is the next highest-value feature after the scan.
-**Lives in:** INVENTORY tab — 🚀 Listing button on each item card
-**Output:** Generated text saved to item permanently; CSV export ready for eBay Seller Hub
-
-**Implementation:**
-- Two-stage modal: Stage 1 (Select Condition + eBay Category) → Stage 2 (Preview + Regenerate)
-- 21 eBay leaf categories extracted from user's actual listings with correct category IDs
-- Condition mapping: New→NEW, Like New→LIKE_NEW, Open Box→OPEN_BOX, Used→USED_VERY_GOOD, Fair→USED_ACCEPTABLE
-- AI prompt includes category-specific hints (focus on materials for furniture, specs for electronics, etc.)
-- Generate button calls Claude API once per generation
-- Regenerate button gets unlimited variations
-- Character counters show live counts (Title: 0/80, Description: 0/1500, Condition: 0/500)
-- Save options: "💾 Save to Item" (stays Unlisted) or "📤 Save + Export" (sets to Ready to Export)
-- Collapsible preview in inventory cards shows title + description excerpt + generation date
-- CSV export format: exact eBay template with header rows, proper column mapping, HTML-wrapped descriptions
-- Persistent storage: listing object saved to item forever in localStorage
-- Loading + error states with user-friendly feedback
+**What:** Takes an inventory item (photos + details) and writes a ready-to-post eBay title, description, and condition note.
+**Why:** "I used to spend 20 minutes writing one listing" is the second most common complaint after bad sourcing decisions. Listing generation is the next highest-value feature after the scan.
+**Lives in:** INVENTORY tab — button on each item: "✍️ Write My Listing"
+**Output:** Copyable text — title (80 chars, eBay-optimized), description, condition note. Not auto-posted.
 
 ### 2.2 Shareable Scan Result Card
 **What:** When a scan returns a FLIP or HOT result, users can share a card (screenshot-ready) showing item, estimated profit, and the Flippd branding.

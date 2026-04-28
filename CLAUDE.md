@@ -6,15 +6,13 @@
 
 ## 🗂️ Project Overview
 
-**Flippd** is a mobile-first reseller app for solo eBay sellers sourcing from thrift stores, estate sales, and garage sales. It is a **single-file HTML/JS app** (`Flippd_v5.html`) — no backend, no build step, runs in any mobile browser.
-
-**Current version:** v5.1 — API key auto-injected, instructions persistent, fully functional.
+**Flippd** is a mobile-first reseller app for solo eBay sellers sourcing from thrift stores, estate sales, and garage sales. It is a **single-file HTML/JS app** (`Flippd_v4.html`) — no backend, no build step, runs in any mobile browser.
 
 **Target user:** Solo reseller, mixed-category thrift (clothing, electronics, home goods). Needs: AI-sourcing decisions, shelf scan, inventory tracking, profit math, photo enhancement, growth insights — all from a phone.
 
 **Primary platform:** eBay. Future: Poshmark, Mercari, Facebook Marketplace.
 
-**Current stage:** Early access working. Fully functional MVP. Manus proxy pending to remove API key hardcoding for public launch.
+**Current stage:** Early access. Tested and working. Proxy backend pending (Manus) to remove API key requirement from users.
 
 ---
 
@@ -22,16 +20,14 @@
 
 ```
 flippd/
-├── Flippd_v5.html              # ✅ CANONICAL FILE — single source of truth (v5.1)
+├── Flippd_v4.html              # ✅ CANONICAL FILE — single source of truth
 ├── Flippd_Landing.html         # Marketing landing page
 ├── CLAUDE.md                   # This file
 ├── INITIAL.md                  # Feature request template
 └── product-marketing-context.md  # ICP, positioning, copy rules, competitive research
 ```
 
-**There is no backend, no Python, no FastAPI, no database.** Everything lives in `Flippd_v5.html`. If a future session proposes building a backend, that is a separate phase — do not mix it into the HTML app without explicit instruction.
-
-**API key handling:** For early access (v5.0–v5.1), the API key is auto-injected in localStorage. For public launch, this will be replaced by the Manus proxy backend which issues temporary auth tokens.
+**There is no backend, no Python, no FastAPI, no database.** Everything lives in `Flippd_v4.html`. If a future session proposes building a backend, that is a separate phase — do not mix it into the HTML app without explicit instruction.
 
 ---
 
@@ -192,8 +188,6 @@ Export (`panel-csv`) and Import (`panel-import`) panels still exist but are acce
 | SCOUT | Shelf scan (whole shelf ranked) | ✅ Live |
 | SCOUT | Cost input + ROI calculation | ✅ Live |
 | SCOUT | Scan history | ✅ Live |
-| SCOUT | Auto-injected API key | ✅ Live (v5.1) |
-| SCOUT | Persistent instructions | ✅ Live (v5.1) |
 | INVENTORY | Add/edit/delete items | ✅ Live |
 | INVENTORY | Status + category filtering + search | ✅ Live |
 | INVENTORY | CSV export to eBay | ✅ Live |
