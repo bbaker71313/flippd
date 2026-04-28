@@ -1,8 +1,3 @@
-# Dependencies
-node_modules/
-package-lock.json
-yarn.lock
-
 # Environment
 .env
 .env.local
@@ -15,33 +10,41 @@ yarn.lock
 *.swo
 *~
 .DS_Store
-Thumbs.db
 
-# Build outputs
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Replit
+.replit
+.upm
+
+# Build / Dist
 dist/
 build/
-.next/
-out/
-
-# Testing
-coverage/
-.nyc_output/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
+*.egg-info/
 
 # OS
-.DS_Store
-*.swp
+Thumbs.db
+.Thumbs.db
 
-# Project-specific temp files
+# Testing
+.nyc_output/
+coverage/
+
+# Temp
 *.tmp
-.cache/
-
-# Don't commit personal notes or WIP files
-WIP/
-notes/
-scratch/
+*.log
