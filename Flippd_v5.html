@@ -4791,22 +4791,19 @@ window.addEventListener('DOMContentLoaded', () => {
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }
-
   // 2. Restore session from localStorage (covers page refreshes after login)
-  const jwt = localStorage.getItem('flippd_jwt');
-  if (jwt && jwt.includes('.')) {
-    apiKey = jwt;
-    localStorage.setItem('fif_api_key', jwt);
-    showApp();
-    loadUserInfo();
+  const storedJwt = localStorage.getItem('flippd_jwt');
+  if (storedJwt && storedJwt.includes('.')) {
+    apiKey = storedJwt;
+    localStorage.setItem('fif_api_key', storedJwt);
   }
-
   // 3. Migration: clear old short access codes that predate JWT auth
   const oldKey = localStorage.getItem('fif_api_key');
   if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
     localStorage.removeItem('fif_api_key');
     apiKey = '';
   }
+  // NOTE: showApp() / showSrcView() is called by window.onload after DOM is ready
 });
 
 window.onload = () => {
@@ -4821,6 +4818,8 @@ window.onload = () => {
   } else {
     showSrcView('setup');
   }
+  // If a JWT arrived via magic link hash, ensure we show the app
+  // (DOMContentLoaded sets apiKey before onload fires, so isUnlocked() above handles it)
   updateFeeHint();
   // Restore any in-progress photo preview from sessionStorage
   try {
