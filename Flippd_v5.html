@@ -3711,12 +3711,6 @@ function clearImage() {
   const container = document.getElementById('preview-container');
   if (container) container.style.display = 'none';
 }
-  const container = document.getElementById('preview-container');
-  const img = document.getElementById('preview-img');
-  if (container) container.style.display = 'none';
-  if (img) img.src = '';
-}
-
 function restorePreviewAfterRotation() {
   if (!imgB64) return;
   try {
@@ -4779,31 +4773,34 @@ async function openCustomerPortal() {
 // We read the hash here, save the JWT to localStorage on this domain, then
 // strip the hash from the URL so the token is never visible in the address bar.
 window.addEventListener('DOMContentLoaded', () => {
-  // 1. Handle incoming JWT from magic link hash redirect
+  // Step 1: Clear any legacy short access codes that predate JWT auth
+  // Do this FIRST before reading anything, so we start clean
+  const legacyKey = localStorage.getItem('fif_api_key');
+  if (legacyKey && !legacyKey.includes('.')) {
+    localStorage.removeItem('fif_api_key');
+  }
+
+  // Step 2: Handle incoming JWT from magic link hash redirect
   const hash = window.location.hash;
   if (hash && hash.startsWith('#token=')) {
     const incomingJwt = hash.slice(7); // strip '#token='
-    if (incomingJwt && incomingJwt.includes('.')) { // basic JWT sanity check
+    if (incomingJwt && incomingJwt.includes('.')) {
       localStorage.setItem('flippd_jwt', incomingJwt);
       localStorage.setItem('fif_api_key', incomingJwt);
       apiKey = incomingJwt;
-      // Clean the token out of the URL without triggering a page reload
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }
-  // 2. Restore session from localStorage (covers page refreshes after login)
-  const storedJwt = localStorage.getItem('flippd_jwt');
-  if (storedJwt && storedJwt.includes('.')) {
-    apiKey = storedJwt;
-    localStorage.setItem('fif_api_key', storedJwt);
+
+  // Step 3: Restore session from localStorage (covers page refreshes after login)
+  if (!apiKey) {
+    const storedJwt = localStorage.getItem('flippd_jwt');
+    if (storedJwt && storedJwt.includes('.')) {
+      apiKey = storedJwt;
+      localStorage.setItem('fif_api_key', storedJwt);
+    }
   }
-  // 3. Migration: clear old short access codes that predate JWT auth
-  const oldKey = localStorage.getItem('fif_api_key');
-  if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
-    localStorage.removeItem('fif_api_key');
-    apiKey = '';
-  }
-  // NOTE: showApp() / showSrcView() is called by window.onload after DOM is ready
+  // NOTE: window.onload fires after this and calls isUnlocked() to show app or login screen
 });
 
 window.onload = () => {
