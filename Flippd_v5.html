@@ -3596,6 +3596,16 @@ const API_BASE = 'https://flippd-backend.replit.app';
 const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
+// ══════════════════════════════════════════════════
+// AUTH GATE
+// ══════════════════════════════════════════════════
+// Called after a JWT is confirmed (from magic link hash or localStorage restore).
+// Hides the login/setup view and transitions the user into the main scan screen.
+function showApp() {
+  showSrcView('input');
+  switchTab('sourcing');
+}
+
 function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
 function getApiUrl() { return API_BASE + '/v1/messages'; }
 function getApiHeaders() {
