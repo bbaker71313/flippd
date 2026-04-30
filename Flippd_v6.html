@@ -875,18 +875,38 @@ body::before{
           <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:2px">Whole shelf ranked</div>
         </div>
       </div>
-      <!-- Magic link login view -->
-      <div id="auth-view-email">
-        <input class="setup-input" id="auth-email-input" type="email" placeholder="Enter your email to get started" autocomplete="email" autocorrect="off" spellcheck="false"/>
-        <button class="btn btn-green" onclick="requestMagicLink()" style="margin-bottom:12px" id="auth-send-btn">Send Login Link →</button>
+      <!-- Auth tabs -->
+      <div id="auth-tabs" style="display:flex;gap:0;margin-bottom:14px;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+        <button id="tab-login-btn" onclick="switchAuthTab('login')" style="flex:1;padding:9px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;border:none;cursor:pointer;background:var(--green);color:#000;letter-spacing:0.05em">LOG IN</button>
+        <button id="tab-register-btn" onclick="switchAuthTab('register')" style="flex:1;padding:9px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;border:none;cursor:pointer;background:var(--card);color:var(--muted);letter-spacing:0.05em">SIGN UP</button>
+      </div>
+
+      <!-- Login form -->
+      <div id="auth-view-login">
+        <input class="setup-input" id="auth-login-user" type="text" placeholder="Username or email" autocomplete="username" autocorrect="off" spellcheck="false" autocapitalize="off"/>
+        <input class="setup-input" id="auth-login-pass" type="password" placeholder="Password" autocomplete="current-password" style="margin-top:8px"/>
+        <div id="auth-login-error" style="color:#ff4d4d;font-size:11px;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;display:none"></div>
+        <button class="btn btn-green" onclick="doLogin()" id="auth-login-btn" style="margin-bottom:10px">Log In →</button>
+        <p class="setup-hint" style="text-align:center;font-size:11px">Don't have an account? <button onclick="switchAuthTab('register')" style="background:none;border:none;color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;text-decoration:underline;padding:0">Sign up free</button></p>
+      </div>
+
+      <!-- Register form -->
+      <div id="auth-view-register" style="display:none">
+        <input class="setup-input" id="auth-reg-name" type="text" placeholder="Full name" autocomplete="name" autocorrect="off" spellcheck="false"/>
+        <input class="setup-input" id="auth-reg-username" type="text" placeholder="Username (letters, numbers, _)" autocomplete="username" autocorrect="off" spellcheck="false" autocapitalize="off" style="margin-top:8px"/>
+        <input class="setup-input" id="auth-reg-email" type="email" placeholder="Email address" autocomplete="email" autocorrect="off" spellcheck="false" style="margin-top:8px"/>
+        <input class="setup-input" id="auth-reg-pass" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password" style="margin-top:8px"/>
+        <div id="auth-reg-error" style="color:#ff4d4d;font-size:11px;font-family:'IBM Plex Mono',monospace;margin-bottom:8px;display:none"></div>
+        <button class="btn btn-green" onclick="doRegister()" id="auth-reg-btn" style="margin-bottom:10px">Create Account →</button>
         <p class="setup-hint" style="text-align:center;font-size:11px">7-day free trial &middot; No credit card required.</p>
       </div>
-      <!-- Sent confirmation view -->
-      <div id="auth-view-sent" style="display:none;text-align:center;padding:8px 0">
+
+      <!-- Verify email notice -->
+      <div id="auth-view-verify" style="display:none;text-align:center;padding:8px 0">
         <div style="font-size:28px;margin-bottom:8px">📬</div>
-        <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:16px;color:var(--text);margin-bottom:6px">Check your email</div>
-        <p style="font-size:12px;color:var(--soft);line-height:1.7;margin-bottom:14px">We sent a login link to <span id="auth-sent-email" style="color:var(--accent)"></span>. Click it to unlock Flippd.</p>
-        <button onclick="showAuthEmailView()" style="background:transparent;border:none;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;text-decoration:underline">Use a different email</button>
+        <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:16px;color:var(--text);margin-bottom:6px">Verify your email</div>
+        <p style="font-size:12px;color:var(--soft);line-height:1.7;margin-bottom:14px">We sent a verification link to <span id="auth-verify-email" style="color:var(--accent)"></span>. Click it to activate your account, then log in.</p>
+        <button onclick="switchAuthTab('login')" style="background:transparent;border:none;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;text-decoration:underline">Back to login</button>
       </div>
     </div>
   </div>
@@ -4763,42 +4783,95 @@ function initFormSelects() {
   if (statSel) statSel.innerHTML = STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
 
-// ── Magic link auth ─────────────────────────────────────────────────────────
-async function requestMagicLink() {
-  const email = document.getElementById('auth-email-input').value.trim();
-  if (!email || !email.includes('@')) { showToast('Enter a valid email address'); return; }
-  const btn = document.getElementById('auth-send-btn');
-  btn.disabled = true;
-  btn.textContent = 'Sending...';
-  try {
-    const res = await fetch(API_BASE + '/auth/request-link', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({email})
-    });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('auth-sent-email').textContent = email;
-      document.getElementById('auth-view-email').style.display = 'none';
-      document.getElementById('auth-view-sent').style.display = 'block';
-    } else {
-      showToast('Error: ' + (data.error || 'Something went wrong'));
-      btn.disabled = false;
-      btn.textContent = 'Send Login Link →';
-    }
-  } catch(err) {
-    showToast('Network error — check your connection');
-    btn.disabled = false;
-    btn.textContent = 'Send Login Link →';
+// ── Username/Password Auth ───────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('auth-view-login').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('auth-view-register').style.display = (!isLogin && tab === 'register') ? 'block' : 'none';
+  document.getElementById('auth-view-verify').style.display = 'none';
+  const loginBtn = document.getElementById('tab-login-btn');
+  const regBtn = document.getElementById('tab-register-btn');
+  if (loginBtn && regBtn) {
+    loginBtn.style.background = isLogin ? 'var(--green)' : 'var(--card)';
+    loginBtn.style.color = isLogin ? '#000' : 'var(--muted)';
+    regBtn.style.background = !isLogin ? 'var(--green)' : 'var(--card)';
+    regBtn.style.color = !isLogin ? '#000' : 'var(--muted)';
   }
 }
 
+async function doLogin() {
+  const username = document.getElementById('auth-login-user').value.trim();
+  const password = document.getElementById('auth-login-pass').value;
+  const errEl = document.getElementById('auth-login-error');
+  const btn = document.getElementById('auth-login-btn');
+  errEl.style.display = 'none';
+  if (!username || !password) { errEl.textContent = 'Enter your username and password'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Logging in...';
+  try {
+    const res = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      apiKey = data.token;
+      localStorage.setItem('fif_api_key', data.token);
+      localStorage.setItem('flippd_jwt', data.token);
+      showSrcView('input');
+      loadUserInfo();
+      showToast('Welcome back, ' + (data.user?.name || username) + '!');
+    } else if (data.error === 'email_not_verified') {
+      errEl.textContent = 'Please verify your email first — check your inbox.';
+      errEl.style.display = 'block';
+    } else {
+      errEl.textContent = data.error || 'Login failed. Try again.';
+      errEl.style.display = 'block';
+    }
+  } catch(err) {
+    errEl.textContent = 'Network error — check your connection';
+    errEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Log In →';
+}
+
+async function doRegister() {
+  const name = document.getElementById('auth-reg-name').value.trim();
+  const username = document.getElementById('auth-reg-username').value.trim();
+  const email = document.getElementById('auth-reg-email').value.trim();
+  const password = document.getElementById('auth-reg-pass').value;
+  const errEl = document.getElementById('auth-reg-error');
+  const btn = document.getElementById('auth-reg-btn');
+  errEl.style.display = 'none';
+  if (!name || !username || !email || !password) { errEl.textContent = 'All fields are required'; errEl.style.display = 'block'; return; }
+  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) { errEl.textContent = 'Username: letters, numbers, and _ only'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  try {
+    const res = await fetch(API_BASE + '/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name, username, email, password})
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      document.getElementById('auth-verify-email').textContent = email;
+      document.getElementById('auth-view-register').style.display = 'none';
+      document.getElementById('auth-view-verify').style.display = 'block';
+    } else {
+      errEl.textContent = data.error || 'Registration failed. Try again.';
+      errEl.style.display = 'block';
+    }
+  } catch(err) {
+    errEl.textContent = 'Network error — check your connection';
+    errEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Create Account →';
+}
+
+// Keep for backwards compat (called from URL param handling)
 function showAuthEmailView() {
-  document.getElementById('auth-view-email').style.display = 'block';
-  document.getElementById('auth-view-sent').style.display = 'none';
-  const btn = document.getElementById('auth-send-btn');
-  btn.disabled = false;
-  btn.textContent = 'Send Login Link →';
+  switchAuthTab('login');
 }
 
 async function loadUserInfo() {
@@ -4872,13 +4945,33 @@ window.onload = () => {
   // Migrate old plain access codes to JWT flow
   migrateOldAccessCode();
 
-  // Auto-unlock if JWT already in localStorage from magic link click
-  const jwt = localStorage.getItem('flippd_jwt');
+  // Restore JWT from localStorage
+  const jwt = localStorage.getItem('flippd_jwt') || localStorage.getItem('fif_api_key') || '';
   if (jwt) {
     apiKey = jwt;
     localStorage.setItem('fif_api_key', jwt);
+    localStorage.setItem('flippd_jwt', jwt);
   } else {
-    apiKey = localStorage.getItem('fif_api_key') || '';
+    apiKey = '';
+  }
+
+  // Handle URL params from backend redirects
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('verified') === 'true') {
+    showToast('✅ Email verified! Log in to get started.');
+    switchAuthTab('login');
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (urlParams.get('verified') === 'already') {
+    showToast('Email already verified — log in below.');
+    switchAuthTab('login');
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (urlParams.get('error') === 'token_expired') {
+    showToast('Verification link expired — register again.');
+    switchAuthTab('register');
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (urlParams.get('checkout') === 'success') {
+    showToast('🎉 Subscription activated!');
+    window.history.replaceState({}, '', window.location.pathname);
   }
 
   loadItems();
