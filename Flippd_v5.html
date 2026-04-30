@@ -872,9 +872,46 @@ body::before{
           <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:2px">Whole shelf ranked</div>
         </div>
       </div>
-      <input class="setup-input" id="email-input" type="email" placeholder="Enter your email" autocomplete="email" spellcheck="false"/>
-      <button class="btn btn-green" onclick="requestMagicLink()" style="margin-bottom:12px">Send Login Link →</button>
-      <p class="setup-hint" style="text-align:center;font-size:11px">7-day free trial. No credit card required.</p>
+      <!-- Auth mode toggle -->
+      <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
+        <button id="auth-tab-login" onclick="setAuthMode('login')" style="flex:1;padding:7px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;transition:all 0.2s">Log In</button>
+        <button id="auth-tab-register" onclick="setAuthMode('register')" style="flex:1;padding:7px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.2s">Sign Up</button>
+      </div>
+
+      <!-- Login fields -->
+      <div id="auth-login-fields">
+        <input class="setup-input" id="auth-username" type="text" placeholder="Username" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+      </div>
+
+      <!-- Register fields -->
+      <div id="auth-register-fields" style="display:none">
+        <input class="setup-input" id="auth-name" type="text" placeholder="Your first name (e.g. Brittany)" autocomplete="given-name" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-reg-username" type="text" placeholder="Username (letters, numbers, underscores)" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-email" type="email" placeholder="Email address" autocomplete="email" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-reg-password" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-password-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+      </div>
+
+      <!-- Check email screen (shown after register) -->
+      <div id="auth-verify-screen" style="display:none;text-align:center;padding:12px 0">
+        <div style="font-size:36px;margin-bottom:12px">📬</div>
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:8px">Check your email!</div>
+        <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:16px">We sent a verification link to <strong id="auth-verify-email"></strong>. Click it to activate your account, then come back and log in.</p>
+        <p style="font-size:11px;color:var(--muted)">Don't see it? Check your spam folder.</p>
+        <button onclick="setAuthMode('login')" style="margin-top:16px;background:none;border:1px solid var(--border);color:var(--accent);padding:9px 20px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Back to Log In</button>
+      </div>
+
+      <div id="auth-error" style="display:none;background:#ffe6e6;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;padding:10px 12px;margin-bottom:10px;font-weight:600;line-height:1.5"></div>
+
+      <div id="auth-actions">
+        <button id="auth-submit-btn" class="btn btn-green" onclick="submitAuth()" style="margin-bottom:10px;width:100%">Log In →</button>
+        <div id="auth-forgot" style="text-align:center">
+          <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">Forgot password?</button>
+        </div>
+        <p class="setup-hint" id="auth-hint" style="text-align:center;font-size:11px;margin-top:8px">Welcome back. Enter your credentials to continue.</p>
+      </div>
+
       <div id="trial-banner" style="display:none;background:var(--green-bg);border:1px solid var(--green-border);border-radius:6px;padding:10px;margin-top:12px;font-size:11px;color:var(--text);text-align:center"></div>
     </div>
   </div>
@@ -1503,7 +1540,10 @@ body::before{
     <button class="filter-btn" id="stats-sub-pnl" onclick="statsSubTab('pnl')">💰 P&amp;L</button>
   </div>
   <div id="stats-view-dash">
-    <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:12px" id="dash-date"></div>
+    <div style="margin-bottom:14px">
+      <div id="dash-greeting" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">Hey there 👋</div>
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px" id="dash-date"></div>
+    </div>
     <div id="dash-content"></div>
   </div>
   <div id="stats-view-pnl" style="display:none">
@@ -1814,9 +1854,7 @@ function migrateCategory(cat) {
 function loadItems() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    // Only seed on very first load (no storage key AND never been seeded before)
     if (!saved.length) {
-      // If user has logged in before (has api key) but cleared inventory, stay empty
       const hasBeenSeeded = localStorage.getItem('flippd_seeded');
       if (!hasBeenSeeded) {
         items = SEED_ITEMS.map(i=>({...i, category: migrateCategory(i.category), photos: i.photos||[]}));
@@ -1826,8 +1864,6 @@ function loadItems() {
       }
       return;
     }
-    // Merge: preserve ALL saved fields (including category user may have changed)
-    // Only fall back to seed for fields not present in saved
     const merged = SEED_ITEMS.map(seed => {
       const match = saved.find(s => s.id === seed.id);
       if (!match) return {...seed, category: migrateCategory(seed.category), photos: seed.photos||[]};
@@ -1846,6 +1882,91 @@ function loadItems() {
 
 function saveItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+// ══════════════════════════════════════════════════
+// SERVER SYNC — Cross-device inventory persistence
+// ══════════════════════════════════════════════════
+
+// Strip photos before sending to server (too large, kept in localStorage only)
+function itemForServer(item) {
+  const { photos, image_url, ...meta } = item;
+  return { ...meta, photo_count: (photos || []).length };
+}
+
+// Restore photos from localStorage when merging server data
+function mergeServerItem(serverItem) {
+  const local = items.find(i => i.id === serverItem.id);
+  return {
+    ...serverItem,
+    photos: local?.photos || [],
+    image_url: local?.image_url || null,
+    category: migrateCategory(serverItem.category),
+  };
+}
+
+async function syncFromServer() {
+  if (!isUnlocked()) return;
+  try {
+    const res = await fetch(API_BASE + '/inventory', { headers: getApiHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverItems = (data.items || []).map(mergeServerItem);
+    if (!serverItems.length) return;
+
+    // Merge: server wins on metadata, local wins on photos
+    const serverIds = new Set(serverItems.map(i => i.id));
+    const localOnly = items.filter(i => !serverIds.has(i.id));
+    items = [...serverItems, ...localOnly];
+    saveItems();
+    renderInventory();
+    renderDashboard();
+    updateStaleBadge();
+    console.log(`✅ Synced ${serverItems.length} items from server`);
+  } catch (err) {
+    console.warn('Server sync failed, using local data:', err.message);
+  }
+}
+
+async function pushItemToServer(item) {
+  if (!isUnlocked()) return;
+  try {
+    const res = await fetch(API_BASE + '/inventory', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify(itemForServer(item))
+    });
+    if (!res.ok) console.warn('Failed to push item to server:', res.status);
+  } catch (err) {
+    console.warn('Push to server failed:', err.message);
+  }
+}
+
+async function updateItemOnServer(item) {
+  if (!isUnlocked()) return;
+  try {
+    const res = await fetch(API_BASE + '/inventory/' + item.id, {
+      method: 'PUT',
+      headers: getApiHeaders(),
+      body: JSON.stringify(itemForServer(item))
+    });
+    if (!res.ok) console.warn('Failed to update item on server:', res.status);
+  } catch (err) {
+    console.warn('Update on server failed:', err.message);
+  }
+}
+
+async function deleteItemFromServer(id) {
+  if (!isUnlocked()) return;
+  try {
+    const res = await fetch(API_BASE + '/inventory/' + id, {
+      method: 'DELETE',
+      headers: getApiHeaders()
+    });
+    if (!res.ok) console.warn('Failed to delete item on server:', res.status);
+  } catch (err) {
+    console.warn('Delete on server failed:', err.message);
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -2306,6 +2427,7 @@ function createInventoryItem(data) {
 
   items = [...items, newItem];
   saveItems();
+  pushItemToServer(newItem); // sync to server in background
   populatePaDropdown();
   updateStaleBadge();
   logActivity('📦', `Added "${newItem.nickname}" to inventory (${newItem.sku})`);
@@ -2342,6 +2464,8 @@ function saveInvItem() {
       estimated_value: parseFloat(data.sellPrice)||0,
     } : i);
     saveItems();
+    const updatedItem = items.find(i => i.id === editingId);
+    if (updatedItem) updateItemOnServer(updatedItem); // sync to server in background
     invFormImgB64 = null;
     showToast('✓ Item updated');
   } else {
@@ -2374,6 +2498,7 @@ function deleteItem(id) {
   if (!confirm('Delete this item?')) return;
   items = items.filter(i => i.id !== id);
   saveItems();
+  deleteItemFromServer(id); // sync to server in background
   showInvView('list');
   renderFilteredList();
   showToast('Item deleted');
@@ -3596,16 +3721,6 @@ const API_BASE = 'https://flippd-backend.replit.app';
 const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
-// ══════════════════════════════════════════════════
-// AUTH GATE
-// ══════════════════════════════════════════════════
-// Called after a JWT is confirmed (from magic link hash or localStorage restore).
-// Hides the login/setup view and transitions the user into the main scan screen.
-function showApp() {
-  showSrcView('input');
-  switchTab('sourcing');
-}
-
 function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
 function getApiUrl() { return API_BASE + '/v1/messages'; }
 function getApiHeaders() {
@@ -3711,6 +3826,7 @@ function clearImage() {
   const container = document.getElementById('preview-container');
   if (container) container.style.display = 'none';
 }
+
 function restorePreviewAfterRotation() {
   if (!imgB64) return;
   try {
@@ -4684,45 +4800,200 @@ function initFormSelects() {
   if (statSel) statSel.innerHTML = STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
 
-async function requestMagicLink() {
-  const email = document.getElementById('email-input').value.trim();
-  if (!email || !email.includes('@')) {
-    showToast('Enter a valid email');
-    return;
-  }
+// ══════════════════════════════════════════════════
+// AUTH — Username / Password + Email Verification
+// ══════════════════════════════════════════════════
+let authMode = 'login';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const isRegister = mode === 'register';
+  const isVerify = mode === 'verify';
+
+  // Tab styles
+  document.getElementById('auth-tab-login').style.background = (!isRegister && !isVerify) ? 'var(--accent)' : 'transparent';
+  document.getElementById('auth-tab-login').style.color = (!isRegister && !isVerify) ? '#fff' : 'var(--muted)';
+  document.getElementById('auth-tab-register').style.background = isRegister ? 'var(--accent)' : 'transparent';
+  document.getElementById('auth-tab-register').style.color = isRegister ? '#fff' : 'var(--muted)';
+
+  // Show/hide field groups
+  document.getElementById('auth-login-fields').style.display = (!isRegister && !isVerify) ? 'block' : 'none';
+  document.getElementById('auth-register-fields').style.display = isRegister ? 'block' : 'none';
+  document.getElementById('auth-verify-screen').style.display = isVerify ? 'block' : 'none';
+  document.getElementById('auth-actions').style.display = isVerify ? 'none' : 'block';
+
+  // Button + hint text
+  document.getElementById('auth-submit-btn').textContent = isRegister ? 'Create Account →' : 'Log In →';
+  document.getElementById('auth-hint').textContent = isRegister
+    ? '7-day free trial. No credit card required.'
+    : 'Welcome back. Enter your credentials to continue.';
+  document.getElementById('auth-forgot').style.display = isRegister ? 'none' : 'block';
+
+  hideAuthError();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.innerHTML = msg;
+  el.style.display = 'block';
+}
+
+function hideAuthError() {
+  const el = document.getElementById('auth-error');
+  if (el) el.style.display = 'none';
+}
+
+function authKeyPress(e) {
+  if (e.key === 'Enter') submitAuth();
+}
+
+async function submitAuth() {
+  hideAuthError();
+  const btn = document.getElementById('auth-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Please wait...';
+
   try {
-    const res = await fetch(API_BASE + '/auth/request-link', {
+    if (authMode === 'register') {
+      await registerUser();
+    } else {
+      await loginUser();
+    }
+  } catch(e) {
+    showAuthError('Something went wrong. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'register' ? 'Create Account →' : 'Log In →';
+  }
+}
+
+async function registerUser() {
+  const name     = document.getElementById('auth-name').value.trim();
+  const username = document.getElementById('auth-reg-username').value.trim();
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-reg-password').value;
+  const confirm  = document.getElementById('auth-password-confirm').value;
+
+  // Validate
+  if (!name)                          { showAuthError('Enter your first name'); return; }
+  if (!username)                      { showAuthError('Choose a username'); return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) { showAuthError('Username can only contain letters, numbers, and underscores'); return; }
+  if (!email || !email.includes('@')) { showAuthError('Enter a valid email address'); return; }
+  if (password.length < 6)           { showAuthError('Password must be at least 6 characters'); return; }
+  if (password !== confirm)           { showAuthError('Passwords do not match'); return; }
+
+  try {
+    const res = await fetch(API_BASE + '/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ name, username, email, password })
     });
     const data = await res.json();
-    if (data.success) {
-      showToast('Check your email for the login link!');
+
+    if (res.status === 409) {
+      // Email or username already exists
+      if (data.field === 'email') {
+        showAuthError('An account with this email already exists. Check your inbox for a verification link, or <a href="#" onclick="setAuthMode(\'login\');return false;" style="color:var(--accent)">log in here</a>.');
+      } else {
+        showAuthError('That username is already taken. Please choose another.');
+      }
+      return;
+    }
+
+    if (data.success || res.ok) {
+      // Show "check your email" screen
+      document.getElementById('auth-verify-email').textContent = email;
+      setAuthMode('verify');
     } else {
-      showToast('Error: ' + (data.error || 'Unknown'));
+      showAuthError(data.error || 'Registration failed. Please try again.');
     }
   } catch (err) {
-    showToast('Network error: ' + err.message);
+    showAuthError('Network error. Check your connection and try again.');
   }
+}
+
+async function loginUser() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+
+  if (!username) { showAuthError('Enter your username or email'); return; }
+  if (!password) { showAuthError('Enter your password'); return; }
+
+  try {
+    const res = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (res.status === 403 && data.error === 'email_not_verified') {
+      showAuthError('Please verify your email before logging in. Check your inbox for the verification link.');
+      return;
+    }
+
+    if (data.token || data.jwt) {
+      const jwt = data.token || data.jwt;
+      localStorage.setItem('flippd_jwt', jwt);
+      localStorage.setItem('fif_api_key', jwt);
+      // Store name for greeting
+      if (data.user?.name) localStorage.setItem('flippd_user_name', data.user.name);
+      apiKey = jwt;
+      updateDashGreeting();
+      showSrcView('input');
+      showToast('✓ Welcome back' + (data.user?.name ? ', ' + data.user.name + '!' : '!'));
+      loadUserInfo();
+      syncFromServer();
+    } else {
+      showAuthError(data.error || 'Incorrect username or password.');
+    }
+  } catch (err) {
+    showAuthError('Network error. Check your connection and try again.');
+  }
+}
+
+function updateDashGreeting() {
+  const name = localStorage.getItem('flippd_user_name');
+  const el = document.getElementById('dash-greeting');
+  if (!el) return;
+  const hour = new Date().getHours();
+  const time = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  el.textContent = name ? time + ', ' + name + ' 👋' : time + ' 👋';
+}
+
+function showForgotPassword() {
+  const username = document.getElementById('auth-username').value.trim();
+  const msg = username
+    ? `To reset your password, email support@flippd.app with your username: "${username}"`
+    : 'Email support@flippd.app with your username to reset your password.';
+  alert(msg);
+}
+
+async function requestMagicLink() {
+  // Legacy stub — no longer used
 }
 
 async function loadUserInfo() {
   try {
-    const res = await fetch(API_BASE + '/auth/me', {
-      headers: getApiHeaders()
-    });
+    const res = await fetch(API_BASE + '/auth/me', { headers: getApiHeaders() });
     if (!res.ok) {
+      // Don't reload — backend may not be ready yet (CORS/deploy)
+      // Only log out on explicit 401 without reloading
       if (res.status === 401) {
         localStorage.removeItem('flippd_jwt');
+        localStorage.removeItem('flippd_user_name');
         apiKey = '';
-        location.reload();
+        showSrcView('setup');
+        setAuthMode('login');
       }
       return;
     }
     const user = await res.json();
     currentUser = user;
-    
+    if (user.name) {
+      localStorage.setItem('flippd_user_name', user.name);
+      updateDashGreeting();
+    }
     if (user.tier === 'trial') {
       const daysLeft = Math.ceil((new Date(user.trialEndsAt) - new Date()) / (1000*60*60*24));
       const banner = document.getElementById('trial-banner');
@@ -4768,57 +5039,40 @@ async function openCustomerPortal() {
 // INIT
 // ══════════════════════════════════════════════════
 
-// Check for JWT from magic link redirect
-// The backend redirects to APP_URL#token=<jwt> after verifying the magic link.
-// We read the hash here, save the JWT to localStorage on this domain, then
-// strip the hash from the URL so the token is never visible in the address bar.
-window.addEventListener('DOMContentLoaded', () => {
-  // Step 1: Clear any legacy short access codes that predate JWT auth
-  // Do this FIRST before reading anything, so we start clean
-  const legacyKey = localStorage.getItem('fif_api_key');
-  if (legacyKey && !legacyKey.includes('.')) {
-    localStorage.removeItem('fif_api_key');
-  }
-
-  // Step 2: Handle incoming JWT from magic link hash redirect
-  const hash = window.location.hash;
-  if (hash && hash.startsWith('#token=')) {
-    const incomingJwt = hash.slice(7); // strip '#token='
-    if (incomingJwt && incomingJwt.includes('.')) {
-      localStorage.setItem('flippd_jwt', incomingJwt);
-      localStorage.setItem('fif_api_key', incomingJwt);
-      apiKey = incomingJwt;
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  }
-
-  // Step 3: Restore session from localStorage (covers page refreshes after login)
-  if (!apiKey) {
-    const storedJwt = localStorage.getItem('flippd_jwt');
-    if (storedJwt && storedJwt.includes('.')) {
-      apiKey = storedJwt;
-      localStorage.setItem('fif_api_key', storedJwt);
-    }
-  }
-  // NOTE: window.onload fires after this and calls isUnlocked() to show app or login screen
-});
-
+// Restore session from saved JWT on load
 window.onload = () => {
-  // Initialize app
+  // Run migration FIRST before anything else
+  const oldKey = localStorage.getItem('fif_api_key');
+  if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
+    localStorage.removeItem('fif_api_key');
+    localStorage.removeItem('flippd_jwt');
+    apiKey = '';
+  }
+
+  // Load local data immediately (instant — no waiting for server)
   loadItems();
   pnlLoad();
   filterCat = 'All'; filterStatus = 'All';
   initFormSelects();
+
+  // Check for saved JWT and restore session
+  const jwt = localStorage.getItem('flippd_jwt');
+  if (jwt && jwt.includes('.')) {
+    apiKey = jwt;
+    localStorage.setItem('fif_api_key', jwt);
+  }
+
   if (isUnlocked()) {
     showSrcView('input');
-    loadUserInfo();
+    updateDashGreeting();
+    loadUserInfo(); // best-effort — fails silently if backend not ready
+    syncFromServer(); // best-effort — uses localStorage if offline
   } else {
     showSrcView('setup');
+    setAuthMode('login');
   }
-  // If a JWT arrived via magic link hash, ensure we show the app
-  // (DOMContentLoaded sets apiKey before onload fires, so isUnlocked() above handles it)
+
   updateFeeHint();
-  // Restore any in-progress photo preview from sessionStorage
   try {
     const saved = sessionStorage.getItem('flippd_preview_src');
     if (saved) { imgB64 = saved.split(',')[1]; imgType = 'image/jpeg'; showPreview(saved); }
