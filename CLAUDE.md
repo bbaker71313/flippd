@@ -6,28 +6,38 @@
 
 ## 🗂️ Project Overview
 
-**Flippd** is a mobile-first reseller app for solo eBay sellers sourcing from thrift stores, estate sales, and garage sales. It is a **single-file HTML/JS app** (`Flippd_v4.html`) — no backend, no build step, runs in any mobile browser.
+**Flippd** is a mobile-first reseller app for solo eBay sellers sourcing from thrift stores, estate sales, and garage sales. It is a **single-file HTML/JS app** (`Flippd_v5.html`) with a live Node.js/Express backend on Replit.
 
 **Target user:** Solo reseller, mixed-category thrift (clothing, electronics, home goods). Needs: AI-sourcing decisions, shelf scan, inventory tracking, profit math, photo enhancement, growth insights — all from a phone.
 
 **Primary platform:** eBay. Future: Poshmark, Mercari, Facebook Marketplace.
 
-**Current stage:** Early access. Tested and working. Proxy backend pending (Manus) to remove API key requirement from users.
+**Current stage:** Live. Backend v3.0.0 deployed. Auth: username/password + email verification. Database: Supabase PostgreSQL. Payments: Stripe.
 
 ---
 
 ## 📁 Project Files
 
 ```
-flippd/
-├── Flippd_v4.html              # ✅ CANONICAL FILE — single source of truth
-├── Flippd_Landing.html         # Marketing landing page
-├── CLAUDE.md                   # This file
-├── INITIAL.md                  # Feature request template
-└── product-marketing-context.md  # ICP, positioning, copy rules, competitive research
+flippd/                          # GitHub Pages frontend repo (bbaker71313/flippd)
+├── Flippd_v5.html               # ✅ CANONICAL APP FILE — username/password auth, Supabase
+├── Flippd_Landing_FeatureRich.html  # Landing page variant A
+├── Flippd_Landing_Honest.html   # Landing page variant B
+├── index.html                   # Redirects to Flippd_v5.html
+├── CNAME                        # flippd.tech
+├── CLAUDE.md                    # This file
+└── product-marketing-context.md # ICP, positioning, copy rules
+
+flippd-backend/                  # Replit backend repo (bbaker71313/flippd-backend, private)
+├── index.js                     # ✅ v3.0.0 — Express + Supabase + bcrypt + Stripe + Anthropic
+├── package.json                 # v3.0.0
+├── BACKEND_LIVE.md              # Full endpoint reference
+└── APP_INTEGRATION.md           # Integration code samples
 ```
 
-**There is no backend, no Python, no FastAPI, no database.** Everything lives in `Flippd_v4.html`. If a future session proposes building a backend, that is a separate phase — do not mix it into the HTML app without explicit instruction.
+**Backend is live at:** `https://flippd-backend.replit.app`  
+**Frontend is live at:** `https://flippd.tech/Flippd_v5.html`  
+**Do not edit `Flippd_v4.html`** — it is the old version. The canonical file is `Flippd_v5.html`.
 
 ---
 
@@ -149,20 +159,34 @@ function calcProfit(cost, price) {
 
 ## 🔌 API Config
 
+**Backend (v3.0.0, live):** `https://flippd-backend.replit.app`  
+**Auth:** Username + password with email verification. JWT stored in `localStorage` as `flippd_token`. Valid 90 days.
+
 ```js
-const PROXY_URL = null; // Replace with Manus proxy URL when delivered
-function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
-function getApiUrl() { return PROXY_URL || 'https://api.anthropic.com/v1/messages'; }
+const API_BASE = 'https://flippd-backend.replit.app';
+
+function getToken() { return localStorage.getItem('flippd_token'); }
+function isUnlocked() { return !!getToken(); }
+function getApiUrl() { return API_BASE + '/v1/messages'; }
 function getApiHeaders() {
-  if (PROXY_URL) return {'Content-Type':'application/json','x-flippd-key':apiKey};
-  return {'Content-Type':'application/json','x-api-key':apiKey,
-          'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + getToken()
+  };
 }
 ```
 
-**When Manus delivers proxy URL:** update `PROXY_URL = null` to the real URL. That is the only change needed to go from direct API to proxy.
+**Auth flow (v3.0.0):**
+1. `POST /auth/register` — `{ name, username, email, password }` → sends verification email, NO token yet
+2. User clicks email link → `GET /auth/verify?token=...` → redirects to `?verified=true`
+3. `POST /auth/login` — `{ username, password }` (accepts username OR email) → `{ token, user: { name, username, email, tier } }`
+4. `GET /auth/me` — returns full profile including `name` for greeting
 
-**Current model:** `claude-sonnet-4-6` — never downgrade without explicit instruction.
+**DEAD endpoints — these return 404, do not use:**
+- `POST /auth/request-link` — REMOVED. Landing pages must call `/auth/register` instead.
+- `GET /auth/verify-link` — REMOVED. Replaced by `GET /auth/verify?token=...`
+
+**Current AI model:** `claude-sonnet-4-6` — never downgrade without explicit instruction.
 
 ---
 
@@ -201,7 +225,7 @@ Export (`panel-csv`) and Import (`panel-import`) panels still exist but are acce
 | STATS | P&L: revenue, expenses, monthly breakdown | ✅ Live |
 | STATS | Mileage logger (IRS rate) | ✅ Live |
 | Settings | eBay fee % slider, packaging cost, sourcing style | ✅ Live |
-| — | Proxy backend (Manus) | 🔲 Pending |
+| — | Backend (Replit v3.0.0) | ✅ Live |
 | — | AI Listing Generator | 🔲 Planned |
 | — | Live eBay sold comps (real-time) | 🔲 Planned |
 | — | Cross-listing formatter | 🔲 Planned |
@@ -228,7 +252,7 @@ Export (`panel-csv`) and Import (`panel-import`) panels still exist but are acce
 
 ## 🧪 Testing
 
-Before delivering any modified version of `Flippd_v4.html`:
+Before delivering any modified version of `Flippd_v5.html`:
 1. Run Node.js syntax check: `node -e "new Function(scriptContent)"` on the script block
 2. Run Playwright smoke tests: unlock → tabs → inventory empty state → stats P&L
 3. Confirm zero page errors and zero console errors
