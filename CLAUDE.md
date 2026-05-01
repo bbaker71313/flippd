@@ -110,8 +110,8 @@ Note: `apiKey` was removed from settings — it now lives only in `fif_api_key`.
 --border-dark: #a08060
 --header: #3a2410
 --text: #1e1208
---soft: #5c3d20
---muted: #8a6e50
+--soft: #c8bfb0
+--muted: #8a8070
 --accent: #8B6A3E
 --green: #00bb66
 --green-bg: #e6fff2
