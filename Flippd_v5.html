@@ -5382,14 +5382,10 @@ async function saveAndGenerateListing() {
 }
 
 window.onload = () => {
-  // Handle email verification auto-login
+  // Detect ?verified=true redirect from backend email verification
   const _vp = new URLSearchParams(window.location.search);
-  const _vToken = _vp.get('token');
-  const _wasVerified = _vp.get('verified') === 'true' && _vToken && _vToken.includes('.');
+  const _wasVerified = _vp.get('verified') === 'true';
   if (_wasVerified) {
-    localStorage.setItem('flippd_jwt', _vToken);
-    localStorage.setItem('fif_api_key', _vToken);
-    apiKey = _vToken;
     history.replaceState({}, '', window.location.pathname);
   }
 
@@ -5423,6 +5419,13 @@ window.onload = () => {
   } else {
     showSrcView('setup');
     setAuthMode('login');
+    if (_wasVerified) {
+      const banner = document.getElementById('trial-banner');
+      if (banner) {
+        banner.textContent = '✓ Email verified — please log in to continue.';
+        banner.style.display = 'block';
+      }
+    }
   }
 
   updateFeeHint();
