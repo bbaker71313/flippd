@@ -1834,6 +1834,86 @@ let activeTab = 'sourcing';
 (function(){try{const O='ebayhq_items_v1',N='flippd_items_v1';if(!localStorage.getItem(N)&&localStorage.getItem(O)){localStorage.setItem(N,localStorage.getItem(O));localStorage.removeItem(O);}}catch(e){}})();
 const STORAGE_KEY = 'flippd_items_v1';
 
+// ══════════════════════════════════════════════════
+// INDEXEDDB PHOTO STORE — keeps base64 out of localStorage
+// ══════════════════════════════════════════════════
+var _photoDB = null;
+
+function openPhotoDB() {
+  return new Promise(function(resolve, reject) {
+    if (_photoDB) return resolve(_photoDB);
+    var req = indexedDB.open('flippd_photos', 1);
+    req.onupgradeneeded = function(e) {
+      e.target.result.createObjectStore('photos', { keyPath: 'key' });
+    };
+    req.onsuccess = function(e) { _photoDB = e.target.result; resolve(_photoDB); };
+    req.onerror = function() { reject(req.error); };
+  });
+}
+
+function savePhotosIDB(itemId, photos) {
+  if (!photos || !photos.length) return deletePhotosIDB(itemId);
+  return openPhotoDB().then(function(db) {
+    var tx = db.transaction('photos', 'readwrite');
+    var store = tx.objectStore('photos');
+    store.put({ key: 'item_' + itemId, data: photos });
+    return new Promise(function(resolve) { tx.oncomplete = resolve; tx.onerror = resolve; });
+  }).catch(function(){});
+}
+
+function loadPhotosIDB(itemId) {
+  return openPhotoDB().then(function(db) {
+    var tx = db.transaction('photos', 'readonly');
+    var store = tx.objectStore('photos');
+    var req = store.get('item_' + itemId);
+    return new Promise(function(resolve) {
+      req.onsuccess = function() { resolve(req.result ? req.result.data : []); };
+      req.onerror = function() { resolve([]); };
+    });
+  }).catch(function(){ return []; });
+}
+
+function deletePhotosIDB(itemId) {
+  return openPhotoDB().then(function(db) {
+    var tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').delete('item_' + itemId);
+  }).catch(function(){});
+}
+
+// Load all photos from IDB and attach to items array
+async function hydratePhotos() {
+  try {
+    var db = await openPhotoDB();
+    var tx = db.transaction('photos', 'readonly');
+    var store = tx.objectStore('photos');
+    var all = await new Promise(function(resolve) {
+      var req = store.getAll();
+      req.onsuccess = function() { resolve(req.result || []); };
+      req.onerror = function() { resolve([]); };
+    });
+    var photoMap = {};
+    all.forEach(function(r) {
+      var id = parseInt(r.key.replace('item_', ''));
+      photoMap[id] = r.data;
+    });
+    items.forEach(function(item) {
+      if (photoMap[item.id]) item.photos = photoMap[item.id];
+    });
+  } catch(e) {
+    // Fallback: photos already in items from localStorage (legacy)
+  }
+}
+
+// Strip photos from items before saving to localStorage
+function itemsWithoutPhotos() {
+  return items.map(function(i) {
+    var copy = Object.assign({}, i);
+    copy.photos = [];
+    return copy;
+  });
+}
+
+
 // Category migration map — old names → new names
 const CAT_MIGRATE = {
   'Other': 'Automotive',
@@ -1878,13 +1958,18 @@ function loadItems() {
 
 function saveItems() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    // Save metadata only (no photos) to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
+    // Sync each item's photos to IndexedDB (saves if present, deletes if empty)
+    items.forEach(function(item) {
+      savePhotosIDB(item.id, item.photos || []);
+    });
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       try {
         localStorage.removeItem('fef_growth_cache');
         localStorage.removeItem('flippd_events');
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
       } catch(e2) {
         showToast('\u26a0\ufe0f Storage full. Delete some items or photos to continue.');
       }
