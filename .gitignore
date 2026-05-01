@@ -44,6 +44,8 @@ Thumbs.db
 # Testing
 .nyc_output/
 coverage/
+test-results/
+playwright-report/
 
 # Temp
 *.tmp
