@@ -5297,6 +5297,17 @@ async function saveAndGenerateListing() {
 }
 
 window.onload = () => {
+  // Handle email verification auto-login
+  const _vp = new URLSearchParams(window.location.search);
+  const _vToken = _vp.get('token');
+  const _wasVerified = _vp.get('verified') === 'true' && _vToken && _vToken.includes('.');
+  if (_wasVerified) {
+    localStorage.setItem('flippd_jwt', _vToken);
+    localStorage.setItem('fif_api_key', _vToken);
+    apiKey = _vToken;
+    history.replaceState({}, '', window.location.pathname);
+  }
+
   // Run migration FIRST before anything else
   const oldKey = localStorage.getItem('fif_api_key');
   if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
@@ -5323,6 +5334,7 @@ window.onload = () => {
     updateDashGreeting();
     loadUserInfo(); // best-effort — fails silently if backend not ready
     syncFromServer(); // best-effort — uses localStorage if offline
+    if (_wasVerified) setTimeout(() => showToast('✓ Email verified — welcome to Flippd!'), 400);
   } else {
     showSrcView('setup');
     setAuthMode('login');

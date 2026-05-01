@@ -4945,8 +4945,13 @@ window.onload = () => {
   // Handle URL params from backend redirects
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('verified') === 'true') {
-    showToast('✅ Email verified! Log in to get started.');
-    switchAuthTab('login');
+    const _vt = urlParams.get('token');
+    if (_vt && _vt.includes('.')) {
+      // Auto-login: backend embedded JWT in verification redirect
+      localStorage.setItem('flippd_jwt', _vt);
+      localStorage.setItem('fif_api_key', _vt);
+      apiKey = _vt;
+    }
     window.history.replaceState({}, '', window.location.pathname);
   } else if (urlParams.get('verified') === 'already') {
     showToast('Email already verified — log in below.');
@@ -4968,8 +4973,10 @@ window.onload = () => {
   if (isUnlocked()) {
     showSrcView('input');
     loadUserInfo(); // fetch tier + show trial banner if needed
+    if (urlParams.get('verified') === 'true') setTimeout(() => showToast('✓ Email verified — welcome to Flippd!'), 400);
   } else {
     showSrcView('setup');
+    if (urlParams.get('verified') === 'true') setTimeout(() => { showToast('✅ Email verified! Log in to get started.'); if (typeof switchAuthTab === 'function') switchAuthTab('login'); }, 400);
   }
   updateFeeHint();
   // Restore any in-progress photo preview from sessionStorage
