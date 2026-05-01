@@ -5,6 +5,28 @@ Format: [Version] — Date — Summary of changes and *why* they were made.
 
 ---
 
+## [v5.4] — May 1, 2026
+
+### Why this version exists
+10 frontend bug fixes identified after v5.3 launch. Focused on stability, memory management, and UX polish.
+
+### Bug Fixes
+- **Tier/trial banner** — sticky banner added for trial + scout users with inline Upgrade CTA
+- **Save + Write eBay Listing button** — added to add-item form for one-tap save + listing generation
+- **Listing modal class** — fixed `modal` → `modal-overlay` so backdrop and close behaviour work correctly
+- **localStorage QuotaExceededError** — safe write with fallback: clears growth cache + events, retries, shows toast if still full
+- **Null-safe tab switching** — `switchTab()` no longer crashes on sub-screens (csv, import, pnl) that have no tab button element
+- **Sub-screen scroll reset** — csv/import/pnl tabs now scroll to top on open
+- **Photo Enhancer memory leak** — canvas and image src cleared when leaving photo tab
+- **Listing button visibility** — 🚀 Listing button now only renders for Unlisted/Ready to Export items
+- **Photo limit** — reduced from 12 to 4 photos max; toast updated to "Max 4 photos — delete one to add another"
+- **Adaptive photo compression** — images downscaled to 1200px max, compressed to stay under 1.1MB with 3-tier quality fallback (0.82 → 0.65 → 0.5); canvas memory freed immediately after encode
+
+### Status
+✅ All 10 fixes applied. Deployed to flippd.tech/Flippd_v5.html.
+
+---
+
 ## [v5.3] — April 28, 2026
 
 ### Why this version exists

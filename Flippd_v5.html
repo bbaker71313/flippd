@@ -841,6 +841,12 @@ body::before{
 <button id="fab-add" onclick="fabQuickAdd()" style="position:fixed;bottom:24px;right:20px;width:52px;height:52px;border-radius:50%;background:#00cc66;color:#fff;border:none;font-size:24px;cursor:pointer;z-index:150;box-shadow:0 4px 16px rgba(0,180,80,0.45);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent" title="Quick Add Item">＋</button>
 
 
+<!-- TRIAL / TIER BANNER (sticky, shows for trial + scout users) -->
+<div id="tier-banner" style="display:none;background:var(--green-bg);border-bottom:2px solid var(--green-border);padding:7px 16px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text);position:sticky;top:56px;z-index:50;display:flex;align-items:center;justify-content:center;gap:8px">
+  <span id="tier-banner-text"></span>
+  <button id="tier-banner-cta" onclick="switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)" style="background:var(--green);color:#fff;border:none;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">Upgrade</button>
+</div>
+
 <!-- TAB BAR -->
 <div class="tab-bar">
   <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon">🔍</span>SCOUT</button>
@@ -1145,6 +1151,9 @@ body::before{
       <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="saveInvItem()">✓ Add to Inventory</button>
       <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="cancelInvForm()">Cancel</button>
     </div>
+    <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00bb66);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
+      &#x1f680; Save + Write eBay Listing
+    </button>
   </div>
 
   <!-- DETAIL VIEW -->
@@ -1670,7 +1679,7 @@ body::before{
 </div>
 
 <!-- AI POWER LISTING MODAL -->
-<div class="modal" id="listing-modal" style="display:none">
+<div class="modal-overlay" id="listing-modal" style="display:none">
   <div class="modal-box" style="max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="modal-title">🚀 AI Power Listing</div>
@@ -1881,7 +1890,19 @@ function loadItems() {
 }
 
 function saveItems() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      try {
+        localStorage.removeItem('fef_growth_cache');
+        localStorage.removeItem('flippd_events');
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      } catch(e2) {
+        showToast('\u26a0\ufe0f Storage full. Delete some items or photos to continue.');
+      }
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -1976,8 +1997,12 @@ function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  document.getElementById('panel-'+tab).classList.add('active');
+  // csv, import, pnl are sub-screens — no tab button exists for them
+  const tabBtn = document.getElementById('tab-'+tab);
+  if (tabBtn) tabBtn.classList.add('active');
+  const panel = document.getElementById('panel-'+tab);
+  if (panel) panel.classList.add('active');
+  if (tab === 'csv' || tab === 'import' || tab === 'pnl') window.scrollTo(0, 0);
   if (tab === 'inventory') renderInventory();
   if (tab === 'photo') populatePaDropdown();
   if (tab === 'growth') initGrowthTab();
@@ -1995,6 +2020,17 @@ function switchTab(tab) {
       if (act.length > 30) {
         localStorage.setItem('fif_activity_log', JSON.stringify(act.slice(-30)));
       }
+    } catch(e) {}
+  }
+  // Free Photo Enhancer memory when leaving that tab
+  if (tab !== 'photo' && typeof paPhotos !== 'undefined' && paPhotos.length > 0) {
+    paPhotos = [];
+    paActiveIdx = 0;
+    try {
+      const cv = document.getElementById('pa-canvas');
+      if (cv) { cv.width = 0; cv.height = 0; }
+      const oi = document.getElementById('pa-original');
+      if (oi) oi.src = '';
     } catch(e) {}
   }
 }
@@ -2112,7 +2148,7 @@ function renderFilteredList() {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
             <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">🏷️ $${item.sellPrice||'0'}</span>
-            <button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>
+            ${(item.status==='Unlisted'||item.status==='Ready to Export') ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
             ${item.status!=='Sold' ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
           </div>
           ${hasListing ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
@@ -2580,19 +2616,26 @@ function paRemoveExisting(idx) {
 
 function paHandlePhotos(e) {
   const files = Array.from(e.target.files);
-  const remaining = 12 - paPhotos.length;
-  if (remaining <= 0) { showToast('Max 12 photos reached'); return; }
+  const remaining = 4 - paPhotos.length;
+  if (remaining <= 0) { showToast('Max 4 photos — delete one to add another'); return; }
   files.slice(0, remaining).forEach(f => {
     const r = new FileReader();
     r.onload = ev => {
       const img = new Image();
       img.onload = () => {
         const c = document.createElement('canvas');
-        const MAX = 1600; let w = img.width, h = img.height;
+        const MAX = 1200; let w = img.width, h = img.height;
         if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
         c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        paPhotos.push({ original: ev.target.result, w, h, enhanced: null });
+        // Adaptive compression — keep under 1.1MB
+        let compressed = c.toDataURL('image/jpeg', 0.82);
+        if (compressed.length > 1100000) compressed = c.toDataURL('image/jpeg', 0.65);
+        if (compressed.length > 1100000) compressed = c.toDataURL('image/jpeg', 0.5);
+        // Free canvas memory immediately
+        c.width = 0; c.height = 0;
+        img.src = '';
+        paPhotos.push({ original: compressed, w, h, enhanced: null });
         if (paPhotos.length === 1) {
           document.getElementById('pa-upload-area').style.display = 'none';
           document.getElementById('pa-workspace').style.display = 'block';
@@ -3029,13 +3072,17 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   "advisor_message": "3-4 sentences of direct actionable advice using their actual numbers. Be specific. Tell them exactly what to do differently this week."
 }`;
 
-    const raw = await callClaude('', prompt, 1500);
+    const raw = await callClaude('', prompt, 2500);
     let result;
     try {
-      result = JSON.parse(raw);
+      let cleaned = raw.replace(/```json|```/g, '').trim();
+      const jsonStart = cleaned.indexOf('{');
+      const jsonEnd = cleaned.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1) cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      result = JSON.parse(cleaned);
     } catch (parseErr) {
-      console.error('JSON parse error in growth agent:', parseErr, 'Raw response:', raw.substring(0, 200));
-      throw new Error('Invalid response from Claude — please try again');
+      console.error('JSON parse error in growth agent:', parseErr, 'Raw:', raw.substring(0, 300));
+      throw new Error('Invalid response from Claude \u2014 please try again');
     }
 
     clearInterval(msgInterval);
@@ -3457,8 +3504,10 @@ function toggleListingDetail(itemId) {
 function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  // ── Real data from inventory ──
-  const sold       = items.filter(i=>i.status==='Sold');
+  // -- Timeframe filtering --
+  const tfStart = getTimeframeStart(dashTimeframe);
+  const allSold = items.filter(i=>i.status==='Sold');
+  const sold    = allSold.filter(i => new Date(i.createdAt||i.dateAcquired) >= tfStart);
   const listed     = items.filter(i=>i.status==='Listed');
   const unlisted   = items.filter(i=>i.status==='Unlisted');
   const totalSales = sold.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0), 0);
@@ -3520,24 +3569,31 @@ function renderDashboard() {
 
   document.getElementById('dash-content').innerHTML = `
 
+    <!-- TIMEFRAME TOGGLE -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;justify-content:flex-end">
+      <button class="filter-btn${dashTimeframe==='week'?' active':''}" onclick="setDashTimeframe('week')">Week</button>
+      <button class="filter-btn${dashTimeframe==='month'?' active':''}" onclick="setDashTimeframe('month')">Month</button>
+      <button class="filter-btn${dashTimeframe==='year'?' active':''}" onclick="setDashTimeframe('year')">Year</button>
+    </div>
+
     <!-- ① KPI STAT CARDS -->
     <div class="kpi-grid">
-      <div class="kpi-card">
+      <div class="kpi-card" onclick="showKpiDrillDown('sales')" style="cursor:pointer">
         <div class="kpi-icon">💵</div>
         <div class="kpi-val">$${totalSales.toFixed(0)}</div>
         <div class="kpi-label">Total Sales</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" onclick="showKpiDrillDown('profit')" style="cursor:pointer">
         <div class="kpi-icon">📈</div>
         <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
         <div class="kpi-label">Net Profit</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" onclick="showKpiDrillDown('sold')" style="cursor:pointer">
         <div class="kpi-icon">🏷️</div>
         <div class="kpi-val">${sold.length}</div>
         <div class="kpi-label">Items Sold</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" onclick="showKpiDrillDown('listed')" style="cursor:pointer">
         <div class="kpi-icon">📦</div>
         <div class="kpi-val">${listed.length}</div>
         <div class="kpi-label">Active Listings</div>
@@ -3548,7 +3604,7 @@ function renderDashboard() {
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Sections</div>
     <div class="nav-card-grid">
 
-      <div class="nav-card" onclick="switchTab('sourcing')">
+      <div class="nav-card" onclick="showSourcingDrillDown()">
         <div class="nav-card-header">
           <span class="nav-card-icon">🔍</span>
           <span class="nav-card-title">Sourcing</span>
@@ -3562,7 +3618,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('inventory')">
+      <div class="nav-card" onclick="showInventoryDrillDown()">
         <div class="nav-card-header">
           <span class="nav-card-icon">📦</span>
           <span class="nav-card-title">Inventory</span>
@@ -3590,17 +3646,18 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('photo')">
+      <div class="nav-card" onclick="showPhotosDrillDown()">
         <div class="nav-card-header">
           <span class="nav-card-icon">📸</span>
           <span class="nav-card-title">Photos</span>
           <span class="nav-card-arrow">→</span>
         </div>
         <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.length).length}</div><div class="nav-stat-lbl">Items with photos</div></div>
+          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.length).length}</div><div class="nav-stat-lbl">With photos</div></div>
+          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.some&&i.photos.some(p=>p&&p.enhanced)).length}</div><div class="nav-stat-lbl">AI enhanced</div></div>
+          <div class="nav-stat"><div class="nav-stat-val" style="color:${items.filter(i=>!i.photos||!i.photos.length).length>0?'var(--red)':'var(--green)'}">
+            ${items.filter(i=>!i.photos||!i.photos.length).length}</div><div class="nav-stat-lbl">Need photos</div></div>
           <div class="nav-stat"><div class="nav-stat-val">${items.reduce((s,i)=>s+(i.photos?.length||0),0)}</div><div class="nav-stat-lbl">Total photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.status==='Listed'&&(!i.photos||!i.photos.length)).length}</div><div class="nav-stat-lbl">Listed, no photo</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">📷</div><div class="nav-stat-lbl">Add photos</div></div>
         </div>
       </div>
 
@@ -3616,7 +3673,7 @@ function renderDashboard() {
           <div class="nav-stat"><div class="nav-stat-val" style="font-size:11px">${gc.data.score_label}</div><div class="nav-stat-lbl">Status</div></div>
           <div class="nav-stat"><div class="nav-stat-val">${gc.data.stale_actions?.length||0}</div><div class="nav-stat-lbl">Stale items</div></div>
           <div class="nav-stat"><div class="nav-stat-val">${gc.data.hunt_list?.length||0}</div><div class="nav-stat-lbl">Hunt targets</div></div>
-        </div>`:`<div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:'IBM Plex Mono',monospace">Tap to run your first analysis →</div>`;})()}
+        </div>`:'<div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:\'IBM Plex Mono\',monospace">Tap to run your first analysis \u2192</div>';})()}
       </div>
 
       <div class="nav-card" onclick="showSourcingSettings()">
@@ -3856,8 +3913,13 @@ async function callClaude(system,msg,maxTok=1500) {
     });
     console.log('Response status:', res.status);
     if (!res.ok) {
-      const errText = await res.text();
-      console.error('HTTP Error:', res.status, errText.substring(0, 200));
+      let errData = {};
+      try { errData = await res.json(); } catch(e) {}
+      console.error('HTTP Error:', res.status, JSON.stringify(errData).substring(0,200));
+      if (res.status === 429 && errData.error && errData.error.toLowerCase().includes('limit')) {
+        showLimitReachedModal(errData);
+        throw new Error('scan_limit');
+      }
       if (res.status === 401 || res.status === 403) {
         throw new Error('Session expired. Please log in again.');
       } else if (res.status === 429) {
@@ -4728,8 +4790,12 @@ function renderCsvPreview() {
 }
 
 function conditionToEbayId(cond) {
-  const map = {'New':'NEW','Like New':'LIKE_NEW','Good':'GOOD','Fair':'FAIR','Poor':'POOR'};
-  return map[cond] || 'GOOD';
+  const map = {
+    'New':'NEW','Like New':'LIKE_NEW','Open Box':'OPEN_BOX',
+    'Good':'USED_VERY_GOOD','Used':'USED_VERY_GOOD',
+    'Fair':'USED_ACCEPTABLE','Poor':'USED_ACCEPTABLE'
+  };
+  return map[cond] || 'USED_VERY_GOOD';
 }
 
 function generateAndDownloadCSV() {
@@ -4743,8 +4809,8 @@ function generateAndDownloadCSV() {
   const cols = `Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8),Custom label (SKU),Category ID,Title,UPC,Price,Quantity,Item photo URL,Condition ID,Description,Format`;
 
   const rows = candidates.map(i => {
-    const title   = (i.nickname||'').substring(0,80).replace(/,/g,' ').replace(/"/g,"'");
-    const desc    = `<p>${(i.notes||i.nickname||'').replace(/,/g,' ').replace(/"/g,"'")}</p>`;
+    const title   = (i.nickname||'').substring(0,80).replace(/"/g,'""');
+    const desc    = `<p>${(i.notes||i.nickname||'').replace(/"/g,'""')}</p>`;
     const catId   = getEbayCatId(i);
     const condId  = conditionToEbayId(i.condition);
     const price   = parseFloat(i.sellPrice)||0;
@@ -4990,18 +5056,13 @@ async function loadUserInfo() {
     }
     const user = await res.json();
     currentUser = user;
+    window._currentUser = user;
     if (user.name) {
       localStorage.setItem('flippd_user_name', user.name);
       updateDashGreeting();
     }
-    if (user.tier === 'trial') {
-      const daysLeft = Math.ceil((new Date(user.trialEndsAt) - new Date()) / (1000*60*60*24));
-      const banner = document.getElementById('trial-banner');
-      if (banner) {
-        banner.style.display = 'block';
-        banner.textContent = `Trial: ${daysLeft} days left. Upgrade to keep all features.`;
-      }
-    }
+    // Update tier banner (trial countdown / scan usage)
+    updateTierBanner(user);
     return user;
   } catch (err) {
     console.error('Failed to load user:', err);
@@ -5040,6 +5101,214 @@ async function openCustomerPortal() {
 // ══════════════════════════════════════════════════
 
 // Restore session from saved JWT on load
+// ══════════════════════════════════════════════════
+// DASHBOARD — TIMEFRAME + DRILL-DOWNS (v5.4)
+// ══════════════════════════════════════════════════
+let dashTimeframe = 'week';
+
+function getTimeframeStart(tf) {
+  const now = new Date();
+  if (tf === 'week')  return new Date(now - 7*24*60*60*1000);
+  if (tf === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+  if (tf === 'year')  return new Date(now.getFullYear(), 0, 1);
+  return new Date(0);
+}
+
+function getTimeframeLabel(tf) {
+  if (tf === 'week')  return 'last 7 days';
+  if (tf === 'month') return 'this month';
+  if (tf === 'year')  return 'this year';
+  return '';
+}
+
+function setDashTimeframe(tf) {
+  dashTimeframe = tf;
+  renderDashboard();
+}
+
+function showDrillDownModal(title, content) {
+  const existing = document.getElementById('drill-down-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'drill-down-modal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal-box" style="max-height:80vh;overflow-y:auto;width:100%;max-width:500px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;position:sticky;top:0;background:var(--surface);padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--text)">${title}</div>
+      <button onclick="document.getElementById('drill-down-modal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0">&#x2715;</button>
+    </div>
+    <div>${content}</div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function showKpiDrillDown(type) {
+  const start = getTimeframeStart(dashTimeframe);
+  const label = getTimeframeLabel(dashTimeframe);
+  const soldItems = items.filter(i=>i.status==='Sold' && new Date(i.createdAt||i.dateAcquired)>=start);
+
+  if (type === 'listed') {
+    const listedItems = items.filter(i=>i.status==='Listed');
+    const rows = listedItems.length ? listedItems.map(i=>`
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
+        <div><div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''}</div></div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent)">$${parseFloat(i.sellPrice||0).toFixed(2)}</div>
+      </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted)">No active listings</div>';
+    return showDrillDownModal(`${listedItems.length} Active Listings`, rows);
+  }
+
+  const rows = soldItems.length ? soldItems.map(i=>{
+    const profit = calcProfit(i.cost, i.sellPrice);
+    return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
+      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} \u00b7 ${new Date(i.createdAt||i.dateAcquired).toLocaleDateString()}</div></div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:700;color:var(--green)">$${parseFloat(i.sellPrice||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:${profit>=0?'var(--green)':'var(--red)'};font-family:'IBM Plex Mono',monospace">${profit>=0?'+':''}$${profit.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('') : `<div style="text-align:center;padding:30px;color:var(--muted)">No sales in ${label}</div>`;
+
+  const titleMap = {sales:'Total Sales', profit:'Net Profit', sold:'Items Sold'};
+  showDrillDownModal(`${titleMap[type]} \u2014 ${label}`, rows);
+}
+
+function showSourcingDrillDown() {
+  const today = new Date().toDateString();
+  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const scans = log.filter(s=>new Date(s.ts).toDateString()===today);
+  const rows = scans.length ? scans.map(s=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
+      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${s.item||'Unknown item'}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${new Date(s.ts).toLocaleTimeString()}</div></div>
+      <div style="text-align:right">
+        <span style="background:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-bg)':'#ffe6e6'};color:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
+        ${s.roi ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${s.roi}% ROI</div>` : ''}
+      </div>
+    </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted)">No scans yet today</div>';
+  showDrillDownModal(`Today\'s Scans (${scans.length})`, rows);
+}
+
+function showInventoryDrillDown() {
+  const listed   = items.filter(i=>i.status==='Listed');
+  const unlisted = items.filter(i=>i.status==='Unlisted');
+  const sold     = items.filter(i=>i.status==='Sold');
+  const rows = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+    ${[['All Items',items.length,'All','var(--accent)'],['Listed',listed.length,'Listed','var(--green)'],['Unlisted',unlisted.length,'Unlisted','var(--yellow)'],['Sold',sold.length,'Sold','var(--muted)']].map(([lbl,cnt,status,color])=>`
+    <div onclick="document.getElementById('drill-down-modal').remove();switchTab('inventory');filterStatus='${status}';renderInventory()"
+      style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer">
+      <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:${color}">${cnt}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">${lbl}</div>
+    </div>`).join('')}
+  </div><p style="font-size:11px;color:var(--muted);text-align:center">Tap to filter inventory view</p>`;
+  showDrillDownModal('Inventory Breakdown', rows);
+}
+
+function showPhotosDrillDown() {
+  const withPhotos   = items.filter(i=>i.photos&&i.photos.length>0);
+  const withEnhanced = items.filter(i=>i.photos&&i.photos.some&&i.photos.some(p=>p&&p.enhanced));
+  const noPhotos     = items.filter(i=>!i.photos||!i.photos.length);
+  const rows = `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;color:var(--text);font-weight:600">\ud83d\udcf8 Listings with photos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--green)">${withPhotos.length}</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;color:var(--text);font-weight:600">\u2728 AI enhanced photos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--accent)">${withEnhanced.length}</div>
+      </div>
+      <div style="background:${noPhotos.length>0?'#ffe6e6':'var(--card)'};border:1px solid ${noPhotos.length>0?'var(--red)':'var(--border)'};border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;color:var(--text);font-weight:600">\u26a0\ufe0f Still need photos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:${noPhotos.length>0?'var(--red)':'var(--muted)'}">${noPhotos.length}</div>
+      </div>
+    </div>
+    ${noPhotos.length>0 ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">Items missing photos:</div>
+    ${noPhotos.map(i=>`<div style="font-size:12px;color:var(--soft);padding:6px 0;border-bottom:1px solid var(--border)">${i.nickname} <span style="color:var(--muted)">(${i.sku||'no SKU'})</span></div>`).join('')}` : '<div style="text-align:center;padding:20px;color:var(--green)">\u2713 All items have photos!</div>'}`;
+  showDrillDownModal('Photo Coverage', rows);
+}
+
+// ══════════════════════════════════════════════════
+// LIMIT REACHED MODAL (v5.4)
+// ══════════════════════════════════════════════════
+function showLimitReachedModal(errorData) {
+  const tier  = (errorData&&errorData.tier)||'scout';
+  const limit = (errorData&&errorData.limit)||25;
+  const tierName = tier.charAt(0).toUpperCase()+tier.slice(1);
+  const existing = document.getElementById('limit-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'limit-modal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal-box" style="text-align:center;max-width:380px;width:100%">
+    <div style="font-size:48px;margin-bottom:12px">\ud83d\udeab</div>
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text);margin-bottom:8px">Scan Limit Reached</div>
+    <div style="font-size:13px;color:var(--soft);line-height:1.6;margin-bottom:18px">
+      You've used all ${limit} scans for this month on the ${tierName} plan.<br><br>
+      Upgrade to keep scanning unlimited items.
+    </div>
+    <button onclick="document.getElementById('limit-modal').remove();switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)"
+      style="width:100%;background:var(--green);color:#fff;border:none;padding:14px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">
+      Upgrade Now \u2192
+    </button>
+    <button onclick="document.getElementById('limit-modal').remove()"
+      style="width:100%;background:transparent;color:var(--muted);border:none;padding:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer">
+      Maybe later
+    </button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+// ══════════════════════════════════════════════════
+// TRIAL BANNER UPDATE (v5.4)
+// ══════════════════════════════════════════════════
+function updateTierBanner(user) {
+  const banner = document.getElementById('tier-banner');
+  const text   = document.getElementById('tier-banner-text');
+  const cta    = document.getElementById('tier-banner-cta');
+  if (!banner || !text) return;
+  const tier = (user&&user.tier)||'scout';
+  if (tier === 'trial' && user.trialEndsAt) {
+    const daysLeft = Math.max(0, Math.ceil((new Date(user.trialEndsAt)-new Date())/(1000*60*60*24)));
+    if (daysLeft > 0) {
+      text.textContent = '\ud83c\udf89 Free Trial: ' + daysLeft + ' day' + (daysLeft===1?'':'s') + ' left of full access';
+      banner.style.background = daysLeft<=2?'#fff4d6':'var(--green-bg)';
+      banner.style.borderBottomColor = daysLeft<=2?'#c47800':'var(--green-border)';
+      banner.style.display = 'flex';
+    } else {
+      text.textContent = '\u23f0 Trial ended \u2014 upgrade to keep premium features';
+      banner.style.background = '#fff4d6';
+      banner.style.borderBottomColor = '#c47800';
+      banner.style.display = 'flex';
+    }
+  } else if (tier === 'scout') {
+    const used = (user&&user.scansThisMonth)||0;
+    text.textContent = '\ud83d\udcca Free Plan: ' + used + '/25 scans used this month';
+    banner.style.background = used>=25?'#ffe6e6':'var(--green-bg)';
+    banner.style.borderBottomColor = used>=25?'var(--red)':'var(--green-border)';
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// ADD ITEM — SAVE + GENERATE LISTING (v5.4)
+// ══════════════════════════════════════════════════
+async function saveAndGenerateListing() {
+  // Save item first (reuse existing save logic)
+  const saved = saveInvItem ? saveInvItem() : null;
+  if (saved === false) return; // validation failed
+  // Get most recently added item
+  const newItem = items[items.length-1];
+  if (!newItem) return;
+  showInvView('list');
+  setTimeout(function(){ openListingModal(newItem.id); }, 400);
+}
+
 window.onload = () => {
   // Run migration FIRST before anything else
   const oldKey = localStorage.getItem('fif_api_key');

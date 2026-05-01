@@ -16,17 +16,18 @@ Each chat is scoped to one work area. Start every new chat with a scope line (se
 ## Active Chats
 
 ### [APP] Product / App Build
-**Current focus:** v5.2 complete — AI Power Listing Generator fully integrated
+**Current focus:** v5.4 — 10 frontend bug fixes
 **Status:** Completed / Ready for next phase
 **Scope:** Flippd_v5.html code, features, UX, data model, bug fixes
-**Last touched:** April 27, 2026
-**Summary:** Completed Phase 2.1 (AI Listing Generator). Built two-stage modal for listing generation, extracted 21 eBay leaf categories from user's actual listings, implemented persistent listing storage, built CSV export in exact eBay format, added inline preview in inventory cards. All tested and syntax-valid. Next: Manus proxy integration, then Phase 1.2 (access code system).
+**Last touched:** May 1, 2026
+**Summary:** v5.4 delivered 10 frontend bug fixes: tier banner, Save+List button, listing modal class fix, localStorage QuotaExceededError handling, null-safe tab switching, sub-screen scroll reset, Photo Enhancer memory leak, listing button visibility guard, photo limit reduced to 4, adaptive photo compression. Deployed to flippd.tech/Flippd_v5.html. Next: username/password auth flow polish, change-password endpoint.
 
 ### [BACKEND] Proxy / Infrastructure
-**Current focus:** Manus proxy URL integration
-**Status:** Waiting on Manus delivery
-**Scope:** Proxy backend, API routing, future FastAPI/database migration, eBay OAuth
-**Last touched:** April 25, 2026
+**Current focus:** v3.0.0 live — Supabase PostgreSQL, bcrypt, username/password auth, email verification
+**Status:** Live in production
+**Scope:** Replit backend, Supabase DB, Stripe, Resend, Anthropic proxy, Telegram alerts
+**Last touched:** May 1, 2026
+**Summary:** Full backend live at https://flippd-backend.replit.app. Auth: register → verify email → login → JWT (90d). Stripe tiers active. Scan + inventory limits enforced. /auth/request-link alias added for landing page compatibility. BACKEND_LIVE.md and APP_INTEGRATION.md documented.
 
 ### [MARKETING] Landing / Copy / Content
 **Current focus:** Honest landing page rewrite (no fake metrics/testimonials)
