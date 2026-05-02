@@ -68,7 +68,6 @@ body::before{
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:200;
 }
-
 .app-logo{display:flex;align-items:center;gap:10px}
 .app-logo-name{
   font-family:'Syne',sans-serif;font-size:22px;font-weight:900;
@@ -281,24 +280,17 @@ body::before{
   position:relative;overflow:hidden;
 }
 /* HOT — gold pulse + scan line */
-
 @keyframes scanLine{
   0%{transform:translateY(-100%)}
   100%{transform:translateY(400%)}
 }
-.decision-banner.is-hot{animation:hotGlow 1.6s ease-in-out infinite}
+.decision-banner.is-hot{animation:hotPulse 1.8s ease-in-out infinite}
 .decision-banner.is-hot::after{
   content:'';position:absolute;left:0;right:0;height:2px;
   background:linear-gradient(90deg,transparent,rgba(255,179,0,0.6),transparent);
   animation:scanLine 2s linear infinite;
   pointer-events:none;
 }
-/* BUY — subtle shimmer */
-@keyframes shimmer{
-  0%{background-position:-200% center}
-  100%{background-position:200% center}
-}
-
 
 .d-icon{font-size:38px;flex-shrink:0}
 .d-label{font-size:9px;letter-spacing:0.25em;font-weight:800;opacity:0.8;margin-bottom:4px;text-transform:uppercase}
@@ -1139,7 +1131,7 @@ body::before{
       <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="cancelInvForm()">Cancel</button>
     </div>
     <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00bb66);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
-      &#x1f680; Save + Write eBay Listing
+      &#x1f680; Boost AI Listing Generator
     </button>
   </div>
 
@@ -1534,6 +1526,7 @@ body::before{
   <div style="display:flex;gap:6px;margin-bottom:14px;padding-top:4px">
     <button class="filter-btn active" id="stats-sub-dash" onclick="statsSubTab('dash')">📊 Overview</button>
     <button class="filter-btn" id="stats-sub-pnl" onclick="statsSubTab('pnl')">💰 P&amp;L</button>
+    <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">💎 Plan</button>
   </div>
   <div id="stats-view-dash">
     <div style="margin-bottom:14px">
@@ -1573,6 +1566,39 @@ body::before{
       <div style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace">IRS rate: $0.67/mile</div>
     </div>
   </div>
+
+  <!-- SUBSCRIPTION PANEL -->
+  <div id="stats-view-subscription" style="display:none">
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text);margin-bottom:6px">Your Plan</div>
+
+    <!-- Current plan card -->
+    <div id="sub-current-card" style="background:var(--card);border:2px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Current Plan</div>
+          <div id="sub-tier-name" style="font-family:'Syne',sans-serif;font-size:26px;font-weight:900;color:var(--accent)">Trial</div>
+        </div>
+        <div id="sub-tier-badge" style="background:var(--green-bg);color:var(--green-border);padding:6px 12px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">ACTIVE</div>
+      </div>
+      <div id="sub-tier-detail" style="font-size:12px;color:var(--soft);line-height:1.6;margin-bottom:8px">Loading plan details...</div>
+      <div id="sub-usage" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
+    </div>
+
+    <!-- Manage billing (paid users only) -->
+    <button id="sub-manage-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--soft);padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">⚙ Manage Billing &amp; Subscription</button>
+
+    <!-- Billing interval toggle -->
+    <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
+      <button id="sub-bill-month" onclick="setSubInterval('month')" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff">Monthly</button>
+      <button id="sub-bill-year" onclick="setSubInterval('year')" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted)">Annual <span style="background:var(--green);color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:3px">SAVE 20%</span></button>
+    </div>
+
+    <!-- Tier cards -->
+    <div id="sub-tier-cards"></div>
+
+    <p style="font-size:10px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.6">Cancel anytime. No questions asked.</p>
+  </div>
+
 </div>
 
 
@@ -3724,35 +3750,6 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('pnl')">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">💰</span>
-          <span class="nav-card-title">P&amp;L</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">$${totalSales.toFixed(0)}</div><div class="nav-stat-lbl">Revenue</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div><div class="nav-stat-lbl">Net profit</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${pnlData?'$'+pnlData.totalExpenses.toFixed(0):'$0'}</div><div class="nav-stat-lbl">Expenses</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:var(--yellow)">${pnlData&&pnlData.taxReserve>0?'$'+pnlData.taxReserve.toFixed(0):'$0'}</div><div class="nav-stat-lbl">Tax reserve</div></div>
-        </div>
-      </div>
-
-      <div class="nav-card" onclick="showPhotosDrillDown()">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">📸</span>
-          <span class="nav-card-title">Photos</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.length).length}</div><div class="nav-stat-lbl">With photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.some&&i.photos.some(p=>p&&p.enhanced)).length}</div><div class="nav-stat-lbl">AI enhanced</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:${items.filter(i=>!i.photos||!i.photos.length).length>0?'var(--red)':'var(--green)'}">
-            ${items.filter(i=>!i.photos||!i.photos.length).length}</div><div class="nav-stat-lbl">Need photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.reduce((s,i)=>s+(i.photos?.length||0),0)}</div><div class="nav-stat-lbl">Total photos</div></div>
-        </div>
-      </div>
-
       <div class="nav-card" onclick="switchTab('growth')">
         <div class="nav-card-header">
           <span class="nav-card-icon">📈</span>
@@ -5122,8 +5119,8 @@ function updateDashGreeting() {
 function showForgotPassword() {
   const username = document.getElementById('auth-username').value.trim();
   const msg = username
-    ? `To reset your password, email support@flippd.app with your username: "${username}"`
-    : 'Email support@flippd.app with your username to reset your password.';
+    ? `To reset your password, email [support@flippd.app](mailto:support@flippd.app) with your username: "${username}"`
+    : 'Email [support@flippd.app](mailto:support@flippd.app) with your username to reset your password.';
   alert(msg);
 }
 
@@ -5401,7 +5398,130 @@ async function saveAndGenerateListing() {
   setTimeout(function(){ openListingModal(newItem.id); }, 400);
 }
 
+// ══════════════════════════════════════════════════
+// SUBSCRIPTION PANEL (v5.5)
+// ══════════════════════════════════════════════════
+var _subInterval = 'month';
+
+var TIER_INFO = {
+  hustle: { name:'Hustle', month:19,  year:180,  color:'#00bb66', tagline:'For active resellers',
+    features:['Unlimited AI scans','500 inventory items','Full listing generator','Cross-listing prep','Photo enhancement','P&L dashboard'] },
+  stack:  { name:'Stack',  month:49,  year:468,  color:'#6b3fa0', tagline:'For serious operators',
+    features:['Everything in Hustle','Unlimited inventory','Live pricing intel','Growth agent','Bulk listing','Stale alerts'] },
+  empire: { name:'Empire', month:199, year:1908, color:'#c47800', tagline:'For teams & agencies',
+    features:['Everything in Stack','10 team seats','API access','Priority support'] }
+};
+
+function setSubInterval(interval) {
+  _subInterval = interval;
+  var mb = document.getElementById('sub-bill-month');
+  var yb = document.getElementById('sub-bill-year');
+  if(mb) { mb.style.background = interval==='month'?'var(--accent)':'transparent'; mb.style.color = interval==='month'?'#fff':'var(--muted)'; }
+  if(yb) { yb.style.background = interval==='year'?'var(--accent)':'transparent'; yb.style.color = interval==='year'?'#fff':'var(--muted)'; }
+  renderSubTierCards();
+}
+
+function renderSubTierCards() {
+  var container = document.getElementById('sub-tier-cards');
+  if(!container) return;
+  var user = window._currentUser || {};
+  var currentTier = user.tier || 'trial';
+  container.innerHTML = ['hustle','stack','empire'].map(function(t) {
+    var d = TIER_INFO[t];
+    var price = d[_subInterval];
+    var monthly = _subInterval==='year' ? (price/12).toFixed(0) : price;
+    var isCurrent = currentTier === t;
+    var isPopular = t === 'hustle';
+    return '<div style="background:var(--card);border:' + (isCurrent?'2px solid '+d.color:'1px solid var(--border)') + ';border-radius:12px;padding:16px;margin-bottom:12px;position:relative">' +
+      (isPopular && !isCurrent ? '<div style="position:absolute;top:-8px;left:16px;background:'+d.color+';color:#fff;padding:2px 10px;border-radius:4px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;font-weight:700">MOST POPULAR</div>' : '') +
+      (isCurrent ? '<div style="position:absolute;top:-8px;left:16px;background:'+d.color+';color:#fff;padding:2px 10px;border-radius:4px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;font-weight:700">CURRENT PLAN</div>' : '') +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;margin-top:' + ((isPopular&&!isCurrent)||isCurrent?'6px':'0') + '">' +
+        '<div><div style="font-family:\'Syne\',sans-serif;font-size:20px;font-weight:900;color:'+d.color+'">' + d.name + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + d.tagline + '</div></div>' +
+        '<div style="text-align:right"><div style="font-family:\'Syne\',sans-serif;font-size:24px;font-weight:900;color:var(--text);line-height:1">$' + monthly + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">/mo' + (_subInterval==='year'?' billed annually':'') + '</div></div>' +
+      '</div>' +
+      '<ul style="list-style:none;padding:0;margin:10px 0">' +
+        d.features.map(function(f) { return '<li style="font-size:12px;color:var(--soft);padding:3px 0;display:flex;align-items:flex-start"><span style="color:'+d.color+';margin-right:6px;font-weight:700">\u2713</span><span>'+f+'</span></li>'; }).join('') +
+      '</ul>' +
+      (isCurrent ?
+        '<div style="text-align:center;padding:10px;color:var(--muted);font-size:12px;font-family:\'IBM Plex Mono\',monospace">Your current plan</div>' :
+        '<button onclick="startCheckout(\''+t+'\',\''+_subInterval+'\')" style="width:100%;background:'+d.color+';color:#fff;border:none;padding:12px;border-radius:8px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:700;cursor:pointer">Upgrade to ' + d.name + ' \u2192</button>'
+      ) +
+    '</div>';
+  }).join('');
+}
+
+function renderSubscriptionPanel() {
+  var user = window._currentUser || {};
+  var tier = user.tier || 'scout';
+  var tierName = tier.charAt(0).toUpperCase() + tier.slice(1);
+
+  // Current plan name
+  var nameEl = document.getElementById('sub-tier-name');
+  if(nameEl) nameEl.textContent = tierName;
+
+  // Badge + detail
+  var badgeEl = document.getElementById('sub-tier-badge');
+  var detailEl = document.getElementById('sub-tier-detail');
+  var usageEl = document.getElementById('sub-usage');
+  var manageBtn = document.getElementById('sub-manage-btn');
+
+  if(tier === 'trial' && user.trialEndsAt) {
+    var daysLeft = Math.max(0, Math.ceil((new Date(user.trialEndsAt)-new Date())/(1000*60*60*24)));
+    if(badgeEl) { badgeEl.textContent = daysLeft + ' DAY' + (daysLeft===1?'':'S') + ' LEFT'; badgeEl.style.background = daysLeft<=2?'#ffe6e6':'var(--green-bg)'; badgeEl.style.color = daysLeft<=2?'var(--red)':'var(--green-border)'; }
+    if(detailEl) detailEl.textContent = 'You have full access for ' + daysLeft + ' more day' + (daysLeft===1?'':' s') + '. Upgrade to keep all features after your trial ends.';
+  } else if(tier === 'scout') {
+    if(badgeEl) { badgeEl.textContent = 'FREE'; badgeEl.style.background = '#f4f4f4'; badgeEl.style.color = 'var(--muted)'; }
+    if(detailEl) detailEl.textContent = 'Free plan: 25 scans/month, up to 10 inventory items.';
+  } else {
+    if(badgeEl) { badgeEl.textContent = 'ACTIVE'; badgeEl.style.background = 'var(--green-bg)'; badgeEl.style.color = 'var(--green-border)'; }
+    if(detailEl) {
+      var detail = tierName + ' plan active.';
+      if(user.subscription && user.subscription.currentPeriodEnd) detail += ' Renews ' + new Date(user.subscription.currentPeriodEnd).toLocaleDateString() + '.';
+      detailEl.textContent = detail;
+    }
+    if(manageBtn) manageBtn.style.display = 'block';
+  }
+
+  if(usageEl) {
+    var used = user.scansThisMonth || 0;
+    var lim = user.limits && user.limits.scansPerMonth;
+    usageEl.textContent = (lim && lim !== Infinity) ? used+'/'+lim+' scans used this month' : used+' scans this month \u2022 unlimited';
+  }
+
+  renderSubTierCards();
+}
+
+async function startCheckout(tier, interval) {
+  try {
+    var res = await fetch(API_BASE + '/stripe/checkout', {
+      method: 'POST', headers: getApiHeaders(),
+      body: JSON.stringify({tier: tier, interval: interval})
+    });
+    var data = await res.json();
+    if(data.url) window.location.href = data.url;
+    else showToast('Checkout failed: ' + (data.error||'Unknown error'));
+  } catch(e) { showToast('Checkout error: ' + e.message); }
+}
+
+async function openCustomerPortal() {
+  try {
+    var res = await fetch(API_BASE + '/stripe/portal', {method:'POST', headers:getApiHeaders()});
+    var data = await res.json();
+    if(data.url) window.location.href = data.url;
+    else showToast('Portal error: ' + (data.error||'Unknown'));
+  } catch(e) { showToast('Portal error: ' + e.message); }
+}
+
 window.onload = () => {
+  // Detect ?verified=true redirect from backend email verification
+  const _vp = new URLSearchParams(window.location.search);
+  const _wasVerified = _vp.get('verified') === 'true';
+  if (_wasVerified) {
+    history.replaceState({}, '', window.location.pathname);
+  }
+
   // Run migration FIRST before anything else
   const oldKey = localStorage.getItem('fif_api_key');
   if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
@@ -5433,9 +5553,17 @@ window.onload = () => {
     updateDashGreeting();
     loadUserInfo(); // best-effort — fails silently if backend not ready
     syncFromServer(); // best-effort — uses localStorage if offline
+    if (_wasVerified) setTimeout(() => showToast('✓ Email verified — welcome to Flippd!'), 400);
   } else {
     showSrcView('setup');
     setAuthMode('login');
+    if (_wasVerified) {
+      const _banner = document.getElementById('trial-banner');
+      if (_banner) {
+        _banner.textContent = '✓ Email verified — please log in to continue.';
+        _banner.style.display = 'block';
+      }
+    }
   }
 
   updateFeeHint();
@@ -5734,14 +5862,19 @@ var _origLogScan = typeof logScan==='function' ? logScan : null;
 function statsSubTab(sub) {
   var dash = document.getElementById('stats-view-dash');
   var pnl  = document.getElementById('stats-view-pnl');
+  var sub_ = document.getElementById('stats-view-subscription');
   var bdash = document.getElementById('stats-sub-dash');
   var bpnl  = document.getElementById('stats-sub-pnl');
+  var bsub  = document.getElementById('stats-sub-subscription');
   if(dash) dash.style.display = sub==='dash'?'block':'none';
   if(pnl)  pnl.style.display  = sub==='pnl'?'block':'none';
+  if(sub_) sub_.style.display  = sub==='subscription'?'block':'none';
   if(bdash) bdash.classList.toggle('active', sub==='dash');
   if(bpnl)  bpnl.classList.toggle('active', sub==='pnl');
+  if(bsub)  bsub.classList.toggle('active', sub==='subscription');
   if(sub==='pnl') { sPnlRender(); sPnlTab('sales'); }
   if(sub==='dash') renderDashboard();
+  if(sub==='subscription') renderSubscriptionPanel();
 }
 
 function sPnlTab(tab) {
