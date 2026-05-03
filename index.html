@@ -1,12 +1,324 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=Flippd_v5.html" />
-  <title>Flippd</title>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX', { 'anonymize_ip': true });
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flippd — AI Reseller OS | Early Access</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'IBM Plex Mono', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f2ece0 0%, #fdf8ef 100%);
+      color: #1e1208;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #c8b89a;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: #8B6A3E;
+    }
+    .nav-login {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #8B6A3E;
+      text-decoration: none;
+      padding: 8px 16px;
+      border: 1px solid #c8b89a;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .nav-login:hover { background: #fffcf5; border-color: #a08060; }
+    .container { max-width: 700px; margin: 40px auto; padding: 0 20px; }
+    .hero { text-align: center; margin-bottom: 60px; }
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(32px, 8vw, 56px);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      color: #1e1208;
+    }
+    .badge {
+      display: inline-block;
+      background: #e6fff2;
+      border: 1px solid #00993d;
+      color: #00bb66;
+      padding: 8px 16px;
+      border-radius: 24px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .subtitle { font-size: 16px; color: #5c3d20; margin-bottom: 32px; line-height: 1.7; }
+    .cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
+    button, a.btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px solid #c8b89a;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-primary { background: #00bb66; color: #fff; border-color: #00bb66; }
+    .btn-primary:hover { background: #00994d; border-color: #00994d; }
+    .btn-secondary { background: transparent; color: #8B6A3E; border-color: #c8b89a; }
+    .btn-secondary:hover { background: #fffcf5; border-color: #a08060; }
+    .highlights { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 48px; }
+    .highlight-box {
+      background: #fffcf5;
+      border: 1px solid #c8b89a;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    .highlight-number { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 900; color: #8B6A3E; margin-bottom: 4px; }
+    .highlight-label { font-size: 12px; color: #8a6e50; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .features { background: #fffcf5; border: 1px solid #c8b89a; border-radius: 8px; padding: 32px; margin-bottom: 48px; }
+    .features h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 900; margin-bottom: 24px; color: #1e1208; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .feature-item { padding: 16px 0; border-bottom: 1px solid #e6e0d6; }
+    .feature-item:last-child { border-bottom: none; }
+    .feature-item strong { color: #8B6A3E; font-weight: 700; display: block; margin-bottom: 4px; }
+    .feature-item span { font-size: 13px; color: #5c3d20; }
+    .pricing-section { background: #fffcf5; border: 1px solid #c8b89a; border-radius: 8px; padding: 32px; margin-bottom: 48px; text-align: center; }
+    .pricing-section h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 900; margin-bottom: 12px; color: #1e1208; }
+    .pricing-note { font-size: 13px; color: #5c3d20; margin-bottom: 20px; }
+    .tiers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .tier { background: #f2ece0; border: 1px solid #c8b89a; border-radius: 6px; padding: 16px; text-align: center; }
+    .tier-name { font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 4px; color: #1e1208; }
+    .tier-price { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 900; color: #8B6A3E; margin-bottom: 8px; }
+    .tier-desc { font-size: 11px; color: #5c3d20; }
+    .signup-section { background: #fffcf5; border: 2px solid #8B6A3E; border-radius: 8px; padding: 40px 32px; text-align: center; }
+    .signup-section h3 { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 900; margin-bottom: 12px; color: #1e1208; }
+    .signup-section p { color: #5c3d20; margin-bottom: 28px; font-size: 14px; line-height: 1.6; }
+    .form-group { margin-bottom: 16px; }
+    input[type="email"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #c8b89a;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus { outline: none; border-color: #8B6A3E; box-shadow: 0 0 0 3px rgba(139,106,62,0.1); }
+    .form-group button {
+      width: 100%;
+      padding: 14px 24px;
+      background: #00bb66;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .form-group button:hover { background: #00994d; }
+    .form-message { margin-top: 12px; font-size: 12px; color: #5c3d20; }
+    footer { text-align: center; padding: 40px 20px; color: #8a6e50; font-size: 12px; }
+    @media (max-width: 540px) {
+      .container { margin: 20px auto; }
+      .hero h1 { font-size: 36px; }
+      .cta-buttons { flex-direction: column; }
+      button, a.btn { width: 100%; }
+      .highlights { grid-template-columns: 1fr; }
+      .tiers { grid-template-columns: 1fr; }
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <script>window.location.replace('Flippd_v5.html' + window.location.hash);</script>
-  <p>Redirecting to <a href="Flippd_v5.html">Flippd</a>...</p>
+  <header>
+    <div class="logo">FLIPPD</div>
+    <a href="#signup" class="nav-login">Log In</a>
+  </header>
+
+  <div class="container">
+    <section class="hero">
+      <span class="badge">Limited Early Access</span>
+      <h1>The AI Reseller OS</h1>
+      <p class="subtitle">Flippd is the AI operating system for resellers. Scan any item at a thrift store, get an instant FLIP or PASS, auto-generate your listing, and track every dollar — all from your phone.</p>
+      <div class="cta-buttons">
+        <button class="btn-primary" onclick="scrollToSignup()">Get Early Access</button>
+      </div>
+    </section>
+
+    <section class="highlights">
+      <div class="highlight-box">
+        <div class="highlight-number">8 sec</div>
+        <div class="highlight-label">FLIP or PASS</div>
+      </div>
+      <div class="highlight-box">
+        <div class="highlight-number">1 app</div>
+        <div class="highlight-label">Entire reseller workflow</div>
+      </div>
+      <div class="highlight-box">
+        <div class="highlight-number">AI</div>
+        <div class="highlight-label">Profit math + listings</div>
+      </div>
+      <div class="highlight-box">
+        <div class="highlight-number">Real-time</div>
+        <div class="highlight-label">Inventory + analytics</div>
+      </div>
+    </section>
+
+    <section class="features">
+      <h2>Everything you need to source better</h2>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <strong>🔍 Shelf Scan</strong>
+          <span>One wide photo ranks every item by profit potential</span>
+        </div>
+        <div class="feature-item">
+          <strong>💰 Real Profit Math</strong>
+          <span>Account for your fees, packaging, taxes, and COGS</span>
+        </div>
+        <div class="feature-item">
+          <strong>⚡ Instant Decisions</strong>
+          <span>Conservative, Balanced, or Aggressive — choose your risk</span>
+        </div>
+        <div class="feature-item">
+          <strong>📦 Track Inventory</strong>
+          <span>Add items as you scan, manage what's listed and sold</span>
+        </div>
+        <div class="feature-item">
+          <strong>✍️ AI Listings</strong>
+          <span>Generate professional eBay titles and descriptions instantly</span>
+        </div>
+        <div class="feature-item">
+          <strong>📊 Analytics</strong>
+          <span>Know which categories are most profitable for you</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing-section">
+      <h2>Simple, transparent pricing</h2>
+      <p class="pricing-note">7 days free. No credit card required. Cancel anytime.</p>
+      <div class="tiers">
+        <div class="tier">
+          <div class="tier-name">Scout</div>
+          <div class="tier-price">FREE</div>
+          <div class="tier-desc">25 scans/mo, 10 items</div>
+        </div>
+        <div class="tier">
+          <div class="tier-name">Hustle</div>
+          <div class="tier-price">$19/mo</div>
+          <div class="tier-desc">Unlimited scans, 500 items</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="signup-section" id="signup">
+      <h3>Ready to flip smarter?</h3>
+      <p>Get your magic link below. We'll email you instant access to 7 days of full features.</p>
+
+      <div id="form-section">
+        <div class="form-group">
+          <input type="email" id="email-input" name="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div id="form-error" style="display:none;background:#ffe6e6;border:1px solid #ff3333;border-radius:6px;color:#cc0000;font-size:13px;margin-top:12px;padding:10px 12px;font-family:inherit;font-weight:500;line-height:1.4">
+          ⚠️ <span id="error-text"></span>
+        </div>
+        <div class="form-group">
+          <button id="submit-btn" onclick="submitEmailForm()">Get Early Access →</button>
+        </div>
+        <div class="form-message">No password. No credit card. Just email login.</div>
+      </div>
+
+      <div id="success-section" style="display:none;text-align:center;padding:16px 0">
+        <div style="font-size:32px;margin-bottom:12px">📬</div>
+        <div style="font-weight:700;font-size:18px;margin-bottom:8px;color:#00bb66">Check your email!</div>
+        <p style="font-size:13px;opacity:0.8;line-height:1.6;margin-bottom:20px">We sent you a login link to get started.<br>Check your spam folder if you don't see it.</p>
+        <button onclick="resetForm()" style="background:transparent;border:1px solid #c8b89a;color:#8B6A3E;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">Try another email</button>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <p>Made for solo resellers. © 2026 Flippd.</p>
+  </footer>
+
+  <script>
+    var flippd_variant = 'featurerich';
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'page_view', { 'variant': flippd_variant, 'page_title': 'Flippd Landing' });
+    }
+    var scrollTracked = { 25: false, 50: false, 75: false, 100: false };
+    document.addEventListener('scroll', function() {
+      var scrollH = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollH <= 0) return;
+      var pct = Math.round((window.scrollY / scrollH) * 100);
+      [25, 50, 75, 100].forEach(function(mark) {
+        if (pct >= mark && !scrollTracked[mark]) {
+          scrollTracked[mark] = true;
+          if (typeof gtag !== 'undefined') gtag('event', 'scroll_' + mark + 'pct', { 'variant': flippd_variant });
+        }
+      });
+    });
+    function scrollToSignup() {
+      document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
+    }
+    async function submitEmailForm() {
+      const email = document.getElementById('email-input').value.trim();
+      if (!email || !email.includes('@')) { showFormError('Enter a valid email address'); return; }
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.style.opacity = '0.7'; btn.textContent = '⏳ Sending...';
+      try {
+        const res = await fetch('https://flippd-backend.replit.app/auth/request-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (typeof gtag !== 'undefined') gtag('event', 'email_signup', { 'variant': flippd_variant, 'form_location': 'landing_page' });
+          document.getElementById('form-section').style.display = 'none';
+          document.getElementById('success-section').style.display = 'block';
+        } else {
+          showFormError(data.error || 'Something went wrong. Try again.');
+          btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Get Early Access →';
+        }
+      } catch (err) {
+        showFormError('Network error — check your connection.');
+        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Get Early Access →';
+      }
+    }
+    function showFormError(msg) {
+      const errorEl = document.getElementById('form-error');
+      const textEl = document.getElementById('error-text');
+      if (errorEl && textEl) { textEl.textContent = msg; errorEl.style.display = 'block'; }
+    }
+    function resetForm() {
+      document.getElementById('form-section').style.display = 'block';
+      document.getElementById('success-section').style.display = 'none';
+      document.getElementById('email-input').value = '';
+      document.getElementById('form-error').style.display = 'none';
+    }
+  </script>
 </body>
 </html>
