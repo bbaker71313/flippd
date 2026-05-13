@@ -1861,7 +1861,19 @@ let activeTab = 'sourcing';
 // STORAGE
 // ══════════════════════════════════════════════════
 (function(){try{const O='ebayhq_items_v1',N='flippd_items_v1';if(!localStorage.getItem(N)&&localStorage.getItem(O)){localStorage.setItem(N,localStorage.getItem(O));localStorage.removeItem(O);}}catch(e){}})();
-const STORAGE_KEY = 'flippd_items_v1';
+const STORAGE_KEY_BASE = 'flippd_items_v1';
+let STORAGE_KEY = STORAGE_KEY_BASE; // updated after login
+
+// User-scope all storage keys so each account has isolated data
+function getUserStorageKey(base) {
+  const uid = localStorage.getItem('flippd_user_id') || 'guest';
+  return base + '_' + uid;
+}
+
+function updateStorageKeys() {
+  const uid = localStorage.getItem('flippd_user_id') || 'guest';
+  STORAGE_KEY = STORAGE_KEY_BASE + '_' + uid;
+}
 
 // ══════════════════════════════════════════════════
 // INDEXEDDB PHOTO STORE — keeps base64 out of localStorage
@@ -1973,10 +1985,10 @@ function loadItems() {
     }
 
     if (!saved.length) {
-      const hasBeenSeeded = localStorage.getItem('flippd_seeded');
+      const hasBeenSeeded = localStorage.getItem(getUserStorageKey('flippd_seeded'));
       if (!hasBeenSeeded) {
         items = SEED_ITEMS.map(i=>({...i, category: migrateCategory(i.category), photos: i.photos||[]}));
-        localStorage.setItem('flippd_seeded', '1');
+        localStorage.setItem(getUserStorageKey('flippd_seeded'), '1');
       } else {
         items = [];
       }
@@ -2011,7 +2023,7 @@ function saveItems() {
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       try {
-        localStorage.removeItem('fef_growth_cache');
+        localStorage.removeItem(getUserStorageKey('fef_growth_cache'));
         localStorage.removeItem('flippd_events');
         localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
       } catch(e2) {
@@ -2136,9 +2148,9 @@ function switchTab(tab) {
     try { 
       sessionStorage.removeItem('flippd_preview_src');
       // Limit activity log to last 30 entries and 7 days
-      const act = JSON.parse(localStorage.getItem('fif_activity_log')||'[]');
+      const act = JSON.parse(localStorage.getItem(getUserStorageKey('fif_activity_log'))||'[]');
       if (act.length > 30) {
-        localStorage.setItem('fif_activity_log', JSON.stringify(act.slice(-30)));
+        localStorage.setItem(getUserStorageKey('fif_activity_log'), JSON.stringify(act.slice(-30)));
       }
     } catch(e) {}
   }
@@ -3649,7 +3661,7 @@ function renderDashboard() {
 
   // ── Sourcing scan log (today) ──
   const today = new Date().toDateString();
-  const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const scanLog = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   const todayScans = scanLog.filter(s=>new Date(s.ts).toDateString()===today);
   const todayBuys  = todayScans.filter(s=>s.dec==='BUY'||s.dec==='HOT').length;
   const todayPasses= todayScans.filter(s=>s.dec==='PASS').length;
@@ -3857,7 +3869,7 @@ const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgC
 let S = loadSrcSettings();
 
 function loadSrcSettings() {
-  try { const s=localStorage.getItem('fif_settings'); return s?{...DEFAULTS,...JSON.parse(s)}:{...DEFAULTS}; }
+  try { const s=localStorage.getItem(getUserStorageKey('fif_settings')); return s?{...DEFAULTS,...JSON.parse(s)}:{...DEFAULTS}; }
   catch { return {...DEFAULTS}; }
 }
 function updateFeeHint() {
@@ -3868,11 +3880,11 @@ function updateFeeHint() {
   if (scanHint) scanHint.textContent = `Identifies item · Pulls sold comps · ${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} pkg`;
 }
 function saveSettings() {
-  localStorage.setItem('fif_settings', JSON.stringify(S));
+  localStorage.setItem(getUserStorageKey('fif_settings'), JSON.stringify(S));
   S = loadSrcSettings();
   updateFeeHint(); updateStaleBadge(); showSrcView('input'); showToast('✓ Settings saved');
 }
-function resetSettings() { S={...DEFAULTS}; localStorage.removeItem('fif_settings'); populateSettingsUI(); }
+function resetSettings() { S={...DEFAULTS}; localStorage.removeItem(getUserStorageKey('fif_settings')); populateSettingsUI(); }
 
 function showSourcingSettings() {
   if (activeTab !== 'sourcing') switchTab('sourcing');
@@ -4138,8 +4150,8 @@ async function analyze() {
     logScan(dec, fin.roi, cost, false);
     // Store item name and potential profit in scan log
     try {
-      const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
-      if (scanLog.length) { scanLog[0].name = item.item_name; scanLog[0].potentialProfit = fin.profit; localStorage.setItem('fef_scan_log', JSON.stringify(scanLog)); }
+      const scanLog = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
+      if (scanLog.length) { scanLog[0].name = item.item_name; scanLog[0].potentialProfit = fin.profit; localStorage.setItem(getUserStorageKey('fef_scan_log'), JSON.stringify(scanLog)); }
     } catch(e){}
     renderSingle({item,cost,fin,dec});
     renderScanHistory();
@@ -4294,11 +4306,11 @@ function mapToInvCategory(aiCat) {
 
 function logScan(dec, roi, cost, bought) {
   // Instructions now always visible
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   log.push({ ts: Date.now(), dec, roi: roi||0, cost: cost||0, bought: !!bought });
   // Keep last 500 scans
   if (log.length > 500) log.splice(0, log.length - 500);
-  localStorage.setItem('fef_scan_log', JSON.stringify(log));
+  localStorage.setItem(getUserStorageKey('fef_scan_log'), JSON.stringify(log));
 }
 
 function buyItem() {
@@ -4306,11 +4318,11 @@ function buyItem() {
   try {
     const {item, cost, fin, dec} = lastSingleResult;
     // Log scan name for history
-    const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+    const scanLog = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
     if (scanLog.length && !scanLog[0].name) {
       scanLog[0].name = item.item_name;
       scanLog[0].potentialProfit = fin.profit;
-      localStorage.setItem('fef_scan_log', JSON.stringify(scanLog));
+      localStorage.setItem(getUserStorageKey('fef_scan_log'), JSON.stringify(scanLog));
     }
     showBuyConfirm(item, cost, fin, dec);
   } catch(e) {
@@ -4782,7 +4794,7 @@ function renderScanHistory() {
   const el = document.getElementById('scan-history');
   if (!el) return;
   const today = new Date().toDateString();
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   if (log.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:20px 16px;color:var(--muted);font-size:12px;line-height:1.6">Your scan history will appear here.<br>Scan an item above to get started.</div>';
     return;
@@ -5141,9 +5153,17 @@ async function loginUser() {
       const jwt = data.token || data.jwt;
       localStorage.setItem('flippd_jwt', jwt);
       localStorage.setItem('fif_api_key', jwt);
+      // Store user ID for per-user localStorage scoping
+      if (data.user?.id) localStorage.setItem('flippd_user_id', String(data.user.id));
+      if (data.user?.username) localStorage.setItem('flippd_username', data.user.username);
+      // Update storage keys to be scoped to this user
+      updateStorageKeys();
       // Store name for greeting
       if (data.user?.name) localStorage.setItem('flippd_user_name', data.user.name);
       apiKey = jwt;
+      // Reload items scoped to this user
+      loadItems();
+      hydratePhotos();
       updateDashGreeting();
       showSrcView('input');
       showToast('✓ Welcome back' + (data.user?.name ? ', ' + data.user.name + '!' : '!'));
@@ -5316,7 +5336,7 @@ function showKpiDrillDown(type) {
 
 function showSourcingDrillDown() {
   const today = new Date().toDateString();
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   const scans = log.filter(s=>new Date(s.ts).toDateString()===today);
   const rows = scans.length ? scans.map(s=>`
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
@@ -5557,6 +5577,9 @@ window.onload = () => {
     localStorage.removeItem('flippd_jwt');
     apiKey = '';
   }
+
+  // Set user-scoped storage keys before loading data
+  updateStorageKeys();
 
   // Load local data immediately (instant — no waiting for server)
   loadItems();
@@ -5845,7 +5868,7 @@ function exportFlippdBackup() {
     exportedAt: new Date().toISOString(),
     items: items,
     expenses: pnlExpenses || [],
-    scanLog: (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })(),
+    scanLog: (() => { try { return JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]'); } catch { return []; } })(),
     settings: S,
   };
   const json = JSON.stringify(backup, null, 2);
@@ -5868,10 +5891,10 @@ function exportFlippdBackup() {
 // ── Analytics event tracking ─────────────────────────────────────────────────
 function trackEvent(name, props) {
   try {
-    var events = JSON.parse(localStorage.getItem('flippd_events')||'[]');
+    var events = JSON.parse(localStorage.getItem(getUserStorageKey('flippd_events'))||'[]');
     events.push(Object.assign({event:name,ts:Date.now()},props||{}));
     if(events.length>500) events.splice(0,events.length-500);
-    localStorage.setItem('flippd_events',JSON.stringify(events));
+    localStorage.setItem(getUserStorageKey('flippd_events'),JSON.stringify(events));
   } catch(e){}
 }
 
