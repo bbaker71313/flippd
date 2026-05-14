@@ -966,6 +966,8 @@ body::before{
     <div style="text-align:center;margin-top:12px">
       <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Change Access Code</button>
     </div>
+    <button onclick="signOut()" style="width:100%;padding:12px;margin-top:20px;background:#c0392b;border:none;border-radius:8px;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer">Sign Out</button>
+    <button onclick="deleteAccount()" style="width:100%;padding:10px;margin-top:8px;background:transparent;border:1.5px solid #c0392b;border-radius:8px;color:#c0392b;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Delete Account</button>
   </div>
 
   <!-- INPUT -->
@@ -1592,6 +1594,8 @@ body::before{
     </div>
 
     <button id="sub-manage-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--soft);padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">&#x2699; Manage Billing &amp; Subscription</button>
+
+    <button id="sub-cancel-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:10px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">Cancel Subscription</button>
 
     <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
       <button id="sub-bill-month" onclick="setSubInterval('month')" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff">Monthly</button>
@@ -5543,6 +5547,8 @@ function renderSubscriptionPanel() {
     if(badgeEl){ badgeEl.textContent='ACTIVE'; badgeEl.style.background='var(--green-bg)'; badgeEl.style.color='var(--green-border)'; }
     if(detailEl){ var det=tierName+' plan active.'; if(user.subscription&&user.subscription.currentPeriodEnd) det+=' Renews '+new Date(user.subscription.currentPeriodEnd).toLocaleDateString()+'.'; detailEl.textContent=det; }
     if(manageBtn) manageBtn.style.display='block';
+    var cancelBtn = document.getElementById('sub-cancel-btn');
+    if(cancelBtn) cancelBtn.style.display='block';
   }
   if(usageEl){ var used=user.scansThisMonth||0; var lim=user.limits&&user.limits.scansPerMonth; usageEl.textContent=(lim&&lim!==Infinity)?used+'/'+lim+' scans used this month':used+' scans this month \u2022 unlimited'; }
   renderSubTierCards();
@@ -6013,6 +6019,36 @@ function sPnlMiles() {
   document.getElementById('spnl-miles').value='';
   sPnlRender();
   showToast('✓ $'+amt.toFixed(2)+' logged for '+miles+' miles');
+}
+
+function signOut() {
+  ['fif_api_key','flippd_jwt','flippd_user_id','flippd_username','flippd_user_name'].forEach(function(k){ localStorage.removeItem(k); });
+  apiKey = '';
+  window._currentUser = null;
+  showSrcView('setup');
+  setAuthMode('login');
+  showToast('You have been signed out');
+}
+
+async function deleteAccount() {
+  if (!confirm('Are you sure? This will permanently delete your account and all data. This cannot be undone.')) return;
+  try {
+    var res = await fetch('https://flippd-backend.replit.app/auth/delete-account', {
+      method: 'POST',
+      headers: getApiHeaders()
+    });
+    if (res.ok) {
+      ['fif_api_key','flippd_jwt','flippd_user_id','flippd_username','flippd_user_name'].forEach(function(k){ localStorage.removeItem(k); });
+      apiKey = '';
+      window._currentUser = null;
+      showSrcView('setup');
+      showToast('Your account has been deleted');
+    } else {
+      showToast('Failed to delete account. Please contact support.');
+    }
+  } catch(e) {
+    showToast('Failed to delete account. Please contact support.');
+  }
 }
 
 </script>
