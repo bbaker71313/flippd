@@ -3959,7 +3959,7 @@ function getApiHeaders() {
   };
 }
 let imgB64 = null, imgType = 'image/jpeg', srcMode = 'single';
-const MAX_IMG_SIZE = 500000; // 500KB limit for base64 image
+const MAX_IMG_SIZE = 400000; // 400KB limit for base64 image
 
 function showSrcView(n) {
   ['setup','settings','input','results','shelf'].forEach(v => {
@@ -4005,37 +4005,47 @@ function triggerImageInput(type) {
 function handleImage(e) {
   const file = (e.target || e).files && (e.target || e).files[0];
   if (!file) return;
-  imgType = file.type || 'image/jpeg';
+  imgType = 'image/jpeg';
   const r = new FileReader();
   r.onload = ev => {
     const img = new Image();
     img.onload = () => {
-      const c = document.createElement('canvas');
-      const MAX = 1200; let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      let out = c.toDataURL('image/jpeg', 0.85);
-      
-      // If still too large, reduce quality further
-      if (out.length > MAX_IMG_SIZE) {
-        out = c.toDataURL('image/jpeg', 0.7);
+      try {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        let out = c.toDataURL('image/jpeg', 0.75);
+        if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.6);
+        if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.4);
+        if (out.length > MAX_IMG_SIZE) {
+          // Last resort: shrink further
+          const c2 = document.createElement('canvas');
+          c2.width = Math.round(w * 0.6); c2.height = Math.round(h * 0.6);
+          c2.getContext('2d').drawImage(img, 0, 0, c2.width, c2.height);
+          out = c2.toDataURL('image/jpeg', 0.5);
+          c2.width = 0; c2.height = 0;
+        }
+        imgB64 = out.split(',')[1];
+        try { sessionStorage.setItem('flippd_preview_src', out); } catch(e) {}
+        showPreview(out);
+        c.width = 0; c.height = 0;
+        img.src = '';
+      } catch(err) {
+        showToast('Could not process photo. Please try a smaller image.');
+        img.src = '';
       }
-      if (out.length > MAX_IMG_SIZE) {
-        out = c.toDataURL('image/jpeg', 0.5);
-      }
-      
-      imgB64 = out.split(',')[1]; imgType = 'image/jpeg';
-      // Only store base64 part, not the data: prefix
-      try { sessionStorage.setItem('flippd_preview_src', out); } catch(e) {}
-      showPreview(out);
-      
-      // Cleanup: garbage collect canvas and img
-      c.width = 0; c.height = 0;
-      img.src = '';
     };
+    img.onerror = () => showToast('Could not load image. Please try again.');
     img.src = ev.target.result;
   };
+  r.onerror = () => showToast('Could not read file. Please try again.');
   r.readAsDataURL(file);
 }
 
