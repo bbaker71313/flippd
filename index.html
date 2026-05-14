@@ -1155,7 +1155,7 @@ body::before{
 
   <!-- DETAIL VIEW -->
   <div id="inv-view-detail" style="display:none">
-    <button class="back-btn" id="inv-detail-back" onclick="showInvView('list')">← Back</button>
+    <button class="back-btn" id="inv-detail-back" onclick="showInvView(prevInvView)">← Back</button>
     <div id="inv-detail-content"></div>
   </div>
 
@@ -2368,7 +2368,7 @@ function showDetail(id) {
       ${soldBtnHtml}
       <button class="sm-btn sm-btn-danger" onclick="deleteItem(${item.id})">Delete</button>
     </div>`;
-  document.getElementById('inv-detail-back').onclick = () => showInvView('list');
+  document.getElementById('inv-detail-back').onclick = () => showInvView(prevInvView);
   showInvView('detail');
 }
 
@@ -2690,7 +2690,9 @@ function cancelInvForm() {
   showInvView(invListFilter.type === 'all' ? 'home' : 'list');
 }
 
+let prevInvView = 'home';
 function showInvView(v) {
+  if (v !== 'detail') prevInvView = v;
   ['home','list','add','detail'].forEach(n => {
     const el = document.getElementById('inv-view-' + n);
     if (el) el.style.display = n === v ? 'block' : 'none';
@@ -4909,12 +4911,10 @@ function markExported(ids) {
 }
 
 function getCsvCandidates() {
-  const cutoff = Date.now() - (csvWindowHours * 3600000);
   const exported = getExportedIds();
   return items.filter(i =>
-    i.status === 'Unlisted' &&
-    !exported.has(String(i.id)) &&
-    new Date(i.createdAt||0).getTime() >= cutoff
+    (i.status === 'Unlisted' || i.status === 'Ready to Export') &&
+    !exported.has(String(i.id))
   );
 }
 
@@ -4926,12 +4926,14 @@ function renderCsvPreview() {
   if (!countEl) return; // tab not in DOM yet
   const candidates = getCsvCandidates();
   const lastExport = localStorage.getItem('fef_last_csv_export');
-  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} ready to export`;
+  const totalUnlisted = items.filter(i => i.status === 'Unlisted' || i.status === 'Ready to Export').length;
+  const alreadyExported = totalUnlisted - candidates.length;
+  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} ready to export` + (alreadyExported > 0 ? ` (${alreadyExported} already exported)` : '');
   lastEl.textContent  = lastExport ? 'Last export: ' + lastExport : 'No exports yet';
   if (btnEl) btnEl.disabled = candidates.length === 0;
   if (!listEl) return;
   if (!candidates.length) {
-    listEl.innerHTML = '<div class="csv-empty">No new Unlisted items in the selected window.<br>Try a wider time range or add more items.</div>';
+    listEl.innerHTML = '<div class="csv-empty">No Unlisted items ready to export.<br>Add items and set their status to Unlisted to export them.</div>';
     return;
   }
   listEl.innerHTML = candidates.map(i => `
@@ -5596,27 +5598,6 @@ function renderSubscriptionPanel() {
   }
   if(usageEl){ var used=user.scansThisMonth||0; var lim=user.limits&&user.limits.scansPerMonth; usageEl.textContent=(lim&&lim!==Infinity)?used+'/'+lim+' scans used this month':used+' scans this month \u2022 unlimited'; }
   renderSubTierCards();
-}
-
-async function startCheckout(tier, interval) {
-  try {
-    var res = await fetch(API_BASE + '/stripe/checkout', {
-      method: 'POST', headers: getApiHeaders(),
-      body: JSON.stringify({ tier: tier, interval: interval })
-    });
-    var data = await res.json();
-    if(data.url) window.location.href = data.url;
-    else showToast('Checkout failed: ' + (data.error||'Unknown error'));
-  } catch(e) { showToast('Checkout error: ' + e.message); }
-}
-
-async function openCustomerPortal() {
-  try {
-    var res = await fetch(API_BASE + '/stripe/portal', {method:'POST', headers:getApiHeaders()});
-    var data = await res.json();
-    if(data.url) window.location.href = data.url;
-    else showToast('Portal error: ' + (data.error||'Unknown'));
-  } catch(e) { showToast('Portal error: ' + e.message); }
 }
 
 window.onload = () => {
