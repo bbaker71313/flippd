@@ -3858,6 +3858,7 @@ function showToast(msg) {
 const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced'};
 let S = loadSrcSettings();
 
+const _origShowSettings=window.showSourcingSettings;
 let _ebaySyncDays = 90;
 
 function showEbaySyncPanel(){
