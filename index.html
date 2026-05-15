@@ -829,7 +829,7 @@ body::before{
 
 
 <!-- TRIAL / TIER BANNER (sticky, shows for trial + scout users) -->
-<div id="tier-banner" style="display:none;background:var(--green-bg);border-bottom:2px solid var(--green-border);padding:7px 16px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text);position:sticky;top:56px;z-index:50;align-items:center;justify-content:center;gap:8px">
+<div id="tier-banner" style="display:none;background:var(--green-bg);border-bottom:2px solid var(--green-border);padding:7px 16px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text);position:sticky;top:56px;z-index:50;display:flex;align-items:center;justify-content:center;gap:8px">
   <span id="tier-banner-text"></span>
   <button id="tier-banner-cta" onclick="switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)" style="background:var(--green);color:#fff;border:none;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">Upgrade</button>
 </div>
@@ -846,7 +846,7 @@ body::before{
 <!-- ═══════════════════════════════════════ -->
 <!-- TAB: SOURCING -->
 <!-- ═══════════════════════════════════════ -->
-<div class="tab-panel active" id="panel-sourcing">
+<div class="tab-panel" id="panel-sourcing">
 
   <!-- SETUP -->
   <div id="src-view-setup">
@@ -956,6 +956,11 @@ body::before{
       </div>
     </div>
     <div class="card">
+      <div class="card-title">🔗 eBay Account</div>
+      <button class="btn btn-green" onclick="ebayOAuthStart()" style="width:100%;margin-bottom:0">Connect eBay Account</button>
+      <p style="color:var(--muted);font-size:11px;margin-top:8px;line-height:1.5">Sync listings and pull real-time sales data.</p>
+    </div>
+    <div class="card">
       <div class="card-title">🧠 Sourcing Style</div>
       <label class="radio-row" id="style-conservative"><input type="radio" name="style" value="conservative" onchange="updateStyle('conservative')"><div><strong>Conservative</strong> — Only clear winners</div></label>
       <label class="radio-row" id="style-balanced"><input type="radio" name="style" value="balanced" checked onchange="updateStyle('balanced')"><div><strong>Balanced</strong> — Default, good mix</div></label>
@@ -964,16 +969,18 @@ body::before{
     <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
     <div style="text-align:center;margin-top:12px">
-      <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline"><div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
-<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🛒 eBay Account</div>
-<div id="ebay-status-display" style="font-size:12px;color:var(--muted);margin-bottom:10px">Checking...</div>
-<button id="ebay-connect-btn" class="btn btn-green" style="width:100%;font-size:13px;padding:10px" onclick="ebayConnect()">Connect eBay Account</button>
-<button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
-</div>
-⚙ Change Access Code</button>
+      <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Change Access Code</button>
     </div>
-    <button onclick="signOut()" style="width:100%;padding:12px;margin-top:20px;background:#c0392b;border:none;border-radius:8px;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer">Sign Out</button>
-    <button onclick="deleteAccount()" style="width:100%;padding:10px;margin-top:8px;background:transparent;border:1.5px solid #c0392b;border-radius:8px;color:#c0392b;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Delete Account</button>
+
+    <!-- ACCOUNT ACTIONS -->
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+      <button onclick="signOutUser()" style="width:100%;background:#cc2200;color:#fff;border:none;padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">
+        ⎋ Sign Out
+      </button>
+      <button onclick="deleteAccount()" style="width:100%;background:transparent;color:var(--red);border:1.5px solid var(--red);padding:11px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;opacity:0.7">
+        🗑 Delete Account
+      </button>
+    </div>
   </div>
 
   <!-- INPUT -->
@@ -1057,7 +1064,7 @@ body::before{
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
     <div id="inv-cat-cards" style="display:flex;flex-direction:column;gap:8px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
-      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('csv')">📤 Export to eBay</button> <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" id="ebay-sync-btn" onclick="showEbaySyncPanel()">🔄 eBay Sync</button>
+      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('csv')">📤 Export to eBay</button>
       <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">📥 Import / Restore</button>
     </div>
   </div>
@@ -1599,9 +1606,8 @@ body::before{
       <div id="sub-usage" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
     </div>
 
-    <button id="sub-manage-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--soft);padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">&#x2699; Manage Billing &amp; Subscription</button>
-
-    <button id="sub-cancel-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:10px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">Cancel Subscription</button>
+    <button id="sub-manage-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--soft);padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px">&#x2699; Manage Billing &amp; Subscription</button>
+    <button id="sub-cancel-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:transparent;border:1.5px solid var(--red);color:var(--red);padding:11px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px;opacity:0.75">Cancel Subscription</button>
 
     <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
       <button id="sub-bill-month" onclick="setSubInterval('month')" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff">Monthly</button>
@@ -1871,7 +1877,19 @@ let activeTab = 'sourcing';
 // STORAGE
 // ══════════════════════════════════════════════════
 (function(){try{const O='ebayhq_items_v1',N='flippd_items_v1';if(!localStorage.getItem(N)&&localStorage.getItem(O)){localStorage.setItem(N,localStorage.getItem(O));localStorage.removeItem(O);}}catch(e){}})();
-const STORAGE_KEY = 'flippd_items_v1';
+const STORAGE_KEY_BASE = 'flippd_items_v1';
+let STORAGE_KEY = STORAGE_KEY_BASE; // updated after login
+
+// User-scope all storage keys so each account has isolated data
+function getUserStorageKey(base) {
+  const uid = localStorage.getItem('flippd_user_id') || 'guest';
+  return base + '_' + uid;
+}
+
+function updateStorageKeys() {
+  const uid = localStorage.getItem('flippd_user_id') || 'guest';
+  STORAGE_KEY = STORAGE_KEY_BASE + '_' + uid;
+}
 
 // ══════════════════════════════════════════════════
 // INDEXEDDB PHOTO STORE — keeps base64 out of localStorage
@@ -1983,10 +2001,10 @@ function loadItems() {
     }
 
     if (!saved.length) {
-      const hasBeenSeeded = localStorage.getItem('flippd_seeded');
+      const hasBeenSeeded = localStorage.getItem(getUserStorageKey('flippd_seeded'));
       if (!hasBeenSeeded) {
         items = SEED_ITEMS.map(i=>({...i, category: migrateCategory(i.category), photos: i.photos||[]}));
-        localStorage.setItem('flippd_seeded', '1');
+        localStorage.setItem(getUserStorageKey('flippd_seeded'), '1');
       } else {
         items = [];
       }
@@ -2021,7 +2039,7 @@ function saveItems() {
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       try {
-        localStorage.removeItem('fef_growth_cache');
+        localStorage.removeItem(getUserStorageKey('fef_growth_cache'));
         localStorage.removeItem('flippd_events');
         localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
       } catch(e2) {
@@ -2065,6 +2083,8 @@ async function syncFromServer() {
     const serverIds = new Set(serverItems.map(i => i.id));
     const localOnly = items.filter(i => !serverIds.has(i.id));
     items = [...serverItems, ...localOnly];
+    // Re-hydrate photos from IDB after merge
+    await hydratePhotos();
     saveItems();
     renderInventory();
     renderDashboard();
@@ -2083,6 +2103,8 @@ async function pushItemToServer(item) {
       headers: getApiHeaders(),
       body: JSON.stringify(itemForServer(item))
     });
+    // 403 = server tier limit — item saved locally, don't block user
+    if (res.status === 403) return;
     if (!res.ok) console.warn('Failed to push item to server:', res.status);
   } catch (err) {
     console.warn('Push to server failed:', err.message);
@@ -2142,9 +2164,9 @@ function switchTab(tab) {
     try { 
       sessionStorage.removeItem('flippd_preview_src');
       // Limit activity log to last 30 entries and 7 days
-      const act = JSON.parse(localStorage.getItem('fif_activity_log')||'[]');
+      const act = JSON.parse(localStorage.getItem(getUserStorageKey('fif_activity_log'))||'[]');
       if (act.length > 30) {
-        localStorage.setItem('fif_activity_log', JSON.stringify(act.slice(-30)));
+        localStorage.setItem(getUserStorageKey('fif_activity_log'), JSON.stringify(act.slice(-30)));
       }
     } catch(e) {}
   }
@@ -3655,7 +3677,7 @@ function renderDashboard() {
 
   // ── Sourcing scan log (today) ──
   const today = new Date().toDateString();
-  const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const scanLog = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   const todayScans = scanLog.filter(s=>new Date(s.ts).toDateString()===today);
   const todayBuys  = todayScans.filter(s=>s.dec==='BUY'||s.dec==='HOT').length;
   const todayPasses= todayScans.filter(s=>s.dec==='PASS').length;
@@ -3862,46 +3884,8 @@ function showToast(msg) {
 const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced'};
 let S = loadSrcSettings();
 
-let _ebaySyncDays = 30;
-function showEbaySyncPanel(){document.getElementById('ebay-sync-panel').style.display='flex';}
-function setSync(d){_ebaySyncDays=d;['30','60','90'].forEach(x=>{const b=document.getElementById('sync-'+x);b.style.background=x==d?'var(--accent)':'var(--card)';b.style.color=x==d?'#000':'var(--soft)';b.style.border=x==d?'none':'1.5px solid var(--border)';});}
-async function runEbaySync(){
-  const st=document.getElementById('sync-status');
-  st.textContent='Syncing with eBay...';
-  try{
-    const r=await fetch(API_BASE+'/ebay/sync?days='+_ebaySyncDays,{headers:getApiHeaders()});
-    const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Sync failed');
-    st.style.color='var(--green)';
-    st.textContent=`✓ Synced ${d.synced} items, ${d.soldUpdated} sold updates`;
-    setTimeout(()=>{document.getElementById('ebay-sync-panel').style.display='none';loadInventory();},2000);
-  }catch(e){st.style.color='var(--red)';st.textContent='✗ '+e.message;}
-}
-async function ebayConnect(){window.location.href=API_BASE+'/ebay/oauth/start';}
-async function ebayDisconnect(){
-  if(!confirm('Disconnect your eBay account?'))return;
-  const r=await fetch(API_BASE+'/ebay/disconnect',{method:'POST',headers:getApiHeaders()});
-  if(r.ok){showToast('eBay disconnected');checkEbayStatus();}
-}
-async function checkEbayStatus(){
-  try{
-    const r=await fetch(API_BASE+'/ebay/status',{headers:getApiHeaders()});
-    const d=await r.json();
-    const disp=document.getElementById('ebay-status-display');
-    const btn=document.getElementById('ebay-connect-btn');
-    const dis=document.getElementById('ebay-disconnect-btn');
-    if(!disp)return;
-    if(d.connected){disp.innerHTML='<span style="color:var(--green)">✓ Connected as <b>'+d.username+'</b></span>';btn.style.display='none';dis.style.display='block';}
-    else{disp.textContent='Not connected';btn.style.display='block';dis.style.display='none';}
-  }catch(e){}
-}
-const _origShowSettings=window.showSourcingSettings;
-window.showSourcingSettings=function(){if(_origShowSettings)_origShowSettings();checkEbayStatus();};
-(function(){const p=new URLSearchParams(location.search);if(p.get('ebay_connected')){showToast('✓ eBay connected!');history.replaceState({},'',location.pathname);}if(p.get('ebay_error')){showToast('✗ eBay error: '+p.get('ebay_error'));history.replaceState({},'',location.pathname);}})();
-
-
 function loadSrcSettings() {
-  try { const s=localStorage.getItem('fif_settings'); return s?{...DEFAULTS,...JSON.parse(s)}:{...DEFAULTS}; }
+  try { const s=localStorage.getItem(getUserStorageKey('fif_settings')); return s?{...DEFAULTS,...JSON.parse(s)}:{...DEFAULTS}; }
   catch { return {...DEFAULTS}; }
 }
 function updateFeeHint() {
@@ -3912,11 +3896,11 @@ function updateFeeHint() {
   if (scanHint) scanHint.textContent = `Identifies item · Pulls sold comps · ${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} pkg`;
 }
 function saveSettings() {
-  localStorage.setItem('fif_settings', JSON.stringify(S));
+  localStorage.setItem(getUserStorageKey('fif_settings'), JSON.stringify(S));
   S = loadSrcSettings();
   updateFeeHint(); updateStaleBadge(); showSrcView('input'); showToast('✓ Settings saved');
 }
-function resetSettings() { S={...DEFAULTS}; localStorage.removeItem('fif_settings'); populateSettingsUI(); }
+function resetSettings() { S={...DEFAULTS}; localStorage.removeItem(getUserStorageKey('fif_settings')); populateSettingsUI(); }
 
 function showSourcingSettings() {
   if (activeTab !== 'sourcing') switchTab('sourcing');
@@ -3963,7 +3947,7 @@ function getApiHeaders() {
   };
 }
 let imgB64 = null, imgType = 'image/jpeg', srcMode = 'single';
-const MAX_IMG_SIZE = 400000; // 400KB limit for base64 image
+const MAX_IMG_SIZE = 500000; // 500KB limit for base64 image
 
 function showSrcView(n) {
   ['setup','settings','input','results','shelf'].forEach(v => {
@@ -4015,26 +3999,26 @@ function handleImage(e) {
     const img = new Image();
     img.onload = () => {
       try {
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-          else { w = Math.round(w * MAX / h); h = MAX; }
-        }
+        const MAX = 600; let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
         const c = document.createElement('canvas');
         c.width = w; c.height = h;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        let out = c.toDataURL('image/jpeg', 0.75);
-        if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.6);
-        if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.4);
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        let out = c.toDataURL('image/jpeg', 0.72);
+        if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.55);
         if (out.length > MAX_IMG_SIZE) {
-          // Last resort: shrink further
           const c2 = document.createElement('canvas');
-          c2.width = Math.round(w * 0.6); c2.height = Math.round(h * 0.6);
+          c2.width = Math.round(w * 0.7); c2.height = Math.round(h * 0.7);
           c2.getContext('2d').drawImage(img, 0, 0, c2.width, c2.height);
-          out = c2.toDataURL('image/jpeg', 0.5);
+          out = c2.toDataURL('image/jpeg', 0.6);
           c2.width = 0; c2.height = 0;
+        }
+        if (out.length > MAX_IMG_SIZE) {
+          const c3 = document.createElement('canvas');
+          c3.width = Math.round(w * 0.5); c3.height = Math.round(h * 0.5);
+          c3.getContext('2d').drawImage(img, 0, 0, c3.width, c3.height);
+          out = c3.toDataURL('image/jpeg', 0.5);
+          c3.width = 0; c3.height = 0;
         }
         imgB64 = out.split(',')[1];
         try { sessionStorage.setItem('flippd_preview_src', out); } catch(e) {}
@@ -4046,10 +4030,8 @@ function handleImage(e) {
         img.src = '';
       }
     };
-    img.onerror = () => showToast('Could not load image. Please try again.');
     img.src = ev.target.result;
   };
-  r.onerror = () => showToast('Could not read file. Please try again.');
   r.readAsDataURL(file);
 }
 
@@ -4192,8 +4174,8 @@ async function analyze() {
     logScan(dec, fin.roi, cost, false);
     // Store item name and potential profit in scan log
     try {
-      const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
-      if (scanLog.length) { scanLog[0].name = item.item_name; scanLog[0].potentialProfit = fin.profit; localStorage.setItem('fef_scan_log', JSON.stringify(scanLog)); }
+      const scanLog = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
+      if (scanLog.length) { scanLog[0].name = item.item_name; scanLog[0].potentialProfit = fin.profit; localStorage.setItem(getUserStorageKey('fef_scan_log'), JSON.stringify(scanLog)); }
     } catch(e){}
     renderSingle({item,cost,fin,dec});
     renderScanHistory();
@@ -4348,11 +4330,11 @@ function mapToInvCategory(aiCat) {
 
 function logScan(dec, roi, cost, bought) {
   // Instructions now always visible
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   log.push({ ts: Date.now(), dec, roi: roi||0, cost: cost||0, bought: !!bought });
   // Keep last 500 scans
   if (log.length > 500) log.splice(0, log.length - 500);
-  localStorage.setItem('fef_scan_log', JSON.stringify(log));
+  localStorage.setItem(getUserStorageKey('fef_scan_log'), JSON.stringify(log));
 }
 
 function buyItem() {
@@ -4360,11 +4342,11 @@ function buyItem() {
   try {
     const {item, cost, fin, dec} = lastSingleResult;
     // Log scan name for history
-    const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+    const scanLog = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
     if (scanLog.length && !scanLog[0].name) {
       scanLog[0].name = item.item_name;
       scanLog[0].potentialProfit = fin.profit;
-      localStorage.setItem('fef_scan_log', JSON.stringify(scanLog));
+      localStorage.setItem(getUserStorageKey('fef_scan_log'), JSON.stringify(scanLog));
     }
     showBuyConfirm(item, cost, fin, dec);
   } catch(e) {
@@ -4836,7 +4818,7 @@ function renderScanHistory() {
   const el = document.getElementById('scan-history');
   if (!el) return;
   const today = new Date().toDateString();
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   if (log.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:20px 16px;color:var(--muted);font-size:12px;line-height:1.6">Your scan history will appear here.<br>Scan an item above to get started.</div>';
     return;
@@ -5195,9 +5177,17 @@ async function loginUser() {
       const jwt = data.token || data.jwt;
       localStorage.setItem('flippd_jwt', jwt);
       localStorage.setItem('fif_api_key', jwt);
+      // Store user ID for per-user localStorage scoping
+      if (data.user?.id) localStorage.setItem('flippd_user_id', String(data.user.id));
+      if (data.user?.username) localStorage.setItem('flippd_username', data.user.username);
+      // Update storage keys to be scoped to this user
+      updateStorageKeys();
       // Store name for greeting
       if (data.user?.name) localStorage.setItem('flippd_user_name', data.user.name);
       apiKey = jwt;
+      // Reload items scoped to this user
+      loadItems();
+      hydratePhotos();
       updateDashGreeting();
       showSrcView('input');
       showToast('✓ Welcome back' + (data.user?.name ? ', ' + data.user.name + '!' : '!'));
@@ -5370,7 +5360,7 @@ function showKpiDrillDown(type) {
 
 function showSourcingDrillDown() {
   const today = new Date().toDateString();
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]');
   const scans = log.filter(s=>new Date(s.ts).toDateString()===today);
   const rows = scans.length ? scans.map(s=>`
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
@@ -5503,6 +5493,70 @@ async function saveAndGenerateListing() {
 }
 
 // ══════════════════════════════════════════════════
+// eBay INTEGRATION STUBS
+// ══════════════════════════════════════════════════
+function ebayOAuthStart() {
+  showToast('⏳ Redirecting to eBay login...');
+  // TODO: Implement eBay OAuth2 flow
+  // 1. Get client ID from backend
+  // 2. Redirect to eBay OAuth URL
+  // 3. Handle callback in ebayOAuthCallback
+  const clientId = 'PROD-..'; // Will come from backend
+  const redirectUri = window.location.origin + '/';
+  const ebayAuthUrl = `https://auth.ebay.com/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fscope%2Fsell.inventory&state=${Date.now()}`;
+  // window.location.href = ebayAuthUrl;
+  showToast('eBay integration coming soon!');
+}
+
+function ebayOAuthCallback(code) {
+  // TODO: Exchange code for access token via backend
+  // POST /ebay/token {code, state}
+  console.log('eBay OAuth callback:', code);
+}
+
+function ebayPullListings(days = 90) {
+  // TODO: Pull listings from eBay
+  showToast('Syncing listings from eBay...');
+}
+
+// ══════════════════════════════════════════════════
+// ACCOUNT ACTIONS — Sign Out / Delete Account
+// ══════════════════════════════════════════════════
+function signOutUser() {
+  ['fif_api_key','flippd_jwt','flippd_user_id','flippd_username','flippd_user_name'].forEach(k => localStorage.removeItem(k));
+  apiKey = '';
+  window._currentUser = null;
+  currentUser = null;
+  items = [];
+  showSrcView('setup');
+  setAuthMode('login');
+  showToast('You have been signed out');
+}
+
+async function deleteAccount() {
+  if (!confirm('Are you sure? This will permanently delete your account and all data. This cannot be undone.')) return;
+  try {
+    const res = await fetch(API_BASE + '/auth/delete-account', {
+      method: 'POST',
+      headers: getApiHeaders()
+    });
+    if (res.ok) {
+      ['fif_api_key','flippd_jwt','flippd_user_id','flippd_username','flippd_user_name','flippd_seeded'].forEach(k => localStorage.removeItem(k));
+      apiKey = '';
+      window._currentUser = null;
+      items = [];
+      showSrcView('setup');
+      setAuthMode('login');
+      showToast('Your account has been deleted');
+    } else {
+      showToast('Failed to delete account. Please contact support.');
+    }
+  } catch(e) {
+    showToast('Failed to delete account. Please contact support.');
+  }
+}
+
+// ══════════════════════════════════════════════════
 // SUBSCRIPTION PANEL
 // ══════════════════════════════════════════════════
 var _subInterval = 'month';
@@ -5613,6 +5667,9 @@ window.onload = () => {
     localStorage.removeItem('flippd_jwt');
     apiKey = '';
   }
+
+  // Set user-scoped storage keys before loading data
+  updateStorageKeys();
 
   // Load local data immediately (instant — no waiting for server)
   loadItems();
@@ -5901,7 +5958,7 @@ function exportFlippdBackup() {
     exportedAt: new Date().toISOString(),
     items: items,
     expenses: pnlExpenses || [],
-    scanLog: (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })(),
+    scanLog: (() => { try { return JSON.parse(localStorage.getItem(getUserStorageKey('fef_scan_log'))||'[]'); } catch { return []; } })(),
     settings: S,
   };
   const json = JSON.stringify(backup, null, 2);
@@ -5924,10 +5981,10 @@ function exportFlippdBackup() {
 // ── Analytics event tracking ─────────────────────────────────────────────────
 function trackEvent(name, props) {
   try {
-    var events = JSON.parse(localStorage.getItem('flippd_events')||'[]');
+    var events = JSON.parse(localStorage.getItem(getUserStorageKey('flippd_events'))||'[]');
     events.push(Object.assign({event:name,ts:Date.now()},props||{}));
     if(events.length>500) events.splice(0,events.length-500);
-    localStorage.setItem('flippd_events',JSON.stringify(events));
+    localStorage.setItem(getUserStorageKey('flippd_events'),JSON.stringify(events));
   } catch(e){}
 }
 
@@ -6048,48 +6105,6 @@ function sPnlMiles() {
   showToast('✓ $'+amt.toFixed(2)+' logged for '+miles+' miles');
 }
 
-function signOut() {
-  ['fif_api_key','flippd_jwt','flippd_user_id','flippd_username','flippd_user_name'].forEach(function(k){ localStorage.removeItem(k); });
-  apiKey = '';
-  window._currentUser = null;
-  showSrcView('setup');
-  setAuthMode('login');
-  showToast('You have been signed out');
-}
-
-async function deleteAccount() {
-  if (!confirm('Are you sure? This will permanently delete your account and all data. This cannot be undone.')) return;
-  try {
-    var res = await fetch('https://flippd-backend.replit.app/auth/delete-account', {
-      method: 'POST',
-      headers: getApiHeaders()
-    });
-    if (res.ok) {
-      ['fif_api_key','flippd_jwt','flippd_user_id','flippd_username','flippd_user_name'].forEach(function(k){ localStorage.removeItem(k); });
-      apiKey = '';
-      window._currentUser = null;
-      showSrcView('setup');
-      showToast('Your account has been deleted');
-    } else {
-      showToast('Failed to delete account. Please contact support.');
-    }
-  } catch(e) {
-    showToast('Failed to delete account. Please contact support.');
-  }
-}
-
 </script>
-<div id="ebay-sync-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:flex-end;justify-content:center">
-<div style="background:var(--surface);border-radius:12px 12px 0 0;padding:24px;width:100%;max-width:540px;border-top:1.5px solid var(--border)">
-<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:16px">🔄 eBay Sync</div>
-<div style="display:flex;gap:8px;margin-bottom:16px">
-<button class="btn" id="sync-30" onclick="setSync(30)" style="flex:1;font-size:12px;padding:10px;background:var(--accent);color:#000;border:none">30 days</button>
-<button class="btn" id="sync-60" onclick="setSync(60)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">60 days</button>
-<button class="btn" id="sync-90" onclick="setSync(90)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">90 days</button>
-</div>
-<div id="sync-status" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px"></div>
-<button class="btn btn-green" onclick="runEbaySync()" style="width:100%;margin-bottom:10px">⬇ Pull from eBay</button>
-<button class="btn" onclick="document.getElementById('ebay-sync-panel').style.display='none'" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px">Cancel</button>
-</div></div>
 </body>
 </html>
