@@ -5493,30 +5493,29 @@ async function saveAndGenerateListing() {
 }
 
 // ══════════════════════════════════════════════════
-// eBay INTEGRATION STUBS
+// eBay OAUTH — Connect Account
 // ══════════════════════════════════════════════════
 function ebayOAuthStart() {
   showToast('⏳ Redirecting to eBay login...');
-  // TODO: Implement eBay OAuth2 flow
-  // 1. Get client ID from backend
-  // 2. Redirect to eBay OAuth URL
-  // 3. Handle callback in ebayOAuthCallback
-  const clientId = 'PROD-..'; // Will come from backend
-  const redirectUri = window.location.origin + '/';
-  const ebayAuthUrl = `https://auth.ebay.com/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fscope%2Fsell.inventory&state=${Date.now()}`;
-  // window.location.href = ebayAuthUrl;
-  showToast('eBay integration coming soon!');
+  location.href = '/ebay/oauth/start';
 }
 
-function ebayOAuthCallback(code) {
-  // TODO: Exchange code for access token via backend
-  // POST /ebay/token {code, state}
-  console.log('eBay OAuth callback:', code);
-}
-
-function ebayPullListings(days = 90) {
-  // TODO: Pull listings from eBay
-  showToast('Syncing listings from eBay...');
+// Check for OAuth success on page load
+function checkEbayOAuthCallback() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('ebay_connected') === 'true') {
+    showToast('✅ Connected to eBay! Syncing your listings...');
+    // Auto-trigger ebayPullListings when implemented
+    // ebayPullListings();
+  }
+  if (params.get('ebay_error')) {
+    const errorMsg = params.get('ebay_error');
+    showToast('❌ eBay connection failed: ' + errorMsg);
+  }
+  // Clean up query params
+  if (params.has('ebay_connected') || params.has('ebay_error')) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -6079,6 +6078,11 @@ function sPnlMonthly() {
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:600;font-size:13px">'+m.label+'</div><div style="font-size:11px;color:var(--muted)">'+m.count+' item'+(m.count!==1?'s':'')+' sold</div></div><div style="text-align:right"><div style="font-family:Syne,sans-serif;font-weight:900;color:var(--green);font-size:14px">$'+m.profit.toFixed(0)+'</div><div style="font-size:11px;color:var(--muted)">$'+m.revenue.toFixed(0)+' rev</div></div></div>';
   }).join('');
 }
+
+// ══════════════════════════════════════════════════
+// ON PAGE LOAD
+// ══════════════════════════════════════════════════
+checkEbayOAuthCallback();
 
 function sPnlAddExp() {
   var desc = document.getElementById('spnl-desc').value.trim();
