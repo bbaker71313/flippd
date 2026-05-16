@@ -963,14 +963,14 @@ body::before{
     </div>
     <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
+    <div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🛒 eBay Account</div>
+      <div id="ebay-status-display" style="font-size:12px;color:var(--muted);margin-bottom:10px">Checking...</div>
+      <button id="ebay-connect-btn" class="btn btn-green" style="width:100%;font-size:13px;padding:10px" onclick="ebayConnect()">Connect eBay Account</button>
+      <button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
+    </div>
     <div style="text-align:center;margin-top:12px">
-      <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline"><div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
-<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🛒 eBay Account</div>
-<div id="ebay-status-display" style="font-size:12px;color:var(--muted);margin-bottom:10px">Checking...</div>
-<button id="ebay-connect-btn" class="btn btn-green" style="width:100%;font-size:13px;padding:10px" onclick="ebayConnect()">Connect eBay Account</button>
-<button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
-</div>
-⚙ Change Access Code</button>
+      <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Change Access Code</button>
     </div>
   </div>
 
@@ -3869,6 +3869,34 @@ let S = loadSrcSettings();
 
 const _origShowSettings=window.showSourcingSettings;
 let _ebaySyncDays = 90;
+
+function ebayConnect() {
+  showToast('⏳ Redirecting to eBay login...');
+  location.href = API_BASE + '/ebay/oauth/start';
+}
+
+function ebayDisconnect() {
+  showToast('eBay account disconnected.');
+  const btn = document.getElementById('ebay-connect-btn');
+  const dis = document.getElementById('ebay-disconnect-btn');
+  const disp = document.getElementById('ebay-status-display');
+  if (btn) btn.style.display = 'block';
+  if (dis) dis.style.display = 'none';
+  if (disp) disp.textContent = 'Not connected';
+}
+
+function checkEbayOAuthCallback() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('ebay_connected') === 'true') {
+    showToast('✅ Connected to eBay!');
+  }
+  if (params.get('ebay_error')) {
+    showToast('❌ eBay connection failed: ' + params.get('ebay_error'));
+  }
+  if (params.has('ebay_connected') || params.has('ebay_error')) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
 
 function showEbaySyncPanel(){
   document.getElementById('ebay-sync-panel').style.display='flex';
