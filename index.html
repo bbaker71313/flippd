@@ -2116,6 +2116,12 @@ async function deleteItemFromServer(id) {
 // TAB NAVIGATION
 // ══════════════════════════════════════════════════
 function switchTab(tab) {
+  // Auth guard — block all tabs except sourcing if not logged in
+  if (!isUnlocked() && tab !== 'sourcing') {
+    showSrcView('setup');
+    setAuthMode('login');
+    return;
+  }
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -5224,6 +5230,7 @@ async function loginUser() {
       if (data.user?.name) localStorage.setItem('flippd_user_name', data.user.name);
       apiKey = jwt;
       updateDashGreeting();
+      switchTab('sourcing');
       showSrcView('input');
       showToast('✓ Welcome back' + (data.user?.name ? ', ' + data.user.name + '!' : '!'));
       loadUserInfo();
@@ -5652,6 +5659,7 @@ window.onload = () => {
   apiKey = '';
   localStorage.removeItem('fif_api_key');
   localStorage.removeItem('flippd_jwt');
+  switchTab('sourcing');
   showSrcView('setup');
   setAuthMode('login');
 
@@ -6062,18 +6070,6 @@ function sPnlMiles() {
 }
 
 </script>
-<div id="ebay-sync-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:flex-end;justify-content:center">
-<div style="background:var(--surface);border-radius:12px 12px 0 0;padding:24px;width:100%;max-width:540px;border-top:1.5px solid var(--border)">
-<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:16px">🔄 eBay Sync</div>
-<div style="display:flex;gap:8px;margin-bottom:16px">
-<button class="btn" id="sync-30" onclick="setSync(30)" style="flex:1;font-size:12px;padding:10px;background:var(--accent);color:#000;border:none">30 days</button>
-<button class="btn" id="sync-60" onclick="setSync(60)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">60 days</button>
-<button class="btn" id="sync-90" onclick="setSync(90)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">90 days</button>
-</div>
-<div id="sync-status" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px"></div>
-<button class="btn btn-green" onclick="runEbaySync()" style="width:100%;margin-bottom:10px">⬇ Pull from eBay</button>
-<button class="btn" onclick="document.getElementById('ebay-sync-panel').style.display='none'" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px">Cancel</button>
-</div></div>
 <div id="ebay-sync-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:flex-end;justify-content:center;flex-direction:column">
 <div style="background:var(--surface);border-radius:12px 12px 0 0;padding:24px;width:100%;max-width:540px;border-top:1.5px solid var(--border)">
 <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:16px">🔄 Sync from eBay</div>
