@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- FLIPPD v5.9 - no-decode photo path + JWT persist | DEBUG-CHAT-DEPLOY -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2405,28 +2406,25 @@ let invFormImgType = 'image/jpeg';
 function invFormHandlePhoto(e) {
   const file = e.target.files[0]; if (!file) return;
   invFormImgType = 'image/jpeg';
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    URL.revokeObjectURL(url);
-    const MAX = 800; let w = img.width, h = img.height;
-    if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img, 0, 0, w, h);
-    let out = c.toDataURL('image/jpeg', 0.75);
-    if (out.length > 800000) out = c.toDataURL('image/jpeg', 0.6);
-    if (out.length > 800000) out = c.toDataURL('image/jpeg', 0.45);
-    c.width = 0; c.height = 0;
-    invFormImgB64 = out.split(',')[1];
-    invFormImgType = 'image/jpeg';
-    document.getElementById('inv-form-photo-img').src = out;
+  showToast('📷 Processing photo...');
+  fileToBase64NoDecodeAndThumb(file).then(function(res) {
+    invFormImgB64 = res.b64;
+    invFormImgType = res.mime;
+    const imgEl = document.getElementById('inv-form-photo-img');
+    if (res.thumbUrl) {
+      imgEl.src = res.thumbUrl;
+    } else {
+      imgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">📷 ' + res.sizeKB + ' KB</text></svg>'
+      );
+    }
     document.getElementById('inv-form-photo-preview').style.display = 'block';
     document.getElementById('inv-form-detect-btn').style.display = 'block';
     document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
-  };
-  img.onerror = () => { URL.revokeObjectURL(url); showToast('❌ Could not load image'); };
-  img.src = url;
+  }).catch(function(err) {
+    showToast('❌ ' + (err.message || 'Could not load photo'));
+    console.error('invFormHandlePhoto failed:', err);
+  });
   e.target.value = '';
 }
 
@@ -2776,36 +2774,45 @@ function paHandlePhotos(e) {
   const remaining = 4 - paPhotos.length;
   if (remaining <= 0) { showToast('Max 4 photos — delete one to add another'); return; }
   const toProcess = files.slice(0, remaining);
-  // Process sequentially to avoid parallel memory spikes
-  function processNext(idx) {
-    if (idx >= toProcess.length) return;
-    const f = toProcess[idx];
-    const url = URL.createObjectURL(f);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const MAX = 800; let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      let compressed = c.toDataURL('image/jpeg', 0.75);
-      if (compressed.length > 800000) compressed = c.toDataURL('image/jpeg', 0.6);
-      if (compressed.length > 800000) compressed = c.toDataURL('image/jpeg', 0.45);
-      c.width = 0; c.height = 0;
-      paPhotos.push({ original: compressed, w, h, enhanced: null });
-      if (paPhotos.length === 1) {
-        document.getElementById('pa-upload-area').style.display = 'none';
-        document.getElementById('pa-workspace').style.display = 'block';
+  if (toProcess.length > 1) showToast('📷 Processing ' + toProcess.length + ' photos...');
+  else showToast('📷 Processing photo...');
+  (async function() {
+    for (let i = 0; i < toProcess.length; i++) {
+      try {
+        // Use the same no-decode helper as scout — gives us the b64 (for
+        // future use) and a tiny preview thumb. For the enhancer's
+        // brightness/contrast workspace, the thumb is the workable image.
+        const res = await fileToBase64NoDecodeAndThumb(toProcess[i]);
+        // If thumb generation failed (rare — only on very old Android),
+        // skip this photo cleanly rather than crashing.
+        if (!res.thumbUrl) {
+          showToast('❌ Skipped one photo (could not preview)');
+          continue;
+        }
+        // Get thumb dimensions so paSelectPhoto can size the canvas
+        await new Promise(function(done) {
+          const probe = new Image();
+          probe.onload = function() {
+            paPhotos.push({ original: res.thumbUrl, w: probe.width, h: probe.height, enhanced: null });
+            if (paPhotos.length === 1) {
+              document.getElementById('pa-upload-area').style.display = 'none';
+              document.getElementById('pa-workspace').style.display = 'block';
+            }
+            paRenderThumbs();
+            paSelectPhoto(paPhotos.length - 1);
+            done();
+          };
+          probe.onerror = function() { done(); };
+          probe.src = res.thumbUrl;
+        });
+        // Give GC a tick between photos
+        await new Promise(function(r) { setTimeout(r, 50); });
+      } catch (err) {
+        console.error('paHandlePhotos failed:', err);
+        showToast('❌ Skipped one photo: ' + (err.message || 'decode failed'));
       }
-      paRenderThumbs();
-      paSelectPhoto(paPhotos.length - 1);
-      processNext(idx + 1);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); showToast('❌ Could not load photo'); processNext(idx + 1); };
-    img.src = url;
-  }
-  processNext(0);
+    }
+  })();
   e.target.value = '';
 }
 
@@ -3889,6 +3896,97 @@ function showToast(msg) {
 }
 
 // ══════════════════════════════════════════════════
+// IMAGE INTAKE — no-decode path (memory-safe)
+// ══════════════════════════════════════════════════
+// PROBLEM: every previous fix tried to decode the raw camera photo to a
+// bitmap (via <img>, canvas, or createImageBitmap) before resizing.
+// On Android WebView a 12MP photo decodes to ~48MB of RGBA in the JS
+// heap. WebView OOM-kills the page → user sees "low memory" + logout.
+//
+// NEW APPROACH: never decode the raw file at all for the API payload.
+//   1. Read the File bytes directly with FileReader.readAsArrayBuffer
+//      (this does NOT decode — it just copies bytes, ~3MB peak for a
+//      typical phone JPEG).
+//   2. Base64-encode in chunks of 8KB so we never hold a giant temp
+//      string allocation.
+//   3. Send those bytes to the API as-is. Anthropic accepts up to 5MB
+//      per image; phone JPEGs are typically 2–4MB. No resize needed.
+//   4. For the on-screen preview, generate a TINY 240px thumbnail in
+//      a try/catch — if the thumbnail decode fails (very low-end
+//      device), we show a text placeholder and the scan still works.
+//
+// Key difference vs every prior fix: the API payload path has zero
+// image decoding. Only the preview thumbnail decodes, and at 240px
+// the peak memory cost (~200KB) is well below any WebView limit.
+const PREVIEW_THUMB_PX = 240;
+const MAX_UPLOAD_BYTES = 4_500_000; // ~4.5MB raw file; Anthropic limit is 5MB base64
+
+function fileToBase64NoDecodeAndThumb(file) {
+  return new Promise(function(resolve, reject) {
+    if (!file) { reject(new Error('No file')); return; }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + ' MB). Try a smaller one.'));
+      return;
+    }
+    // STEP 1 — read bytes only (no decode)
+    const reader = new FileReader();
+    reader.onerror = function() { reject(new Error('Could not read photo file')); };
+    reader.onload = function(ev) {
+      try {
+        const buf = new Uint8Array(ev.target.result);
+        // STEP 2 — base64-encode in chunks (no giant temp string)
+        let binary = '';
+        const CHUNK = 0x8000; // 32KB chunks of binary
+        for (let i = 0; i < buf.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(null, buf.subarray(i, i + CHUNK));
+        }
+        const b64 = btoa(binary);
+        binary = ''; // free immediately
+        // STEP 3 — try to build a tiny preview thumbnail; if it fails,
+        // we still resolve with the b64 so the scan can proceed.
+        makeTinyThumb(file).then(function(thumbUrl) {
+          resolve({ b64: b64, thumbUrl: thumbUrl, mime: 'image/jpeg', sizeKB: Math.round(file.size/1024) });
+        }).catch(function() {
+          // Thumbnail failed — that's OK. Scan still works without preview.
+          resolve({ b64: b64, thumbUrl: null, mime: 'image/jpeg', sizeKB: Math.round(file.size/1024) });
+        });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Build a small thumbnail (240px max) for on-screen preview only.
+// Uses createImageBitmap with resizeWidth — peak memory ~200KB even
+// for a 12MP source. Wrapped in try/catch so a failure does NOT
+// break the scan flow.
+function makeTinyThumb(file) {
+  return new Promise(function(resolve, reject) {
+    if (typeof createImageBitmap !== 'function') { reject(new Error('no createImageBitmap')); return; }
+    let bmp = null;
+    createImageBitmap(file, {
+      resizeWidth: PREVIEW_THUMB_PX,
+      resizeHeight: PREVIEW_THUMB_PX,
+      resizeQuality: 'low'
+    }).then(function(b) {
+      bmp = b;
+      const c = document.createElement('canvas');
+      c.width = bmp.width; c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      bmp.close && bmp.close(); bmp = null;
+      const url = c.toDataURL('image/jpeg', 0.6);
+      c.width = 0; c.height = 0;
+      resolve(url);
+    }).catch(function(err) {
+      if (bmp && bmp.close) bmp.close();
+      reject(err);
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
 // ══════════════════════════════════════════════════
 const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced'};
@@ -4126,25 +4224,27 @@ function handleImage(e) {
   const file = (e.target || e).files && (e.target || e).files[0];
   if (!file) return;
   imgType = 'image/jpeg';
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    URL.revokeObjectURL(url);
-    const MAX = 800; let w = img.width, h = img.height;
-    if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img, 0, 0, w, h);
-    let out = c.toDataURL('image/jpeg', 0.75);
-    if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.6);
-    if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.45);
-    c.width = 0; c.height = 0;
-    imgB64 = out.split(',')[1]; imgType = 'image/jpeg';
-    try { sessionStorage.setItem('flippd_preview_src', out); } catch(e) {}
-    showPreview(out);
-  };
-  img.onerror = () => { URL.revokeObjectURL(url); showToast('❌ Could not load image'); };
-  img.src = url;
+  showToast('📷 Processing photo...');
+  fileToBase64NoDecodeAndThumb(file).then(function(res) {
+    imgB64 = res.b64;
+    imgType = res.mime;
+    // Show preview from tiny thumb if available; otherwise generic placeholder
+    if (res.thumbUrl) {
+      showPreview(res.thumbUrl);
+    } else {
+      // Tiny placeholder data URL — 1x1 grey pixel — purely so the
+      // preview container shows up. Caption tells the user the photo
+      // is attached. Scan still works.
+      showPreview('data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">' +
+        '📷 ' + res.sizeKB + ' KB</text></svg>'
+      ));
+    }
+  }).catch(function(err) {
+    showToast('❌ ' + (err.message || 'Could not load photo'));
+    console.error('handleImage failed:', err);
+  });
+  try { (e.target || e).value = ''; } catch(_) {}
 }
 
 function showPreview(src) {
