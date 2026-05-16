@@ -1049,7 +1049,7 @@ body::before{
       <button onclick="showInvView('add')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <button class="btn btn-green" id="csv-export-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">⬇ Export CSV</button>
+      <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">⬇ Export CSV</button>
       <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">📥 Import</button>
     </div>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
@@ -1421,35 +1421,63 @@ body::before{
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-csv">
   <div style="padding-top:4px;margin-bottom:16px">
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">eBay CSV Export</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Generates your official eBay draft listing template</div>
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Export</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">eBay CSV export · Full Flippd backup</div>
   </div>
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">⏱ Export Window</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-      <button class="csv-win-btn active" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
-      <button class="csv-win-btn" id="csv-win-48" onclick="setCsvWindow(48)">Last 48h</button>
-      <button class="csv-win-btn" id="csv-win-168" onclick="setCsvWindow(168)">Last 7 days</button>
+
+  <!-- FORMAT SELECTOR -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+    <div class="mode-tab active-green" id="csv-tab-ebay" onclick="setCsvExportMode('ebay')" style="cursor:pointer">
+      <span class="tab-icon">📋</span>
+      <div style="font-size:12px;font-weight:700">eBay CSV</div>
+      <div style="font-size:10px;margin-top:2px;opacity:0.8">Draft listings template</div>
     </div>
-    <div id="csv-preview-count" style="font-size:13px;font-weight:600;color:var(--soft);margin-bottom:4px"></div>
-    <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
-  </div>
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">📋 Items Ready to Export</div>
-    <div id="csv-items-list"></div>
-  </div>
-  <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">⬇ Download CSV for eBay</button>
-  <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.7;font-weight:500">After downloading: eBay Seller Hub → Reports → Upload → select your CSV file</p>
-  <div class="card" style="margin-top:10px;background:var(--yellow-bg);border-color:#e8b840">
-    <div class="card-title" style="color:var(--yellow)">⏰ Daily Reminder</div>
-    <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input type="time" id="csv-reminder-time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
-      <button onclick="saveCsvReminder()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">Save</button>
+    <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" style="cursor:pointer">
+      <span class="tab-icon">💾</span>
+      <div style="font-size:12px;font-weight:700">Flippd Backup</div>
+      <div style="font-size:10px;margin-top:2px;opacity:0.8">Full JSON export</div>
     </div>
-    <div id="csv-reminder-saved" style="font-size:11px;color:#c47800;margin-top:6px;font-family:'IBM Plex Mono',monospace"></div>
   </div>
+
+  <!-- EBAY CSV MODE -->
+  <div id="csv-mode-ebay">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">⏱ Export Window</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <button class="csv-win-btn active" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
+        <button class="csv-win-btn" id="csv-win-48" onclick="setCsvWindow(48)">Last 48h</button>
+        <button class="csv-win-btn" id="csv-win-168" onclick="setCsvWindow(168)">Last 7 days</button>
+      </div>
+      <div id="csv-preview-count" style="font-size:13px;font-weight:600;color:var(--soft);margin-bottom:4px"></div>
+      <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">📋 Items Ready to Export</div>
+      <div id="csv-items-list"></div>
+    </div>
+    <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">⬇ Download CSV for eBay</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.7;font-weight:500">After downloading: eBay Seller Hub → Reports → Upload → select your CSV file</p>
+    <div class="card" style="margin-top:10px;background:var(--yellow-bg);border-color:#e8b840">
+      <div class="card-title" style="color:var(--yellow)">⏰ Daily Reminder</div>
+      <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="time" id="csv-reminder-time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
+        <button onclick="saveCsvReminder()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">Save</button>
+      </div>
+      <div id="csv-reminder-saved" style="font-size:11px;color:#c47800;margin-top:6px;font-family:'IBM Plex Mono',monospace"></div>
+    </div>
+  </div>
+
+  <!-- FLIPPD BACKUP MODE -->
+  <div id="csv-mode-backup" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">💾 Export Full Backup</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
+      <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:0">⬇ Download Full Backup</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -1486,11 +1514,6 @@ body::before{
         <div style="font-size:11px;color:var(--muted)">Flippd-backup-*.json</div>
       </div>
       <input type="file" id="import-flippd-file" accept=".json" style="display:none" onchange="handleFlippdImport(event)">
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title">💾 Export Full Backup</div>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
-      <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:0">⬇ Download Full Backup</button>
     </div>
   </div>
 
@@ -2266,7 +2289,7 @@ function renderFilteredList() {
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
     const thumb = item.photos && item.photos[0];
     const hasListing = item.listing ? true : false;
-    return `<div class="item-card" onclick="showDetail(${item.id})">
+    return `<div class="item-card" onclick="startEdit(${item.id})">
       <div style="display:flex;align-items:flex-start;gap:10px">
         ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${CAT_ICONS[item.category]||'📦'}</div>`}
         <div style="flex:1;min-width:0">
@@ -2279,7 +2302,7 @@ function renderFilteredList() {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
             <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">🏷️ $${item.sellPrice||'0'}</span>
-            ${(item.status==='Unlisted'||item.status==='Ready to Export') ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
+            ${!hasListing ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
             ${item.status!=='Sold' ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
           </div>
           ${hasListing ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
@@ -4990,6 +5013,14 @@ function renderTrendingKeywords(data, el) {
 // ══════════════════════════════════════════════════
 let csvWindowHours = 24;
 const CSV_EXPORTED_KEY = 'fef_csv_exported_ids';
+
+function setCsvExportMode(mode) {
+  const isEbay = mode === 'ebay';
+  document.getElementById('csv-tab-ebay').className = 'mode-tab' + (isEbay ? ' active-green' : '');
+  document.getElementById('csv-tab-backup').className = 'mode-tab' + (!isEbay ? ' active-green' : '');
+  document.getElementById('csv-mode-ebay').style.display = isEbay ? 'block' : 'none';
+  document.getElementById('csv-mode-backup').style.display = !isEbay ? 'block' : 'none';
+}
 
 function setCsvWindow(hours) {
   csvWindowHours = hours;
