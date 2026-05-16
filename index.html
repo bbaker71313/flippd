@@ -2124,12 +2124,15 @@ function switchTab(tab) {
   }
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.remove('active');
+    p.style.display = 'none';
+  });
   // csv, import, pnl are sub-screens — no tab button exists for them
   const tabBtn = document.getElementById('tab-'+tab);
   if (tabBtn) tabBtn.classList.add('active');
   const panel = document.getElementById('panel-'+tab);
-  if (panel) panel.classList.add('active');
+  if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
   if (tab === 'csv' || tab === 'import' || tab === 'pnl') window.scrollTo(0, 0);
   if (tab === 'inventory') renderInventory();
   if (tab === 'photo') populatePaDropdown();
