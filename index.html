@@ -2404,28 +2404,29 @@ let invFormImgType = 'image/jpeg';
 
 function invFormHandlePhoto(e) {
   const file = e.target.files[0]; if (!file) return;
-  invFormImgType = file.type || 'image/jpeg';
-  const r = new FileReader();
-  r.onload = ev => {
-    // Compress to max 1200px
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      const MAX = 1200; let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      const out = c.toDataURL('image/jpeg', 0.82);
-      invFormImgB64 = out.split(',')[1];
-      invFormImgType = 'image/jpeg';
-      document.getElementById('inv-form-photo-img').src = out;
-      document.getElementById('inv-form-photo-preview').style.display = 'block';
-      document.getElementById('inv-form-detect-btn').style.display = 'block';
-      document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
-    };
-    img.src = ev.target.result;
+  invFormImgType = 'image/jpeg';
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const MAX = 800; let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    let out = c.toDataURL('image/jpeg', 0.75);
+    if (out.length > 800000) out = c.toDataURL('image/jpeg', 0.6);
+    if (out.length > 800000) out = c.toDataURL('image/jpeg', 0.45);
+    c.width = 0; c.height = 0;
+    invFormImgB64 = out.split(',')[1];
+    invFormImgType = 'image/jpeg';
+    document.getElementById('inv-form-photo-img').src = out;
+    document.getElementById('inv-form-photo-preview').style.display = 'block';
+    document.getElementById('inv-form-detect-btn').style.display = 'block';
+    document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
   };
-  r.readAsDataURL(file);
+  img.onerror = () => { URL.revokeObjectURL(url); showToast('❌ Could not load image'); };
+  img.src = url;
   e.target.value = '';
 }
 
@@ -2774,35 +2775,37 @@ function paHandlePhotos(e) {
   const files = Array.from(e.target.files);
   const remaining = 4 - paPhotos.length;
   if (remaining <= 0) { showToast('Max 4 photos — delete one to add another'); return; }
-  files.slice(0, remaining).forEach(f => {
-    const r = new FileReader();
-    r.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        const MAX = 1200; let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        // Adaptive compression — keep under 1.1MB
-        let compressed = c.toDataURL('image/jpeg', 0.82);
-        if (compressed.length > 1100000) compressed = c.toDataURL('image/jpeg', 0.65);
-        if (compressed.length > 1100000) compressed = c.toDataURL('image/jpeg', 0.5);
-        // Free canvas memory immediately
-        c.width = 0; c.height = 0;
-        img.src = '';
-        paPhotos.push({ original: compressed, w, h, enhanced: null });
-        if (paPhotos.length === 1) {
-          document.getElementById('pa-upload-area').style.display = 'none';
-          document.getElementById('pa-workspace').style.display = 'block';
-        }
-        paRenderThumbs();
-        paSelectPhoto(paPhotos.length - 1);
-      };
-      img.src = ev.target.result;
+  const toProcess = files.slice(0, remaining);
+  // Process sequentially to avoid parallel memory spikes
+  function processNext(idx) {
+    if (idx >= toProcess.length) return;
+    const f = toProcess[idx];
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 800; let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      let compressed = c.toDataURL('image/jpeg', 0.75);
+      if (compressed.length > 800000) compressed = c.toDataURL('image/jpeg', 0.6);
+      if (compressed.length > 800000) compressed = c.toDataURL('image/jpeg', 0.45);
+      c.width = 0; c.height = 0;
+      paPhotos.push({ original: compressed, w, h, enhanced: null });
+      if (paPhotos.length === 1) {
+        document.getElementById('pa-upload-area').style.display = 'none';
+        document.getElementById('pa-workspace').style.display = 'block';
+      }
+      paRenderThumbs();
+      paSelectPhoto(paPhotos.length - 1);
+      processNext(idx + 1);
     };
-    r.readAsDataURL(f);
-  });
+    img.onerror = () => { URL.revokeObjectURL(url); showToast('❌ Could not load photo'); processNext(idx + 1); };
+    img.src = url;
+  }
+  processNext(0);
   e.target.value = '';
 }
 
@@ -4122,38 +4125,26 @@ function triggerImageInput(type) {
 function handleImage(e) {
   const file = (e.target || e).files && (e.target || e).files[0];
   if (!file) return;
-  imgType = file.type || 'image/jpeg';
-  const r = new FileReader();
-  r.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      const MAX = 1200; let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      let out = c.toDataURL('image/jpeg', 0.85);
-      
-      // If still too large, reduce quality further
-      if (out.length > MAX_IMG_SIZE) {
-        out = c.toDataURL('image/jpeg', 0.7);
-      }
-      if (out.length > MAX_IMG_SIZE) {
-        out = c.toDataURL('image/jpeg', 0.5);
-      }
-      
-      imgB64 = out.split(',')[1]; imgType = 'image/jpeg';
-      // Only store base64 part, not the data: prefix
-      try { sessionStorage.setItem('flippd_preview_src', out); } catch(e) {}
-      showPreview(out);
-      
-      // Cleanup: garbage collect canvas and img
-      c.width = 0; c.height = 0;
-      img.src = '';
-    };
-    img.src = ev.target.result;
+  imgType = 'image/jpeg';
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const MAX = 800; let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    let out = c.toDataURL('image/jpeg', 0.75);
+    if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.6);
+    if (out.length > MAX_IMG_SIZE) out = c.toDataURL('image/jpeg', 0.45);
+    c.width = 0; c.height = 0;
+    imgB64 = out.split(',')[1]; imgType = 'image/jpeg';
+    try { sessionStorage.setItem('flippd_preview_src', out); } catch(e) {}
+    showPreview(out);
   };
-  r.readAsDataURL(file);
+  img.onerror = () => { URL.revokeObjectURL(url); showToast('❌ Could not load image'); };
+  img.src = url;
 }
 
 function showPreview(src) {
