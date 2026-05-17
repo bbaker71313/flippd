@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.14 - raise upload cap from 4.5MB to 10MB -->
+<!-- FLIPPD v5.15 - cap at 3.5MB to stay under Anthropic 5MB base64 limit + clearer error -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3987,13 +3987,13 @@ function appConfirmRespond(ok) {
 // image decoding. Only the preview thumbnail decodes, and at 240px
 // the peak memory cost (~200KB) is well below any WebView limit.
 const PREVIEW_THUMB_PX = 240;
-const MAX_UPLOAD_BYTES = 10_000_000; // 10MB raw — Anthropic accepts up to ~13MB base64 in practice
+const MAX_UPLOAD_BYTES = 3_500_000; // 3.5MB raw — keeps base64 under Anthropic's 5MB per-image limit
 
 function fileToBase64NoDecodeAndThumb(file) {
   return new Promise(function(resolve, reject) {
     if (!file) { reject(new Error('No file')); return; }
     if (file.size > MAX_UPLOAD_BYTES) {
-      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + ' MB). Try a smaller one.'));
+      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Open your camera app, lower resolution in settings, or use a gallery photo under 3.5MB.'));
       return;
     }
     // Read raw bytes only — NO image decoding at any point.
