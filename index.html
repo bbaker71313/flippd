@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.11 - zero image decode in photo intake -->
+<!-- FLIPPD v5.12 - remove rotation decode + buy-confirm photo + photos tab fix -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2796,37 +2796,46 @@ function paHandlePhotos(e) {
   (async function() {
     for (let i = 0; i < toProcess.length; i++) {
       try {
-        // Use the same no-decode helper as scout — gives us the b64 (for
-        // future use) and a tiny preview thumb. For the enhancer's
-        // brightness/contrast workspace, the thumb is the workable image.
-        const res = await fileToBase64NoDecodeAndThumb(toProcess[i]);
-        // If thumb generation failed (rare — only on very old Android),
-        // skip this photo cleanly rather than crashing.
-        if (!res.thumbUrl) {
-          showToast('❌ Skipped one photo (could not preview)');
+        const file = toProcess[i];
+        // v5.12: use URL.createObjectURL(file) directly as the image source.
+        // This is a native blob URL — the browser streams it from disk
+        // without ever putting the base64 string in JS heap. Probing the
+        // image dimensions does decode at native resolution, which is fine
+        // because the Photos tab legitimately needs a usable image for
+        // the brightness/contrast canvas. (The scout/inventory paths
+        // don't decode at all — see fileToBase64NoDecodeAndThumb.)
+        const blobUrl = URL.createObjectURL(file);
+        const dims = await new Promise(function(resolve) {
+          const probe = new Image();
+          probe.onload = function() { resolve({ w: probe.width, h: probe.height, ok: true }); };
+          probe.onerror = function() { resolve({ ok: false }); };
+          probe.src = blobUrl;
+        });
+        if (!dims.ok) {
+          URL.revokeObjectURL(blobUrl);
+          showToast('❌ Skipped one photo (could not load)');
           continue;
         }
-        // Get thumb dimensions so paSelectPhoto can size the canvas
-        await new Promise(function(done) {
-          const probe = new Image();
-          probe.onload = function() {
-            paPhotos.push({ original: res.thumbUrl, w: probe.width, h: probe.height, enhanced: null });
-            if (paPhotos.length === 1) {
-              document.getElementById('pa-upload-area').style.display = 'none';
-              document.getElementById('pa-workspace').style.display = 'block';
-            }
-            paRenderThumbs();
-            paSelectPhoto(paPhotos.length - 1);
-            done();
-          };
-          probe.onerror = function() { done(); };
-          probe.src = res.thumbUrl;
-        });
-        // Give GC a tick between photos
+        // Cap effective working size so the canvas doesn't blow memory.
+        // We keep the blobUrl as the source — paSelectPhoto draws it onto
+        // a downsized canvas with these dimensions.
+        const MAX_DIM = 1200;
+        let w = dims.w, h = dims.h;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+          else       { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        }
+        paPhotos.push({ original: blobUrl, w: w, h: h, enhanced: null, _isBlobUrl: true });
+        if (paPhotos.length === 1) {
+          document.getElementById('pa-upload-area').style.display = 'none';
+          document.getElementById('pa-workspace').style.display = 'block';
+        }
+        paRenderThumbs();
+        paSelectPhoto(paPhotos.length - 1);
         await new Promise(function(r) { setTimeout(r, 50); });
       } catch (err) {
         console.error('paHandlePhotos failed:', err);
-        showToast('❌ Skipped one photo: ' + (err.message || 'decode failed'));
+        showToast('❌ Skipped one photo: ' + (err.message || 'load failed'));
       }
     }
   })();
@@ -2855,6 +2864,14 @@ function paSelectPhoto(i) {
 }
 
 function paDeletePhoto(i) {
+  // Revoke the blob URL we created in paHandlePhotos so the browser can
+  // free the underlying file. Safe to call even on non-blob URLs.
+  try {
+    const p = paPhotos[i];
+    if (p && p._isBlobUrl && p.original && p.original.indexOf('blob:') === 0) {
+      URL.revokeObjectURL(p.original);
+    }
+  } catch (_) {}
   paPhotos.splice(i, 1);
   if (!paPhotos.length) { paReset(); return; }
   paActiveIdx = Math.min(paActiveIdx, paPhotos.length - 1);
@@ -2942,6 +2959,14 @@ async function paSaveToItem() {
 }
 
 function paReset() {
+  // Revoke any blob URLs before clearing the array
+  try {
+    paPhotos.forEach(function(p) {
+      if (p && p._isBlobUrl && p.original && p.original.indexOf('blob:') === 0) {
+        URL.revokeObjectURL(p.original);
+      }
+    });
+  } catch (_) {}
   paPhotos = []; paActiveIdx = 0;
   document.getElementById('pa-upload-area').style.display = 'block';
   document.getElementById('pa-workspace').style.display = 'none';
@@ -4278,17 +4303,12 @@ function clearImage() {
   if (container) container.style.display = 'none';
 }
 
-function restorePreviewAfterRotation() {
-  if (!imgB64) return;
-  try {
-    const saved = sessionStorage.getItem('flippd_preview_src');
-    showPreview(saved || ('data:image/jpeg;base64,' + imgB64));
-  } catch(e) { showPreview('data:image/jpeg;base64,' + imgB64); }
-}
-window.addEventListener('orientationchange', () => setTimeout(restorePreviewAfterRotation, 350));
-if (typeof screen !== 'undefined' && screen.orientation) {
-  screen.orientation.addEventListener('change', () => setTimeout(restorePreviewAfterRotation, 350));
-}
+// restorePreviewAfterRotation REMOVED in v5.12.
+// It set <img src="data:image/jpeg;base64,<2.5MB>"> on orientation change,
+// which forced Android WebView to decode the full photo and triggered the
+// "Unable to complete operation due to low memory" crash. v5.11+ no longer
+// displays the captured photo as a preview, so there is nothing to restore
+// after rotation. The orientation listeners are removed entirely.
 
 async function callClaude(system,msg,maxTok=1500) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
@@ -4780,14 +4800,13 @@ function showBuyConfirm(item, cost, fin, dec) {
 
   // Photo — only show preview if this was a single-item scan; shelf
   // scans show a photo of many items, which would be misleading here.
+  // Photo preview disabled in v5.12.
+  // Assigning <img src="data:image/jpeg;base64,<2.5MB>"> forces Android
+  // WebView to decode the full photo to a ~48MB bitmap, which OOM-crashes
+  // the page on capture. The user adds a real photo of just that item
+  // later from inventory edit / Photos tab.
   const photoEl = document.getElementById('buy-confirm-photo');
-  const imgEl = document.getElementById('buy-confirm-img');
-  if (imgB64 && srcMode === 'single') {
-    imgEl.src = `data:${imgType};base64,${imgB64}`;
-    photoEl.style.display = 'block';
-  } else {
-    photoEl.style.display = 'none';
-  }
+  if (photoEl) photoEl.style.display = 'none';
 
   // Confidence meter
   const conf = item.confidence || 0;
@@ -5867,10 +5886,11 @@ window.onload = () => {
   }
 
   updateFeeHint();
-  try {
-    const saved = sessionStorage.getItem('flippd_preview_src');
-    if (saved) { imgB64 = saved.split(',')[1]; imgType = 'image/jpeg'; showPreview(saved); }
-  } catch(e) {}
+  // Removed in v5.12: sessionStorage preview restore.
+  // This read would `showPreview('data:image/jpeg;base64,' + imgB64)` which
+  // triggers the full-image decode crash on Android WebView. Nothing writes
+  // to flippd_preview_src in v5.11+, but we also remove the read to be safe.
+  try { sessionStorage.removeItem('flippd_preview_src'); } catch(e) {}
   const dashDate = document.getElementById('dash-date');
   if (dashDate) dashDate.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const expDate = document.getElementById('pnl-exp-date');
