@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.15 - cap at 3.5MB to stay under Anthropic 5MB base64 limit + clearer error -->
+<!-- FLIPPD v5.16 - route image scans to /v1/messages-with-image, raise cap to 25MB -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2457,7 +2457,8 @@ async function invFormDetectItem() {
   btn.disabled = true; btn.textContent = '🤖 Detecting...';
   status.textContent = 'Analyzing photo...';
   try {
-    const res = await fetch(getApiUrl(), {
+    // Use server-side-resize endpoint — handles photos up to 25MB
+    const res = await fetch(API_BASE + '/v1/messages-with-image', {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({
@@ -3987,13 +3988,13 @@ function appConfirmRespond(ok) {
 // image decoding. Only the preview thumbnail decodes, and at 240px
 // the peak memory cost (~200KB) is well below any WebView limit.
 const PREVIEW_THUMB_PX = 240;
-const MAX_UPLOAD_BYTES = 3_500_000; // 3.5MB raw — keeps base64 under Anthropic's 5MB per-image limit
+const MAX_UPLOAD_BYTES = 25_000_000; // 25MB raw — backend /v1/messages-with-image resizes to 1568px before forwarding to Anthropic
 
 function fileToBase64NoDecodeAndThumb(file) {
   return new Promise(function(resolve, reject) {
     if (!file) { reject(new Error('No file')); return; }
     if (file.size > MAX_UPLOAD_BYTES) {
-      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Open your camera app, lower resolution in settings, or use a gallery photo under 3.5MB.'));
+      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Max is 25MB — try a gallery photo.'));
       return;
     }
     // Read raw bytes only — NO image decoding at any point.
@@ -4316,7 +4317,11 @@ async function callClaude(system,msg,maxTok=1500) {
   const content=[];
   if(imgB64) content.push({type:'image',source:{type:'base64',media_type:imgType,data:imgB64}});
   content.push({type:'text',text:msg});
-  const url = getApiUrl();
+  // Use the server-side-resize endpoint when there's a photo (handles
+  // photos up to 25MB raw — Replit /v1/messages-with-image resizes to
+  // 1568px / q85 JPEG before forwarding to Anthropic). Text-only scans
+  // stay on the original /v1/messages endpoint.
+  const url = imgB64 ? (API_BASE + '/v1/messages-with-image') : getApiUrl();
   const headers = getApiHeaders();
   console.log('API Call:', {url, apiKeySet: !!apiKey, headerKeys: Object.keys(headers)});
   try {
