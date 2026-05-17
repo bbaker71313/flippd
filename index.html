@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.12 - remove rotation decode + buy-confirm photo + photos tab fix -->
+<!-- FLIPPD v5.13 - explicit file extensions on accept (prevents Chrome auto-thumbnail OOM at camera handoff) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1004,8 +1004,8 @@ body::before{
       <button class="cam-btn green" id="btn-camera" onclick="triggerImageInput('camera')"><span class="ci">📷</span>TAKE PHOTO</button>
       <button class="cam-btn" onclick="triggerImageInput('gallery')"><span class="ci">🖼️</span>PHOTO LIBRARY</button>
     </div>
-    <input class="file-input" id="input-camera" type="file" accept="image/*" capture="environment" onchange="handleImage(event)">
-    <input class="file-input" id="input-gallery" type="file" accept="image/*" onchange="handleImage(event)">
+    <input class="file-input" id="input-camera" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="handleImage(event)">
+    <input class="file-input" id="input-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="handleImage(event)">
     <div id="preview-container" style="display:none">
       <div class="preview-box"><img id="preview-img" src="" alt="preview"><button class="preview-clear" onclick="clearImage()">✕ Clear</button></div>
     </div>
@@ -1089,8 +1089,8 @@ body::before{
         <button class="cam-btn green" onclick="document.getElementById('inv-form-cam').click()"><span class="ci">📷</span>CAMERA</button>
         <button class="cam-btn" onclick="document.getElementById('inv-form-gallery').click()"><span class="ci">🖼️</span>GALLERY</button>
       </div>
-      <input class="file-input" id="inv-form-cam" type="file" accept="image/*" capture="environment" onchange="invFormHandlePhoto(event)">
-      <input class="file-input" id="inv-form-gallery" type="file" accept="image/*" onchange="invFormHandlePhoto(event)">
+      <input class="file-input" id="inv-form-cam" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="invFormHandlePhoto(event)">
+      <input class="file-input" id="inv-form-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="invFormHandlePhoto(event)">
       <button class="btn btn-green" id="inv-form-detect-btn" onclick="invFormDetectItem()" style="display:none;margin-top:10px;margin-bottom:0">🤖 Detect Item from Photo</button>
       <div id="inv-form-detect-status" style="font-size:12px;color:var(--muted);margin-top:8px;font-family:'IBM Plex Mono',monospace"></div>
       <!-- existing photos shown during edit -->
@@ -1187,8 +1187,8 @@ body::before{
       <button class="cam-btn green" onclick="document.getElementById('pa-cam').click()"><span class="ci">📷</span>TAKE PHOTO</button>
       <button class="cam-btn" onclick="document.getElementById('pa-gallery').click()"><span class="ci">🖼️</span>GALLERY (multi)</button>
     </div>
-    <input class="file-input" id="pa-cam" type="file" accept="image/*" capture="environment" onchange="paHandlePhotos(event)">
-    <input class="file-input" id="pa-gallery" type="file" accept="image/*" multiple onchange="paHandlePhotos(event)">
+    <input class="file-input" id="pa-cam" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="paHandlePhotos(event)">
+    <input class="file-input" id="pa-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" multiple onchange="paHandlePhotos(event)">
   </div>
 
   <!-- Workspace -->
