@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.16 - route image scans to /v1/messages-with-image, raise cap to 25MB -->
+<!-- FLIPPD v5.17 - multipart upload (no base64 on phone, zero JS heap allocation, fixes OOM on 4GB Android) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2416,22 +2416,19 @@ function openPhotoAgentFor(id) {
 // ── INVENTORY FORM — PHOTO + AI DETECT ──
 let invFormImgB64 = null;
 let invFormImgType = 'image/jpeg';
+let invFormImgFile = null; // v5.17: raw File for multipart upload
 
 function invFormHandlePhoto(e) {
   const file = e.target.files[0]; if (!file) return;
-  invFormImgType = 'image/jpeg';
-  showToast('📷 Processing photo...');
+  showToast('📷 Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
-    invFormImgB64 = res.b64;
+    invFormImgFile = res.file;
+    invFormImgB64 = 'HAS_FILE'; // sentinel for "has photo" checks
     invFormImgType = res.mime;
     const imgEl = document.getElementById('inv-form-photo-img');
-    if (res.thumbUrl) {
-      imgEl.src = res.thumbUrl;
-    } else {
-      imgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">📷 ' + res.sizeKB + ' KB</text></svg>'
-      );
-    }
+    imgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">📷 ' + res.sizeKB + ' KB</text></svg>'
+    );
     document.getElementById('inv-form-photo-preview').style.display = 'block';
     document.getElementById('inv-form-detect-btn').style.display = 'block';
     document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
@@ -2444,31 +2441,38 @@ function invFormHandlePhoto(e) {
 
 function invFormClearPhoto() {
   invFormImgB64 = null;
+  invFormImgFile = null; // v5.17 — clear raw File too
   document.getElementById('inv-form-photo-preview').style.display = 'none';
   document.getElementById('inv-form-detect-btn').style.display = 'none';
   document.getElementById('inv-form-detect-status').textContent = '';
 }
 
 async function invFormDetectItem() {
-  if (!invFormImgB64) return;
+  if (!invFormImgFile) return;
   if (!isUnlocked()) { showToast('⚠️ Access code required'); return; }
   const btn = document.getElementById('inv-form-detect-btn');
   const status = document.getElementById('inv-form-detect-status');
   btn.disabled = true; btn.textContent = '🤖 Detecting...';
   status.textContent = 'Analyzing photo...';
   try {
-    // Use server-side-resize endpoint — handles photos up to 25MB
+    // v5.17: multipart/form-data — browser streams the raw file, no base64
+    // string allocated on the phone. Backend resizes server-side.
+    const fd = new FormData();
+    fd.append('image', invFormImgFile, invFormImgFile.name || 'photo.jpg');
+    fd.append('system', '');
+    fd.append('text', 'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}');
+    fd.append('max_tokens', '400');
+    fd.append('model', 'claude-sonnet-4-6');
+    // Strip Content-Type — browser sets it with boundary
+    const baseHeaders = getApiHeaders();
+    const headers = {};
+    for (const k in baseHeaders) {
+      if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+    }
     const res = await fetch(API_BASE + '/v1/messages-with-image', {
       method: 'POST',
-      headers: getApiHeaders(),
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        messages: [{role:'user', content:[
-          {type:'image', source:{type:'base64', media_type:invFormImgType, data:invFormImgB64}},
-          {type:'text', text:'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}'}
-        ]}]
-      })
+      headers: headers,
+      body: fd,
     });
     if (!res.ok) {
       const errText = await res.text();
@@ -3988,8 +3992,16 @@ function appConfirmRespond(ok) {
 // image decoding. Only the preview thumbnail decodes, and at 240px
 // the peak memory cost (~200KB) is well below any WebView limit.
 const PREVIEW_THUMB_PX = 240;
-const MAX_UPLOAD_BYTES = 25_000_000; // 25MB raw — backend /v1/messages-with-image resizes to 1568px before forwarding to Anthropic
+const MAX_UPLOAD_BYTES = 25_000_000; // 25MB raw — backend resizes to 1568px before forwarding to Anthropic
 
+// v5.17: stash the raw File object. NO base64 encoding on the phone.
+// Previous versions did chunked base64 here, which still required holding
+// a ~25MB string in the JS heap for a 15-20MB JPEG. On 4GB Android phones
+// (Moto G 5G, etc.) that single allocation OOM-kills the WebView even
+// though no image decoding happens. Solution: never materialize the file
+// as a JS string at all. We keep the raw File reference, and the upload
+// path uses multipart/form-data so the browser streams it as binary
+// directly from the OS — never touches the JS heap.
 function fileToBase64NoDecodeAndThumb(file) {
   return new Promise(function(resolve, reject) {
     if (!file) { reject(new Error('No file')); return; }
@@ -3997,27 +4009,12 @@ function fileToBase64NoDecodeAndThumb(file) {
       reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Max is 25MB — try a gallery photo.'));
       return;
     }
-    // Read raw bytes only — NO image decoding at any point.
-    // createImageBitmap with resizeWidth still decodes the full source
-    // bitmap on many Android WebView versions before scaling, which is
-    // what triggers the "low memory" OOM kill. Solution: skip ALL
-    // decode steps entirely. The scan works fine without a preview.
-    var reader = new FileReader();
-    reader.onerror = function() { reject(new Error('Could not read photo file')); };
-    reader.onload = function(ev) {
-      try {
-        var buf = new Uint8Array(ev.target.result);
-        var binary = '';
-        var CHUNK = 0x8000;
-        for (var i = 0; i < buf.length; i += CHUNK) {
-          binary += String.fromCharCode.apply(null, buf.subarray(i, i + CHUNK));
-        }
-        var b64 = btoa(binary);
-        binary = '';
-        resolve({ b64: b64, thumbUrl: null, mime: 'image/jpeg', sizeKB: Math.round(file.size/1024) });
-      } catch (err) { reject(err); }
-    };
-    reader.readAsArrayBuffer(file);
+    // Resolve immediately with the raw File — no allocation, no decode.
+    // The caller stores it in imgFile / invFormImgFile and uses
+    // multipart/form-data upload in callClaude / invFormDetectItem.
+    // b64/mime/thumbUrl kept for backwards compat with existing callers
+    // (they check for null and route through the file path instead).
+    resolve({ b64: null, thumbUrl: null, mime: file.type || 'image/jpeg', sizeKB: Math.round(file.size/1024), file: file });
   });
 }
 
@@ -4217,6 +4214,9 @@ function getApiHeaders() {
   };
 }
 let imgB64 = null, imgType = 'image/jpeg', srcMode = 'single';
+// v5.17: hold the raw File object so we can upload via multipart/form-data
+// without ever base64-encoding on the phone (avoids OOM on low-RAM Android)
+let imgFile = null;
 const MAX_IMG_SIZE = 500000; // 500KB limit for base64 image
 
 function showSrcView(n) {
@@ -4263,23 +4263,19 @@ function triggerImageInput(type) {
 function handleImage(e) {
   const file = (e.target || e).files && (e.target || e).files[0];
   if (!file) return;
-  imgType = 'image/jpeg';
-  showToast('📷 Processing photo...');
+  showToast('📷 Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
-    imgB64 = res.b64;
+    // v5.17: store raw File reference. imgB64 is set to a sentinel string
+    // so that all the `if(imgB64)` checks elsewhere in the code (which
+    // mean "does this scan have a photo?") still work without modification.
+    // The actual upload uses imgFile via multipart/form-data — imgB64's
+    // value is never sent to the API.
+    imgFile = res.file;
+    imgB64 = 'HAS_FILE'; // sentinel — never read for content, only truthiness
     imgType = res.mime;
-    // Show preview from tiny thumb if available; otherwise generic placeholder
-    if (res.thumbUrl) {
-      showPreview(res.thumbUrl);
-    } else {
-      // Tiny placeholder data URL — 1x1 grey pixel — purely so the
-      // preview container shows up. Caption tells the user the photo
-      // is attached. Scan still works.
-      showPreview('data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">' +
-        '📷 ' + res.sizeKB + ' KB</text></svg>'
-      ));
-    }
+    showPreview('data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">📷 ' + res.sizeKB + ' KB</text></svg>'
+    ));
   }).catch(function(err) {
     showToast('❌ ' + (err.message || 'Could not load photo'));
     console.error('handleImage failed:', err);
@@ -4296,6 +4292,7 @@ function showPreview(src) {
 
 function clearImage() {
   imgB64 = null;
+  imgFile = null; // v5.17 — clear the raw File reference too
   imgType = 'image/jpeg';
   const img = document.getElementById('preview-img');
   if (img) img.src = '';
@@ -4313,23 +4310,43 @@ function clearImage() {
 
 async function callClaude(system,msg,maxTok=1500) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
-  
-  const content=[];
-  if(imgB64) content.push({type:'image',source:{type:'base64',media_type:imgType,data:imgB64}});
-  content.push({type:'text',text:msg});
-  // Use the server-side-resize endpoint when there's a photo (handles
-  // photos up to 25MB raw — Replit /v1/messages-with-image resizes to
-  // 1568px / q85 JPEG before forwarding to Anthropic). Text-only scans
-  // stay on the original /v1/messages endpoint.
-  const url = imgB64 ? (API_BASE + '/v1/messages-with-image') : getApiUrl();
-  const headers = getApiHeaders();
-  console.log('API Call:', {url, apiKeySet: !!apiKey, headerKeys: Object.keys(headers)});
-  try {
-    const res=await fetch(url,{
-      method:'POST',
-      headers:headers,
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:maxTok,system,messages:[{role:'user',content}]})
+
+  // v5.17: split paths cleanly. With a photo, build a FormData and let
+  // the browser stream the raw file as binary multipart — zero base64
+  // string allocation in JS heap, no OOM on 4GB Android. Without a
+  // photo, use the original JSON path against /v1/messages.
+  const hasPhoto = !!imgFile;
+  const url = hasPhoto ? (API_BASE + '/v1/messages-with-image') : getApiUrl();
+  // For multipart we must NOT set Content-Type — the browser sets it
+  // with the correct boundary. Strip it from headers we copy.
+  const baseHeaders = getApiHeaders();
+  const headers = {};
+  for (const k in baseHeaders) {
+    if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+  }
+  if (!hasPhoto) headers['Content-Type'] = 'application/json';
+  console.log('API Call:', {url, hasPhoto, apiKeySet: !!apiKey});
+
+  let body;
+  if (hasPhoto) {
+    const fd = new FormData();
+    fd.append('image', imgFile, imgFile.name || 'photo.jpg');
+    fd.append('system', system);
+    fd.append('text', msg);
+    fd.append('max_tokens', String(maxTok));
+    fd.append('model', 'claude-sonnet-4-6');
+    body = fd;
+  } else {
+    body = JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTok,
+      system,
+      messages: [{role:'user', content:[{type:'text', text: msg}]}]
     });
+  }
+
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body });
     console.log('Response status:', res.status);
     if (!res.ok) {
       let errData = {};
@@ -4343,17 +4360,19 @@ async function callClaude(system,msg,maxTok=1500) {
         throw new Error('Session expired. Please log in again.');
       } else if (res.status === 429) {
         throw new Error('Rate limited — wait a moment and try again');
+      } else if (res.status === 413) {
+        throw new Error('Photo too large for server — try a smaller one');
       } else if (res.status >= 500) {
         throw new Error('API server error — try again in a moment');
       }
       throw new Error(`API Error ${res.status}`);
     }
-    const d=await res.json();
-    if(d.error) throw new Error(d.error.message);
-    const text = d.content?.find(b=>b.type==='text')?.text||'';
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    const text = d.content?.find(b => b.type === 'text')?.text || '';
     if (!text) throw new Error('No response text from API');
-    return text.replace(/```json|```/g,'').trim();
-  } catch(e) {
+    return text.replace(/```json|```/g, '').trim();
+  } catch (e) {
     console.error('callClaude error:', e.message);
     throw e;
   }
