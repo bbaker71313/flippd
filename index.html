@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.10 - JWT persist + auth/me + shelf photo fix + in-app confirm + dedup -->
+<!-- FLIPPD v5.11 - zero image decode in photo intake -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3971,63 +3971,34 @@ function fileToBase64NoDecodeAndThumb(file) {
       reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + ' MB). Try a smaller one.'));
       return;
     }
-    // STEP 1 — read bytes only (no decode)
-    const reader = new FileReader();
+    // Read raw bytes only — NO image decoding at any point.
+    // createImageBitmap with resizeWidth still decodes the full source
+    // bitmap on many Android WebView versions before scaling, which is
+    // what triggers the "low memory" OOM kill. Solution: skip ALL
+    // decode steps entirely. The scan works fine without a preview.
+    var reader = new FileReader();
     reader.onerror = function() { reject(new Error('Could not read photo file')); };
     reader.onload = function(ev) {
       try {
-        const buf = new Uint8Array(ev.target.result);
-        // STEP 2 — base64-encode in chunks (no giant temp string)
-        let binary = '';
-        const CHUNK = 0x8000; // 32KB chunks of binary
-        for (let i = 0; i < buf.length; i += CHUNK) {
+        var buf = new Uint8Array(ev.target.result);
+        var binary = '';
+        var CHUNK = 0x8000;
+        for (var i = 0; i < buf.length; i += CHUNK) {
           binary += String.fromCharCode.apply(null, buf.subarray(i, i + CHUNK));
         }
-        const b64 = btoa(binary);
-        binary = ''; // free immediately
-        // STEP 3 — try to build a tiny preview thumbnail; if it fails,
-        // we still resolve with the b64 so the scan can proceed.
-        makeTinyThumb(file).then(function(thumbUrl) {
-          resolve({ b64: b64, thumbUrl: thumbUrl, mime: 'image/jpeg', sizeKB: Math.round(file.size/1024) });
-        }).catch(function() {
-          // Thumbnail failed — that's OK. Scan still works without preview.
-          resolve({ b64: b64, thumbUrl: null, mime: 'image/jpeg', sizeKB: Math.round(file.size/1024) });
-        });
-      } catch (err) {
-        reject(err);
-      }
+        var b64 = btoa(binary);
+        binary = '';
+        resolve({ b64: b64, thumbUrl: null, mime: 'image/jpeg', sizeKB: Math.round(file.size/1024) });
+      } catch (err) { reject(err); }
     };
     reader.readAsArrayBuffer(file);
   });
 }
 
-// Build a small thumbnail (240px max) for on-screen preview only.
-// Uses createImageBitmap with resizeWidth — peak memory ~200KB even
-// for a 12MP source. Wrapped in try/catch so a failure does NOT
-// break the scan flow.
-function makeTinyThumb(file) {
-  return new Promise(function(resolve, reject) {
-    if (typeof createImageBitmap !== 'function') { reject(new Error('no createImageBitmap')); return; }
-    let bmp = null;
-    createImageBitmap(file, {
-      resizeWidth: PREVIEW_THUMB_PX,
-      resizeHeight: PREVIEW_THUMB_PX,
-      resizeQuality: 'low'
-    }).then(function(b) {
-      bmp = b;
-      const c = document.createElement('canvas');
-      c.width = bmp.width; c.height = bmp.height;
-      c.getContext('2d').drawImage(bmp, 0, 0);
-      bmp.close && bmp.close(); bmp = null;
-      const url = c.toDataURL('image/jpeg', 0.6);
-      c.width = 0; c.height = 0;
-      resolve(url);
-    }).catch(function(err) {
-      if (bmp && bmp.close) bmp.close();
-      reject(err);
-    });
-  });
-}
+// makeTinyThumb removed — createImageBitmap triggers full bitmap decode
+// on many Android WebView versions regardless of resizeWidth hint,
+// causing the same OOM crash we're trying to prevent. No preview is
+// generated; the scan works without one.
 
 // ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
