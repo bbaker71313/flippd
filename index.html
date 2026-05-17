@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.9 - no-decode photo path + JWT persist | DEBUG-CHAT-DEPLOY -->
+<!-- FLIPPD v5.10 - JWT persist + auth/me + shelf photo fix + in-app confirm + dedup -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1831,6 +1831,20 @@ body::before{
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- IN-APP CONFIRM MODAL (replaces native browser confirm()) -->
+<div class="modal-overlay" id="app-confirm-modal" style="display:none">
+  <div class="modal-content" style="max-width:340px">
+    <div style="padding:20px 20px 16px">
+      <div id="app-confirm-title" style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;color:var(--text);margin-bottom:8px">Are you sure?</div>
+      <div id="app-confirm-msg" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px">This action cannot be undone.</div>
+      <div style="display:flex;gap:8px">
+        <button id="app-confirm-cancel" class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="appConfirmRespond(false)">Cancel</button>
+        <button id="app-confirm-ok" class="btn" style="flex:1;margin-bottom:0;background:#dd0000;color:#fff;border-color:#dd0000" onclick="appConfirmRespond(true)">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════
 // CONSTANTS
@@ -2685,14 +2699,17 @@ function saveInvItem() {
 }
 
 function deleteItem(id) {
-  if (!confirm('Delete this item?')) return;
-  items = items.filter(i => i.id !== id);
-  saveItems();
-  deletePhotosIDB(id); // clean up photos from IndexedDB
-  deleteItemFromServer(id); // sync to server in background
-  showInvView('list');
-  renderFilteredList();
-  showToast('Item deleted');
+  const item = items.find(i => i.id === id);
+  const itemName = item ? (item.nickname || 'this item') : 'this item';
+  showAppConfirm('Delete item?', `"${itemName}" will be removed from inventory. This cannot be undone.`, 'Delete', function() {
+    items = items.filter(i => i.id !== id);
+    saveItems();
+    deletePhotosIDB(id); // clean up photos from IndexedDB
+    deleteItemFromServer(id); // sync to server in background
+    showInvView('list');
+    renderFilteredList();
+    showToast('Item deleted');
+  });
 }
 
 function cancelInvForm() {
@@ -3896,6 +3913,32 @@ function showToast(msg) {
 }
 
 // ══════════════════════════════════════════════════
+// IN-APP CONFIRM MODAL
+// ══════════════════════════════════════════════════
+// Replaces native browser confirm() which is unstyled, blocking, and
+// behaves inconsistently across Android WebViews. Always call this
+// instead of window.confirm() for destructive actions.
+let _appConfirmCallback = null;
+function showAppConfirm(title, message, okLabel, onConfirm) {
+  _appConfirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
+  const titleEl = document.getElementById('app-confirm-title');
+  const msgEl   = document.getElementById('app-confirm-msg');
+  const okBtn   = document.getElementById('app-confirm-ok');
+  if (titleEl) titleEl.textContent = title || 'Are you sure?';
+  if (msgEl)   msgEl.textContent   = message || 'This action cannot be undone.';
+  if (okBtn)   okBtn.textContent   = okLabel || 'Delete';
+  document.getElementById('app-confirm-modal').style.display = 'flex';
+}
+function appConfirmRespond(ok) {
+  document.getElementById('app-confirm-modal').style.display = 'none';
+  const cb = _appConfirmCallback;
+  _appConfirmCallback = null;
+  if (ok && cb) {
+    try { cb(); } catch (e) { console.error('appConfirm callback failed:', e); }
+  }
+}
+
+// ══════════════════════════════════════════════════
 // IMAGE INTAKE — no-decode path (memory-safe)
 // ══════════════════════════════════════════════════
 // PROBLEM: every previous fix tried to decode the raw camera photo to a
@@ -4624,8 +4667,10 @@ function buyShelfItem(itemIndex) {
     return;
   }
   const shelfItem = currentShelfItems[itemIndex];
-  // Shelf items come from a shelf photo — attach the shelf image
-  const photos = imgB64 ? [`data:${imgType};base64,${imgB64}`] : [];
+  // Shelf items must NOT inherit the shelf photo — the shelf shot shows
+  // many items, not the individual one. User will attach a real photo of
+  // this specific item later from inventory edit / Photos tab.
+  const photos = [];
   const cost = parseFloat(shelfItem.estimated_cost_at_thrift) || 0;
   const sellPrice = parseFloat(shelfItem.avg_sold_price) || 0;
 
@@ -4762,10 +4807,11 @@ let pendingBuyData = null;
 function showBuyConfirm(item, cost, fin, dec) {
   pendingBuyData = {item, cost, fin, dec};
 
-  // Photo
+  // Photo — only show preview if this was a single-item scan; shelf
+  // scans show a photo of many items, which would be misleading here.
   const photoEl = document.getElementById('buy-confirm-photo');
   const imgEl = document.getElementById('buy-confirm-img');
-  if (imgB64) {
+  if (imgB64 && srcMode === 'single') {
     imgEl.src = `data:${imgType};base64,${imgB64}`;
     photoEl.style.display = 'block';
   } else {
@@ -4814,7 +4860,10 @@ function confirmBuyItem() {
   const cost     = parseFloat(document.getElementById('bc-cost').value)||0;
   const sellPrice= parseFloat(document.getElementById('bc-price').value)||0;
   const notes    = document.getElementById('bc-notes').value;
-  const photos   = imgB64 ? [`data:${imgType};base64,${imgB64}`] : [];
+  // Only attach the photo if this was a single-item scan. If srcMode is
+  // 'shelf', the imgB64 in memory is the shelf photo (many items) and must
+  // not be attached to this individual item.
+  const photos   = (srcMode === 'single' && imgB64) ? [`data:${imgType};base64,${imgB64}`] : [];
   logScan(dec, fin.roi, cost, true);
   const newItem = createInventoryItem({
     nickname: name, title: name, category, condition,
@@ -5465,32 +5514,8 @@ async function loadUserInfo() {
   }
 }
 
-async function startCheckout(tier, interval) {
-  try {
-    const res = await fetch(API_BASE + '/stripe/checkout', {
-      method: 'POST',
-      headers: getApiHeaders(),
-      body: JSON.stringify({ tier, interval })
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-  } catch (err) {
-    showToast('Checkout failed: ' + err.message);
-  }
-}
-
-async function openCustomerPortal() {
-  try {
-    const res = await fetch(API_BASE + '/stripe/portal', {
-      method: 'POST',
-      headers: getApiHeaders()
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-  } catch (err) {
-    showToast('Portal failed: ' + err.message);
-  }
-}
+// NOTE: startCheckout() and openCustomerPortal() are defined further down
+// in the SUBSCRIPTION section (~line 5790). Earlier duplicate removed.
 
 // ══════════════════════════════════════════════════
 // INIT
@@ -5826,13 +5851,49 @@ window.onload = () => {
   filterCat = 'All'; filterStatus = 'All';
   initFormSelects();
 
-  // Always require login on every page load — never auto-restore session
-  apiKey = '';
-  localStorage.removeItem('fif_api_key');
-  localStorage.removeItem('flippd_jwt');
-  switchTab('sourcing');
-  showSrcView('setup');
-  setAuthMode('login');
+  // Restore session from saved JWT and validate against backend
+  // A JWT has 3 dot-separated parts; anything else is a legacy access code
+  // and is treated as not-logged-in.
+  const storedJwt = localStorage.getItem('flippd_jwt') || localStorage.getItem('fif_api_key') || '';
+  if (storedJwt && storedJwt.split('.').length === 3 && storedJwt.length > 50) {
+    apiKey = storedJwt;
+    localStorage.setItem('fif_api_key', storedJwt);
+    localStorage.setItem('flippd_jwt', storedJwt);
+    // Optimistically show app; verify token server-side in background
+    switchTab('sourcing');
+    showSrcView('input');
+    // Background validation: if backend rejects token, fall back to login
+    (async function validateSession() {
+      try {
+        const r = await fetch(API_BASE + '/auth/me', { headers: getApiHeaders() });
+        if (r.status === 401 || r.status === 403) {
+          apiKey = '';
+          localStorage.removeItem('fif_api_key');
+          localStorage.removeItem('flippd_jwt');
+          showSrcView('setup');
+          setAuthMode('login');
+          showToast('Session expired — please log in');
+          return;
+        }
+        if (r.ok) {
+          const user = await r.json();
+          window._currentUser = user;
+          updateTierBanner(user);
+        }
+      } catch (e) {
+        // Network error — keep user logged in optimistically; next API call will re-check
+        console.warn('Could not validate session:', e.message);
+      }
+    })();
+  } else {
+    // No valid token stored — clear any garbage and show login
+    apiKey = '';
+    localStorage.removeItem('fif_api_key');
+    localStorage.removeItem('flippd_jwt');
+    switchTab('sourcing');
+    showSrcView('setup');
+    setAuthMode('login');
+  }
 
   updateFeeHint();
   try {
