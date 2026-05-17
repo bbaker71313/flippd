@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.13 - explicit file extensions on accept (prevents Chrome auto-thumbnail OOM at camera handoff) -->
+<!-- FLIPPD v5.14 - raise upload cap from 4.5MB to 10MB -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3987,7 +3987,7 @@ function appConfirmRespond(ok) {
 // image decoding. Only the preview thumbnail decodes, and at 240px
 // the peak memory cost (~200KB) is well below any WebView limit.
 const PREVIEW_THUMB_PX = 240;
-const MAX_UPLOAD_BYTES = 4_500_000; // ~4.5MB raw file; Anthropic limit is 5MB base64
+const MAX_UPLOAD_BYTES = 10_000_000; // 10MB raw — Anthropic accepts up to ~13MB base64 in practice
 
 function fileToBase64NoDecodeAndThumb(file) {
   return new Promise(function(resolve, reject) {
