@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.17 - multipart upload (no base64 on phone, zero JS heap allocation, fixes OOM on 4GB Android) -->
+<!-- FLIPPD v5.18 - preview thumbnail via blob URL + show backend 400 error detail -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2422,13 +2422,16 @@ function invFormHandlePhoto(e) {
   const file = e.target.files[0]; if (!file) return;
   showToast('📷 Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
+    if (invFormImgFile && invFormImgFile._blobUrl) {
+      try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
+    }
     invFormImgFile = res.file;
-    invFormImgB64 = 'HAS_FILE'; // sentinel for "has photo" checks
+    invFormImgB64 = 'HAS_FILE';
     invFormImgType = res.mime;
+    const blobUrl = URL.createObjectURL(file);
+    try { Object.defineProperty(invFormImgFile, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
     const imgEl = document.getElementById('inv-form-photo-img');
-    imgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">📷 ' + res.sizeKB + ' KB</text></svg>'
-    );
+    imgEl.src = blobUrl;
     document.getElementById('inv-form-photo-preview').style.display = 'block';
     document.getElementById('inv-form-detect-btn').style.display = 'block';
     document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
@@ -2440,8 +2443,11 @@ function invFormHandlePhoto(e) {
 }
 
 function invFormClearPhoto() {
+  if (invFormImgFile && invFormImgFile._blobUrl) {
+    try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
+  }
   invFormImgB64 = null;
-  invFormImgFile = null; // v5.17 — clear raw File too
+  invFormImgFile = null;
   document.getElementById('inv-form-photo-preview').style.display = 'none';
   document.getElementById('inv-form-detect-btn').style.display = 'none';
   document.getElementById('inv-form-detect-status').textContent = '';
@@ -4265,17 +4271,22 @@ function handleImage(e) {
   if (!file) return;
   showToast('📷 Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
-    // v5.17: store raw File reference. imgB64 is set to a sentinel string
-    // so that all the `if(imgB64)` checks elsewhere in the code (which
-    // mean "does this scan have a photo?") still work without modification.
-    // The actual upload uses imgFile via multipart/form-data — imgB64's
-    // value is never sent to the API.
+    // v5.17: store raw File reference for multipart upload
+    // v5.18: use URL.createObjectURL for the preview thumbnail — this is
+    // a native blob URL that the browser streams from disk at display
+    // resolution. No JS-heap allocation, no base64 in the DOM.
+    // Browser-side decode happens but is bounded by the <img> element's
+    // rendered size (a few hundred px), not the full 50MP source.
+    if (imgFile && imgFile._blobUrl) {
+      try { URL.revokeObjectURL(imgFile._blobUrl); } catch(_) {}
+    }
     imgFile = res.file;
-    imgB64 = 'HAS_FILE'; // sentinel — never read for content, only truthiness
+    imgB64 = 'HAS_FILE'; // sentinel — never sent, only truthy-checked
     imgType = res.mime;
-    showPreview('data:image/svg+xml;utf8,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="%23222"/><text x="50%" y="50%" fill="%23ccc" font-family="monospace" font-size="20" text-anchor="middle" dy=".3em">📷 ' + res.sizeKB + ' KB</text></svg>'
-    ));
+    const blobUrl = URL.createObjectURL(file);
+    // Stash for later cleanup
+    try { Object.defineProperty(imgFile, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
+    showPreview(blobUrl);
   }).catch(function(err) {
     showToast('❌ ' + (err.message || 'Could not load photo'));
     console.error('handleImage failed:', err);
@@ -4291,8 +4302,12 @@ function showPreview(src) {
 }
 
 function clearImage() {
+  // Revoke blob URL so the browser can release the file
+  if (imgFile && imgFile._blobUrl) {
+    try { URL.revokeObjectURL(imgFile._blobUrl); } catch(_) {}
+  }
   imgB64 = null;
-  imgFile = null; // v5.17 — clear the raw File reference too
+  imgFile = null;
   imgType = 'image/jpeg';
   const img = document.getElementById('preview-img');
   if (img) img.src = '';
@@ -4362,6 +4377,9 @@ async function callClaude(system,msg,maxTok=1500) {
         throw new Error('Rate limited — wait a moment and try again');
       } else if (res.status === 413) {
         throw new Error('Photo too large for server — try a smaller one');
+      } else if (res.status === 400) {
+        const detail = errData.error || errData.message || errData.detail || JSON.stringify(errData).substring(0,180);
+        throw new Error('API Error 400: ' + detail);
       } else if (res.status >= 500) {
         throw new Error('API server error — try again in a moment');
       }
