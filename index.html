@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.20 - deep-extract 400 error message so user sees actual reason -->
+<!-- FLIPPD v5.21 - drop redundant `text` field from multipart (Anthropic rejects extras) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2467,10 +2467,9 @@ async function invFormDetectItem() {
     fd.append('image', invFormImgFile, invFormImgFile.name || 'photo.jpg');
     fd.append('system', '');
     const detectPrompt = 'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}';
-    fd.append('text', detectPrompt);
+    // No `text` field — already inside messages, Anthropic rejects extras
     fd.append('max_tokens', '400');
     fd.append('model', 'claude-sonnet-4-6');
-    // v5.19: backend multipart path requires a messages array field
     fd.append('messages', JSON.stringify([{
       role: 'user',
       content: [
@@ -4355,15 +4354,13 @@ async function callClaude(system,msg,maxTok=1500) {
   if (hasPhoto) {
     const fd = new FormData();
     fd.append('image', imgFile, imgFile.name || 'photo.jpg');
+    // Only fields the Anthropic API accepts as top-level params.
+    // Earlier versions also sent `text` which Anthropic rejects with
+    // "text: Extra inputs are not permitted" — the user text is already
+    // inside the messages array, so the standalone field is redundant.
     fd.append('system', system);
-    fd.append('text', msg);
     fd.append('max_tokens', String(maxTok));
     fd.append('model', 'claude-sonnet-4-6');
-    // v5.19: backend multipart path also requires a `messages` JSON array
-    // field. The backend will substitute the resized image into
-    // messages[].content[].source.data — we just provide the wrapper
-    // (with placeholder image data, since the actual bytes come from
-    // the `image` multipart field).
     fd.append('messages', JSON.stringify([{
       role: 'user',
       content: [
