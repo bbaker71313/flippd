@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.19 - add messages array to multipart FormData (backend contract requirement) -->
+<!-- FLIPPD v5.20 - deep-extract 400 error message so user sees actual reason -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -4399,7 +4399,22 @@ async function callClaude(system,msg,maxTok=1500) {
       } else if (res.status === 413) {
         throw new Error('Photo too large for server — try a smaller one');
       } else if (res.status === 400) {
-        const detail = errData.error || errData.message || errData.detail || JSON.stringify(errData).substring(0,180);
+        // Backend may return error as a nested object (Anthropic format)
+        // or a flat string. Walk the common shapes to extract a readable
+        // message instead of stringifying [object Object].
+        function extract(e) {
+          if (!e) return null;
+          if (typeof e === 'string') return e;
+          if (typeof e === 'object') {
+            return e.message || e.error || e.detail || e.msg ||
+                   (e.type ? e.type + ': ' + JSON.stringify(e).substring(0,160) : null);
+          }
+          return null;
+        }
+        const detail = extract(errData.error) || extract(errData.message) ||
+                       extract(errData.detail) || extract(errData) ||
+                       JSON.stringify(errData).substring(0,200);
+        console.error('400 raw body:', errData);
         throw new Error('API Error 400: ' + detail);
       } else if (res.status >= 500) {
         throw new Error('API server error — try again in a moment');
