@@ -1446,9 +1446,9 @@ body::before{
       <div class="card-title">⏱ Export Window</div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <button class="csv-win-btn active" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
+        <button class="csv-win-btn" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
         <button class="csv-win-btn" id="csv-win-48" onclick="setCsvWindow(48)">Last 48h</button>
-        <button class="csv-win-btn" id="csv-win-168" onclick="setCsvWindow(168)">Last 7 days</button>
+        <button class="csv-win-btn active" id="csv-win-168" onclick="setCsvWindow(168)">Last 7 days</button>
       </div>
       <div id="csv-preview-count" style="font-size:13px;font-weight:600;color:var(--soft);margin-bottom:4px"></div>
       <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
@@ -2180,10 +2180,13 @@ function switchTab(tab) {
   if (tab === 'import') { resetImportUI(); }
   if (tab === 'dashboard') { renderDashboard(); statsSubTab('dash'); }
   
-  // Cleanup memory when leaving scout tab
+  // Cleanup memory when leaving scout tab.
+  // NOTE: do NOT remove flippd_preview_src here — Android camera launches a new
+  // Activity which can fire tab-switch events; clearing the preview key here causes
+  // the photo black-screen / return-to-input bug after the checkmark is tapped.
+  // The preview key is owned by clearImage() (✕ Clear button + goSrcBack()) only.
   if (tab !== 'sourcing') {
-    try { 
-      sessionStorage.removeItem('flippd_preview_src');
+    try {
       // Limit activity log to last 30 entries and 7 days
       const act = JSON.parse(localStorage.getItem('fif_activity_log')||'[]');
       if (act.length > 30) {
@@ -4069,13 +4072,59 @@ function ebayConnect() {
 }
 
 function ebayDisconnect() {
-  showToast('eBay account disconnected.');
-  const btn = document.getElementById('ebay-connect-btn');
-  const dis = document.getElementById('ebay-disconnect-btn');
+  // Call backend to revoke tokens, then update UI
+  (async () => {
+    try {
+      await fetch(API_BASE + '/ebay/disconnect', {
+        method: 'POST',
+        headers: getApiHeaders()
+      });
+    } catch(e) { /* still update UI even if request fails */ }
+    showToast('eBay account disconnected.');
+    const btn = document.getElementById('ebay-connect-btn');
+    const dis = document.getElementById('ebay-disconnect-btn');
+    const disp = document.getElementById('ebay-status-display');
+    if (btn) btn.style.display = 'block';
+    if (dis) dis.style.display = 'none';
+    if (disp) disp.textContent = 'Not connected';
+  })();
+}
+
+// Check eBay connection status from backend and update SCOUT settings UI.
+// Pre-existing v5.21 bug: this was referenced by showSourcingSettings() but never
+// defined — opening Scout settings would throw "checkEbayStatus is not defined"
+// and the Connect/Disconnect buttons wouldn't reflect actual state.
+async function checkEbayStatus() {
+  const btn  = document.getElementById('ebay-connect-btn');
+  const dis  = document.getElementById('ebay-disconnect-btn');
   const disp = document.getElementById('ebay-status-display');
-  if (btn) btn.style.display = 'block';
-  if (dis) dis.style.display = 'none';
-  if (disp) disp.textContent = 'Not connected';
+  if (!disp) return; // settings panel not in DOM yet
+  if (!isUnlocked()) {
+    disp.textContent = 'Log in to connect your eBay account';
+    if (btn) btn.style.display = 'block';
+    if (dis) dis.style.display = 'none';
+    return;
+  }
+  disp.textContent = 'Checking...';
+  try {
+    const res = await fetch(API_BASE + '/ebay/status', { headers: getApiHeaders() });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const data = await res.json();
+    if (data.connected) {
+      const who = data.username ? ' as ' + data.username : '';
+      disp.textContent = 'Connected to eBay' + who;
+      if (btn) btn.style.display = 'none';
+      if (dis) dis.style.display = 'block';
+    } else {
+      disp.textContent = 'Not connected';
+      if (btn) btn.style.display = 'block';
+      if (dis) dis.style.display = 'none';
+    }
+  } catch (e) {
+    disp.textContent = 'Not connected';
+    if (btn) btn.style.display = 'block';
+    if (dis) dis.style.display = 'none';
+  }
 }
 
 function checkEbayOAuthCallback() {
@@ -4141,10 +4190,15 @@ async function ebayPullListings(days){
     const total = d.active + d.drafted + d.sold;
     st.innerHTML=`✅ Synced ${total} items<br>${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
     
-    // Load inventory to update view
+    // Re-fetch inventory from server so newly synced items appear (was loadInventory — that function doesn't exist).
     await new Promise(r=>setTimeout(r,1000));
-    loadInventory();
-    
+    await syncFromServer();
+
+    // Run client-side dedupe scan for ambiguous fuzzy matches (Bug 5 fix — Option A).
+    // Backend auto-merges by ebay_item_id; this catches Flippd items added manually
+    // with no eBay ID whose nickname is similar to a newly pulled eBay listing.
+    setTimeout(()=>{ runEbayDedupeScan(); }, 200);
+
     // Close panel after 2 seconds
     setTimeout(()=>{closeEbaySync();},2000);
     
@@ -4159,6 +4213,154 @@ async function ebayPullListings(days){
 
 async function runEbaySyncPull(){
   await ebayPullListings(_ebaySyncDays);
+}
+
+// ══════════════════════════════════════════════════
+// EBAY DEDUPE — client-side fuzzy match for ambiguous pairs
+// Backend auto-merges by ebay_item_id. This catches pre-existing
+// Flippd items (no eBay ID) whose nickname is similar to a newly
+// pulled eBay listing. User confirms each pair Yes/No.
+// ══════════════════════════════════════════════════
+const EBAY_DEDUPE_LOW  = 0.70;  // <70% similarity: treat as separate
+const EBAY_DEDUPE_HIGH = 0.95;  // >=95% similarity: auto-merge
+let _ebayDedupeQueue = [];
+let _ebayDedupeCurrent = null;
+
+// Returns true if the item appears to have been imported from eBay sync.
+function isEbaySourced(it) {
+  if (!it) return false;
+  if (it.ebay_item_id) return true;
+  if (it.ebayItemId) return true;
+  if (it.source === 'ebay') return true;
+  if (typeof it.image_url === 'string' && it.image_url.includes('ebayimg.com')) return true;
+  return false;
+}
+
+// Normalize a string for comparison: lowercase, strip punctuation, collapse spaces.
+function _normTitle(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Simple word-overlap similarity (Jaccard index on token sets). Cheap, no deps.
+function _titleSimilarity(a, b) {
+  const ta = new Set(_normTitle(a).split(' ').filter(Boolean));
+  const tb = new Set(_normTitle(b).split(' ').filter(Boolean));
+  if (!ta.size || !tb.size) return 0;
+  let inter = 0;
+  ta.forEach(t => { if (tb.has(t)) inter++; });
+  const union = ta.size + tb.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+// Scan inventory for Flippd-only items whose nickname is similar to an eBay-sourced item.
+function findEbayDedupeCandidates() {
+  const ebayItems  = items.filter(isEbaySourced);
+  const flippdOnly = items.filter(i => !isEbaySourced(i));
+  if (!ebayItems.length || !flippdOnly.length) return [];
+
+  const pairs = [];
+  const seenFlippd = new Set();
+
+  for (const e of ebayItems) {
+    const eTitle = (e.listing && e.listing.title) || e.nickname || '';
+    let best = null;
+    for (const f of flippdOnly) {
+      if (seenFlippd.has(f.id)) continue;
+      // Skip if SKU exact match — already handled
+      if (e.sku && f.sku && e.sku === f.sku) continue;
+      const sim = _titleSimilarity(eTitle, f.nickname);
+      if (sim >= EBAY_DEDUPE_LOW && (!best || sim > best.sim)) {
+        best = { flippd: f, ebay: e, sim };
+      }
+    }
+    if (best) {
+      if (best.sim >= EBAY_DEDUPE_HIGH) {
+        // Auto-merge — no popup needed
+        _mergeFlippdWithEbay(best.flippd, best.ebay);
+        seenFlippd.add(best.flippd.id);
+      } else {
+        pairs.push(best);
+        seenFlippd.add(best.flippd.id);
+      }
+    }
+  }
+  return pairs;
+}
+
+// Option A merge: keep Flippd's cost/notes/photos/nickname, overlay eBay's listing data.
+function _mergeFlippdWithEbay(flippdItem, ebayItem) {
+  const idx = items.findIndex(i => i.id === flippdItem.id);
+  if (idx === -1) return;
+  const merged = {
+    ...flippdItem,
+    // Overlay eBay-side fields
+    ebay_item_id: ebayItem.ebay_item_id || ebayItem.ebayItemId || flippdItem.ebay_item_id,
+    status:       ebayItem.status || flippdItem.status,
+    sellPrice:    ebayItem.sellPrice || flippdItem.sellPrice,
+    platform:     'eBay',
+    listing:      ebayItem.listing || flippdItem.listing,
+    image_url:    ebayItem.image_url || flippdItem.image_url,
+    source:       'ebay',
+  };
+  items[idx] = merged;
+  // Remove the duplicate eBay-sourced item
+  const dupIdx = items.findIndex(i => i.id === ebayItem.id);
+  if (dupIdx !== -1) items.splice(dupIdx, 1);
+  saveItems();
+  if (typeof updateItemOnServer === 'function') updateItemOnServer(merged);
+  if (typeof deleteItemFromServer === 'function') deleteItemFromServer(ebayItem.id);
+}
+
+// Public: scan and open modal if anything ambiguous
+function runEbayDedupeScan() {
+  _ebayDedupeQueue = findEbayDedupeCandidates();
+  if (!_ebayDedupeQueue.length) {
+    if (typeof renderInventory === 'function') renderInventory();
+    return;
+  }
+  if (typeof renderInventory === 'function') renderInventory();
+  showNextEbayDedupePair();
+}
+
+function showNextEbayDedupePair() {
+  _ebayDedupeCurrent = _ebayDedupeQueue.shift();
+  if (!_ebayDedupeCurrent) {
+    const modal = document.getElementById('ebay-dedupe-modal');
+    if (modal) modal.style.display = 'none';
+    if (typeof renderInventory === 'function') renderInventory();
+    if (typeof showToast === 'function') showToast('✓ Dedupe complete');
+    return;
+  }
+  const pair = _ebayDedupeCurrent;
+  const fImg = (pair.flippd.photos && pair.flippd.photos[0]) || pair.flippd.image_url || '';
+  const eImg = pair.ebay.image_url || (pair.ebay.photos && pair.ebay.photos[0]) || '';
+  const fTitle = pair.flippd.nickname || '(no title)';
+  const eTitle = (pair.ebay.listing && pair.ebay.listing.title) || pair.ebay.nickname || '(no title)';
+  const remaining = _ebayDedupeQueue.length;
+  document.getElementById('ebay-dedupe-flippd-img').src = fImg || 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  document.getElementById('ebay-dedupe-ebay-img').src   = eImg || 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  document.getElementById('ebay-dedupe-flippd-title').textContent = fTitle;
+  document.getElementById('ebay-dedupe-ebay-title').textContent   = eTitle;
+  document.getElementById('ebay-dedupe-progress').textContent =
+    remaining > 0 ? `${remaining + 1} pair${remaining + 1 !== 1 ? 's' : ''} to review` : 'Last pair';
+  document.getElementById('ebay-dedupe-modal').style.display = 'flex';
+}
+
+function ebayDedupeYes() {
+  // User confirms these are the same item — merge
+  if (_ebayDedupeCurrent) {
+    _mergeFlippdWithEbay(_ebayDedupeCurrent.flippd, _ebayDedupeCurrent.ebay);
+  }
+  showNextEbayDedupePair();
+}
+
+function ebayDedupeNo() {
+  // User confirms these are different — keep both, move on
+  showNextEbayDedupePair();
 }
 
 window.showSourcingSettings=function(){if(_origShowSettings)_origShowSettings();checkEbayStatus();};
@@ -4418,7 +4620,17 @@ async function callClaude(system,msg,maxTok=1500) {
       }
       throw new Error(`API Error ${res.status}`);
     }
-    const d = await res.json();
+    const d = await (async () => {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return res.json();
+      const txt = await res.text();
+      // May be JSON despite wrong content-type header
+      if (txt.trimStart().startsWith('{') || txt.trimStart().startsWith('[')) {
+        try { return JSON.parse(txt); } catch(_) {}
+      }
+      // Plain-text error from backend (e.g. "This image is too large")
+      throw new Error(txt.substring(0, 200));
+    })();
     if (d.error) throw new Error(d.error.message);
     const text = d.content?.find(b => b.type === 'text')?.text || '';
     if (!text) throw new Error('No response text from API');
@@ -4925,10 +5137,12 @@ function confirmBuyItem() {
   const cost     = parseFloat(document.getElementById('bc-cost').value)||0;
   const sellPrice= parseFloat(document.getElementById('bc-price').value)||0;
   const notes    = document.getElementById('bc-notes').value;
-  // Only attach the photo if this was a single-item scan. If srcMode is
-  // 'shelf', the imgB64 in memory is the shelf photo (many items) and must
-  // not be attached to this individual item.
-  const photos   = (srcMode === 'single' && imgB64) ? [`data:${imgType};base64,${imgB64}`] : [];
+  // Photos always start empty — the scout photo is of the item in the thrift store
+  // and should not transfer to the inventory record. User adds a clean photo later
+  // from the inventory edit screen or Photos tab.
+  // NOTE: do not use srcMode here — it's a global that persists between scans and
+  // would incorrectly attach shelf photos if a single scan was run previously.
+  const photos   = [];
   logScan(dec, fin.roi, cost, true);
   const newItem = createInventoryItem({
     nickname: name, title: name, category, condition,
@@ -5225,7 +5439,7 @@ function renderTrendingKeywords(data, el) {
 // ══════════════════════════════════════════════════
 // CSV EXPORT
 // ══════════════════════════════════════════════════
-let csvWindowHours = 24;
+let csvWindowHours = 168;
 const CSV_EXPORTED_KEY = 'fef_csv_exported_ids';
 
 function setCsvExportMode(mode) {
@@ -5295,12 +5509,15 @@ function renderCsvPreview() {
 }
 
 function conditionToEbayId(cond) {
+  // eBay Drafts CSV requires the WORD form per eBay docs:
+  // https://export.ebay.com/en/services-tools/seller-hub/uploading-your-listings-in-bulk-using-reports-tab/
+  // (Live listings CSV uses numeric IDs like 1000/3000 — that's a different template.)
   const map = {
-    'New':'NEW','Like New':'LIKE_NEW','Open Box':'OPEN_BOX',
-    'Good':'USED_VERY_GOOD','Used':'USED_VERY_GOOD',
-    'Fair':'USED_ACCEPTABLE','Poor':'USED_ACCEPTABLE'
+    'New':'NEW','Like New':'NEW_OTHER','Open Box':'NEW_OTHER',
+    'Good':'USED','Used':'USED',
+    'Fair':'USED','Poor':'FOR_PARTS_OR_NOT_WORKING'
   };
-  return map[cond] || 'USED_VERY_GOOD';
+  return map[cond] || 'USED';
 }
 
 function generateAndDownloadCSV() {
@@ -5308,10 +5525,10 @@ function generateAndDownloadCSV() {
   if (!candidates.length) { showToast('No items to export'); return; }
 
   const h1 = `#INFO,Version=0.0.2,Template= eBay-draft-listings-template_US,,,,,,,,`;
-  const h2 = `#INFO Action and Category ID are required fields. 1) Set Action to Draft 2) Please find the category ID for your listings here: https://pages.ebay.com/sellerinformation/news/categorychanges.html,,,,,,,,,,`;
-  const h3 = `"#INFO After you've successfully uploaded your draft from the Seller Hub Reports tab, complete your drafts to active listings here: https://www.ebay.com/sh/lst/drafts",,,,,,,,,,`;
-  const h4 = `#INFO,,,,,,,,,,`;
-  const cols = `Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8),Custom label (SKU),Category ID,Title,UPC,Price,Quantity,Item photo URL,Condition ID,Description,Format`;
+  const h2 = `"#INFO Action and Category ID are required fields. 1) Set Action to Draft 2) Please find the category ID for your listings here: https://pages.ebay.com/sellerinformation/news/categorychanges.html",,,,,,,,,`;
+  const h3 = `"#INFO After you've successfully uploaded your draft from the Seller Hub Reports tab, complete your drafts to active listings here: https://www.ebay.com/sh/lst/drafts",,,,,,,,,`;
+  const h4 = `#INFO,,,,,,,,,`;
+  const cols = `Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8),Custom label (SKU),Category ID,Title,UPC,Price,Quantity,Item photo URL,Condition ID,Description`;
 
   const rows = candidates.map(i => {
     // Use AI-generated listing if available, otherwise fall back to item data
@@ -5325,7 +5542,7 @@ function generateAndDownloadCSV() {
     const price   = parseFloat(i.sellPrice)||0;
     const sku     = (i.sku||'').replace(/,/g,'-').replace(/"/g,'');
     const photoUrl = i.image_url || (i.photos&&i.photos[0]&&!i.photos[0].startsWith('data:') ? i.photos[0] : '');
-    return `Draft,${sku},${catId},"${title}",,${price.toFixed(2)},1,${photoUrl},${condId},"${desc}",FixedPrice`;
+    return `Draft,${sku},${catId},"${title}",,${price.toFixed(2)},1,${photoUrl},${condId},"${desc}"`;
   }).join('\n');
 
   const csv  = [h1,h2,h3,h4,cols,rows].join('\n');
@@ -6049,10 +6266,27 @@ function handleCsvImport(e) {
       const rows = parseCsvRows(ev.target.result);
       if (!rows.length) { showToast('No rows found in CSV'); return; }
       const header = rows[0].map(h => h.trim().toLowerCase());
+
+      // Detect eBay order/shipping CSV (headers from Seller Hub Orders export)
+      const ebayOrderHeaders = ['order number','buyer name','buyer username','sales record number','order id','transaction id','ship to name','ship to city'];
+      const isEbayOrderCsv = ebayOrderHeaders.some(h => header.includes(h));
+      if (isEbayOrderCsv) {
+        showToast('⚠️ This is an eBay order export, not an inventory CSV. To import inventory, use a Flippd JSON backup or a spreadsheet with a "nickname" column.');
+        return;
+      }
+
+      // Detect eBay drafts/listings CSV (the file Flippd itself generates)
+      const ebayListingHeaders = ['custom label (sku)','item photo url','condition id'];
+      const isEbayListingCsv = ebayListingHeaders.some(h => header.includes(h));
+      if (isEbayListingCsv) {
+        showToast('⚠️ This is an eBay listings CSV, not a Flippd inventory CSV. Use a Flippd JSON backup to restore inventory.');
+        return;
+      }
+
       const required = ['nickname'];
       const missing = required.filter(r => !header.includes(r));
       if (missing.length) {
-        showToast('⚠️ CSV must have a "nickname" column');
+        showToast('⚠️ CSV must have a "nickname" column. Expected columns: nickname, category, condition, cost, sellPrice, platform, status, notes, dateAcquired.');
         return;
       }
       const existingSkus = new Set(items.map(i => i.sku).filter(Boolean));
@@ -6380,5 +6614,29 @@ function sPnlMiles() {
 <button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull from eBay</button>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
+
+<!-- ══════ EBAY DEDUPE MODAL ══════ -->
+<div id="ebay-dedupe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9500;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--surface);border-radius:12px;padding:20px;width:100%;max-width:520px;border:1.5px solid var(--border);max-height:92vh;overflow-y:auto">
+    <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:900;margin-bottom:4px;color:var(--text)">Same item?</div>
+    <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:14px" id="ebay-dedupe-progress">—</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:6px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Flippd</div>
+        <img id="ebay-dedupe-flippd-img" alt="Flippd item" style="width:100%;height:140px;object-fit:cover;border-radius:4px;background:var(--bg);margin-bottom:8px">
+        <div id="ebay-dedupe-flippd-title" style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;word-break:break-word">—</div>
+      </div>
+      <div style="flex:1;background:var(--card);border:1.5px solid var(--border);border-radius:6px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">eBay</div>
+        <img id="ebay-dedupe-ebay-img" alt="eBay item" style="width:100%;height:140px;object-fit:cover;border-radius:4px;background:var(--bg);margin-bottom:8px">
+        <div id="ebay-dedupe-ebay-title" style="font-size:12px;font-weight:700;color:var(--text);line-height:1.3;word-break:break-word">—</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn" id="ebay-dedupe-no-btn" onclick="ebayDedupeNo()" style="flex:1;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:13px;padding:12px;font-weight:700">No · keep both</button>
+      <button class="btn btn-green" id="ebay-dedupe-yes-btn" onclick="ebayDedupeYes()" style="flex:1;font-size:13px;padding:12px;font-weight:700">Yes · merge</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
