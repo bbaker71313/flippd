@@ -527,7 +527,7 @@ body::before{
 .trend-name{font-size:13px;font-weight:700;color:var(--text)}
 .trend-detail{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5;font-weight:500}
 .score-big{font-family:'Syne',sans-serif;font-size:52px;font-weight:900;line-height:1}
-.score-label{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-top:4px}
+.score-label{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:var(--header);margin-top:4px}
 
 /* ══ INVENTORY HOME ══ */
 .inv-stat-card{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:10px 6px;text-align:center}
@@ -1315,8 +1315,8 @@ body::before{
 
     <!-- Section: AI advice -->
     <div id="growth-advice-section" class="card" style="margin-bottom:14px;background:var(--green-bg);border-color:var(--green-border)">
-      <div class="card-title" style="color:#005522">💡 Your Business Advisor Says</div>
-      <div id="growth-advice-content" style="font-size:13px;color:#005522;line-height:1.8;font-weight:500"></div>
+      <div class="card-title" style="color:#007a3d">💡 Your Business Advisor Says</div>
+      <div id="growth-advice-content" style="font-size:13px;color:#007a3d;line-height:1.8;font-weight:500"></div>
     </div>
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
@@ -1356,7 +1356,30 @@ body::before{
 
   <!-- SALES VIEW -->
   <div id="pnl-view-sales">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500">Pulled from inventory — sold items only</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px;color:var(--muted);font-weight:500">Pulled from inventory — sold items only</div>
+      <button class="filter-btn" onclick="pnlToggleLogSale()" id="log-sale-btn">+ Log Sale</button>
+    </div>
+    <div id="log-sale-panel" style="display:none;margin-bottom:12px">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">Log a Sale</div>
+        <div class="form-grid">
+          <div class="f-group">
+            <label class="f-label">Category</label>
+            <select class="f-select" id="log-sale-cat" onchange="pnlPopulateSaleItems()">
+              <option value="">— pick category —</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label class="f-label">Item</label>
+            <select class="f-select" id="log-sale-item">
+              <option value="">— pick item —</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-green" style="margin-top:8px;margin-bottom:0" onclick="pnlOpenSaleModal()">Mark as Sold →</button>
+      </div>
+    </div>
     <div id="pnl-sales-table"></div>
   </div>
 
@@ -1378,7 +1401,6 @@ body::before{
           <select class="f-select" id="pnl-exp-cat">
             <option>Gas &amp; Travel</option>
             <option>Shipping Supplies</option>
-            <option>Packaging Materials</option>
             <option>Storage</option>
             <option>Platform Fees</option>
             <option>Equipment</option>
@@ -1404,7 +1426,14 @@ body::before{
 
   <!-- REPORT VIEW -->
   <div id="pnl-view-report" style="display:none">
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button class="filter-btn active" id="rpt-t-monthly" onclick="pnlSetReportPeriod('monthly')">Monthly</button>
+      <button class="filter-btn" id="rpt-t-quarterly" onclick="pnlSetReportPeriod('quarterly')">Quarterly</button>
+      <button class="filter-btn" id="rpt-t-yearly" onclick="pnlSetReportPeriod('yearly')">Yearly</button>
+    </div>
     <div id="pnl-report-content"></div>
+    <input type="file" id="ebay-csv-input" accept=".csv" style="display:none" onchange="pnlImportEbayCsv(this)">
+    <button class="btn" onclick="document.getElementById('ebay-csv-input').click()" style="width:100%;margin-top:10px;background:var(--card);border:1.5px dashed var(--border-dark);color:var(--accent);font-size:13px">📥 Import eBay Transaction CSV</button>
   </div>
 
   <!-- MILEAGE QUICK-LOGGER (always visible) -->
@@ -1572,6 +1601,13 @@ body::before{
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px" id="dash-date"></div>
     </div>
     <div id="dash-content"></div>
+    <div id="growth-expanded" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button onclick="closeGrowthExpanded()" style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;color:var(--accent);cursor:pointer;font-family:'IBM Plex Mono',monospace">← Back</button>
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text)">Growth Analysis</div>
+      </div>
+      <div id="growth-expanded-content"></div>
+    </div>
   </div>
   <div id="stats-view-pnl" style="display:none">
     <div id="spnl-sum" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
@@ -1587,7 +1623,7 @@ body::before{
         <div class="form-grid">
           <div class="f-group" style="grid-column:1/-1"><label class="f-label">Description</label><input class="f-input" id="spnl-desc" placeholder="Gas, poly mailers, tape..."></div>
           <div class="f-group"><label class="f-label">Amount ($)</label><input class="f-input" type="number" id="spnl-amt" placeholder="12.50" step="0.01"></div>
-          <div class="f-group"><label class="f-label">Category</label><select class="f-select" id="spnl-cat"><option>Gas &amp; Travel</option><option>Shipping Supplies</option><option>Packaging Materials</option><option>Storage</option><option>Platform Fees</option><option>Equipment</option><option>Other</option></select></div>
+          <div class="f-group"><label class="f-label">Category</label><select class="f-select" id="spnl-cat"><option>Gas &amp; Travel</option><option>Shipping Supplies</option><option>Storage</option><option>Platform Fees</option><option>Equipment</option><option>Other</option></select></div>
           <div class="f-group"><label class="f-label">Date</label><input class="f-input" type="date" id="spnl-date"></div>
         </div>
         <button class="btn btn-green" onclick="sPnlAddExp()" style="margin-bottom:0;margin-top:12px">Add Expense</button>
@@ -3006,6 +3042,7 @@ function paReset() {
 // ══════════════════════════════════════════════════
 const PNL_KEY = 'fef_expenses_v1';
 let pnlExpenses = [];
+let pnlReportPeriod = 'monthly';
 
 function pnlLoad() {
   try { pnlExpenses = JSON.parse(localStorage.getItem(PNL_KEY)||'[]'); } catch { pnlExpenses = []; }
@@ -3094,7 +3131,7 @@ function pnlAddExpense() {
   const cat = document.getElementById('pnl-exp-cat').value;
   const date = document.getElementById('pnl-exp-date').value || new Date().toISOString().split('T')[0];
   if (!desc || !amt) { showToast('Fill in description and amount'); return; }
-  pnlExpenses.unshift({ id: Date.now(), desc, amount: amt, category: cat, date });
+  pnlExpenses.unshift({ id: Date.now(), description: desc, amount: amt, category: cat, date });
   pnlSave();
   document.getElementById('pnl-exp-desc').value = '';
   document.getElementById('pnl-exp-amt').value = '';
@@ -3112,7 +3149,7 @@ function pnlRenderExpenses() {
     + pnlExpenses.map(e=>`
       <div class="pnl-exp-row">
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${e.desc}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${e.description||e.desc||'Expense'}</div>
           <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px">${e.category} · ${e.date}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:10px">
@@ -3128,39 +3165,104 @@ function pnlDeleteExp(id) {
   pnlSave(); pnlRenderExpenses(); pnlRenderSummary(); showToast('Expense deleted');
 }
 
+function pnlSetReportPeriod(p) {
+  pnlReportPeriod = p;
+  ['monthly','quarterly','yearly'].forEach(t => {
+    const btn = document.getElementById('rpt-t-'+t);
+    if (btn) btn.classList.toggle('active', t===p);
+  });
+  pnlRenderReport();
+}
+
 function pnlRenderReport() {
-  const c = pnlCalc();
+  const now = new Date();
+  let startDate, periodLabel;
+  if (pnlReportPeriod === 'monthly') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    periodLabel = now.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+  } else if (pnlReportPeriod === 'quarterly') {
+    const q = Math.floor(now.getMonth() / 3);
+    startDate = new Date(now.getFullYear(), q * 3, 1);
+    periodLabel = 'Q'+(q+1)+' '+now.getFullYear();
+  } else {
+    startDate = new Date(now.getFullYear(), 0, 1);
+    periodLabel = now.getFullYear().toString();
+  }
+
+  const sold = items.filter(i => i.status==='Sold' && new Date(i.createdAt||0) >= startDate);
+  const expenses = pnlExpenses.filter(e => new Date(e.date||0) >= startDate);
+
+  const totalRevenue = sold.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0), 0);
+  const totalCOGS = sold.reduce((s,i)=>s+(parseFloat(i.cost)||0), 0);
+  const totalFees = sold.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0)*(S.ebayFee/100), 0);
+  const totalPkg = sold.length * S.pkgCost;
+  const totalShip = S.shipping==='free' ? sold.length * (S.shipCost||0) : 0;
+  const grossProfit = totalRevenue - totalCOGS - totalFees - totalPkg - totalShip;
+  const totalExpenses = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  const netProfit = grossProfit - totalExpenses;
+  const taxReserve = netProfit > 0 ? netProfit * 0.25 : 0;
+
   const expByCat = {};
-  pnlExpenses.forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
+  expenses.forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
   const catBreakdown = CATEGORIES.map(cat => {
-    const ci = c.sold.filter(i=>i.category===cat);
+    const ci = sold.filter(i=>i.category===cat);
     if (!ci.length) return '';
-    const rev = ci.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0),0);
     const profit = ci.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
     return `<div class="pnl-row"><span>${CAT_ICONS[cat]||''} ${cat} (${ci.length})</span><span style="color:var(--green);font-weight:700">$${profit.toFixed(2)}</span></div>`;
   }).filter(Boolean).join('');
 
   document.getElementById('pnl-report-content').innerHTML = `
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">📊 Full P&amp;L Summary</div>
+      <div class="card-title">📊 ${periodLabel} P&amp;L Summary</div>
       <div style="font-size:13px;font-family:'IBM Plex Mono',monospace">
-        <div class="pnl-row"><span style="color:var(--muted)">Gross Revenue</span><span>$${c.totalRevenue.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">Cost of Goods</span><span style="color:var(--red)">-$${c.totalCOGS.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">eBay Fees (${S.ebayFee}%)</span><span style="color:var(--red)">-$${c.totalFees.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">Packaging ($${S.pkgCost}/item)</span><span style="color:var(--red)">-$${c.totalPkg.toFixed(2)}</span></div>
-        ${c.totalShip>0?`<div class="pnl-row"><span style="color:var(--muted)">Shipping (covered)</span><span style="color:var(--red)">-$${c.totalShip.toFixed(2)}</span></div>`:''}
-        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span style="color:var(--green)">$${c.grossProfit.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">Business Expenses</span><span style="color:var(--red)">-$${c.totalExpenses.toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--muted)">Gross Revenue</span><span>$${totalRevenue.toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--muted)">Cost of Goods</span><span style="color:var(--red)">-$${totalCOGS.toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--muted)">eBay Fees (${S.ebayFee}%)</span><span style="color:var(--red)">-$${totalFees.toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--muted)">Packaging ($${S.pkgCost}/item)</span><span style="color:var(--red)">-$${totalPkg.toFixed(2)}</span></div>
+        ${totalShip>0?`<div class="pnl-row"><span style="color:var(--muted)">Shipping (covered)</span><span style="color:var(--red)">-$${totalShip.toFixed(2)}</span></div>`:''}
+        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span style="color:var(--green)">$${grossProfit.toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--muted)">Business Expenses</span><span style="color:var(--red)">-$${totalExpenses.toFixed(2)}</span></div>
         <div class="pnl-row" style="border-top:2px solid var(--border-dark)">
           <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900">Net Profit</span>
-          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:${c.netProfit>=0?'var(--green)':'var(--red)'}">$${c.netProfit.toFixed(2)}</span>
+          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(2)}</span>
         </div>
-        <div class="pnl-row"><span style="color:var(--yellow)">⚠️ Tax Reserve (25%)</span><span style="color:var(--yellow);font-weight:700">$${c.taxReserve.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--green);font-weight:700">After-Tax Estimate</span><span style="color:var(--green);font-weight:700">$${(c.netProfit-c.taxReserve).toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--yellow)">⚠️ Tax Reserve (25%)</span><span style="color:var(--yellow);font-weight:700">$${taxReserve.toFixed(2)}</span></div>
+        <div class="pnl-row"><span style="color:var(--green);font-weight:700">After-Tax Estimate</span><span style="color:var(--green);font-weight:700">$${(netProfit-taxReserve).toFixed(2)}</span></div>
       </div>
     </div>
     ${catBreakdown ? `<div class="card" style="margin-bottom:12px"><div class="card-title">By Category</div>${catBreakdown}</div>` : ''}
     ${Object.keys(expByCat).length ? `<div class="card"><div class="card-title">Expenses by Type</div>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</div>` : ''}`;
+}
+
+function pnlImportEbayCsv(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { showToast('CSV appears empty'); return; }
+    const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim().toLowerCase());
+    const typeIdx = headers.findIndex(h => h === 'type' || h === 'transaction type');
+    const amtIdx  = headers.findIndex(h => h === 'amount' || h === 'net amount' || h === 'gross amount');
+    if (typeIdx < 0 || amtIdx < 0) { showToast('Unrecognized CSV format'); return; }
+    const FEE_TYPES = ['final value fee','insertion fee','shipping label','promoted listings','subscription','dispute fee','international fee','below standard'];
+    let total = 0;
+    lines.slice(1).forEach(line => {
+      const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || line.split(',');
+      const clean = cols.map(c => c.replace(/"/g,'').trim());
+      const type = (clean[typeIdx]||'').toLowerCase();
+      const amt  = parseFloat((clean[amtIdx]||'').replace(/[$,]/g,'')) || 0;
+      if (FEE_TYPES.some(f => type.includes(f))) total += Math.abs(amt);
+    });
+    if (total <= 0) { showToast('No fee rows found in CSV'); return; }
+    const today = new Date().toISOString().split('T')[0];
+    pnlExpenses.unshift({ id: Date.now(), description: 'eBay Fees (imported)', amount: total, category: 'Platform Fees', date: today });
+    pnlSave();
+    pnlRenderReport();
+    showToast('✓ $'+total.toFixed(2)+' in eBay fees imported');
+  };
+  reader.readAsText(file);
 }
 
 // ══════════════════════════════════════════════════
@@ -3448,6 +3550,34 @@ function confirmSold() {
 function closeSoldModal() {
   document.getElementById('sold-modal').style.display = 'none';
   soldModalItem = null;
+}
+
+function pnlToggleLogSale() {
+  const panel = document.getElementById('log-sale-panel');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    const catSel = document.getElementById('log-sale-cat');
+    const unsold = items.filter(i => i.status !== 'Sold');
+    const cats = [...new Set(unsold.map(i => i.category))].sort();
+    catSel.innerHTML = '<option value="">— pick category —</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    document.getElementById('log-sale-item').innerHTML = '<option value="">— pick item —</option>';
+  }
+}
+
+function pnlPopulateSaleItems() {
+  const cat = document.getElementById('log-sale-cat').value;
+  const itemSel = document.getElementById('log-sale-item');
+  if (!cat) { itemSel.innerHTML = '<option value="">— pick item —</option>'; return; }
+  const unsold = items.filter(i => i.status !== 'Sold' && i.category === cat);
+  itemSel.innerHTML = '<option value="">— pick item —</option>' + unsold.map(i => `<option value="${i.id}">${i.nickname}</option>`).join('');
+}
+
+function pnlOpenSaleModal() {
+  const id = parseInt(document.getElementById('log-sale-item').value);
+  if (!id) { showToast('Select an item first'); return; }
+  document.getElementById('log-sale-panel').style.display = 'none';
+  openSoldModal(id);
 }
 
 // ══════════════════════════════════════════════════
@@ -3902,7 +4032,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('growth')">
+      <div class="nav-card" onclick="openGrowthExpanded()">
         <div class="nav-card-header">
           <span class="nav-card-icon">📈</span>
           <span class="nav-card-title">Growth</span>
@@ -3947,6 +4077,43 @@ function renderDashboard() {
     <div class="card" style="margin-bottom:12px">${renderBestWorst()}</div>
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:0 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Recent Sales</div>
     ${soldRows}` : ''}`;
+}
+
+function openGrowthExpanded() {
+  const gc = loadGrowthCache();
+  const el = document.getElementById('growth-expanded-content');
+  if (!gc) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;font-family:\'IBM Plex Mono\',monospace">No growth data yet — run an analysis from the TRENDS tab first.</div>';
+  } else {
+    const d = gc.data;
+    const scoreHtml = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#fdf5e4,#f5e8cc);border:2px solid var(--border-dark)">
+      <div class="card-title">📊 Business Score</div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="font-family:'Syne',sans-serif;font-size:52px;font-weight:900;line-height:1;color:${d.score_color||'var(--green)'}"> ${d.business_score}</div>
+        <div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--text)">${d.score_label||''}</div><div style="font-size:12px;color:var(--soft);margin-top:4px;line-height:1.4">${d.score_summary||''}</div></div>
+      </div>
+    </div>`;
+    const staleHtml = `<div class="card" style="margin-bottom:12px">
+      <div class="card-title">⚠️ Needs Attention</div>
+      ${(d.stale_actions||[]).length ? (d.stale_actions||[]).map(i=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:700;color:var(--text)">${i.name}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${i.sku||''} · ${i.days} days listed · <span style="color:var(--accent)">${i.action}</span></div></div>`).join('') : '<div style="font-size:13px;color:var(--green);padding:8px 0">No stale listings — great turnover!</div>'}
+    </div>`;
+    const huntHtml = `<div class="card" style="margin-bottom:12px">
+      <div class="card-title">🎯 Hunt List</div>
+      ${(d.hunt_list||[]).length ? (d.hunt_list||[]).map(h=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:700;color:var(--text)">${h.item}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${h.reason||''}</div></div>`).join('') : '<div style="font-size:13px;color:var(--muted);padding:8px 0">Run a fresh analysis to generate hunt targets.</div>'}
+    </div>`;
+    const topHtml = `<div class="card" style="margin-bottom:12px">
+      <div class="card-title">🏆 Top Categories</div>
+      ${(d.top_categories||[]).slice(0,3).map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;color:var(--text)">${c.name}</span><span style="font-family:'Syne',sans-serif;font-weight:800;color:var(--green)">${c.profit}</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${c.insight||''}</div></div>`).join('') || '<div style="font-size:13px;color:var(--muted);padding:8px 0">No category data yet.</div>'}
+    </div>`;
+    el.innerHTML = scoreHtml + staleHtml + huntHtml + topHtml;
+  }
+  document.getElementById('dash-content').style.display = 'none';
+  document.getElementById('growth-expanded').style.display = 'block';
+}
+
+function closeGrowthExpanded() {
+  document.getElementById('growth-expanded').style.display = 'none';
+  document.getElementById('dash-content').style.display = 'block';
 }
 
 // ══════════════════════════════════════════════════
