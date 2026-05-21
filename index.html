@@ -841,7 +841,7 @@ body::before{
   <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon">📦</span>INVENTORY</button>
   <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon">📸</span>PHOTOS</button>
   <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon">📈</span>TRENDS</button>
-  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon">💰</span>STATS</button>
+  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon">💰</span>DASH</button>
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -1142,12 +1142,13 @@ body::before{
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="saveInvItem()">✓ Add to Inventory</button>
+      <button id="inv-save-btn" class="btn btn-green" style="flex:1;margin-bottom:0" onclick="saveInvItem()">✓ Add to Inventory</button>
       <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="cancelInvForm()">Cancel</button>
     </div>
-    <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00bb66);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
+    <button id="inv-boost-btn" style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00bb66);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
       &#x1f680; Save + Write eBay Listing
     </button>
+    <button id="inv-delete-btn" style="display:none;width:100%;margin-top:8px;background:none;border:1px solid var(--red);color:var(--red);padding:10px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer" onclick="deleteInvItem()">🗑 Delete Item</button>
   </div>
 
   <!-- DETAIL VIEW -->
@@ -2343,11 +2344,11 @@ function renderFilteredList() {
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
     const thumb = item.photos && item.photos[0];
     const hasListing = item.listing ? true : false;
-    return `<div class="item-card">
+    return `<div class="item-card" onclick="startEdit(${item.id})" style="cursor:pointer">
       <div style="display:flex;align-items:flex-start;gap:10px">
-        ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="" onclick="startEdit(${item.id})" style="cursor:pointer">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;cursor:pointer" onclick="startEdit(${item.id})">${CAT_ICONS[item.category]||'📦'}</div>`}
+        ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${CAT_ICONS[item.category]||'📦'}</div>`}
         <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="startEdit(${item.id})">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div style="flex:1;min-width:0">
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.nickname}</div>
@@ -2356,11 +2357,11 @@ function renderFilteredList() {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
             <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">🏷️ $${item.sellPrice||'0'}</span>
-            ${!hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
-            ${item.status!=='Sold' ? `<button class="sold-btn" onclick="openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            ${item.status!=='Sold' ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            ${item.status!=='Sold' && !hasListing ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
           </div>
           ${hasListing ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
-            <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;font-family:'IBM Plex Mono',monospace;text-decoration:underline">▼ View Generated Listing</button>
+            <button onclick="event.stopPropagation();toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;font-family:'IBM Plex Mono',monospace;text-decoration:underline">▼ View Generated Listing</button>
             <div id="listing-detail-${item.id}" style="display:none;margin-top:8px;font-size:10px;line-height:1.5">
               <div style="margin-bottom:6px"><strong>Title:</strong> <span style="color:var(--muted)">${item.listing.title}</span></div>
               <div style="margin-bottom:6px"><strong>Desc:</strong> <span style="color:var(--muted)">${item.listing.description.substring(0, 100)}...</span></div>
@@ -2610,6 +2611,12 @@ function startEdit(id) {
     }
   }
   updateProfitPreview();
+  const saveBtn = document.getElementById('inv-save-btn');
+  const boostBtn = document.getElementById('inv-boost-btn');
+  const delBtn = document.getElementById('inv-delete-btn');
+  if (saveBtn) saveBtn.textContent = '✓ Save Changes';
+  if (boostBtn) boostBtn.innerHTML = item.listing ? '&#x1f680; Edit Existing eBay Listing' : '&#x1f680; Save + Write eBay Listing';
+  if (delBtn) delBtn.style.display = 'block';
   showInvView('add');
   window.scrollTo(0, 0);
 }
@@ -2773,6 +2780,12 @@ function deleteItem(id) {
 function cancelInvForm() {
   editingId = null;
   invFormImgB64 = null;
+  const saveBtn = document.getElementById('inv-save-btn');
+  const boostBtn = document.getElementById('inv-boost-btn');
+  const delBtn = document.getElementById('inv-delete-btn');
+  if (saveBtn) saveBtn.textContent = '✓ Add to Inventory';
+  if (boostBtn) boostBtn.innerHTML = '&#x1f680; Save + Write eBay Listing';
+  if (delBtn) delBtn.style.display = 'none';
   showInvView(invListFilter.type === 'all' ? 'home' : 'list');
 }
 
@@ -6168,15 +6181,24 @@ function updateTierBanner(user) {
 // ══════════════════════════════════════════════════
 // ADD ITEM — SAVE + GENERATE LISTING (v5.4)
 // ══════════════════════════════════════════════════
+function deleteInvItem() {
+  if (!editingId) return;
+  const item = items.find(i => i.id === editingId);
+  if (!item) return;
+  if (!confirm('Delete "' + item.nickname + '"? This cannot be undone.')) return;
+  items = items.filter(i => i.id !== editingId);
+  saveItems();
+  cancelInvForm();
+}
+
 async function saveAndGenerateListing() {
-  // Save item first (reuse existing save logic)
+  const targetId = editingId;
   const saved = saveInvItem ? saveInvItem() : null;
-  if (saved === false) return; // validation failed
-  // Get most recently added item
-  const newItem = items[items.length-1];
-  if (!newItem) return;
+  if (saved === false) return;
+  const openId = targetId || (items.length ? items[items.length-1].id : null);
+  if (!openId) return;
   showInvView('list');
-  setTimeout(function(){ openListingModal(newItem.id); }, 400);
+  setTimeout(function(){ openListingModal(openId); }, 400);
 }
 
 // ══════════════════════════════════════════════════
