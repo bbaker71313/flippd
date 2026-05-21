@@ -4364,10 +4364,6 @@ function fileToBase64NoDecodeAndThumb(file) {
       }
       resolve({ b64: null, thumbUrl: null, mime: f.type || 'image/jpeg', sizeKB: Math.round(f.size/1024), file: f });
     };
-    if (file.size > 10 * 1024 * 1024) {
-      compressImage(file).then(proceed);
-      return;
-    }
     proceed(file);
   });
 }
