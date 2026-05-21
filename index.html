@@ -1049,10 +1049,11 @@ body::before{
       <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text)">Inventory</div>
       <button onclick="showInvView('add')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">⬇ Export CSV</button>
       <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">📥 Import</button>
     </div>
+    <button class="btn" onclick="runEbayDedupeScan()" style="width:100%;margin-bottom:12px;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:11px;padding:8px;font-family:'IBM Plex Mono',monospace;font-weight:700">🔍 Check for Duplicates</button>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
     <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="🔍 Quick search..." id="inv-search-home" oninput="invHomeSearch(this.value)">
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
@@ -3278,13 +3279,17 @@ function pnlImportEbayCsv(input) {
     const typeIdx = headers.findIndex(h => h === 'type' || h === 'transaction type');
     const amtIdx  = headers.findIndex(h => h === 'amount' || h === 'net amount' || h === 'gross amount');
     if (typeIdx < 0 || amtIdx < 0) { showToast('Unrecognized CSV format'); return; }
-    const FEE_TYPES = ['final value fee','insertion fee','shipping label','promoted listings','subscription','dispute fee','international fee','below standard'];
+    // Q27: Only fees go into P&L — revenue rows ("order", "sale") are intentionally excluded
+    // to avoid double-counting with inventory sold records.
+    const FEE_TYPES = ['final value fee','insertion fee','shipping label','promoted listings','subscription','dispute fee','international fee','below standard','regulatory operating fee','deposit processing fee'];
+    const SKIP_TYPES = ['order','sale','payment','transfer','withdrawal','deposit'];
     let total = 0;
     lines.slice(1).forEach(line => {
       const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || line.split(',');
       const clean = cols.map(c => c.replace(/"/g,'').trim());
       const type = (clean[typeIdx]||'').toLowerCase();
       const amt  = parseFloat((clean[amtIdx]||'').replace(/[$,]/g,'')) || 0;
+      if (SKIP_TYPES.some(s => type === s)) return;
       if (FEE_TYPES.some(f => type.includes(f))) total += Math.abs(amt);
     });
     if (total <= 0) { showToast('No fee rows found in CSV'); return; }
