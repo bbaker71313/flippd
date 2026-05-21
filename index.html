@@ -1055,8 +1055,6 @@ body::before{
     </div>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
     <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="🔍 Quick search..." id="inv-search-home" oninput="invHomeSearch(this.value)">
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Status</div>
-    <div id="inv-status-cards" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px"></div>
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
     <div id="inv-cat-cards" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
@@ -2278,23 +2276,10 @@ function renderInventoryHome() {
   const estProfit = items.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
 
   document.getElementById('inv-home-stats').innerHTML = `
-    <div class="inv-stat-card"><div class="inv-stat-num">${total}</div><div class="inv-stat-label">Total</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num">${listed}</div><div class="inv-stat-label">Listed</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num">${sold}</div><div class="inv-stat-label">Sold</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num" style="color:var(--green)">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
-
-  const statusDefs = [
-    {s:'Unlisted', color:'#a89060', bg:'rgba(90,80,60,0.2)', border:'#4a4030'},
-    {s:'Listed',   color:'#00e676', bg:'#D4E8E0', border:'#7ABDA0'},
-    {s:'Sold',     color:'#2D4F6B', bg:'#D4E0EC', border:'#7AA0BD'},
-  ];
-  document.getElementById('inv-status-cards').innerHTML = statusDefs.map(d => {
-    const count = items.filter(i=>i.status===d.s).length;
-    return `<div class="inv-status-card" style="border-color:${d.border};background:${d.bg}" onclick="openFilteredList('status','${d.s}')">
-      <div style="font-size:26px;font-weight:900;font-family:'Syne',sans-serif;color:${d.color}">${count}</div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:${d.color};margin-top:3px">${d.s}</div>
-    </div>`;
-  }).join('');
+    <div class="inv-status-card" onclick="openFilteredList('all','')"><div class="inv-stat-num">${total}</div><div class="inv-stat-label">Total</div></div>
+    <div class="inv-status-card" style="background:#D4E8E0;border-color:#7ABDA0" onclick="openFilteredList('status','Listed')"><div class="inv-stat-num">${listed}</div><div class="inv-stat-label">Listed</div></div>
+    <div class="inv-status-card" style="background:#D4E0EC;border-color:#7AA0BD" onclick="openFilteredList('status','Sold')"><div class="inv-stat-num">${sold}</div><div class="inv-stat-label">Sold</div></div>
+    <div class="inv-status-card" style="background:rgba(90,80,60,0.2);border-color:#4a4030" onclick="openFilteredList('status','Unlisted')"><div class="inv-stat-num">${unlisted}</div><div class="inv-stat-label">Unlisted</div></div>`;
 
   document.getElementById('inv-cat-cards').innerHTML = CATEGORIES.map(cat => {
     const ci = items.filter(i=>i.category===cat);
@@ -2324,6 +2309,7 @@ function openFilteredList(type, value) {
   invListFilter = {type, value};
   document.getElementById('inv-list-title').textContent = type==='status'
     ? value + ' Items'
+    : type==='all' ? 'All Items'
     : (CAT_ICONS[value]||'') + ' ' + value;
   document.getElementById('inv-search-list').value = '';
   renderFilteredList();
@@ -6452,8 +6438,24 @@ function handleCsvImport(e) {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const rows = parseCsvRows(ev.target.result);
+      const text = ev.target.result;
+      const rows = parseCsvRows(text);
       if (!rows.length) { showToast('No rows found in CSV'); return; }
+
+      // Detect eBay template via #INFO line
+      const firstLine = text.split('\n')[0];
+      const templateMatch = firstLine.match(/Template=([^,"\s\r]+)/i);
+      if (templateMatch) {
+        const tmpl = templateMatch[1].toLowerCase();
+        if (tmpl.includes('active')) { importEbayActiveListings(rows); return; }
+        if (tmpl.includes('unsold')) { importEbayUnsoldListings(rows); return; }
+      }
+      // Detect eBay Transaction report
+      const textLower = text.toLowerCase();
+      if (textLower.includes('transaction id') || textLower.includes('transaction type')) {
+        importEbayTransactionReport(rows); return;
+      }
+
       const header = rows[0].map(h => h.trim().toLowerCase());
 
       // Detect eBay order/shipping CSV (headers from Seller Hub Orders export)
@@ -6503,6 +6505,86 @@ function handleCsvImport(e) {
     }
   };
   reader.readAsText(file);
+}
+
+function importEbayActiveListings(rows) {
+  const headerRow = rows.length > 1 && rows[0][0] && rows[0][0].startsWith('#') ? 1 : 0;
+  const header = rows[headerRow].map(h => h.trim().toLowerCase());
+  const skuIdx = header.findIndex(h => h.includes('custom label') || h === 'sku');
+  const priceIdx = header.findIndex(h => h.includes('start price') || h.includes('current price'));
+  if (skuIdx === -1) { showToast('⚠️ Could not find SKU column in eBay active listings CSV'); return; }
+  let updated = 0, skipped = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.some(c => c.trim())) continue;
+    const sku = (row[skuIdx] || '').trim();
+    if (!sku) { skipped++; continue; }
+    const existing = items.find(it => it.sku === sku);
+    if (existing) {
+      existing.status = 'Listed';
+      if (priceIdx !== -1 && row[priceIdx]) existing.sellPrice = (row[priceIdx] || '').trim();
+      updated++;
+    } else { skipped++; }
+  }
+  saveItems(); renderInventory();
+  showToast('eBay Active Listings: ' + updated + ' updated to Listed, ' + skipped + ' skipped');
+}
+
+function importEbayUnsoldListings(rows) {
+  const headerRow = rows.length > 1 && rows[0][0] && rows[0][0].startsWith('#') ? 1 : 0;
+  const header = rows[headerRow].map(h => h.trim().toLowerCase());
+  const skuIdx = header.findIndex(h => h.includes('custom label') || h === 'sku');
+  if (skuIdx === -1) { showToast('⚠️ Could not find SKU column in eBay unsold CSV'); return; }
+  let updated = 0, skipped = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.some(c => c.trim())) continue;
+    const sku = (row[skuIdx] || '').trim();
+    if (!sku) { skipped++; continue; }
+    const existing = items.find(it => it.sku === sku);
+    if (existing) { existing.status = 'Unlisted'; updated++; } else { skipped++; }
+  }
+  saveItems(); renderInventory();
+  showToast('eBay Unsold: ' + updated + ' updated to Unlisted, ' + skipped + ' skipped');
+}
+
+function importEbayTransactionReport(rows) {
+  // Find header row (first row with recognisable columns)
+  let headerRow = 0;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    if (rows[i].map(h => h.toLowerCase()).some(h => h === 'type' || h === 'transaction type' || h === 'order id')) {
+      headerRow = i; break;
+    }
+  }
+  const header = rows[headerRow].map(h => h.trim().toLowerCase());
+  const typeIdx = header.findIndex(h => h === 'type' || h === 'transaction type');
+  const skuIdx = header.findIndex(h => h.includes('custom label') || h === 'sku');
+  const grossIdx = header.findIndex(h => h.includes('gross amount'));
+  const netIdx = header.findIndex(h => h.includes('net amount'));
+  if (typeIdx === -1) { showToast('⚠️ Could not detect Transaction report columns'); return; }
+  let sold = 0, cancelled = 0, skipped = 0;
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.some(c => c.trim())) continue;
+    const type = (row[typeIdx] || '').trim().toLowerCase();
+    const sku = skuIdx !== -1 ? (row[skuIdx] || '').trim() : '';
+    if (!sku) { skipped++; continue; }
+    const existing = items.find(it => it.sku === sku);
+    if (!existing) { skipped++; continue; }
+    if (type === 'order') {
+      existing.status = 'Sold'; sold++;
+    } else if (type.includes('refund') || type.includes('cancell')) {
+      // Q28: full refund (>=95% of sell price) → Unlisted; partial refunds ignored
+      const refundAmt = Math.abs(parseFloat(((grossIdx !== -1 ? row[grossIdx] : '') || (netIdx !== -1 ? row[netIdx] : '') || '0').replace(/[$,]/g, '')));
+      const sellPrice = parseFloat(existing.sellPrice || '0');
+      if (sellPrice > 0 && refundAmt >= sellPrice * 0.95 && existing.status === 'Sold') {
+        existing.status = 'Unlisted'; cancelled++;
+      }
+      // partial refunds: no inventory status change (Q6)
+    }
+  }
+  saveItems(); renderInventory();
+  showToast('Transaction import: ' + sold + ' sold, ' + cancelled + ' cancelled→Unlisted, ' + skipped + ' skipped');
 }
 
 // ── Parse CSV respecting quoted fields ──
