@@ -1449,6 +1449,7 @@ body::before{
 <!-- TAB: CSV EXPORT -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-csv">
+  <button class="back-btn" onclick="switchTab('inventory')" style="margin-bottom:12px">← Back to Inventory</button>
   <div style="padding-top:4px;margin-bottom:16px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Export</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">eBay CSV export · Full Flippd backup</div>
@@ -1513,6 +1514,7 @@ body::before{
 <!-- TAB: IMPORT -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-import">
+  <button class="back-btn" onclick="switchTab('inventory')" style="margin-bottom:12px">← Back to Inventory</button>
   <div style="padding-top:4px;margin-bottom:16px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Import Inventory</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Restore from Flippd backup · Import from spreadsheet</div>
@@ -2188,7 +2190,7 @@ async function deleteItemFromServer(id) {
 // ══════════════════════════════════════════════════
 // TAB NAVIGATION
 // ══════════════════════════════════════════════════
-function switchTab(tab) {
+function switchTab(tab, fromPopState) {
   // Auth guard — block all tabs except sourcing if not logged in
   if (!isUnlocked() && tab !== 'sourcing') {
     showSrcView('setup');
@@ -2196,6 +2198,7 @@ function switchTab(tab) {
     return;
   }
   activeTab = tab;
+  if (!fromPopState) history.pushState({tab}, '', '#' + tab);
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => {
     p.classList.remove('active');
@@ -2936,6 +2939,37 @@ function paDeletePhoto(i) {
   paSelectPhoto(paActiveIdx);
 }
 
+function paFloodFillBg(data, w, h, tolerance) {
+  // Sample perimeter pixels to estimate background color
+  const step = Math.max(1, Math.floor(Math.min(w, h) / 20));
+  let rSum = 0, gSum = 0, bSum = 0, count = 0;
+  for (let x = 0; x < w; x += step) {
+    [0, h - 1].forEach(y => { const i = (y * w + x) * 4; rSum += data[i]; gSum += data[i+1]; bSum += data[i+2]; count++; });
+  }
+  for (let y = 0; y < h; y += step) {
+    [0, w - 1].forEach(x => { const i = (y * w + x) * 4; rSum += data[i]; gSum += data[i+1]; bSum += data[i+2]; count++; });
+  }
+  const bgR = rSum / count, bgG = gSum / count, bgB = bSum / count;
+  const tolSq = tolerance * tolerance * 3;
+  const visited = new Uint8Array(w * h);
+  const stack = [0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
+  while (stack.length) {
+    const idx = stack.pop();
+    if (idx < 0 || idx >= w * h || visited[idx]) continue;
+    visited[idx] = 1;
+    const i = idx * 4;
+    const dr = data[i] - bgR, dg = data[i+1] - bgG, db = data[i+2] - bgB;
+    if (dr*dr + dg*dg + db*db <= tolSq) {
+      data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+      const x = idx % w, y = Math.floor(idx / w);
+      if (x > 0) stack.push(idx - 1);
+      if (x < w - 1) stack.push(idx + 1);
+      if (y > 0) stack.push(idx - w);
+      if (y < h - 1) stack.push(idx + w);
+    }
+  }
+}
+
 function paApplyFilters() {
   if (!paPhotos.length) return;
   const canvas = document.getElementById('pa-canvas');
@@ -2949,10 +2983,10 @@ function paApplyFilters() {
   document.getElementById('pa-sat-val').textContent = saturation;
   const img = new Image();
   img.onload = () => {
-    if (whiteBg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
     ctx.drawImage(img, 0, 0);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
+    if (whiteBg) paFloodFillBg(data, canvas.width, canvas.height, 30);
     const cFactor = (contrast + 100) / 100;
     const sFactor = (saturation + 100) / 100;
     for (let k = 0; k < data.length; k += 4) {
@@ -4185,19 +4219,51 @@ const MAX_UPLOAD_BYTES = 25_000_000; // 25MB raw — backend resizes to 1568px b
 // as a JS string at all. We keep the raw File reference, and the upload
 // path uses multipart/form-data so the browser streams it as binary
 // directly from the OS — never touches the JS heap.
+function compressImage(file) {
+  return new Promise(function(resolve) {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = function() {
+        URL.revokeObjectURL(url);
+        const MAX_DIM = 2048;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w >= h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+          else { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob) {
+          if (blob && blob.size < file.size) {
+            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function() { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    } catch(e) { resolve(file); }
+  });
+}
+
 function fileToBase64NoDecodeAndThumb(file) {
   return new Promise(function(resolve, reject) {
     if (!file) { reject(new Error('No file')); return; }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Max is 25MB — try a gallery photo.'));
+    const proceed = function(f) {
+      if (f.size > MAX_UPLOAD_BYTES) {
+        reject(new Error('Photo is too large (' + Math.round(f.size/1024/1024) + 'MB). Max is 25MB — try a gallery photo.'));
+        return;
+      }
+      resolve({ b64: null, thumbUrl: null, mime: f.type || 'image/jpeg', sizeKB: Math.round(f.size/1024), file: f });
+    };
+    if (file.size > 10 * 1024 * 1024) {
+      compressImage(file).then(proceed);
       return;
     }
-    // Resolve immediately with the raw File — no allocation, no decode.
-    // The caller stores it in imgFile / invFormImgFile and uses
-    // multipart/form-data upload in callClaude / invFormDetectItem.
-    // b64/mime/thumbUrl kept for backwards compat with existing callers
-    // (they check for null and route through the file path instead).
-    resolve({ b64: null, thumbUrl: null, mime: file.type || 'image/jpeg', sizeKB: Math.round(file.size/1024), file: file });
+    proceed(file);
   });
 }
 
@@ -4751,7 +4817,7 @@ async function callClaude(system,msg,maxTok=1500) {
     console.log('Response status:', res.status);
     if (!res.ok) {
       let errData = {};
-      try { errData = await res.json(); } catch(e) {}
+      try { const t = await res.text(); try { errData = JSON.parse(t); } catch(_) { errData = {error: t}; } } catch(e) {}
       console.error('HTTP Error:', res.status, JSON.stringify(errData).substring(0,200));
       if (res.status === 429 && errData.error && errData.error.toLowerCase().includes('limit')) {
         showLimitReachedModal(errData);
@@ -6367,6 +6433,9 @@ window.onload = () => {
   updateStaleBadge();
   renderScanHistory();
   logActivity('🚀', 'App opened');
+  window.addEventListener('popstate', function(e) {
+    if (e.state && e.state.tab) switchTab(e.state.tab, true);
+  });
 };
 // ══════════════════════════════════════════════════
 // IMPORT — MODE SWITCHER
