@@ -2384,20 +2384,17 @@ function renderFilteredList() {
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.nickname}</div>
             </div>
-            <span class="status-badge status-${item.status}" style="flex-shrink:0;margin-left:6px">${item.status}</span>
+            <button class="status-change-btn status-${item.status}" onclick="event.stopPropagation();openStatusPopup(${item.id})" style="background:none;border:1px solid currentColor;border-radius:3px;padding:3px 8px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:700;cursor:pointer;letter-spacing:0.06em;opacity:0.85;flex-shrink:0;margin-left:6px">${item.status} ▾</button>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
             <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">🏷️ $${item.sellPrice||'0'}</span>
-            <div style="display:flex;gap:6px;align-items:center">
-              <button class="status-change-btn status-${item.status}" onclick="event.stopPropagation();openStatusPopup(${item.id})" style="background:none;border:1px solid currentColor;border-radius:3px;padding:3px 8px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:700;cursor:pointer;letter-spacing:0.06em;opacity:0.85">${item.status} ▾</button>
-              ${item.status!=='Sold' && !hasListing ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 List</button>` : ''}
-            </div>
+            ${item.status!=='Sold' && !hasListing ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 List</button>` : ''}
           </div>
           ${hasListing ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
             <button onclick="event.stopPropagation();toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;font-family:'IBM Plex Mono',monospace;text-decoration:underline">▼ View Generated Listing</button>
             <div id="listing-detail-${item.id}" style="display:none;margin-top:8px;font-size:10px;line-height:1.5">
               <div style="margin-bottom:6px"><strong>Title:</strong> <span style="color:var(--muted)">${item.listing.title}</span></div>
-              <div style="margin-bottom:6px"><strong>Desc:</strong> <span style="color:var(--muted)">${item.listing.description.substring(0, 100)}...</span></div>
+              <div style="margin-bottom:6px"><strong>Desc:</strong> <span style="color:var(--muted)">${(item.listing.description||'').substring(0, 100)}...</span></div>
               <div><strong>Generated:</strong> <span style="color:var(--muted)">${new Date(item.listing.generatedAt).toLocaleDateString()}</span></div>
             </div>
           </div>` : ''}
