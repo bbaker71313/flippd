@@ -1334,6 +1334,7 @@ body::before{
 <!-- TAB: P&L TRACKER -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-pnl">
+  <button class="back-btn" onclick="switchTab('dashboard')" style="margin-bottom:12px">← Back to Overview</button>
   <div style="padding-top:4px;margin-bottom:14px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">P&amp;L Tracker</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Revenue · Expenses · Net profit · Tax estimate</div>
@@ -1349,7 +1350,6 @@ body::before{
   <div style="display:flex;gap:6px;margin-bottom:14px">
     <button class="filter-btn active" id="pnl-tab-sales" onclick="pnlSetTab('sales')">📊 Sales</button>
     <button class="filter-btn" id="pnl-tab-expenses" onclick="pnlSetTab('expenses')">🧾 Expenses</button>
-    <button class="filter-btn" id="pnl-tab-monthly" onclick="pnlSetTab('monthly')">📅 Monthly</button>
     <button class="filter-btn" id="pnl-tab-report" onclick="pnlSetTab('report')">📋 Report</button>
   </div>
 
@@ -1593,7 +1593,6 @@ body::before{
 <div class="tab-panel" id="panel-dashboard">
   <div style="display:flex;gap:6px;margin-bottom:14px;padding-top:4px">
     <button class="filter-btn active" id="stats-sub-dash" onclick="statsSubTab('dash')">📊 Overview</button>
-    <button class="filter-btn" id="stats-sub-pnl" onclick="statsSubTab('pnl')">💰 P&amp;L</button>
     <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">💎 Plan</button>
   </div>
   <div id="stats-view-dash">
@@ -3253,8 +3252,8 @@ function pnlRenderReport() {
         <div class="pnl-row"><span style="color:var(--muted)">eBay Fees (${S.ebayFee}%)</span><span style="color:var(--red)">-$${totalFees.toFixed(2)}</span></div>
         <div class="pnl-row"><span style="color:var(--muted)">Packaging ($${S.pkgCost}/item)</span><span style="color:var(--red)">-$${totalPkg.toFixed(2)}</span></div>
         ${totalShip>0?`<div class="pnl-row"><span style="color:var(--muted)">Shipping (covered)</span><span style="color:var(--red)">-$${totalShip.toFixed(2)}</span></div>`:''}
-        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span style="color:var(--green)">$${grossProfit.toFixed(2)}</span></div>
         <div class="pnl-row"><span style="color:var(--muted)">Business Expenses</span><span style="color:var(--red)">-$${totalExpenses.toFixed(2)}</span></div>
+        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span style="color:var(--green)">$${grossProfit.toFixed(2)}</span></div>
         <div class="pnl-row" style="border-top:2px solid var(--border-dark)">
           <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900">Net Profit</span>
           <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(2)}</span>
@@ -4050,21 +4049,6 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="showPhotosDrillDown()">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">📸</span>
-          <span class="nav-card-title">Photos</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.length).length}</div><div class="nav-stat-lbl">With photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.some&&i.photos.some(p=>p&&p.enhanced)).length}</div><div class="nav-stat-lbl">AI enhanced</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:${items.filter(i=>!i.photos||!i.photos.length).length>0?'var(--red)':'var(--green)'}">
-            ${items.filter(i=>!i.photos||!i.photos.length).length}</div><div class="nav-stat-lbl">Need photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.reduce((s,i)=>s+(i.photos?.length||0),0)}</div><div class="nav-stat-lbl">Total photos</div></div>
-        </div>
-      </div>
-
       <div class="nav-card" onclick="openGrowthExpanded()">
         <div class="nav-card-header">
           <span class="nav-card-icon">📈</span>
@@ -4080,25 +4064,14 @@ function renderDashboard() {
         </div>`:'<div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:\'IBM Plex Mono\',monospace">Tap to run your first analysis \u2192</div>';})()}
       </div>
 
-      <div class="nav-card" onclick="showSourcingSettings()">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">⚙️</span>
-          <span class="nav-card-title">Settings</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${S.ebayFee}%</div><div class="nav-stat-lbl">eBay fee</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">$${S.minProfit}</div><div class="nav-stat-lbl">Min profit</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${S.targetRoi}%</div><div class="nav-stat-lbl">Target ROI</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="text-transform:capitalize">${S.style}</div><div class="nav-stat-lbl">Style</div></div>
-        </div>
-      </div>
-
     </div>
 
     <!-- ③ INVENTORY CATEGORIES -->
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Inventory by Category</div>
     <div class="dash-cat-grid">${catCards}</div>
+
+    <!-- ④ BUSINESS ADVISORY -->
+    ${(()=>{const gc=loadGrowthCache();if(!gc)return`<div class="card" style="margin-top:16px;background:var(--green-bg,#e6fff2);border-color:var(--green-border,#00993d)"><div class="card-title" style="color:#007a3d">💡 Your Business Advisor Says</div><div style="font-size:13px;color:var(--soft);line-height:1.6">Run a Growth analysis from the TRENDS tab to get personalized recommendations.</div></div>`;const d=gc.data;return`<div class="card" style="margin-top:16px;background:var(--green-bg,#e6fff2);border-color:var(--green-border,#00993d)"><div class="card-title" style="color:#007a3d">💡 Your Business Advisor Says</div>${d.score_label?`<div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--text);margin-bottom:4px">${d.score_label}</div>`:''}${d.score_summary?`<div style="font-size:13px;color:var(--soft);line-height:1.5;margin-bottom:${d.advisor_message?'10':'0'}px">${d.score_summary}</div>`:''}${d.advisor_message?`<div style="font-size:13px;color:var(--text);line-height:1.6">${d.advisor_message}</div>`:''}</div>`;})()}
 
     <!-- ④ ANALYTICS -->
     ${sold.length ? `
@@ -4132,11 +4105,17 @@ function openGrowthExpanded() {
     </div>`;
     const huntHtml = `<div class="card" style="margin-bottom:12px">
       <div class="card-title">🎯 Hunt List</div>
-      ${(d.hunt_list||[]).length ? (d.hunt_list||[]).map(h=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:700;color:var(--text)">${h.item}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${h.reason||''}</div></div>`).join('') : '<div style="font-size:13px;color:var(--muted);padding:8px 0">Run a fresh analysis to generate hunt targets.</div>'}
+      ${(d.hunt_list||[]).length ? (d.hunt_list||[]).map(h=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:700;color:var(--text)">${h.icon||'🎯'} ${h.item}${h.priority?` <span style="font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;font-family:'IBM Plex Mono',monospace;background:${h.priority==='HIGH'?'rgba(0,230,118,0.12)':'rgba(245,166,35,0.12)'};color:${h.priority==='HIGH'?'var(--green)':'var(--yellow)'}">${h.priority}</span>`:''}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${h.why||''}</div></div>`).join('') : '<div style="font-size:13px;color:var(--muted);padding:8px 0">Run a fresh analysis to generate hunt targets.</div>'}
     </div>`;
+    const catProfit = {};
+    items.filter(i=>i.status==='Sold').forEach(i=>{catProfit[i.category]=(catProfit[i.category]||0)+calcProfit(i.cost,i.sellPrice);});
+    const catArr = Object.entries(catProfit).sort((a,b)=>b[1]-a[1]);
+    const top3 = catArr.slice(0,3);
+    const bot3 = catArr.slice(-3).reverse().filter(c=>c[1]<(top3[top3.length-1]?.[1]??Infinity));
+    const catRow = ([cat,profit])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;font-weight:700;color:var(--text)">${CAT_ICONS[cat]||'📦'} ${cat}</span><span style="font-family:'Syne',sans-serif;font-weight:800;color:${profit>=0?'var(--green)':'var(--red)'}">$${profit.toFixed(0)}</span></div>`;
     const topHtml = `<div class="card" style="margin-bottom:12px">
-      <div class="card-title">🏆 Top Categories</div>
-      ${(d.top_categories||[]).slice(0,3).map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700;color:var(--text)">${c.name}</span><span style="font-family:'Syne',sans-serif;font-weight:800;color:var(--green)">${c.profit}</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${c.insight||''}</div></div>`).join('') || '<div style="font-size:13px;color:var(--muted);padding:8px 0">No category data yet.</div>'}
+      <div class="card-title">🏆 Category Performance</div>
+      ${catArr.length ? `<div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.1em">Top 3</div>${top3.map(catRow).join('')}${bot3.length?`<div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin:10px 0 6px;text-transform:uppercase;letter-spacing:0.1em">Bottom 3</div>${bot3.map(catRow).join('')}`:''}` : '<div style="font-size:13px;color:var(--muted);padding:8px 0">No sold items yet — category data will appear here.</div>'}
     </div>`;
     el.innerHTML = scoreHtml + staleHtml + huntHtml + topHtml;
   }
