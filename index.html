@@ -787,9 +787,50 @@ body::before{
 }
 .score-big { animation: scoreCount 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
 
+/* ── SCAN LOADING OVERLAY ── */
+#scan-loading-overlay {
+  display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(30,18,8,0.92);backdrop-filter:blur(4px);
+  flex-direction:column;align-items:center;justify-content:center;gap:24px;
+}
+#scan-loading-overlay.active { display:flex; }
+.scan-loading-spinner {
+  width:52px;height:52px;border-radius:50%;
+  border:4px solid rgba(0,187,102,0.2);
+  border-top-color:var(--green);
+  animation:spin 0.9s linear infinite;
+}
+.scan-loading-msg {
+  font-family:'Syne',sans-serif;font-size:17px;font-weight:800;
+  color:#fff;text-align:center;max-width:260px;line-height:1.4;
+}
+.scan-loading-sub {
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  color:rgba(255,255,255,0.55);text-align:center;letter-spacing:0.04em;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── STATUS POPUP ── */
+.status-popup-overlay {
+  position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,0.5);
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.status-popup-sheet {
+  background:var(--card);border-radius:16px 16px 0 0;
+  padding:20px;width:100%;max-width:540px;
+  box-shadow:0 -4px 24px rgba(0,0,0,0.3);
+}
+
 </style>
 </head>
 <body>
+
+<!-- SCAN LOADING OVERLAY -->
+<div id="scan-loading-overlay">
+  <div class="scan-loading-spinner"></div>
+  <div class="scan-loading-msg" id="scan-loading-msg">Identifying item...</div>
+  <div class="scan-loading-sub" id="scan-loading-sub">AI is analyzing your photo</div>
+</div>
 
 <!-- APP HEADER -->
 <div class="app-header">
@@ -1226,11 +1267,12 @@ body::before{
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Saturation</span><span id="pa-sat-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">10</span></div>
           <input type="range" class="slider" id="pa-saturation" min="-50" max="80" value="10" step="1" oninput="paApplyFilters()" style="width:100%">
         </div>
+        <div>
+          <button id="pa-ai-bg-btn" onclick="paAiRemoveBackground()" class="btn" style="width:100%;margin-bottom:0;background:var(--accent);color:#fff;border-color:var(--accent);font-size:12px">✨ AI Remove Background</button>
+          <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:4px;font-family:'IBM Plex Mono',monospace">Powered by rembg AI · white background added</div>
+        </div>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
-          <input type="checkbox" id="pa-whitebg" onchange="paApplyFilters()" style="width:18px;height:18px;accent-color:var(--accent)"> White background
-        </label>
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
-          <input type="checkbox" id="pa-apply-all" style="width:18px;height:18px;accent-color:var(--accent)"> Apply to all photos
+          <input type="checkbox" id="pa-apply-all" style="width:18px;height:18px;accent-color:var(--accent)"> Apply enhancements to all photos
         </label>
       </div>
     </div>
@@ -2346,8 +2388,10 @@ function renderFilteredList() {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
             <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">🏷️ $${item.sellPrice||'0'}</span>
-            ${item.status!=='Sold' ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
-            ${item.status!=='Sold' && !hasListing ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="status-change-btn status-${item.status}" onclick="event.stopPropagation();openStatusPopup(${item.id})" style="background:none;border:1px solid currentColor;border-radius:3px;padding:3px 8px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:700;cursor:pointer;letter-spacing:0.06em;opacity:0.85">${item.status} ▾</button>
+              ${item.status!=='Sold' && !hasListing ? `<button class="listing-btn" onclick="event.stopPropagation();openListingModal(${item.id})" title="Generate eBay listing">🚀 List</button>` : ''}
+            </div>
           </div>
           ${hasListing ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
             <button onclick="event.stopPropagation();toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;font-family:'IBM Plex Mono',monospace;text-decoration:underline">▼ View Generated Listing</button>
@@ -2977,13 +3021,15 @@ function paApplyFilters() {
   const brightness = parseInt(document.getElementById('pa-brightness').value);
   const contrast = parseInt(document.getElementById('pa-contrast').value);
   const saturation = parseInt(document.getElementById('pa-saturation').value);
-  const whiteBg = document.getElementById('pa-whitebg').checked;
+  const whiteBg = document.getElementById('pa-whitebg')?.checked || false;
   document.getElementById('pa-bright-val').textContent = brightness;
   document.getElementById('pa-contrast-val').textContent = contrast;
   document.getElementById('pa-sat-val').textContent = saturation;
   const img = new Image();
   img.onload = () => {
-    ctx.drawImage(img, 0, 0);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     if (whiteBg) paFloodFillBg(data, canvas.width, canvas.height, 30);
@@ -3016,6 +3062,46 @@ function paApplyToAll() {
     setTimeout(res, 80);
   }));
   return Promise.all(promises).then(() => { paActiveIdx = origIdx; paSelectPhoto(origIdx); });
+}
+
+async function paAiRemoveBackground() {
+  if (!paPhotos.length) { showToast('Load a photo first'); return; }
+  const btn = document.getElementById('pa-ai-bg-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Removing background...'; }
+  try {
+    const photo = paPhotos[paActiveIdx];
+    // Convert data URL to Blob for upload
+    const res = await fetch(photo.original);
+    const blob = await res.blob();
+    const fd = new FormData();
+    fd.append('image', blob, 'photo.jpg');
+    const apiRes = await fetch(API_BASE + '/photo/remove-bg', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      body: fd
+    });
+    if (!apiRes.ok) {
+      const err = await apiRes.json().catch(() => ({}));
+      throw new Error(err.error || 'Background removal failed');
+    }
+    const { image } = await apiRes.json();
+    // Draw result onto canvas with white background
+    const canvas = document.getElementById('pa-canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg', 0.92);
+      showToast('✓ Background removed');
+    };
+    img.src = image;
+  } catch(e) {
+    showToast('❌ ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ AI Remove Background'; }
+  }
 }
 
 async function paDownloadAll() {
@@ -3543,6 +3629,41 @@ function renderGrowthResults(r) {
 }
 
 // ══════════════════════════════════════════════════
+// STATUS POPUP — replaces the sold button in inventory list
+// ══════════════════════════════════════════════════
+function openStatusPopup(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const existing = document.getElementById('status-popup-overlay');
+  if (existing) existing.remove();
+  const statuses = ['Unlisted', 'Listed', 'Sold', 'Ended'];
+  const popup = document.createElement('div');
+  popup.id = 'status-popup-overlay';
+  popup.className = 'status-popup-overlay';
+  popup.onclick = e => { if(e.target === popup) popup.remove(); };
+  popup.innerHTML = `<div class="status-popup-sheet">
+    <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:15px;color:var(--text);margin-bottom:4px">Change Status</div>
+    <div style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:16px">${item.nickname}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${statuses.map(s => `<button onclick="applyStatusChange(${id},'${s}')" style="width:100%;padding:12px;border:1.5px solid ${s===item.status?'var(--accent)':'var(--border)'};border-radius:8px;background:${s===item.status?'rgba(139,106,62,0.12)':'var(--card)'};font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);text-align:left">${s==='Sold'?'✓ ':s==='Unlisted'?'○ ':s==='Listed'?'● ':'⊘ '}${s}${s===item.status?' (current)':''}</button>`).join('')}
+    </div>
+    <button onclick="document.getElementById('status-popup-overlay').remove()" style="width:100%;margin-top:12px;padding:10px;border:none;background:none;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">Cancel</button>
+  </div>`;
+  document.body.appendChild(popup);
+}
+
+function applyStatusChange(id, newStatus) {
+  document.getElementById('status-popup-overlay')?.remove();
+  if (newStatus === 'Sold') {
+    openSoldModal(id);
+    return;
+  }
+  items = items.map(i => i.id === id ? {...i, status: newStatus} : i);
+  saveItems();
+  renderFilteredList();
+  showToast(`Status updated to ${newStatus}`);
+}
+
 // SOLD MODAL
 // ══════════════════════════════════════════════════
 function openSoldModal(id) {
@@ -4580,7 +4701,25 @@ function ebayDedupeNo() {
 }
 
 window.showSourcingSettings=function(){if(_origShowSettings)_origShowSettings();checkEbayStatus();};
-(function(){const p=new URLSearchParams(location.search);if(p.get('ebay_connected')){showToast('✓ eBay connected!');history.replaceState({},'',location.pathname);}if(p.get('ebay_error')){showToast('✗ eBay error: '+p.get('ebay_error'));history.replaceState({},'',location.pathname);}})();
+(function(){
+  const p=new URLSearchParams(location.search);
+  // eBay OAuth callback
+  if(p.get('ebay_connected')){showToast('✓ eBay connected!');history.replaceState({},'',location.pathname);}
+  if(p.get('ebay_error')){showToast('✗ eBay error: '+p.get('ebay_error'));history.replaceState({},'',location.pathname);}
+  // Stripe checkout callback — clean URL so back button works
+  if(p.get('checkout')==='success'){
+    history.replaceState({},'',location.pathname);
+    setTimeout(()=>showToast('✓ Subscription activated! Welcome to Flippd.'),600);
+  }
+  if(p.get('checkout')==='cancel'){
+    history.replaceState({},'',location.pathname);
+    setTimeout(()=>showToast('Checkout cancelled — you can upgrade any time from settings.'),600);
+  }
+  // Email verification callback
+  if(p.get('verified')==='true'){
+    history.replaceState({},'',location.pathname);
+  }
+})();
 
 
 function loadSrcSettings() {
@@ -4907,57 +5046,86 @@ function showError(m){const b=document.getElementById('error-box');b.textContent
 function hideError(){document.getElementById('error-box').style.display='none';}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
+let _scanLoadingTimer = null;
+function showScanLoading(msgs, subs) {
+  const overlay = document.getElementById('scan-loading-overlay');
+  const msgEl = document.getElementById('scan-loading-msg');
+  const subEl = document.getElementById('scan-loading-sub');
+  overlay.classList.add('active');
+  let i = 0;
+  msgEl.textContent = msgs[0]; subEl.textContent = subs[0];
+  _scanLoadingTimer = setInterval(() => {
+    i = (i + 1) % msgs.length;
+    msgEl.textContent = msgs[i]; subEl.textContent = subs[i];
+  }, 4000);
+}
+function hideScanLoading() {
+  clearInterval(_scanLoadingTimer);
+  document.getElementById('scan-loading-overlay').classList.remove('active');
+}
+
 async function analyze() {
   const txt=document.getElementById('text-input').value.trim();
   const cost=parseFloat(document.getElementById('cost-input').value)||0;
   if(!txt&&!imgB64){showError('Take a photo or describe the item first.');return;}
-  hideError(); setBtnLoading('analyze-btn','Identifying item...',false);
+  hideError(); setBtnLoading('analyze-btn','Analyzing...',false);
+  showScanLoading(
+    ['Identifying item...','Researching eBay sold prices...','Calculating profit math...','Almost there...'],
+    ['AI is studying your photo','Checking recent completed sales','Running your fee + packaging math','Processing results']
+  );
   try {
-    await sleep(300); setBtnLoading('analyze-btn','Analyzing eBay market...',false);
     const msg=imgB64&&!txt?'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.':imgB64?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:`Analyze this specific item for eBay reselling: "${txt}". Research actual eBay sold prices for this exact item.`;
     const raw=await callClaude(getSingleSys(),msg);
-    setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
     const item=JSON.parse(raw);
     const fin=calcFinancials(cost,item.avg_sold_price);
     const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate);
     logScan(dec, fin.roi, cost, false);
-    // Store item name and potential profit in scan log
     try {
       const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
       if (scanLog.length) { scanLog[0].name = item.item_name; scanLog[0].potentialProfit = fin.profit; localStorage.setItem('fef_scan_log', JSON.stringify(scanLog)); }
     } catch(e){}
+    hideScanLoading(); resetBtn('analyze-btn','⚡ FLIP OR PASS?','green');
     renderSingle({item,cost,fin,dec});
     renderScanHistory();
-  } catch(e){resetBtn('analyze-btn','⚡ FLIP OR PASS?','green');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){hideScanLoading();resetBtn('analyze-btn','⚡ FLIP OR PASS?','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
 function getShelfSys() {
-  return `You are a meticulous eBay sourcing expert scanning a shelf photo. Study EVERY item with care.
+  return `You are an expert eBay reseller doing a shelf photo audit. Your job is to CORRECTLY identify every item — accuracy is critical. A wrong ID wastes a buyer's trip.
 
-For each distinct item visible:
-- Identify as specifically as possible: brand, model, type, era. Do not be generic.
-- Use all visible clues: labels, logos, colors, shapes, text, design era.
-- Provide REALISTIC eBay sold prices — actual sold comps, not retail or asking prices.
-- Only include items you can identify with at least 40% confidence.
-- Calculate estimated_profit as: avg_sold_price - estimated_cost_at_thrift - (avg_sold_price * ${S.ebayFee}/100) - ${S.pkgCost}
+IDENTIFICATION RULES (follow strictly):
+1. Read every label, logo, brand mark, model number, and serial number visible. Zoom in mentally.
+2. Cross-reference: If you see a red kitchen appliance, is it a KitchenAid, Cuisinart, or Hamilton Beach? The brand changes the eBay value by 10x.
+3. State what you can confirm vs. what you are guessing. Set confidence accordingly.
+4. If you cannot identify an item with at least 50% confidence, omit it entirely. Do NOT guess and present it as certain.
+5. Never label an item generically (e.g., "vintage camera") — always include the actual brand and model if visible.
+
+For each item you ARE confident about:
+- Provide REALISTIC avg_sold_price based on actual eBay completed/sold listings, not retail.
+- estimated_cost_at_thrift: typical thrift/estate sale price for this item.
+- Calculate estimated_profit = avg_sold_price - estimated_cost_at_thrift - (avg_sold_price * ${S.ebayFee}/100) - ${S.pkgCost}
 - Buyer always pays shipping. Min profit threshold for FLIP: $${S.minProfit}. Target ROI for HOT: ${S.targetRoi}%.
+- confidence_reason: explicitly state what visual evidence confirmed the ID (e.g., "brand logo clearly visible top left, model number readable on label").
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"BUY|HOT|PASS","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then BUY, then PASS.`;
+[{"item_name":"brand + model or specific variant","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"HOT|BUY|PASS","decision_reason":"one sentence with actual reasoning","estimated_profit":number,"confidence":number,"confidence_reason":"what visual evidence you used to ID this item","condition_notes":"visible issues"}]
+Sort: HOT first, then BUY, then PASS. Omit items you cannot confidently identify.`;
 }
 
 async function analyzeShelf() {
   if(!imgB64){showError('Take a shelf photo first.');return;}
-  hideError(); setBtnLoading('shelf-btn','Scanning shelf...',true);
+  hideError(); setBtnLoading('shelf-btn','Scanning...',true);
+  showScanLoading(
+    ['Scanning the shelf...','Identifying every item...','Looking up eBay sold prices...','Ranking by profit potential...'],
+    ['AI is studying each item','Checking brands, models, labels','Researching real completed sales','Sorting HOT → FLIP → PASS']
+  );
   try {
-    await sleep(300); setBtnLoading('shelf-btn','Identifying all items...',true);
     const hint=document.getElementById('text-input').value.trim();
     const msg=hint?`Scan this shelf. Context: "${hint}"`:'Scan this shelf and identify every item for eBay resell analysis.';
     const raw=await callClaude(getShelfSys(),msg,2500);
-    setBtnLoading('shelf-btn','Ranking items...',true); await sleep(200);
+    hideScanLoading(); resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');
     renderShelf(JSON.parse(raw));
-  } catch(e){resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){hideScanLoading();resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
 // ══════════════════════════════════════════════════
@@ -6116,7 +6284,7 @@ function showInventoryDrillDown() {
   const sold     = items.filter(i=>i.status==='Sold');
   const rows = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
     ${[['All Items',items.length,'All','var(--accent)'],['Listed',listed.length,'Listed','var(--green)'],['Unlisted',unlisted.length,'Unlisted','var(--yellow)'],['Sold',sold.length,'Sold','var(--muted)']].map(([lbl,cnt,status,color])=>`
-    <div onclick="document.getElementById('drill-down-modal').remove();switchTab('inventory');filterStatus='${status}';renderInventory()"
+    <div onclick="document.getElementById('drill-down-modal').remove();switchTab('inventory');invListFilter=status==='All'?{type:'all',value:'all'}:{type:'status',value:'${status}'};status==='All'?renderInventory():renderFilteredList();if(status!=='All')showInvView('list')"
       style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer">
       <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:${color}">${cnt}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${lbl}</div>
