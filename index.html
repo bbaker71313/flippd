@@ -1012,7 +1012,7 @@ body::before{
       <button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
     </div>
     <div style="text-align:center;margin-top:12px">
-      <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Change Access Code</button>
+      <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Log Out</button>
     </div>
   </div>
 
@@ -2200,10 +2200,13 @@ async function syncFromServer() {
     const serverItems = (data.items || []).map(mergeServerItem);
     if (!serverItems.length) return;
 
-    // Merge: server wins on metadata, local wins on photos
-    const serverIds = new Set(serverItems.map(i => i.id));
-    const localOnly = items.filter(i => !serverIds.has(i.id));
-    items = [...serverItems, ...localOnly];
+    // Server is source of truth for item metadata; preserve local photos
+    const localById = {};
+    items.forEach(i => { localById[i.id] = i; });
+    items = serverItems.map(si => ({
+      ...si,
+      photos: localById[si.id]?.photos || si.photos || []
+    }));
     saveItems();
     renderInventory();
     renderDashboard();
@@ -6247,6 +6250,33 @@ async function registerUser() {
   }
 }
 
+function getJwtUserId(jwt) {
+  try { return JSON.parse(atob(jwt.split('.')[1]))?.id || ''; } catch(e) { return ''; }
+}
+
+function clearUserData() {
+  items = [];
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  try { localStorage.removeItem('flippd_seeded'); } catch(e) {}
+  try { localStorage.removeItem('fef_scan_log'); } catch(e) {}
+  try { localStorage.removeItem('fef_growth_cache'); } catch(e) {}
+  try { localStorage.removeItem('fif_pnl_expenses'); } catch(e) {}
+  try { localStorage.removeItem('flippd_events'); } catch(e) {}
+  try { indexedDB.deleteDatabase('FlippedPhotosDB'); } catch(e) {}
+}
+
+function doLogout() {
+  clearUserData();
+  apiKey = '';
+  localStorage.removeItem('fif_api_key');
+  localStorage.removeItem('flippd_jwt');
+  localStorage.removeItem('flippd_user_name');
+  localStorage.removeItem('flippd_uid');
+  renderInventory();
+  showSrcView('setup');
+  setAuthMode('login');
+}
+
 async function loginUser() {
   const username = document.getElementById('auth-username').value.trim();
   const password = document.getElementById('auth-password').value;
@@ -6269,9 +6299,13 @@ async function loginUser() {
 
     if (data.token || data.jwt) {
       const jwt = data.token || data.jwt;
+      // Clear local data if this is a different user account
+      const newUid = getJwtUserId(jwt);
+      const prevUid = localStorage.getItem('flippd_uid');
+      if (newUid && prevUid && newUid !== prevUid) clearUserData();
+      if (newUid) localStorage.setItem('flippd_uid', newUid);
       localStorage.setItem('flippd_jwt', jwt);
       localStorage.setItem('fif_api_key', jwt);
-      // Store name for greeting
       if (data.user?.name) localStorage.setItem('flippd_user_name', data.user.name);
       apiKey = jwt;
       updateDashGreeting();
