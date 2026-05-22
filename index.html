@@ -1830,7 +1830,7 @@ body::before{
       <!-- eBay Category -->
       <div style="margin-bottom:14px">
         <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">eBay Category</label>
-        <select id="listing-ebay-category" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:8px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">
+        <select id="listing-ebay-category" onchange="onListingCategoryChange(this.value)" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:8px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">
           <option value="">-- Select Category --</option>
           <option value="293">Electronics</option>
           <option value="11450">Clothing, Shoes & Accessories</option>
@@ -1854,6 +1854,25 @@ body::before{
           <option value="15032">Cell Phones & Accessories</option>
           <option value="99">Other</option>
         </select>
+      </div>
+
+      <!-- Sold Comps -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px">📊 Recent Sold</label>
+          <button onclick="refreshSoldComps()" style="background:none;border:none;color:var(--accent);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline;padding:0">↻ Refresh</button>
+        </div>
+        <div id="listing-comps-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);min-height:36px;line-height:1.6">
+          Loading...
+        </div>
+      </div>
+
+      <!-- Shipping Estimate -->
+      <div style="margin-bottom:4px">
+        <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📦 Shipping Estimate</label>
+        <div id="listing-shipping-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text);line-height:1.8">
+          Select category above
+        </div>
       </div>
     </div>
 
@@ -1888,6 +1907,13 @@ body::before{
           <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🏷️ Condition Note</label>
           <div id="listing-cond-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;word-wrap:break-word;min-height:60px;white-space:pre-wrap"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-cond-length">0/500</span></div>
+        </div>
+
+        <!-- AI Suggested Price -->
+        <div id="listing-price-section" style="margin-bottom:14px;display:none">
+          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">💰 AI Suggested Price</label>
+          <div id="listing-price-display" style="background:var(--green-bg);border:1.5px solid var(--green-border);border-radius:4px;padding:10px;color:var(--green);font-family:'Syne',sans-serif;font-size:22px;font-weight:900;text-align:center"></div>
+          <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px;text-align:center">Applied to item when you save</div>
         </div>
       </div>
     </div>
@@ -3778,7 +3804,11 @@ let currentListingModal = {
   stage: 'selection',
   condition: '',
   ebayCategory: '',
-  generatedListing: null
+  generatedListing: null,
+  compsAvg: 0,
+  compsLow: 0,
+  compsHigh: 0,
+  compsCount: 0
 };
 
 function openListingModal(itemId) {
@@ -3790,7 +3820,11 @@ function openListingModal(itemId) {
     stage: 'selection',
     condition: item.condition || 'Used',
     ebayCategory: '',
-    generatedListing: null
+    generatedListing: null,
+    compsAvg: 0,
+    compsLow: 0,
+    compsHigh: 0,
+    compsCount: 0
   };
   
   showListingSelectionStage();
@@ -3799,7 +3833,7 @@ function openListingModal(itemId) {
 
 function closeListingModal() {
   document.getElementById('listing-modal').style.display = 'none';
-  currentListingModal = { itemId: null, stage: 'selection', condition: '', ebayCategory: '', generatedListing: null };
+  currentListingModal = { itemId: null, stage: 'selection', condition: '', ebayCategory: '', generatedListing: null, compsAvg: 0, compsLow: 0, compsHigh: 0, compsCount: 0 };
 }
 
 function showListingSelectionStage() {
@@ -3818,6 +3852,11 @@ function showListingSelectionStage() {
   document.getElementById('listing-preview-stage').style.display = 'none';
   document.getElementById('listing-selection-buttons').style.display = 'flex';
   document.getElementById('listing-preview-buttons').style.display = 'none';
+
+  // Trigger comps + shipping on open
+  currentListingModal.ebayCategory = autoCatId;
+  updateShippingEstimate(item.category);
+  refreshSoldComps();
 }
 
 async function proceedToPreview() {
@@ -3858,7 +3897,16 @@ async function generateAndShowPreview() {
     document.getElementById('listing-desc-length').textContent = listing.description.length + '/1500';
     document.getElementById('listing-cond-display').textContent = listing.conditionNote;
     document.getElementById('listing-cond-length').textContent = listing.conditionNote.length + '/500';
-    
+
+    const priceSection = document.getElementById('listing-price-section');
+    const priceDisplay = document.getElementById('listing-price-display');
+    if (listing.suggestedPrice > 0) {
+      priceDisplay.textContent = '$' + listing.suggestedPrice.toFixed(2);
+      priceSection.style.display = 'block';
+    } else {
+      priceSection.style.display = 'none';
+    }
+
     document.getElementById('listing-loading').style.display = 'none';
     document.getElementById('listing-preview-content').style.display = 'block';
     document.getElementById('listing-preview-buttons').style.display = 'flex';
@@ -3891,7 +3939,11 @@ async function saveListing(exportCsv) {
     ebayConditionId: EBAY_CONDITION_IDS[currentListingModal.condition],
     generatedAt: new Date().toISOString()
   };
-  
+
+  // Apply AI suggested price if one was returned
+  const sp = currentListingModal.generatedListing.suggestedPrice;
+  if (sp > 0) item.sellPrice = sp.toFixed(2);
+
   if (exportCsv) {
     item.status = 'Ready to Export';
     showToast('✓ Listing saved & queued for export');
@@ -3916,42 +3968,156 @@ async function generateListingWithAI(item, condition) {
     'Sporting Goods': 'brand, specifications, condition',
     'Jewelry & Watches': 'material, brand, specifications'
   };
-  
+
   const categoryHint = categoryDescriptors[item.category] || 'condition, functionality, quality';
-  
-  const prompt = `You are an expert eBay reseller writing product listings. Generate a title, description, and condition note for this item.
+  const hasComps = currentListingModal.compsAvg > 0;
+  const compsLine = hasComps
+    ? `\nSold comps (${currentListingModal.compsCount} recent): avg $${currentListingModal.compsAvg}, range $${currentListingModal.compsLow}–$${currentListingModal.compsHigh}. Use these to anchor your price suggestion.`
+    : '';
+
+  const prompt = `You are an expert eBay reseller writing product listings. Generate a title, description, condition note, and suggested sell price for this item.
 
 Item name: ${item.nickname}
 Category: ${item.category}
 Condition: ${condition}
-Seller notes: ${item.notes || 'No additional notes'}
+Current sell price: $${item.sellPrice || '0'}
+Seller notes: ${item.notes || 'No additional notes'}${compsLine}
 
 Focus on: ${categoryHint}
 
 STRICT REQUIREMENTS:
 - Title: max 80 characters, eBay-optimized keywords first
 - Description: 250-400 words, bullet points for key details, mobile-friendly
-- Condition Note: 50-100 words, specific about condition
+- Condition Note: 50-100 words, specific about actual condition
+- suggestedPrice: a realistic eBay sell price as a number only (use sold comps if provided, otherwise estimate from category/condition)
 
 Respond ONLY with valid JSON (no markdown, no backticks):
 {
   "title": "...",
   "description": "...",
-  "conditionNote": "..."
+  "conditionNote": "...",
+  "suggestedPrice": 0.00
 }`;
 
-  const resp = await callClaude('Generate eBay listing', prompt, 1000);
-  
-  const jsonMatch = resp.match(/\{[\s\S]*\}/);
+  // Build content array — include up to 2 item photos if available
+  const content = [];
+  if (item.photos && item.photos.length > 0) {
+    item.photos.slice(0, 2).forEach(dataUrl => {
+      const m = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (m) content.push({ type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } });
+    });
+  }
+  content.push({ type: 'text', text: prompt });
+
+  const resp = await fetch(getApiUrl(), {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1200,
+      system: 'Generate eBay listing',
+      messages: [{ role: 'user', content }]
+    })
+  });
+
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData.error?.message || errData.error || `API error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const raw = data.content?.[0]?.text || '';
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('Invalid response format');
-  
+
   const parsed = JSON.parse(jsonMatch[0]);
-  
+
   return {
     title: (parsed.title || '').substring(0, 80),
     description: (parsed.description || '').substring(0, 1500),
-    conditionNote: (parsed.conditionNote || '').substring(0, 500)
+    conditionNote: (parsed.conditionNote || '').substring(0, 500),
+    suggestedPrice: parseFloat(parsed.suggestedPrice) || 0
   };
+}
+
+// ── Sold Comps ───────────────────────────────────────────────
+async function fetchSoldComps(query, catId) {
+  const el = document.getElementById('listing-comps-display');
+  if (!el) return;
+  el.style.color = 'var(--muted)';
+  el.textContent = 'Loading sold comps...';
+  try {
+    const res = await fetch(API_BASE + '/ebay/comps', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ query, categoryId: catId || '' })
+    });
+    if (!res.ok) throw new Error('unavailable');
+    const data = await res.json();
+    if (!data.stats || data.stats.count === 0) {
+      el.textContent = 'No recent sold comps found';
+      return;
+    }
+    const s = data.stats;
+    currentListingModal.compsAvg = s.avg;
+    currentListingModal.compsLow = s.low;
+    currentListingModal.compsHigh = s.high;
+    currentListingModal.compsCount = s.count;
+    el.style.color = 'var(--text)';
+    el.innerHTML =
+      '<span style="font-weight:700">' + s.count + ' sold recently</span><br>' +
+      'Range: <span style="color:var(--green)">$' + s.low + '</span> – <span style="color:var(--accent)">$' + s.high + '</span><br>' +
+      'Avg: <strong>$' + s.avg + '</strong>';
+  } catch (e) {
+    el.textContent = 'Sold comps unavailable — set eBay keys in Replit env';
+  }
+}
+
+async function refreshSoldComps() {
+  const item = items.find(i => i.id === currentListingModal.itemId);
+  if (!item) return;
+  const catId = currentListingModal.ebayCategory || getEbayCatId(item);
+  await fetchSoldComps(item.nickname, catId);
+}
+
+function onListingCategoryChange(catId) {
+  currentListingModal.ebayCategory = catId;
+  const item = items.find(i => i.id === currentListingModal.itemId);
+  if (item) {
+    // Derive internal category name from catId for shipping estimate
+    const catName = Object.keys(EBAY_CAT_DEFAULTS).find(k => EBAY_CAT_DEFAULTS[k] === catId) || item.category;
+    updateShippingEstimate(catName);
+  }
+  refreshSoldComps();
+}
+
+// ── Shipping Estimator ───────────────────────────────────────
+const SHIP_RATES = {
+  'Electronics':         { lbs: '2',    fc: null,    pri: '$12.95', par: '$9.50'  },
+  'Clothing':            { lbs: '0.5',  fc: '$4.00', pri: '$9.45',  par: null     },
+  'Shoes':               { lbs: '2',    fc: null,    pri: '$12.95', par: '$9.50'  },
+  'Home & Garden':       { lbs: '3',    fc: null,    pri: '$15.05', par: '$12.80' },
+  'Collectibles':        { lbs: '0.5',  fc: '$3.75', pri: '$9.45',  par: null     },
+  'Toys & Hobbies':      { lbs: '1.5',  fc: null,    pri: '$11.45', par: '$8.00'  },
+  'Books':               { lbs: '1',    fc: '$4.50', pri: '$10.20', par: '$5.50'  },
+  'Sporting Goods':      { lbs: '2',    fc: null,    pri: '$12.95', par: '$9.50'  },
+  'Jewelry & Watches':   { lbs: '0.25', fc: '$3.50', pri: '$8.95',  par: null     },
+  'Health & Beauty':     { lbs: '0.5',  fc: '$4.00', pri: '$9.45',  par: null     },
+  'Musical Instruments': { lbs: '3',    fc: null,    pri: '$15.05', par: '$12.80' },
+  'Tools':               { lbs: '2',    fc: null,    pri: '$12.95', par: '$9.50'  },
+  'Pet Supplies':        { lbs: '1',    fc: null,    pri: '$10.20', par: '$6.50'  },
+  'Baby':                { lbs: '1',    fc: '$4.00', pri: '$10.20', par: null     },
+};
+
+function updateShippingEstimate(category) {
+  const el = document.getElementById('listing-shipping-display');
+  if (!el) return;
+  const r = SHIP_RATES[category] || { lbs: '1.5', fc: null, pri: '$11.45', par: '$8.00' };
+  const lines = [];
+  if (r.fc) lines.push('First Class (' + r.lbs + ' lb): <strong>' + r.fc + '</strong>');
+  lines.push('Priority Mail (' + r.lbs + ' lb): <strong>' + r.pri + '</strong>');
+  if (r.par) lines.push('Parcel Select (' + r.lbs + ' lb): <strong>' + r.par + '</strong>');
+  el.innerHTML = lines.join('<br>');
 }
 
 function exportListingsToCSV() {
