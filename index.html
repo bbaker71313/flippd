@@ -1011,8 +1011,12 @@ body::before{
       <button id="ebay-connect-btn" class="btn btn-green" style="width:100%;font-size:13px;padding:10px" onclick="ebayConnect()">Connect eBay Account</button>
       <button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
     </div>
-    <div style="text-align:center;margin-top:12px">
-      <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Log Out</button>
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+      <button onclick="cancelSubscription()" style="width:100%;background:none;border:1.5px solid var(--border);border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer">Cancel Subscription</button>
+      <button onclick="deleteAccount()" style="width:100%;background:none;border:1.5px solid var(--red);border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--red);cursor:pointer">Delete Account</button>
+      <div style="text-align:center;margin-top:4px">
+        <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">Log Out</button>
+      </div>
     </div>
   </div>
 
@@ -2422,9 +2426,9 @@ function renderFilteredList() {
           ${hasListing ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
             <button onclick="event.stopPropagation();toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;font-family:'IBM Plex Mono',monospace;text-decoration:underline">▼ View Generated Listing</button>
             <div id="listing-detail-${item.id}" style="display:none;margin-top:8px;font-size:10px;line-height:1.5">
-              <div style="margin-bottom:6px"><strong>Title:</strong> <span style="color:var(--muted)">${item.listing.title}</span></div>
+              <div style="margin-bottom:6px"><strong>Title:</strong> <span style="color:var(--muted)">${(item.listing.title||'')}</span></div>
               <div style="margin-bottom:6px"><strong>Desc:</strong> <span style="color:var(--muted)">${(item.listing.description||'').substring(0, 100)}...</span></div>
-              <div><strong>Generated:</strong> <span style="color:var(--muted)">${new Date(item.listing.generatedAt).toLocaleDateString()}</span></div>
+              <div><strong>Generated:</strong> <span style="color:var(--muted)">${item.listing.generatedAt ? new Date(item.listing.generatedAt).toLocaleDateString() : ''}</span></div>
             </div>
           </div>` : ''}
         </div>
@@ -6275,6 +6279,44 @@ function doLogout() {
   renderInventory();
   showSrcView('setup');
   setAuthMode('login');
+}
+
+async function cancelSubscription() {
+  try {
+    const res = await fetch(API_BASE + '/stripe/portal', { method: 'POST', headers: getApiHeaders() });
+    const data = await res.json();
+    if (data.url) {
+      window.open(data.url, '_blank');
+    } else {
+      showToast('⚠️ No active subscription found');
+    }
+  } catch (e) {
+    showToast('Could not open billing portal — check your connection');
+  }
+}
+
+async function deleteAccount() {
+  if (!confirm('Delete your account? This cannot be undone. All your inventory and data will be permanently removed.')) return;
+  if (!confirm('Last chance: permanently delete everything?')) return;
+  try {
+    const res = await fetch(API_BASE + '/auth/delete-account', { method: 'POST', headers: getApiHeaders() });
+    if (res.ok) {
+      clearUserData();
+      apiKey = '';
+      localStorage.removeItem('fif_api_key');
+      localStorage.removeItem('flippd_jwt');
+      localStorage.removeItem('flippd_user_name');
+      localStorage.removeItem('flippd_uid');
+      showSrcView('setup');
+      setAuthMode('login');
+      showToast('Account deleted');
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast('Delete failed: ' + (data.error || 'Server error'));
+    }
+  } catch (e) {
+    showToast('Network error — try again');
+  }
 }
 
 async function loginUser() {
