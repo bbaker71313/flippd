@@ -1,0 +1,74 @@
+{
+  "projectName": "ScanForProfit",
+  "description": "AI shelf scanner + profit intelligence for solo eBay resellers",
+  "domain": "scanforprofit.com",
+  "appDomain": "flippd.tech",
+  "phase": {
+    "current": "3 (Design)",
+    "next": "4 (Build Mobile)",
+    "started": "2026-05-26",
+    "status": "Component library 90% complete"
+  },
+  "team": {
+    "founder": "Brittany Baker",
+    "email": "bbaker71313@gmail.com"
+  },
+  "repo": {
+    "frontend": "bbaker71313/scanforprofit",
+    "backend": "bbaker71313/flippd-backend",
+    "branch": "claude/brave-brahmagupta-ff7NM"
+  },
+  "masterFiles": {
+    "fileInventory": "FILE_INVENTORY.md",
+    "sessionHandoff": "SESSION_HANDOFF.md",
+    "projectConfig": ".project_config.json",
+    "claudeInstructions": "CLAUDE.md",
+    "marketingContext": "product-marketing-context.md"
+  },
+  "canonicalFiles": {
+    "app": "Flippd_v5.html",
+    "landing_a": "Flippd_Landing_FeatureRich.html",
+    "landing_b": "Flippd_Landing_Honest.html",
+    "index": "index.html"
+  },
+  "techStack": {
+    "frontend": "Vanilla JS + HTML + CSS (single file, no build tools)",
+    "mobile": "React Native + Expo SDK 52 + Expo Router 4 + NativeWind",
+    "web": "Next.js 14 + TypeScript + Tailwind + shadcn/ui",
+    "backend": "Node.js + Express (Replit)",
+    "database": "Supabase (Postgres + Auth + Storage + Edge Functions)",
+    "payments": "Stripe",
+    "automation": "n8n Cloud",
+    "ai": "Anthropic Claude (claude-sonnet-4-6)"
+  },
+  "endpoints": {
+    "backendBase": "https://flippd-backend.replit.app",
+    "appLive": "https://flippd.tech/Flippd_v5.html",
+    "apiMessages": "https://flippd-backend.replit.app/v1/messages"
+  },
+  "supabaseProjectId": "dqgfpchkheznvanfgsmx",
+  "easProjectId": "cc487254-9654-4930-ac52-37ffba835a20",
+  "backendVersion": "3.0.0",
+  "folderStructure": {
+    "docs": "Cowork directory files, submission docs",
+    "marketing/scanforprofit.com": "Claude Design HTML/CSS for scanforprofit.com",
+    "prompts": "Saved Claude prompts for reuse",
+    "ARCHIVE": "Old/retired versions (FLIPPD backup, etc.)"
+  },
+  "rules": [
+    "READ FILE_INVENTORY.md before creating any file",
+    "CHECK if file exists — UPDATE instead of DUPLICATE",
+    "NEVER hardcode fee percentages — always use S.ebayFee",
+    "NEVER hardcode API URLs — always use getApiUrl() and getApiHeaders()",
+    "NEVER use <form> tags — use event handlers",
+    "NEVER add tabs beyond the 5 defined in CLAUDE.md",
+    "ALWAYS run syntax check before delivering Flippd_v5.html",
+    "UPDATE FILE_INVENTORY.md when adding/removing files",
+    "UPDATE SESSION_HANDOFF.md at end of session"
+  ],
+  "localPaths": {
+    "note": "Remote sessions use /home/user/scanforprofit. Local Windows path: C:\\Users\\bbake\\OneDrive\\Desktop\\scanforprofit",
+    "windows": "C:\\Users\\bbake\\OneDrive\\Desktop\\scanforprofit"
+  },
+  "lastUpdated": "2026-05-26T00:00:00Z"
+}
