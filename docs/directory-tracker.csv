@@ -1,0 +1,42 @@
+Tier,Directory Name,URL,Category,Status,Date Submitted,Notes
+1,Product Hunt,https://producthunt.com/posts/new,Startup,PENDING,,Launch day priority — flagship post
+1,BetaList,https://betalist.com/startups/new,Startup,PENDING,,High DA backlink; submit 1 week before launch if possible
+1,Fazier,https://fazier.com/submit,Startup,PENDING,,Daily launches; submit on launch day
+1,DevHunt,https://devhunt.org/tool/new,Startup,PENDING,,Developer-focused; mention React Native + Supabase stack
+1,Launched.io,https://launched.io/submit,Startup,PENDING,,Curated; good for backlink
+1,Uneed.be,https://uneed.be/submit,Startup,PENDING,,Free submission; no account required
+1,MicroLaunch,https://microlaunch.net/submit,Startup,PENDING,,Indie maker focus; mention solo founder angle
+1,Startup Stash,https://startupstash.com/add-resources,Startup,PENDING,,Resource directory; category: productivity tools
+1,Indie Hackers,https://indiehackers.com/new-product,Community,PENDING,,Add product to profile; also write a launch post
+1,Peerlist,https://peerlist.io/tools,Startup,PENDING,,Developer + maker community
+1,Hacker News,https://news.ycombinator.com,Community,PENDING,,Show HN post — not a directory; write post separately
+2,AlternativeTo,https://alternativeto.net/addapp,SaaS,PENDING,,Add as alternative to SellerAmp and manual eBay research
+2,SaaSHub,https://saashub.com/new_product,SaaS,PENDING,,Good for organic discovery; free listing
+2,G2,https://g2.com/products/new,Review,PENDING,,Requires 3+ reviews to publish; line up 20 beta users first
+2,Capterra,https://vendors.capterra.com,Review,PENDING,,Review-gated; coordinate with beta users before submitting
+2,GetApp,https://getapp.com/vendors,Review,PENDING,,Owned by Gartner; shares reviews with Capterra
+2,SourceForge,https://sourceforge.net/register,SaaS,PENDING,,Legacy DA; free listing
+2,Crozdesk,https://vendor.crozdesk.com,SaaS,PENDING,,B2B SaaS focus; free tier available
+2,TrustRadius,https://trustradius.com/vendor,Review,PENDING,,Worth the backlink
+2,Crunchbase,https://crunchbase.com,Startup,PENDING,,Free company profile; helps credibility
+2,Wellfound,https://wellfound.com/company/new,Startup,PENDING,,AngelList talent; helps startup credibility
+2,F6S,https://f6s.com,Startup,PENDING,,Startup programs + directory
+2,SoftwareSuggest,https://softwaresuggest.com/add-software,SaaS,PENDING,,India-focused but global DA
+2,Slant,https://slant.co,SaaS,PENDING,,Add product manually; good for comparison searches
+2,FinancesOnline,https://financesonline.com/add-your-software,SaaS,PENDING,,Business software directory; free listing
+3,TAAFT,https://theresanaiforthat.com/submit,AI Directory,PENDING,,High traffic; category: productivity
+3,Futurepedia,https://futurepedia.io/submit-tool,AI Directory,PENDING,,Large AI tool index; mention Claude Sonnet
+3,Toolify,https://toolify.ai/submit-tools,AI Directory,PENDING,,Aggregates AI tools; free submission
+3,Future Tools,https://futuretools.io/submit-a-tool,AI Directory,PENDING,,Matt Wolfe's directory; high newsletter engagement
+3,TopAI.tools,https://topai.tools/submit,AI Directory,PENDING,,Curated AI tool list
+3,AI Tool Hunt,https://aitoolhunt.com/submit,AI Directory,PENDING,,Community voting; submit on launch day for upvotes
+3,AIStage,https://aistage.net/submit,AI Directory,PENDING,,Free listing; typically fast approval
+3,Toolpilot,https://toolpilot.ai/add-tool,AI Directory,PENDING,,Growing index; category: business tools
+3,Supertools,https://supertools.therundown.ai/submit,AI Directory,PENDING,,The Rundown audience; strong newsletter
+3,AI Depot,https://aidepot.co/submit,AI Directory,PENDING,,Curated; emphasize mobile-first angle
+3,Easy With AI,https://easywithai.com/submit,AI Directory,PENDING,,Consumer AI focus; good for reseller niche
+3,All Things AI,https://allthingsai.com/submit,AI Directory,PENDING,,UK-based but global; free submission
+3,Altern,https://altern.tools/submit,AI Directory,PENDING,,Alternative finder for AI tools
+3,Ben's Bites,https://bensbites.com/tools/submit,AI Newsletter,PENDING,,High-quality audience; curated approval
+3,AI Finder,https://ai-finder.net/submit,AI Directory,PENDING,,Searchable directory; category: productivity
+3,AI Awesome,https://aiawesome.com/submit,AI Directory,PENDING,,GitHub-linked AI directory
