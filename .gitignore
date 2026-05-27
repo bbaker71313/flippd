@@ -49,3 +49,6 @@ coverage/
 
 # Archives
 *.zip
+
+# TypeScript build cache
+*.tsbuildinfo
