@@ -14,6 +14,46 @@ github.com/bbaker71313/scanforprofit (not yet initialized as git repo as of 2026
 
 ---
 
+## Session: 2026-05-27
+
+### What changed this session
+
+- **File system audit** — found 3 copies of the project; OneDrive Desktop confirmed as canonical source
+- **Cleanup completed** — moved `FLIPPD/` → `flippd-archive/`, `Ebay/` → `ebay-business/`, `Flippd - Copy` removed; deleted 852MB `FLIPPD.zip` from Projects copy
+- **Deleted duplicate** — `C:\Users\bbake\Projects\scanforprofit` removed entirely (required robocopy workaround for MAX_PATH issue in nested skills folder)
+- **Git initialized** — `git init`, branch set to `main`
+- **.gitignore updated** — added `.expo/`, `.turbo/`, `coverage/`, `*.zip`, `*.tsbuildinfo`
+- **docs/ subfolders created** — `docs/decisions/`, `docs/strategy/`, `docs/marketing/` with placeholder READMEs
+- **Initial commit** — `c6d2000` — 84 files, 22,689 insertions
+- **Remote added** — `https://github.com/bbaker71313/scanforprofit.git`; force-pushed over stale remote history (old single-file Flippd repo)
+- **CLAUDE.md written** — `d9ea970` — full session protocol, Karpathy rules, verification checks, build status
+- **Type fix** — `apps/web/lib/supabase-server.ts` — added explicit `CookieOptions` types to cookie handler params (6 implicit `any` errors resolved)
+- **tsbuildinfo excluded** — `*.tsbuildinfo` added to `.gitignore`, unstaged from git
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `c6d2000` | chore: initial commit — monorepo scaffold, design system, UI components |
+| `d9ea970` | docs: update CLAUDE.md with session protocol, Karpathy rules, verification checks |
+| `7a67b3e` | fix: add explicit types to supabase-server cookie handlers, exclude tsbuildinfo |
+
+### Next task
+
+**Phase 3 Step 3** — Component Library rebuild with `frontend-design` skill
+- Target: `apps/mobile/components/ui/` (10 components already scaffolded)
+- Read `docs/BRAND_IDENTITY.md` and `packages/shared/src/constants/theme.ts` before starting
+- Use NativeWind 4 only — no StyleSheet
+- Port from `Flippd_v5_23.html` per `docs/FEATURE_TRIAGE.md`
+
+### Decisions made this session (do not reverse)
+
+- OneDrive Desktop (`C:\Users\bbake\OneDrive\Desktop\scanforprofit`) is the canonical project location
+- GitHub remote force-pushed — old Flippd single-file history discarded intentionally
+- Shared package name is `@sfp/shared` — all mobile components already import from this correctly
+
+---
+
 ## Session: 2026-05-26
 
 ### What changed this session
