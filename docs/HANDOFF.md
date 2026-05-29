@@ -10,7 +10,49 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ## Repo
 
-github.com/bbaker71313/scanforprofit (not yet initialized as git repo as of 2026-05-26)
+github.com/bbaker71313/scanforprofit
+
+---
+
+## Session: 2026-05-29 — Block 2: Fix GitHub Actions CI Failures
+
+### What changed this session
+
+- **`.github/workflows/mobile.yml` updated** — changed `on:` trigger from push-to-main to `workflow_dispatch` only. EAS builds will no longer fire automatically on every push. The `jobs:` block is unchanged and ready for Phase 4. Build step now uses `${{ github.event.inputs.platform || 'all' }}` so platform is selectable when triggered manually.
+- **`.github/workflows/web.yml` deleted** — permanently removed. Vercel native Git integration is the authoritative deployment mechanism. No GitHub Actions workflow is needed or desired for web deploys. Do NOT recreate this file.
+- **`docs/GITHUB_SECRETS.md` created** — documents what secrets must be added before Phase 4 EAS builds work. See that file for the exact steps.
+
+### Why these changes were made
+
+Both workflows were firing on every push to main and failing with missing secrets (`EXPO_TOKEN`, `VERCEL_TOKEN`, etc.), generating noise email alerts. Vercel native deployment was already working correctly — the web workflow was entirely redundant. The mobile workflow needs `EXPO_TOKEN` which won't exist until Phase 4 Step 8.
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `aa43093` | chore: disable mobile CI auto-trigger — manual workflow_dispatch only |
+| `28cc201` | chore: remove redundant Vercel web CI — Vercel native Git integration handles deployments |
+| `c7bc4c2` | docs: add GITHUB_SECRETS.md — document required secrets for Phase 4 EAS build |
+
+### Phase 4 Step 8 note — IMPORTANT
+
+Before starting EAS builds in Phase 4 Step 8:
+1. Go to expo.dev → Account Settings → Access Tokens → Create token
+2. Add `EXPO_TOKEN` to GitHub → Repository → Settings → Secrets and variables → Actions
+3. Update `mobile.yml`: restore the push trigger (replace `on: workflow_dispatch:` with push trigger on `apps/mobile/**` and `packages/shared/**` on main)
+See `docs/GITHUB_SECRETS.md` for full reference.
+
+### Decisions made this session (do not reverse)
+
+- `web.yml` deleted permanently. Vercel native is the deployment mechanism. Do not recreate.
+- `mobile.yml` is manual-only until Phase 4 Step 8. Do not restore push trigger before adding `EXPO_TOKEN`.
+
+### Next task
+
+**Block 3** — Landing page fix + email capture
+- Fix `apps/web/app/page.tsx` landing page
+- Add email capture / waitlist form
+- Verify Vercel native deployment picks up the change cleanly
 
 ---
 
