@@ -14,6 +14,117 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-05-29 — Backend Recovery: Edge Function Deployment
+
+### What changed this session
+
+- **`supabase/functions/auth/index.ts` created** — full custom auth Edge Function. Endpoints: `POST /auth/register`, `GET /auth/verify`, `POST /auth/login`, `GET /auth/me`. Uses bcryptjs for password hashing, Web Crypto API (HMAC-SHA256) for 90-day JWTs. No magic link — removed in v3.0.0. Sends verification email via Resend.
+- **`supabase/functions/claude-proxy/index.ts` created** — Anthropic API proxy with tier-based scan limit enforcement. Health check at `{"type":"health"}` requires no auth. Accepts custom JWT (issued by auth function) or anon key.
+- **`supabase/functions/stripe-webhook/index.ts` created** — Stripe webhook handler. Manual HMAC-SHA256 signature verification. Handles: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Price-to-tier mapping hardcoded from HANDOFF.md Stripe IDs.
+- **All 3 functions deployed to Supabase project `dqgfpchkheznvanfgsmx`** via Supabase MCP `deploy_edge_function`.
+- **`supabase.functions.list()` confirmed** — all 3 returned with `status: ACTIVE`.
+
+### Deployed Function URLs
+
+| Function | URL |
+|---|---|
+| `auth` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth` |
+| `claude-proxy` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy` |
+| `stripe-webhook` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook` |
+
+### Smoke Test Results
+
+Smoke tests could NOT be run from the remote session environment (outbound calls to Supabase edge function URLs are blocked by the environment's network policy). Functions are confirmed ACTIVE via MCP. **Britt must run these manually from a terminal or browser:**
+
+**Test 1 — auth /register (expected: 200 or 400, NOT 404/500):**
+```bash
+curl -X POST https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","password":"TestPass123!","username":"testuser"}'
+```
+
+**Test 2 — claude-proxy health (expected: 200 with `{"status":"ok"}`):**
+```bash
+curl -X POST https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo" \
+  -d '{"type":"health"}'
+```
+
+**Test 3 — stripe-webhook reachability (expected: 400 missing signature, NOT 404/500):**
+```bash
+curl -X POST https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Secrets Status — ACTION REQUIRED
+
+The Supabase MCP has no tool to read existing secrets. Status cannot be verified programmatically. Britt must check each in: **Supabase Dashboard → Project `dqgfpchkheznvanfgsmx` → Settings → Edge Functions → Secrets**.
+
+| Secret | Required By | Status |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | claude-proxy | **[UNKNOWN — VERIFY OR ADD]** |
+| `STRIPE_SECRET_KEY` | stripe-webhook | **[UNKNOWN — VERIFY OR ADD]** |
+| `STRIPE_WEBHOOK_SECRET` | stripe-webhook | **[UNKNOWN — VERIFY OR ADD]** |
+| `RESEND_API_KEY` | auth (email verification) | **[UNKNOWN — VERIFY OR ADD]** |
+| `EBAY_CLIENT_ID` | future eBay features | **[UNKNOWN — VERIFY OR ADD]** |
+| `JWT_SECRET` | auth (JWT signing — **CRITICAL**) | **[MISSING — YOU MUST ADD THIS]** |
+| `APP_URL` | auth (verification email link) | Optional — defaults to Supabase function URL |
+| `FRONTEND_URL` | auth (post-verify redirect) | Optional — defaults to `https://scanforprofit.com` |
+| `RESEND_FROM_EMAIL` | auth (sender address) | Optional — defaults to `ScanForProfit <hello@scanforprofit.com>` |
+
+**`JWT_SECRET` is required for login to work.** Without it, the auth function falls back to a hardcoded dev secret (`dev-secret-replace-in-production`), which means JWTs issued in testing will not be valid in production once you set the real secret. Add it NOW before any users register.
+
+Recommended: generate with `openssl rand -base64 32`
+
+### Stripe Webhook Endpoint — ACTION REQUIRED
+
+[YOU MUST DO THIS IN STRIPE DASHBOARD]
+
+Stripe → Developers → Webhooks → Add endpoint:
+`https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook`
+
+Events to listen for:
+- `checkout.session.completed`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_failed`
+
+After adding the endpoint, copy the **Webhook Signing Secret** (`whsec_...`) and add it as `STRIPE_WEBHOOK_SECRET` in Supabase secrets.
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `bf94f8e` | feat: add auth, claude-proxy, stripe-webhook edge functions |
+
+### Decisions made this session (do not reverse)
+
+- Auth uses custom JWT (HMAC-SHA256, 90-day expiry), NOT Supabase Auth sessions. JWT secret is `JWT_SECRET` env var.
+- No magic link endpoints — `/auth/request-link` and `/auth/verify-link` do not exist and must never be added.
+- `auth` function routes on path suffix (`.endsWith('/register')` etc.) — works with Supabase's `/functions/v1/auth/register` URL pattern.
+- `stripe-webhook` has `verify_jwt: false` — Stripe doesn't send Supabase JWTs.
+- Password hashing: bcryptjs sync (10 rounds) via esm.sh CDN.
+- Price-to-tier mapping is hardcoded in `stripe-webhook/index.ts` — if new Stripe products are added, update the `PRICE_TIER` map in that file.
+
+### Next task
+
+**Confirm smoke tests pass** (Britt runs the 3 curl commands above)
+
+If any smoke test returns 404 or 500:
+- For `auth`: check Supabase Edge Function logs (Dashboard → Edge Functions → auth → Logs)
+- Most likely cause: `JWT_SECRET` not set (500 on login), or `bcryptjs` import failed (500 on register)
+
+After smoke tests pass:
+1. Add `JWT_SECRET` to Supabase secrets (critical)
+2. Verify the other 4 secrets in the table above
+3. Add Stripe webhook endpoint in Stripe Dashboard (see above)
+4. Re-run smoke tests to confirm end-to-end auth flow works
+5. **Phase 4 starts:** Build mobile app screens against live Edge Functions
+
+---
+
 ## Session: 2026-05-29 — Block 2: Fix GitHub Actions CI Failures
 
 ### What changed this session
@@ -46,13 +157,6 @@ See `docs/GITHUB_SECRETS.md` for full reference.
 
 - `web.yml` deleted permanently. Vercel native is the deployment mechanism. Do not recreate.
 - `mobile.yml` is manual-only until Phase 4 Step 8. Do not restore push trigger before adding `EXPO_TOKEN`.
-
-### Next task
-
-**Block 3** — Landing page fix + email capture
-- Fix `apps/web/app/page.tsx` landing page
-- Add email capture / waitlist form
-- Verify Vercel native deployment picks up the change cleanly
 
 ---
 
@@ -104,42 +208,6 @@ See `docs/GITHUB_SECRETS.md` for full reference.
 - **Audited `CLAUDE.md`** — file does not exist yet. Nothing to update.
 - **Created `docs/HANDOFF.md`** (this file) — persistent session context established.
 
-### Flippd references found (Task 4 audit — do NOT auto-fix)
-
-All references are in `docs/FEATURE_TRIAGE.md` and one in `packages/shared/src/types/index.ts`. They are intentional: the FEATURE_TRIAGE.md documents the source HTML file (`Flippd_v5_23.html`) and its internal symbols (localStorage keys, function names, URLs from the old app). These are source-archaeology annotations, not app branding.
-
-**`docs/FEATURE_TRIAGE.md` — Flippd references (reported, not fixed):**
-
-| Line | Content |
-|------|---------|
-| 1 | `# Feature Triage — Flippd v5.23 → ScanForProfit RN` |
-| 3 | `Source file: \`Flippd_v5_23.html\`` |
-| 10 | `Line numbers reference \`Flippd_v5_23.html\`` |
-| 32 | localStorage key `flippd_items_v1` (old app key — documented, not used in RN) |
-| 171 | IndexedDB store name `flippd_photos` (old app — documented) |
-| 189 | `'https://flippd-backend.replit.app'` (old API_BASE — replaced by Supabase) |
-| 370 | localStorage keys `flippd_jwt`, `flippd_user_name` (old app — documented) |
-| 372 | `support@flippd.app` (old support email — documented as bug) |
-| 402 | eBay client ID `'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c'` (old key — must replace) |
-| 403 | redirect URI `'https://flippd-backend.replit.app/ebay/oauth/callback'` (old — must replace) |
-| 410 | Function name `_mergeFlippdWithEbay()` (old HTML function — documented) |
-| 417 | Function names `handleFlippdImport()`, `exportFlippdBackup()` (old HTML — documented) |
-| 458 | localStorage key `flippd_events` (old app — documented) |
-| 485 | `support@flippd.app` (old email — documented as bug) |
-| 613 | Port-from references to `exportFlippdBackup()`, `handleFlippdImport()` |
-| 692 | localStorage key `flippd_user_name` (old app — documented) |
-| 738 | "merging Flippd items with eBay-pulled listings" (section title — historical context) |
-| 756 | `flippd_events` localStorage key (old app — documented) |
-| 780 | `flippd-backend.replit.app` (old backend URL — documented as replaced) |
-| 819 | `flippd_events` in dead-code table |
-| 825 | `flippd_jwt` in dead-code table |
-
-**`packages/shared/src/types/index.ts` line 1:**
-```
-// Core domain types for ScanForProfit — aligned to Flippd data model
-```
-This comment references the old app by name. Safe to update in a future session.
-
 ---
 
 ## Standing Instructions (apply every session)
@@ -156,7 +224,8 @@ This comment references the old app by name. Safe to update in a future session.
 ## Supabase
 
 - Project ID: `dqgfpchkheznvanfgsmx`
-- Auth: email/password + verification
+- Anon key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
+- Auth: custom email/password + verification (NOT Supabase Auth)
 
 ## Stripe (livemode)
 
