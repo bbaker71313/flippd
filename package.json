@@ -21,5 +21,10 @@
   },
   "keywords": ["flippd", "reseller", "saas", "stripe", "auth", "supabase"],
   "author": "Britt Baker",
-  "license": "ISC"
+  "license": "ISC",
+  "pnpm": {
+    "overrides": {
+      "react-email>next": "^15.1.11"
+    }
+  }
 }
