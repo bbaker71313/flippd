@@ -1,22 +1,41 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Syne, IBM_Plex_Mono } from 'next/font/google';
+import './globals.css';
 
-const inter = Inter({ subsets: ["latin"] });
+const syne = Syne({
+  subsets: ['latin'],
+  weight: ['400', '600', '700', '800'],
+  variable: '--font-syne',
+  display: 'swap',
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: "ScanForProfit",
-  description: "Scan, list, and track your eBay profit.",
+  title: 'ScanForProfit — Know in 8 seconds',
+  description:
+    'Scan any item at a thrift store or garage sale. Get a BUY, PASS, or HOT decision with profit number. Early access now open.',
+  openGraph: {
+    title: 'ScanForProfit — Know in 8 seconds',
+    description: 'Scan any item. Know your profit before you pay.',
+  },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body
+        className={`${
+          syne.variable
+        } ${ibmPlexMono.variable} font-sans bg-sfp-bg text-sfp-body antialiased`}
+      >
+        {children}
+      </body>
     </html>
   );
 }
