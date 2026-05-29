@@ -27,7 +27,7 @@ export default function EmailCapture() {
   if (state === 'success') {
     return (
       <p
-        className="font-mono text-sfp-green text-base"
+        className="font-mono text-sfp-brand text-base"
         style={{ transition: 'opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
       >
         You're on the list. We'll email you when early access opens.
@@ -47,18 +47,18 @@ export default function EmailCapture() {
           disabled={state === 'loading'}
           className={[
             'flex-1 px-4 py-3 font-mono text-sm rounded min-h-[44px]',
-            'bg-sfp-body text-sfp-bg placeholder:text-sfp-muted',
+            'bg-sfp-textPrimary text-sfp-background placeholder:text-sfp-textMuted',
             'border-2 focus:outline-none',
             'transition-colors duration-150 disabled:opacity-60',
             state === 'error'
               ? 'border-sfp-loss'
-              : 'border-sfp-secondary focus:border-sfp-green',
+              : 'border-sfp-textSecondary focus:border-sfp-brand',
           ].join(' ')}
         />
         <button
           onClick={submit}
           disabled={state === 'loading'}
-          className="px-6 py-3 bg-sfp-green text-sfp-body font-sans font-bold text-sm rounded min-h-[44px] hover:bg-sfp-green-dim active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
+          className="px-6 py-3 bg-sfp-brand text-sfp-textPrimary font-sans font-bold text-sm rounded min-h-[44px] hover:bg-sfp-brandDim active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed flex-shrink-0"
           style={{ transition: 'all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         >
           {state === 'loading' ? (

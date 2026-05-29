@@ -29,12 +29,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body
-        className={`${
-          syne.variable
-        } ${ibmPlexMono.variable} font-sans bg-sfp-bg text-sfp-body antialiased`}
-      >
+    <html lang="en" className={`${syne.variable} ${ibmPlexMono.variable}`}>
+      <body className="font-sans bg-sfp-background text-sfp-textPrimary antialiased">
         {children}
         <SpeedInsights />
       </body>

@@ -10,20 +10,21 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        syne: ['var(--font-syne)', 'system-ui', 'sans-serif'],
         sans: ['var(--font-syne)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       colors: {
         // ScanForProfit brand tokens
-        'sfp-bg': '#f2ece0',
+        'sfp-background': '#f2ece0',
         'sfp-surface': '#fdf8ef',
         'sfp-header': '#3a2410',
-        'sfp-green': '#00bb66',
-        'sfp-green-dim': '#009952',
-        'sfp-gold': '#8B6A3E',
-        'sfp-body': '#1e1208',
-        'sfp-secondary': '#5c3d20',
-        'sfp-muted': '#8a6e50',
+        'sfp-brand': '#00bb66',
+        'sfp-brandDim': '#009952',
+        'sfp-accent': '#8B6A3E',
+        'sfp-textPrimary': '#1e1208',
+        'sfp-textSecondary': '#5c3d20',
+        'sfp-textMuted': '#8a6e50',
         'sfp-border': '#c8b89a',
         'sfp-loss': '#dd0000',
         'sfp-warning': '#c47800',

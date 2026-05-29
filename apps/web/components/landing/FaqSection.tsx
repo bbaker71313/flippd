@@ -30,8 +30,8 @@ export default function FaqSection() {
 
   return (
     <section className="bg-sfp-surface py-20">
-      <div className="max-w-[640px] mx-auto px-6">
-        <h2 className="font-sans font-bold text-sfp-body text-2xl mb-8">
+      <div className="max-w-xl mx-auto px-6">
+        <h2 className="font-sans font-bold text-sfp-textPrimary text-2xl mb-8">
           The questions most resellers have.
         </h2>
 
@@ -42,11 +42,11 @@ export default function FaqSection() {
                 onClick={() => setOpen(open === i ? null : i)}
                 className="w-full flex items-center justify-between py-5 text-left min-h-[44px] gap-4"
               >
-                <span className="font-sans font-semibold text-sfp-body text-sm">
+                <span className="font-sans font-semibold text-sfp-textPrimary text-sm">
                   {faq.q}
                 </span>
                 <span
-                  className="font-mono text-sfp-muted text-xl leading-none flex-shrink-0 select-none inline-block"
+                  className="font-mono text-sfp-textMuted text-xl leading-none flex-shrink-0 select-none inline-block"
                   style={{
                     transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
                     transition: 'transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -56,7 +56,7 @@ export default function FaqSection() {
                 </span>
               </button>
               {open === i && (
-                <p className="font-mono text-sfp-secondary text-sm leading-relaxed pb-5">
+                <p className="font-mono text-sfp-textSecondary text-sm leading-relaxed pb-5">
                   {faq.a}
                 </p>
               )}

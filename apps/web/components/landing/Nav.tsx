@@ -31,10 +31,10 @@ function LogoMark() {
 export default function Nav() {
   return (
     <nav className="w-full px-6 py-4">
-      <div className="max-w-[640px] mx-auto flex items-center justify-between">
+      <div className="max-w-xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <LogoMark />
-          <span className="font-sans text-xs tracking-[0.12em] text-sfp-bg uppercase select-none">
+          <span className="font-sans text-xs tracking-[0.12em] text-sfp-background uppercase select-none">
             <span className="font-bold">SCAN</span>
             <span className="font-normal">FORPROFIT</span>
           </span>
@@ -43,13 +43,13 @@ export default function Nav() {
         <div className="flex items-center gap-5">
           <a
             href="#pricing"
-            className="font-mono text-sm text-sfp-muted hover:text-sfp-bg transition-colors duration-150"
+            className="font-mono text-sm text-sfp-textMuted hover:text-sfp-background transition-colors duration-150"
           >
             Pricing
           </a>
           <a
             href="#waitlist"
-            className="font-mono text-sm px-4 py-2 bg-sfp-green text-sfp-body font-medium rounded hover:bg-sfp-green-dim active:scale-[0.97] min-h-[44px] inline-flex items-center"
+            className="font-mono text-sm px-4 py-2 bg-sfp-brand text-sfp-textPrimary font-medium rounded hover:bg-sfp-brandDim active:scale-[0.97] min-h-[44px] inline-flex items-center"
             style={{ transition: 'all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
           >
             Get early access
