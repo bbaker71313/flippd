@@ -1,11 +1,12 @@
 -- ============================================================
 -- 000_base_schema.sql
--- Base tables: users + inventory (pre-migration columns only).
--- Must run before 001_extend_schema.sql.
+-- Creates users + inventory from scratch so that
+-- 001_extend_schema.sql (which ALTERs both tables) can run on
+-- a fresh database (e.g. Supabase preview branches).
 -- ============================================================
 
 -- ────────────────────────────────────────────────────────────
--- 1. users  (all columns — migrations 001/002 do not alter this table)
+-- 1. users  (all columns — 001/002 do not alter this table)
 -- ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.users (
   id                         SERIAL PRIMARY KEY,
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- ────────────────────────────────────────────────────────────
--- 2. inventory — base columns only.
+-- 2. inventory  (base columns only)
 --    001_extend_schema adds: listing_title, listing_description,
 --      listing_condition, ebay_category, ebay_category_id,
 --      ebay_condition_id, listed_at, sold_at, updated_at
