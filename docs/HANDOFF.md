@@ -14,116 +14,110 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
-## Session: 2026-05-29 — Correction: Wrong Supabase Project
+## Session: 2026-05-29 — Deploy Edge Functions + Base Schema Migration
 
-### What was discovered
+### What changed this session
 
-The cloud MCP session had credentials for a different Supabase project (`dqgfpchkheznvanfgsmx`, named "Flippd") that was referenced in older docs. That project is NOT Britt's project.
+- **`supabase/migrations/000_base_schema.sql` created** — creates `public.users` and `public.inventory` (base columns only) on fresh databases so that `001_extend_schema.sql` can run its `ALTER TABLE` statements. Applied to production and committed.
+- **`supabase/migrations/001_extend_schema.sql` updated** — added `idx_scan_log_user_created` index (existed in production but was missing from the file).
+- **`supabase/migrations/002_align_to_flippd.sql` updated** — added `idx_inventory_ebay_item` and `idx_inventory_platform` indexes (existed in production but were missing from the file).
+- **All 3 Edge Functions deployed to production** (project `dqgfpchkheznvanfgsmx`, ACTIVE, version 2):
+  - `auth` — register, verify, login, me
+  - `claude-proxy` — Anthropic proxy with scan limits
+  - `stripe-webhook` — Stripe event handler
+- **CI fixed:** Supabase GitHub integration disconnected (no more preview branch failures), Cloudflare flippd-site Worker deleted (no more stale CI checks).
+- **Project ID clarified:** `dqgfpchkheznvanfgsmx` IS the correct ScanForProfit project (renamed in dashboard from Flippd). All docs updated to use this ID.
 
-**Britt's actual Supabase project: `gymuhbscxmmcbqoovvud`**
+### Function URLs (LIVE)
 
-All three Edge Functions (`auth`, `claude-proxy`, `stripe-webhook`) were deployed to the WRONG project. The code in `supabase/functions/` is correct — it just needs to be deployed to the right place.
+| Function | URL |
+|---|---|
+| `auth` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth` |
+| `claude-proxy` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy` |
+| `stripe-webhook` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook` |
 
-### What Britt must do (on her laptop)
+Anon key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
 
-**Step 1 — Install Supabase CLI if not already installed**
+### Smoke tests (run from your laptop)
+
+Cloud session network policy blocks outbound calls to Supabase — these must be run locally.
+
 ```bash
-npm install -g supabase
-```
+BASE=https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1
+ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo
 
-**Step 2 — Apply migrations to correct project**
-```bash
-cd "C:\Users\bbake\OneDrive\Desktop\scanforprofit"
-supabase db push --project-ref gymuhbscxmmcbqoovvud
-```
-
-**Step 3 — Deploy all three functions to correct project**
-
-First check out the branch with the function code:
-```bash
-git fetch origin
-git checkout claude/deploy-edge-functions-kHcBm
-```
-
-Then deploy:
-```bash
-supabase functions deploy auth --project-ref gymuhbscxmmcbqoovvud
-supabase functions deploy claude-proxy --project-ref gymuhbscxmmcbqoovvud
-supabase functions deploy stripe-webhook --project-ref gymuhbscxmmcbqoovvud
-```
-
-**Step 4 — Set secrets**
-```bash
-supabase secrets set JWT_SECRET="$(openssl rand -base64 32)" --project-ref gymuhbscxmmcbqoovvud
-supabase secrets set ANTHROPIC_API_KEY="sk-ant-..." --project-ref gymuhbscxmmcbqoovvud
-supabase secrets set RESEND_API_KEY="re_..." --project-ref gymuhbscxmmcbqoovvud
-supabase secrets set STRIPE_SECRET_KEY="sk_live_..." --project-ref gymuhbscxmmcbqoovvud
-supabase secrets set STRIPE_WEBHOOK_SECRET="whsec_..." --project-ref gymuhbscxmmcbqoovvud
-supabase secrets set EBAY_CLIENT_ID="Brittany-Flippd-PRD-67b75c3f4-fb4ff30c" --project-ref gymuhbscxmmcbqoovvud
-```
-
-**Step 5 — Smoke tests**
-```bash
-# auth — expect 200
-curl -X POST https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/auth/register \
+# 1. Auth register — expect {"success":true, ...}
+curl -s -X POST $BASE/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@test.com","password":"TestPass123!","username":"testuser"}'
+  -d '{"username":"smoketest","email":"smoke@test.invalid","password":"Test1234!"}'
 
-# claude-proxy health — expect {"status":"ok"}
-curl -X POST https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/claude-proxy \
+# 2. Claude-proxy health check — expect {"status":"ok", ...}
+curl -s -X POST $BASE/claude-proxy \
+  -H "Authorization: Bearer $ANON" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer [anon key from Supabase dashboard]" \
   -d '{"type":"health"}'
 
-# stripe-webhook — expect 400 (missing signature = function is live)
-curl -X POST https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/stripe-webhook \
+# 3. Stripe-webhook liveness — expect 400 {"error":"Missing Stripe signature"}
+# (400 = function is live and processing requests correctly; secrets not set = 503)
+curl -s -X POST $BASE/stripe-webhook \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
 
-**Step 6 — Add Stripe webhook endpoint**
+### Secrets that must be set before functions are fully operational
+
+```bash
+# CRITICAL — generate a strong secret:
+supabase secrets set JWT_SECRET="$(openssl rand -base64 32)" --project-ref dqgfpchkheznvanfgsmx
+
+# AI backend:
+supabase secrets set ANTHROPIC_API_KEY="sk-ant-..." --project-ref dqgfpchkheznvanfgsmx
+
+# Email verification:
+supabase secrets set RESEND_API_KEY="re_..." --project-ref dqgfpchkheznvanfgsmx
+
+# Stripe (set WEBHOOK_SECRET after adding endpoint in Stripe Dashboard):
+supabase secrets set STRIPE_SECRET_KEY="sk_live_..." --project-ref dqgfpchkheznvanfgsmx
+supabase secrets set STRIPE_WEBHOOK_SECRET="whsec_..." --project-ref dqgfpchkheznvanfgsmx
+
+# eBay:
+supabase secrets set EBAY_CLIENT_ID="Brittany-Flippd-PRD-67b75c3f4-fb4ff30c" --project-ref dqgfpchkheznvanfgsmx
+```
+
+### Stripe webhook endpoint (do this after setting secrets)
 
 Stripe Dashboard → Developers → Webhooks → Add endpoint:
-`https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/stripe-webhook`
+`https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook`
 
 Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
 
-Copy the `whsec_...` signing secret → add as `STRIPE_WEBHOOK_SECRET` in Supabase secrets.
-
----
-
-## Session: 2026-05-29 — Backend Recovery: Edge Function Code Written
-
-### What changed this session
-
-- **`supabase/functions/auth/index.ts` created** — full custom auth Edge Function. `POST /auth/register`, `GET /auth/verify`, `POST /auth/login`, `GET /auth/me`. bcryptjs password hashing, Web Crypto API HMAC-SHA256 90-day JWTs. No magic link endpoints.
-- **`supabase/functions/claude-proxy/index.ts` created** — Anthropic API proxy with tier-based scan limit enforcement. Health check at `{"type":"health"}` needs no auth.
-- **`supabase/functions/stripe-webhook/index.ts` created** — Stripe webhook handler with manual HMAC-SHA256 signature verification. Handles 4 event types.
-- **NOTE:** Functions were deployed to wrong project (`dqgfpchkheznvanfgsmx`) in this session. Britt must redeploy to `gymuhbscxmmcbqoovvud` — see correction session above.
-
-### Function URLs (after correct deployment)
-
-| Function | URL |
-|---|---|
-| `auth` | `https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/auth` |
-| `claude-proxy` | `https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/claude-proxy` |
-| `stripe-webhook` | `https://gymuhbscxmmcbqoovvud.supabase.co/functions/v1/stripe-webhook` |
-
-### Decisions made this session (do not reverse)
-
-- Auth uses custom JWT (HMAC-SHA256, 90-day expiry), NOT Supabase Auth sessions. JWT secret is `JWT_SECRET` env var.
-- No magic link endpoints — `/auth/request-link` and `/auth/verify-link` do not exist and must never be added.
-- Password hashing: bcryptjs sync (10 rounds) via `https://esm.sh/bcryptjs`.
-- Price-to-tier mapping hardcoded in `stripe-webhook/index.ts` — update `PRICE_TIER` map if new Stripe products are added.
+Copy the `whsec_...` signing secret → set as `STRIPE_WEBHOOK_SECRET` above.
 
 ### Next task
 
-Deploy functions to correct project (steps above), run smoke tests, confirm all pass.
-Then: **Phase 4 — Build mobile app screens against live Edge Functions.**
+Once smoke tests pass and secrets are set: **Phase 4 — Build mobile app screens against live Edge Functions.**
 
 ---
 
-## Session: 2026-05-29 — Block 2: Fix GitHub Actions CI Failures
+## Session: 2026-05-29 — Edge Function Code Written
+
+### What changed this session
+
+- **`supabase/functions/auth/index.ts` created** — full custom auth. Routes: `POST /register`, `GET /verify`, `POST /login`, `GET /me`. bcryptjs hashing, HMAC-SHA256 90-day JWTs, Resend email.
+- **`supabase/functions/claude-proxy/index.ts` created** — Anthropic proxy with tier scan limits. Health check: `{"type":"health"}` needs no auth.
+- **`supabase/functions/stripe-webhook/index.ts` created** — handles 4 Stripe events with manual signature verification.
+
+### Decisions made (do not reverse)
+
+- Auth uses custom JWT (HMAC-SHA256, 90-day expiry), NOT Supabase Auth sessions.
+- No magic link endpoints — `/auth/request-link` and `/auth/verify-link` must never be added.
+- Password hashing: bcryptjs sync (10 rounds) via `https://esm.sh/bcryptjs`.
+- Price-to-tier mapping hardcoded in `stripe-webhook/index.ts` — update `PRICE_TIER` map if Stripe products change.
+- `verify_jwt: false` on all 3 functions (they implement their own auth).
+
+---
+
+## Session: 2026-05-29 — Fix GitHub Actions CI Failures
 
 ### What changed this session
 
@@ -131,7 +125,7 @@ Then: **Phase 4 — Build mobile app screens against live Edge Functions.**
 - **`.github/workflows/web.yml` deleted** — Vercel native Git integration handles deploys. Do NOT recreate.
 - **`docs/GITHUB_SECRETS.md` created** — documents required secrets for Phase 4 EAS builds
 
-### Decisions made this session (do not reverse)
+### Decisions made (do not reverse)
 
 - `web.yml` deleted permanently.
 - `mobile.yml` is manual-only until Phase 4 Step 8 (when `EXPO_TOKEN` is added).
@@ -167,8 +161,9 @@ Then: **Phase 4 — Build mobile app screens against live Edge Functions.**
 
 ## Supabase
 
-- **Project ID: `gymuhbscxmmcbqoovvud`** ← Britt's actual project
-- Anon key: get from Supabase Dashboard → Project Settings → API
+- **Project ID: `dqgfpchkheznvanfgsmx`** (ScanForProfit, ACTIVE_HEALTHY)
+- **Project URL:** `https://dqgfpchkheznvanfgsmx.supabase.co`
+- **Anon key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
 - Auth: custom email/password + verification (NOT Supabase Auth)
 
 ## Stripe (livemode)
