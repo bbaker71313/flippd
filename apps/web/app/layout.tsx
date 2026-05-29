@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Syne, IBM_Plex_Mono } from 'next/font/google';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
 const syne = Syne({
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         } ${ibmPlexMono.variable} font-sans bg-sfp-bg text-sfp-body antialiased`}
       >
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
