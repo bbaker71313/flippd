@@ -14,45 +14,121 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
-## Session: 2026-05-29 — Block 2: Fix GitHub Actions CI Failures
+## Session: 2026-05-29 — Deploy Edge Functions + Base Schema Migration
 
 ### What changed this session
 
-- **`.github/workflows/mobile.yml` updated** — changed `on:` trigger from push-to-main to `workflow_dispatch` only. EAS builds will no longer fire automatically on every push. The `jobs:` block is unchanged and ready for Phase 4. Build step now uses `${{ github.event.inputs.platform || 'all' }}` so platform is selectable when triggered manually.
-- **`.github/workflows/web.yml` deleted** — permanently removed. Vercel native Git integration is the authoritative deployment mechanism. No GitHub Actions workflow is needed or desired for web deploys. Do NOT recreate this file.
-- **`docs/GITHUB_SECRETS.md` created** — documents what secrets must be added before Phase 4 EAS builds work. See that file for the exact steps.
+- **`supabase/migrations/000_base_schema.sql` created** — creates `public.users` and `public.inventory` (base columns only) on fresh databases so that `001_extend_schema.sql` can run its `ALTER TABLE` statements. Applied to production and committed.
+- **`supabase/migrations/001_extend_schema.sql` updated** — added `idx_scan_log_user_created` index (existed in production but was missing from the file).
+- **`supabase/migrations/002_align_to_flippd.sql` updated** — added `idx_inventory_ebay_item` and `idx_inventory_platform` indexes (existed in production but were missing from the file).
+- **All 3 Edge Functions deployed to production** (project `dqgfpchkheznvanfgsmx`, ACTIVE, version 2):
+  - `auth` — register, verify, login, me
+  - `claude-proxy` — Anthropic proxy with scan limits
+  - `stripe-webhook` — Stripe event handler
+- **CI fixed:** Supabase GitHub integration disconnected (no more preview branch failures), Cloudflare flippd-site Worker deleted (no more stale CI checks).
+- **Project ID clarified:** `dqgfpchkheznvanfgsmx` IS the correct ScanForProfit project (renamed in dashboard from Flippd). All docs updated to use this ID.
 
-### Why these changes were made
+### Function URLs (LIVE)
 
-Both workflows were firing on every push to main and failing with missing secrets (`EXPO_TOKEN`, `VERCEL_TOKEN`, etc.), generating noise email alerts. Vercel native deployment was already working correctly — the web workflow was entirely redundant. The mobile workflow needs `EXPO_TOKEN` which won't exist until Phase 4 Step 8.
-
-### Commits this session
-
-| Hash | Message |
+| Function | URL |
 |---|---|
-| `aa43093` | chore: disable mobile CI auto-trigger — manual workflow_dispatch only |
-| `28cc201` | chore: remove redundant Vercel web CI — Vercel native Git integration handles deployments |
-| `c7bc4c2` | docs: add GITHUB_SECRETS.md — document required secrets for Phase 4 EAS build |
+| `auth` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth` |
+| `claude-proxy` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy` |
+| `stripe-webhook` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook` |
 
-### Phase 4 Step 8 note — IMPORTANT
+Anon key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
 
-Before starting EAS builds in Phase 4 Step 8:
-1. Go to expo.dev → Account Settings → Access Tokens → Create token
-2. Add `EXPO_TOKEN` to GitHub → Repository → Settings → Secrets and variables → Actions
-3. Update `mobile.yml`: restore the push trigger (replace `on: workflow_dispatch:` with push trigger on `apps/mobile/**` and `packages/shared/**` on main)
-See `docs/GITHUB_SECRETS.md` for full reference.
+### Smoke tests (run from your laptop)
 
-### Decisions made this session (do not reverse)
+Cloud session network policy blocks outbound calls to Supabase — these must be run locally.
 
-- `web.yml` deleted permanently. Vercel native is the deployment mechanism. Do not recreate.
-- `mobile.yml` is manual-only until Phase 4 Step 8. Do not restore push trigger before adding `EXPO_TOKEN`.
+```bash
+BASE=https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1
+ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo
+
+# 1. Auth register — expect {"success":true, ...}
+curl -s -X POST $BASE/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"smoketest","email":"smoke@test.invalid","password":"Test1234!"}'
+
+# 2. Claude-proxy health check — expect {"status":"ok", ...}
+curl -s -X POST $BASE/claude-proxy \
+  -H "Authorization: Bearer $ANON" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"health"}'
+
+# 3. Stripe-webhook liveness — expect 400 {"error":"Missing Stripe signature"}
+# (400 = function is live and processing requests correctly; secrets not set = 503)
+curl -s -X POST $BASE/stripe-webhook \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Secrets that must be set before functions are fully operational
+
+```bash
+# CRITICAL — generate a strong secret:
+supabase secrets set JWT_SECRET="$(openssl rand -base64 32)" --project-ref dqgfpchkheznvanfgsmx
+
+# AI backend:
+supabase secrets set ANTHROPIC_API_KEY="sk-ant-..." --project-ref dqgfpchkheznvanfgsmx
+
+# Email verification:
+supabase secrets set RESEND_API_KEY="re_..." --project-ref dqgfpchkheznvanfgsmx
+
+# Stripe (set WEBHOOK_SECRET after adding endpoint in Stripe Dashboard):
+supabase secrets set STRIPE_SECRET_KEY="sk_live_..." --project-ref dqgfpchkheznvanfgsmx
+supabase secrets set STRIPE_WEBHOOK_SECRET="whsec_..." --project-ref dqgfpchkheznvanfgsmx
+
+# eBay:
+supabase secrets set EBAY_CLIENT_ID="Brittany-Flippd-PRD-67b75c3f4-fb4ff30c" --project-ref dqgfpchkheznvanfgsmx
+```
+
+### Stripe webhook endpoint (do this after setting secrets)
+
+Stripe Dashboard → Developers → Webhooks → Add endpoint:
+`https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook`
+
+Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+
+Copy the `whsec_...` signing secret → set as `STRIPE_WEBHOOK_SECRET` above.
 
 ### Next task
 
-**Block 3** — Landing page fix + email capture
-- Fix `apps/web/app/page.tsx` landing page
-- Add email capture / waitlist form
-- Verify Vercel native deployment picks up the change cleanly
+Once smoke tests pass and secrets are set: **Phase 4 — Build mobile app screens against live Edge Functions.**
+
+---
+
+## Session: 2026-05-29 — Edge Function Code Written
+
+### What changed this session
+
+- **`supabase/functions/auth/index.ts` created** — full custom auth. Routes: `POST /register`, `GET /verify`, `POST /login`, `GET /me`. bcryptjs hashing, HMAC-SHA256 90-day JWTs, Resend email.
+- **`supabase/functions/claude-proxy/index.ts` created** — Anthropic proxy with tier scan limits. Health check: `{"type":"health"}` needs no auth.
+- **`supabase/functions/stripe-webhook/index.ts` created** — handles 4 Stripe events with manual signature verification.
+
+### Decisions made (do not reverse)
+
+- Auth uses custom JWT (HMAC-SHA256, 90-day expiry), NOT Supabase Auth sessions.
+- No magic link endpoints — `/auth/request-link` and `/auth/verify-link` must never be added.
+- Password hashing: bcryptjs sync (10 rounds) via `https://esm.sh/bcryptjs`.
+- Price-to-tier mapping hardcoded in `stripe-webhook/index.ts` — update `PRICE_TIER` map if Stripe products change.
+- `verify_jwt: false` on all 3 functions (they implement their own auth).
+
+---
+
+## Session: 2026-05-29 — Fix GitHub Actions CI Failures
+
+### What changed this session
+
+- **`.github/workflows/mobile.yml` updated** — `workflow_dispatch` only (no auto-trigger on push)
+- **`.github/workflows/web.yml` deleted** — Vercel native Git integration handles deploys. Do NOT recreate.
+- **`docs/GITHUB_SECRETS.md` created** — documents required secrets for Phase 4 EAS builds
+
+### Decisions made (do not reverse)
+
+- `web.yml` deleted permanently.
+- `mobile.yml` is manual-only until Phase 4 Step 8 (when `EXPO_TOKEN` is added).
 
 ---
 
@@ -60,85 +136,15 @@ See `docs/GITHUB_SECRETS.md` for full reference.
 
 ### What changed this session
 
-- **File system audit** — found 3 copies of the project; OneDrive Desktop confirmed as canonical source
-- **Cleanup completed** — moved `FLIPPD/` → `flippd-archive/`, `Ebay/` → `ebay-business/`, `Flippd - Copy` removed; deleted 852MB `FLIPPD.zip` from Projects copy
-- **Deleted duplicate** — `C:\Users\bbake\Projects\scanforprofit` removed entirely (required robocopy workaround for MAX_PATH issue in nested skills folder)
-- **Git initialized** — `git init`, branch set to `main`
-- **.gitignore updated** — added `.expo/`, `.turbo/`, `coverage/`, `*.zip`, `*.tsbuildinfo`
-- **docs/ subfolders created** — `docs/decisions/`, `docs/strategy/`, `docs/marketing/` with placeholder READMEs
-- **Initial commit** — `c6d2000` — 84 files, 22,689 insertions
-- **Remote added** — `https://github.com/bbaker71313/scanforprofit.git`; force-pushed over stale remote history (old single-file Flippd repo)
-- **CLAUDE.md written** — `d9ea970` — full session protocol, Karpathy rules, verification checks, build status
-- **Type fix** — `apps/web/lib/supabase-server.ts` — added explicit `CookieOptions` types to cookie handler params (6 implicit `any` errors resolved)
-- **tsbuildinfo excluded** — `*.tsbuildinfo` added to `.gitignore`, unstaged from git
+- File system audit, cleanup, git init, initial commit (`c6d2000`), CLAUDE.md written, type fix for supabase-server cookie handlers
 
 ### Commits this session
 
 | Hash | Message |
 |---|---|
-| `c6d2000` | chore: initial commit — monorepo scaffold, design system, UI components |
-| `d9ea970` | docs: update CLAUDE.md with session protocol, Karpathy rules, verification checks |
-| `7a67b3e` | fix: add explicit types to supabase-server cookie handlers, exclude tsbuildinfo |
-
-### Next task
-
-**Phase 3 Step 3** — Component Library rebuild with `frontend-design` skill
-- Target: `apps/mobile/components/ui/` (10 components already scaffolded)
-- Read `docs/BRAND_IDENTITY.md` and `packages/shared/src/constants/theme.ts` before starting
-- Use NativeWind 4 only — no StyleSheet
-- Port from `Flippd_v5_23.html` per `docs/FEATURE_TRIAGE.md`
-
-### Decisions made this session (do not reverse)
-
-- OneDrive Desktop (`C:\Users\bbake\OneDrive\Desktop\scanforprofit`) is the canonical project location
-- GitHub remote force-pushed — old Flippd single-file history discarded intentionally
-- Shared package name is `@sfp/shared` — all mobile components already import from this correctly
-
----
-
-## Session: 2026-05-26
-
-### What changed this session
-
-- **Created `README.md`** — new file, ScanForProfit branding, current V1 feature set from `docs/FEATURE_TRIAGE.md`, monorepo structure, subscription tiers, dev commands, key constraints.
-- **Audited `CLAUDE.md`** — file does not exist yet. Nothing to update.
-- **Created `docs/HANDOFF.md`** (this file) — persistent session context established.
-
-### Flippd references found (Task 4 audit — do NOT auto-fix)
-
-All references are in `docs/FEATURE_TRIAGE.md` and one in `packages/shared/src/types/index.ts`. They are intentional: the FEATURE_TRIAGE.md documents the source HTML file (`Flippd_v5_23.html`) and its internal symbols (localStorage keys, function names, URLs from the old app). These are source-archaeology annotations, not app branding.
-
-**`docs/FEATURE_TRIAGE.md` — Flippd references (reported, not fixed):**
-
-| Line | Content |
-|------|---------|
-| 1 | `# Feature Triage — Flippd v5.23 → ScanForProfit RN` |
-| 3 | `Source file: \`Flippd_v5_23.html\`` |
-| 10 | `Line numbers reference \`Flippd_v5_23.html\`` |
-| 32 | localStorage key `flippd_items_v1` (old app key — documented, not used in RN) |
-| 171 | IndexedDB store name `flippd_photos` (old app — documented) |
-| 189 | `'https://flippd-backend.replit.app'` (old API_BASE — replaced by Supabase) |
-| 370 | localStorage keys `flippd_jwt`, `flippd_user_name` (old app — documented) |
-| 372 | `support@flippd.app` (old support email — documented as bug) |
-| 402 | eBay client ID `'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c'` (old key — must replace) |
-| 403 | redirect URI `'https://flippd-backend.replit.app/ebay/oauth/callback'` (old — must replace) |
-| 410 | Function name `_mergeFlippdWithEbay()` (old HTML function — documented) |
-| 417 | Function names `handleFlippdImport()`, `exportFlippdBackup()` (old HTML — documented) |
-| 458 | localStorage key `flippd_events` (old app — documented) |
-| 485 | `support@flippd.app` (old email — documented as bug) |
-| 613 | Port-from references to `exportFlippdBackup()`, `handleFlippdImport()` |
-| 692 | localStorage key `flippd_user_name` (old app — documented) |
-| 738 | "merging Flippd items with eBay-pulled listings" (section title — historical context) |
-| 756 | `flippd_events` localStorage key (old app — documented) |
-| 780 | `flippd-backend.replit.app` (old backend URL — documented as replaced) |
-| 819 | `flippd_events` in dead-code table |
-| 825 | `flippd_jwt` in dead-code table |
-
-**`packages/shared/src/types/index.ts` line 1:**
-```
-// Core domain types for ScanForProfit — aligned to Flippd data model
-```
-This comment references the old app by name. Safe to update in a future session.
+| `c6d2000` | chore: initial commit |
+| `d9ea970` | docs: update CLAUDE.md |
+| `7a67b3e` | fix: add explicit types to supabase-server cookie handlers |
 
 ---
 
@@ -155,8 +161,10 @@ This comment references the old app by name. Safe to update in a future session.
 
 ## Supabase
 
-- Project ID: `dqgfpchkheznvanfgsmx`
-- Auth: email/password + verification
+- **Project ID: `dqgfpchkheznvanfgsmx`** (ScanForProfit, ACTIVE_HEALTHY)
+- **Project URL:** `https://dqgfpchkheznvanfgsmx.supabase.co`
+- **Anon key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
+- Auth: custom email/password + verification (NOT Supabase Auth)
 
 ## Stripe (livemode)
 

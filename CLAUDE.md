@@ -25,9 +25,7 @@ cat packages/shared/package.json | grep '"name"'
 Get-ChildItem apps/mobile/components/ui/ | Select-Object Name
 
 # Expected: BottomSheet.tsx, Button.tsx, Card.tsx, EmptyState.tsx,
-
 #           index.ts, Input.tsx, ItemCard.tsx, ProfitBadge.tsx,
-
 #           ScanResult.tsx, TabBar.tsx (10 files total)
 
 # 3. Confirm git is initialized and has a clean working tree
@@ -35,7 +33,6 @@ Get-ChildItem apps/mobile/components/ui/ | Select-Object Name
 git status
 
 # Expected: "On branch main" or named feature branch, "nothing to commit"
-
 # If "not a git repository" → STOP. Run git init prompt before anything else.
 
 # 4. Confirm .env is NOT tracked by git
@@ -43,7 +40,6 @@ git status
 git ls-files .env
 
 # Expected: empty output (no result)
-
 # If .env appears → STOP. Remove from tracking immediately.
 
 # 5. Confirm docs folder structure exists
@@ -51,12 +47,9 @@ git ls-files .env
 Get-ChildItem docs/
 
 # Expected: decisions/ strategy/ marketing/ folders present
-
 # If missing → create them before starting work (mkdir docs/decisions docs/strategy docs/marketing)
 
 STOP RULE: If any check produces unexpected output, do not continue. Document the failure in docs/HANDOFF.md and wait for instruction. Do not guess. Do not self-fix without reporting first.
-
-
 
 
 🗂️ Project Overview
@@ -183,7 +176,7 @@ Language: TypeScript (strict mode)
 Styling: Tailwind CSS + shadcn/ui
 Auth: @supabase/ssr (cookie-based)
 Backend / Database
-Platform: Supabase (project: dqgfpchkheznvanfgsmx)
+Platform: Supabase (project: gymuhbscxmmcbqoovvud)
 Database: PostgreSQL 17
 Edge Functions: Deno / TypeScript (replacing Replit backend)
 Auth: Supabase Auth — email verification + username/password
@@ -213,7 +206,7 @@ Dead endpoints — never reference: /auth/request-link, /auth/verify-link
 
 
 🧱 Data Model
-All types defined in packages/shared/src/types/index.ts. All values from Supabase project dqgfpchkheznvanfgsmx.
+All types defined in packages/shared/src/types/index.ts. All values from Supabase project gymuhbscxmmcbqoovvud.
 Core Types
 type UserTier = 'trial' | 'scout' | 'hustle' | 'stack' | 'empire'
 
@@ -319,7 +312,6 @@ Stats
 P&L dashboard, expenses, mileage
 
 
-
 🤖 AI Prompts (port verbatim from Flippd — never rewrite)
 All AI prompts live in docs/FEATURE_TRIAGE.md under "Port Directly". When implementing any AI feature, extract the exact prompt from FEATURE_TRIAGE.md. Do NOT rewrite, summarize, or improve the prompts — they are tested and trusted.
 
@@ -346,7 +338,6 @@ auth
 /auth/register, /auth/verify, /auth/login, /auth/me
 stripe-webhook
 Stripe event handling
-
 
 Rules:
 
@@ -409,7 +400,6 @@ git add -A
 git status
 
 # Scan the list. Confirm no .env, no node_modules, no .zip files.
-
 # If anything unexpected appears → remove it before committing.
 
 # Step 3 — Commit with scoped message
@@ -425,13 +415,9 @@ git push origin main
 # Paste the output line showing branch + commit hash in your report.
 
 # Step 5 — Update HANDOFF.md with:
-
 # - What was completed this session (specific files changed)
-
 # - Exact next task for the next session
-
 # - Any decisions made that must not be reversed
-
 # - Any blockers encountered
 
 If push fails: Document exact error in docs/HANDOFF.md, leave working tree with a local commit. Never end a session with uncommitted work and no record.
