@@ -1,8 +1,8 @@
-# Flippd
+# ScanForProfit
 
 **Scan the shelf. Know what to buy.**
 
-Flippd is the AI-powered sourcing and business tool for solo eBay resellers. Take a photo of any item or a whole shelf, get an instant FLIP or PASS with real profit math after fees, and track everything in one app.
+ScanForProfit is the AI-powered sourcing and business tool for solo eBay resellers. Take a photo of any item or a whole shelf, get an instant FLIP or PASS with real profit math after fees, and track everything in one app.
 
 ## Features
 
@@ -26,8 +26,8 @@ Flippd is the AI-powered sourcing and business tool for solo eBay resellers. Tak
 
 ### For Developers
 
-1. Clone this repo: `git clone https://github.com/yourusername/Flippd.git`
-2. Open `src/app/Flippd_v5.html` in your browser
+1. Clone this repo: `git clone https://github.com/yourusername/ScanForProfit.git`
+2. Open `src/app/ScanForProfit_v5.html` in your browser
 3. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to understand how it works
 4. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) to deploy your own version
 
@@ -40,9 +40,9 @@ Flippd is the AI-powered sourcing and business tool for solo eBay resellers. Tak
 
 ## Documentation
 
-- [Install & Run Locally](docs/INSTALL.md) — How to use Flippd on your own machine
+- [Install & Run Locally](docs/INSTALL.md) — How to use ScanForProfit on your own machine
 - [Deployment Guide](docs/DEPLOYMENT.md) — Deploy to Vercel, Netlify, or your own server
-- [Architecture](docs/ARCHITECTURE.md) — How Flippd is built
+- [Architecture](docs/ARCHITECTURE.md) — How ScanForProfit is built
 - [API Integration](docs/API_INTEGRATION.md) — How to wire in a proxy backend
 - [Data Model](docs/DATA_MODEL.md) — localStorage schema and calculations
 - [Pricing](docs/public/PRICING.md) — Tier comparison and features
@@ -51,7 +51,7 @@ Flippd is the AI-powered sourcing and business tool for solo eBay resellers. Tak
 
 ## Privacy
 
-Your data stays on your device. Flippd:
+Your data stays on your device. ScanForProfit:
 - ✅ Stores inventory in your browser (not on servers)
 - ✅ Sends only photos to the AI API for scanning
 - ✅ Does NOT share data with third parties
@@ -62,12 +62,12 @@ See [legal/PRIVACY.md](legal/PRIVACY.md) for full details.
 ## Support
 
 - Questions? Email: support@flippd.com
-- Found a bug? Open an [issue](https://github.com/yourusername/Flippd/issues)
+- Found a bug? Open an [issue](https://github.com/yourusername/ScanForProfit/issues)
 - Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 
-Flippd is proprietary software. See [LICENSE](LICENSE) for details.
+ScanForProfit is proprietary software. See [LICENSE](LICENSE) for details.
 
 ## Roadmap
 
@@ -79,7 +79,7 @@ See [Roadmap](docs/public/ROADMAP.md) for full details.
 
 ## About
 
-Flippd is built for solo resellers who source from thrift stores, estate sales, garage sales, and flea markets. It replaces 4+ separate tools (eBay Seller Hub, Google Sheets, scanning apps, spreadsheets) with one integrated app.
+ScanForProfit is built for solo resellers who source from thrift stores, estate sales, garage sales, and flea markets. It replaces 4+ separate tools (eBay Seller Hub, Google Sheets, scanning apps, spreadsheets) with one integrated app.
 
 **Built by resellers, for resellers.**
 
