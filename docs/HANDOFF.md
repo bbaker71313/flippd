@@ -14,6 +14,47 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Phase 4 Status (mobile app build) — last updated 2026-05-31
+
+| Step | Feature | Status | Commit |
+|---|---|---|---|
+| Step 1 | Auth flow (register, login, verify OTP) | DONE | `5ca1e51` |
+| Step 2 | Scout tab (camera, AI scan, FLIP/PASS/HOT, Buy modal) | DONE | `a34dece` |
+| Step 2.5 | Protected route guard (auth gate in root layout) | DONE | `a6360d2` |
+| Step 3 | Inventory tab (CRUD, photos, status lifecycle, tier gate) | DONE | `2f69ee8` |
+| Step 4 | Listing tab (AI generator, CSV export, trending keywords) | DONE | `3b589b5` |
+| Step 5 | Trends tab (Growth Agent, hunt list, business score) | NEXT | - |
+| Step 6 | Stats tab (P&L dashboard, expenses) | TODO | - |
+| Step 7 | Settings screen | TODO | - |
+| Step 8 | EAS build + TestFlight | TODO | - |
+
+### Current next task
+**Phase 4 Step 5 -- Trends Tab**
+- Read `apps/mobile/app/(tabs)/trends.tsx` stub
+- Call growth agent AI (FEATURE_TRIAGE F-27 / P-05 prompt verbatim)
+- Display: business score, top categories, stale actions, hunt list, market trends, advisor message
+- Cache in `growth_cache` table (24hr TTL)
+- New proxy handler: `growth_agent_run`
+
+### Key standing decisions (apply every session)
+- All inventory/listing DB ops route through `claude-proxy` Edge Function (service role bypasses `app.user_id` RLS)
+- Auth is Supabase Auth JWT -- proxy bridges UUID to custom `users` integer ID by email lookup (lazy creates user row)
+- NativeWind only -- no StyleSheet.create() anywhere
+- ebayFee always from `settings` table -- never hardcoded
+- AI prompts always verbatim from FEATURE_TRIAGE.md -- do not rewrite
+- Model: `claude-sonnet-4-6` -- do not change
+
+### Supabase project
+- Project ID: `dqgfpchkheznvanfgsmx`
+- URL: `https://dqgfpchkheznvanfgsmx.supabase.co`
+- Edge Function `claude-proxy`: deployed, version 4 (listing_generate + keywords_get added)
+- Storage bucket `item-photos`: created, public, 5MB limit
+
+### tsc status
+`npx tsc --noEmit` -- 0 errors as of last session
+
+---
+
 ## Session: 2026-06-01 â€” Vercel builds paused
 
 ### What changed this session
