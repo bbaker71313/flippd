@@ -1,9 +1,21 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Defaults from FEATURE_TRIAGE.md — used only when user has no settings row
+const DEFAULT_SETTINGS = {
+  ebay_fee: 13, pkg_cost: 1.25, target_roi: 200, min_profit: 15,
+  sourcing_style: 'balanced', ship_cost: 6.00, shipping: 'buyer',
+};
+
+const SCAN_LIMITS: Record<string, number | null> = {
+  trial: null, scout: 25, hustle: null, stack: null, empire: null,
+};
+
+type Settings = typeof DEFAULT_SETTINGS;
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -12,6 +24,7 @@ function json(data: unknown, status = 200) {
   });
 }
 
+// Supabase JWTs: sub = UUID string, email at top level
 async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown>> {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('Invalid token');
@@ -32,9 +45,219 @@ async function verifyJWT(token: string, secret: string): Promise<Record<string, 
   return data;
 }
 
-const SCAN_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 25, hustle: null, stack: null, empire: null,
-};
+// Look up or lazily create the users row by email.
+// Bridges Supabase Auth (UUID sub) → custom users table (integer id).
+async function getOrCreateUser(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  username: string,
+): Promise<{ id: number; tier: string; scan_count_month: number; scan_reset_date: string; settings: Settings }> {
+  const { data: existing } = await supabase
+    .from('users').select('id, tier, scan_count_month, scan_reset_date')
+    .eq('email', email).maybeSingle();
+
+  let user = existing;
+  if (!user) {
+    const { data: created, error } = await supabase
+      .from('users')
+      .insert({ email, username: username || email.split('@')[0], password: 'supabase_auth', is_verified: true })
+      .select('id, tier, scan_count_month, scan_reset_date').single();
+    if (error || !created) throw new Error('Failed to create user');
+    user = created;
+  }
+
+  const { data: settingsRow } = await supabase
+    .from('settings').select('*').eq('user_id', user.id).maybeSingle();
+
+  return { ...user, settings: settingsRow ?? DEFAULT_SETTINGS };
+}
+
+function calcProfit(sell: number, cost: number, pkg: number, ship: number, fee: number) {
+  const ebayFees = sell * (fee / 100);
+  const totalFees = ebayFees + pkg + ship;
+  const net = sell - totalFees - cost;
+  const roi = cost > 0 ? (net / cost) * 100 : 0;
+  return { net: r2(net), roi: r2(roi) };
+}
+function r2(n: number) { return Math.round(n * 100) / 100; }
+
+function getDecision(roi: number, confidence: number, s: Settings): 'BUY' | 'HOT' | 'PASS' {
+  const mod = s.sourcing_style === 'conservative' ? 1.2 : s.sourcing_style === 'aggressive' ? 0.8 : 1.0;
+  const target = s.target_roi * mod;
+  if (roi > 150 && confidence >= 80) return 'HOT';
+  if (roi > target && confidence >= 50) return 'BUY';
+  return 'PASS';
+}
+
+async function callAnthropic(
+  key: string, system: string, imageBase64: string, maxTokens = 1024,
+): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens,
+      system,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+          { type: 'text', text: 'Analyze this image.' },
+        ],
+      }],
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message ?? 'Anthropic error');
+  return data.content[0].text as string;
+}
+
+// Verbatim from FEATURE_TRIAGE.md P-03 (getSingleSys L4644–4663)
+function buildSinglePrompt(s: Settings): string {
+  return `You are a meticulous eBay sourcing expert with deep product knowledge. Your job is to ACCURATELY identify items and provide REALISTIC eBay sold market data — not retail prices.
+
+IDENTIFICATION (critical):
+- Study EVERY visible detail in the photo: brand logos, model numbers on labels/tags, serial plates, color, size, design era, materials, distinctive features.
+- Identify the EXACT make, model, and variant — not just a generic category. "Camera" is wrong. "Minolta X-700 35mm SLR Film Camera" is right.
+- Use any text description to confirm or narrow your photo identification.
+- If you cannot identify specifics, say so clearly in confidence_reason and set confidence below 60.
+
+PRICING (critical):
+- avg_sold_price = median of recent actual eBay SOLD listings, not asking price or retail.
+- price_low/price_high = realistic 20th-80th percentile of actual sold comps.
+- sell_through_rate = % of listings that actually sell (0-100), not just views.
+- avg_days_to_sell = realistic median days from listing to sale for this specific item.
+
+This seller's fee structure: ${s.ebay_fee}% eBay fee + $${s.pkg_cost} packaging. Buyer always pays shipping.
+Minimum profitable sale for this seller: their cost + fees + $${s.min_profit} profit.
+
+Return ONLY valid JSON, no markdown:
+{"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","estimated_weight_lbs":number,"avg_sold_price":number,"price_low":number,"price_high":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important context about market or item"}`;
+}
+
+// Verbatim from FEATURE_TRIAGE.md P-04 (getShelfSys L4718–4731)
+function buildShelfPrompt(s: Settings): string {
+  return `You are a meticulous eBay sourcing expert scanning a shelf photo. Study EVERY item with care.
+
+For each distinct item visible:
+- Identify as specifically as possible: brand, model, type, era. Do not be generic.
+- Use all visible clues: labels, logos, colors, shapes, text, design era.
+- Provide REALISTIC eBay sold prices — actual sold comps, not retail or asking prices.
+- Only include items you can identify with at least 40% confidence.
+- Calculate estimated_profit as: avg_sold_price - estimated_cost_at_thrift - (avg_sold_price * ${s.ebay_fee}/100) - ${s.pkg_cost}
+- Buyer always pays shipping. Min profit threshold for FLIP: $${s.min_profit}. Target ROI for HOT: ${s.target_roi}%.
+
+Return ONLY a valid JSON array, no markdown:
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"BUY|HOT|PASS","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
+Sort: HOT first, then BUY, then PASS.`;
+}
+
+async function handleSingleScan(
+  supabase: ReturnType<typeof createClient>,
+  anthropicKey: string,
+  userId: number,
+  settings: Settings,
+  imageBase64: string,
+) {
+  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), imageBase64);
+  let ai: Record<string, unknown>;
+  try { ai = JSON.parse(raw); }
+  catch { throw new Error('AI returned invalid JSON'); }
+
+  const avgSell = (ai.avg_sold_price as number) ?? 0;
+  const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
+  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+  const confidence = (ai.confidence as number) ?? 50;
+  const decision = getDecision(roi, confidence, settings);
+
+  const { data: logRow } = await supabase.from('scan_log').insert({
+    user_id: userId, scan_type: 'single', decision,
+    item_name: ai.item_name, category: ai.category,
+    estimated_profit: net, estimated_sell: avgSell,
+    roi, confidence, bought: false, raw_response: ai,
+  }).select('id').single();
+
+  return {
+    decision, itemName: ai.item_name, estimatedProfit: net,
+    estimatedSell: avgSell, estimatedCost, confidence, roi,
+    reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
+    category: ai.category, searchKeywords: ai.search_keywords ?? [],
+    priceLow: ai.price_low, priceHigh: ai.price_high,
+    avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
+    listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
+    conditionNotes: ai.condition_notes ?? '', scanLogId: logRow?.id ?? null,
+  };
+}
+
+async function handleShelfScan(
+  supabase: ReturnType<typeof createClient>,
+  anthropicKey: string,
+  userId: number,
+  settings: Settings,
+  imageBase64: string,
+) {
+  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), imageBase64, 2048);
+  let aiItems: Record<string, unknown>[];
+  try { aiItems = JSON.parse(raw); }
+  catch { throw new Error('AI returned invalid JSON'); }
+  if (!Array.isArray(aiItems)) throw new Error('AI returned non-array for shelf scan');
+
+  const items = aiItems.map((ai) => {
+    const sell = (ai.avg_sold_price as number) ?? 0;
+    const cost = (ai.estimated_cost_at_thrift as number) ?? r2(sell * 0.10);
+    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+    const confidence = (ai.confidence as number) ?? 50;
+    const decision = getDecision(roi, confidence, settings);
+    return {
+      decision, itemName: ai.item_name, estimatedProfit: net,
+      avgSoldPrice: sell, estimatedCost: cost, roi, confidence,
+      decisionReason: ai.decision_reason ?? '', category: ai.category,
+      conditionNotes: ai.condition_notes ?? '', demandLevel: ai.demand_level,
+    };
+  });
+
+  await supabase.from('scan_log').insert({
+    user_id: userId, scan_type: 'shelf', decision: null,
+    bought: false, raw_response: aiItems,
+  });
+
+  return { items };
+}
+
+async function handleBuyItem(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  body: Record<string, unknown>,
+) {
+  const { data: inv, error } = await supabase.from('inventory').insert({
+    user_id: userId,
+    item_id: `scan-${Date.now()}`,
+    nickname: body.itemName,
+    category: body.category ?? null,
+    cost: body.cost,
+    sell_price: body.sellPrice ?? null,
+    status: 'Unlisted',
+    platform: 'eBay',
+    created_from: 'scan',
+    sourcing_meta: body.sourcingMeta ?? null,
+    photos: '[]',
+  }).select('id').single();
+
+  if (error) throw new Error(error.message);
+
+  if (body.scanLogId) {
+    await supabase.from('scan_log')
+      .update({ bought: true, cost: body.cost })
+      .eq('id', body.scanLogId).eq('user_id', userId);
+  }
+
+  return { inventoryId: inv.id };
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -44,83 +267,79 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); }
   catch { return json({ error: 'Invalid JSON body' }, 400); }
 
-  // Health check — no auth required
   if (body.type === 'health') {
     return json({ status: 'ok', function: 'claude-proxy', ts: new Date().toISOString() });
   }
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
-
   const token = authHeader.slice(7);
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-  const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
 
-  // When called with the anon key (e.g. smoke tests), proxy without user context
-  if (token !== anonKey) {
-    let payload: Record<string, unknown>;
-    try { payload = await verifyJWT(token, jwtSecret); }
-    catch { return json({ error: 'Unauthorized' }, 401); }
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 
-    const userId = payload.sub as number;
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+  let payload: Record<string, unknown>;
+  try {
+    payload = await verifyJWT(token, Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production');
+  } catch {
+    return json({ error: 'Unauthorized' }, 401);
+  }
 
-    const { data: user } = await supabase
-      .from('users')
-      .select('tier, scan_count_month, scan_reset_date')
-      .eq('id', userId)
-      .maybeSingle();
+  const email = (payload.email as string) ?? '';
+  const username = ((payload.user_metadata as Record<string, unknown>)?.username as string) ?? '';
 
-    if (!user) return json({ error: 'Unauthorized' }, 401);
+  let dbUser: Awaited<ReturnType<typeof getOrCreateUser>>;
+  try { dbUser = await getOrCreateUser(supabase, email, username); }
+  catch (e) { return json({ error: (e as Error).message }, 500); }
 
-    // Reset monthly count if needed
+  const isScan = body.type === 'single_scan' || body.type === 'shelf_scan';
+  if (isScan) {
     const thisMonth = new Date().toISOString().slice(0, 7);
-    const lastReset = (user.scan_reset_date ?? '').slice(0, 7);
-    let scanCount = user.scan_count_month ?? 0;
+    const lastReset = (dbUser.scan_reset_date ?? '').slice(0, 7);
+    let scanCount = dbUser.scan_count_month ?? 0;
     if (lastReset < thisMonth) {
       scanCount = 0;
       await supabase.from('users').update({
-        scan_count_month: 0,
-        scan_reset_date: new Date().toISOString().slice(0, 10),
-      }).eq('id', userId);
+        scan_count_month: 0, scan_reset_date: new Date().toISOString().slice(0, 10),
+      }).eq('id', dbUser.id);
     }
-
-    const limit = SCAN_LIMITS[user.tier];
+    const limit = SCAN_LIMITS[dbUser.tier];
     if (limit !== null && scanCount >= limit) {
-      return json({
-        error: 'scan_limit_reached',
-        tier: user.tier,
-        limit,
-        used: scanCount,
-        message: `You've used all ${limit} free scans this month. Upgrade to continue scanning.`,
-        upgradeUrl: '/stripe/checkout',
-      }, 429);
+      return json({ error: 'scan_limit_reached', tier: dbUser.tier, limit, used: scanCount }, 429);
     }
-
-    await supabase.from('users').update({ scan_count_month: scanCount + 1 }).eq('id', userId);
+    await supabase.from('users').update({ scan_count_month: scanCount + 1 }).eq('id', dbUser.id);
   }
 
-  // Proxy to Anthropic
-  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+  try {
+    if (body.type === 'single_scan') {
+      if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+    }
+    if (body.type === 'shelf_scan') {
+      if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+    }
+    if (body.type === 'buy_item') {
+      return json(await handleBuyItem(supabase, dbUser.id, body));
+    }
 
-  const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': anthropicKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  });
-
-  const responseData = await anthropicRes.json();
-  return new Response(JSON.stringify(responseData), {
-    status: anthropicRes.status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  });
+    // Pass-through for other claude calls
+    if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return new Response(JSON.stringify(data), {
+      status: res.status,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  } catch (e) {
+    return json({ error: (e as Error).message ?? 'Internal error' }, 500);
+  }
 });
