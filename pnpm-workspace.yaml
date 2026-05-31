@@ -1,6 +1,11 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+overrides:
+  next: "15.5.18"
+  react-email>next: "15.5.18"
+
 allowBuilds:
   '@sentry/cli': true
   bcrypt: set this to true or false

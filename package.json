@@ -31,8 +31,8 @@
   "license": "ISC",
   "pnpm": {
     "overrides": {
-      "next": ">=15.1.11",
-      "react-email>next": "^15.1.11"
+      "next": "15.5.18",
+      "react-email>next": "15.5.18"
     },
     "onlyBuiltDependencies": [
       "@sentry/cli",
