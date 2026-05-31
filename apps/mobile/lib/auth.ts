@@ -9,6 +9,11 @@ export type RegisterCredentials = AuthCredentials & {
   username: string;
 };
 
+export type OtpCredentials = {
+  email: string;
+  token: string;
+};
+
 export async function signIn({ email, password }: AuthCredentials) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -34,6 +39,16 @@ export async function signUp({ email, password, username }: RegisterCredentials)
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+}
+
+export async function verifyOtp({ email, token }: OtpCredentials) {
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'email',
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function getSession() {
