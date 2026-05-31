@@ -32,7 +32,40 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
-## Session: 2026-06-01 (2) â€” PR + gh CLI setup
+## Session: 2026-05-31 (6) — Phase 4 Step 4: Listing Generator Tab
+
+### What changed this session
+
+- **`apps/mobile/app/(tabs)/listing.tsx`** — full replacement: 3-screen flow (picker → generating → draft). Picker shows Unlisted + Listed only (not Sold). Draft screen: editable title with 80-char counter + hard cap, editable description/condition/price, keyword chips, trending chips with trend arrow, “COPY TO CLIPBOARD” per field, “EXPORT TO EBAY CSV” (Scout = upgrade alert, Hustle+ = share sheet), “MARK AS LISTED” button.
+- **`apps/mobile/lib/listing.ts`** — new: `generateListing`, `fetchKeywords`, `markAsListed`, `exportCsv`. CSV: eBay standard columns + `Version=0.0.2` header, condition ID map from FEATURE_TRIAGE F-30. File via `expo-file-system` v56 `new File(Paths.cache, name)` + `expo-sharing`.
+- **`packages/shared/src/types/index.ts`** — added `ListingDraft`, `TrendingKeyword`, `TrendingKeywordsResult`.
+- **`supabase/functions/claude-proxy/index.ts`** — added `listing_generate` (verbatim F-29 prompt, title ≤80 enforced, saves to inventory.listing_data) and `keywords_get` (growth_cache check <24hrs → AI with web_search_20250305 tool → static fallback). Deployed as version 4.
+
+### Decisions made this session (do not reverse)
+
+- AI prompt verbatim from FEATURE_TRIAGE F-29; JSON schema extended with suggestedPrice/keywords/shippingNote but instructions unchanged
+- Trending keywords stored in `growth_cache.cache_data.trending_keywords` sub-key (no schema change needed)
+- expo-file-system v56 new API: `new File(Paths.cache, name)` — NOT the deprecated `writeAsStringAsync`
+- CSV export blocked for Scout tier (upgrade prompt); Hustle+ gets native share sheet
+- Listing does NOT auto-mark as Listed
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `3b589b5` | feat: listing tab — AI generator, CSV export, trending keywords |
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors**
+
+### Next task
+
+**Phase 4 Step 5** — Trends Tab: Growth Agent + weekly hunt list
+
+---
+
+## Session: 2026-06-01 (2) — PR + gh CLI setup
 
 ### What changed this session
 
