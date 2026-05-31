@@ -1,5 +1,42 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ── Item limits per tier ────────────────────────────────────────────────────
+const ITEM_LIMITS: Record<string, number | null> = {
+  trial: null, scout: 10, hustle: 500, stack: null, empire: null,
+};
+
+const CATEGORY_SKU_PREFIX: Record<string, string> = {
+  'Consumer Electronics':            'ELEC',
+  'Clothing, Shoes & Accessories':   'CLTH',
+  'Home & Garden':                   'HOME',
+  'Toys & Hobbies':                  'TOYS',
+  'Sporting Goods':                  'SPRT',
+  'Books':                           'BOOK',
+  'Music':                           'MUSC',
+  'Movies & TV':                     'MOVI',
+  'Video Games & Consoles':          'GAME',
+  'Jewelry & Watches':               'JEWL',
+  'Collectibles':                    'COLL',
+  'Art':                             'ART_',
+  'Baby':                            'BABY',
+  'Cameras & Photography':           'CAMR',
+  'Musical Instruments & Gear':      'INST',
+  'Business & Industrial':           'BIZZ',
+  'eBay Motors':                     'AUTO',
+  'Antiques':                        'ANTQ',
+  'Computers, Tablets & Networking': 'COMP',
+  'Cell Phones & Accessories':       'CELL',
+  'Entertainment Memorabilia':       'ENT_',
+};
+
+class HttpError extends Error {
+  constructor(
+    message: string,
+    public readonly httpStatus: number,
+    public readonly data: Record<string, unknown> = {},
+  ) { super(message); }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -51,7 +88,7 @@ async function getOrCreateUser(
   supabase: ReturnType<typeof createClient>,
   email: string,
   username: string,
-): Promise<{ id: number; tier: string; scan_count_month: number; scan_reset_date: string; settings: Settings }> {
+): Promise<{ id: number; tier: string; scan_count_month: number; scan_reset_date: string; settings: Settings; }> {
   const { data: existing } = await supabase
     .from('users').select('id, tier, scan_count_month, scan_reset_date')
     .eq('email', email).maybeSingle();
@@ -259,6 +296,154 @@ async function handleBuyItem(
   return { inventoryId: inv.id };
 }
 
+// ── Inventory handlers ──────────────────────────────────────────────────────
+
+async function handleInventoryList(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  settings: Settings,
+  tier: string,
+) {
+  const { data: items, error } = await supabase
+    .from('inventory').select('*')
+    .eq('user_id', userId).order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+
+  const { count } = await supabase
+    .from('inventory').select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  return { items: items ?? [], itemCount: count ?? 0, settings, tier };
+}
+
+async function handleInventoryCreate(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  tier: string,
+  body: Record<string, unknown>,
+) {
+  // Tier gate — check BEFORE writing
+  const limit = ITEM_LIMITS[tier] ?? null;
+  if (limit !== null) {
+    const { count } = await supabase
+      .from('inventory').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if ((count ?? 0) >= limit) {
+      throw new HttpError('item_limit_reached', 429, { tier, limit });
+    }
+  }
+
+  // SKU generation: category prefix + zero-padded count across all user items
+  const category = (body.category as string) ?? 'Other';
+  const prefix = CATEGORY_SKU_PREFIX[category] ?? 'OTH_';
+  const { count: existingCount } = await supabase
+    .from('inventory').select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  const sku = `${prefix}-${String((existingCount ?? 0) + 1).padStart(5, '0')}`;
+
+  const photos = body.photos ?? [];
+  const { data: item, error } = await supabase.from('inventory').insert({
+    user_id:      userId,
+    item_id:      `manual-${Date.now()}`,
+    sku,
+    nickname:     body.nickname ?? null,
+    category:     body.category ?? null,
+    condition:    body.condition ?? null,
+    cost:         body.cost ?? null,
+    sell_price:   body.sellPrice ?? null,
+    status:       'Unlisted',
+    platform:     body.platform ?? 'eBay',
+    notes:        body.notes ?? null,
+    photos,
+    created_from: body.createdFrom ?? 'manual',
+    photo_count:  Array.isArray(photos) ? photos.length : 0,
+  }).select('*').single();
+
+  if (error) throw new Error(error.message);
+  return { item };
+}
+
+async function handleInventoryUpdate(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  body: Record<string, unknown>,
+) {
+  const itemId = body.id as number;
+  if (!itemId) throw new Error('Missing item id');
+
+  const updates: Record<string, unknown> = {};
+  if (body.nickname  !== undefined) updates.nickname   = body.nickname;
+  if (body.category  !== undefined) updates.category   = body.category;
+  if (body.condition !== undefined) updates.condition  = body.condition;
+  if (body.cost      !== undefined) updates.cost       = body.cost;
+  if (body.sellPrice !== undefined) updates.sell_price = body.sellPrice;
+  if (body.platform  !== undefined) updates.platform   = body.platform;
+  if (body.notes     !== undefined) updates.notes      = body.notes;
+  if (body.photos    !== undefined) {
+    updates.photos      = body.photos;
+    updates.photo_count = Array.isArray(body.photos) ? body.photos.length : 0;
+  }
+
+  const { data: item, error } = await supabase.from('inventory')
+    .update(updates).eq('id', itemId).eq('user_id', userId)
+    .select('*').single();
+  if (error) throw new Error(error.message);
+  return { item };
+}
+
+async function handleInventoryDelete(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  body: Record<string, unknown>,
+) {
+  const itemId = body.id as number;
+  if (!itemId) throw new Error('Missing item id');
+
+  const { error } = await supabase.from('inventory')
+    .delete().eq('id', itemId).eq('user_id', userId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  'Unlisted':        ['Listed'],
+  'Listed':          ['Sold', 'Unlisted'],
+  'Sold':            [],
+  'Ready to Export': ['Listed'],
+};
+
+async function handleInventoryStatus(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  body: Record<string, unknown>,
+) {
+  const itemId    = body.id as number;
+  const newStatus = body.status as string;
+  if (!itemId || !newStatus) throw new Error('Missing id or status');
+
+  const { data: current, error: fetchErr } = await supabase.from('inventory')
+    .select('status').eq('id', itemId).eq('user_id', userId).single();
+  if (fetchErr || !current) throw new Error('Item not found');
+
+  const allowed = VALID_TRANSITIONS[current.status as string] ?? [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(`Cannot transition from ${current.status} to ${newStatus}`);
+  }
+
+  const updates: Record<string, unknown> = { status: newStatus };
+  if (newStatus === 'Listed') updates.listed_at = new Date().toISOString();
+  if (newStatus === 'Sold') {
+    updates.sold_at = new Date().toISOString();
+    if (body.actualSellPrice != null) updates.sell_price = body.actualSellPrice;
+  }
+
+  const { data: item, error } = await supabase.from('inventory')
+    .update(updates).eq('id', itemId).eq('user_id', userId)
+    .select('*').single();
+  if (error) throw new Error(error.message);
+  return { item };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -323,9 +508,12 @@ Deno.serve(async (req: Request) => {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
       return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
     }
-    if (body.type === 'buy_item') {
-      return json(await handleBuyItem(supabase, dbUser.id, body));
-    }
+    if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, body));
+    if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));
+    if (body.type === 'inventory_create') return json(await handleInventoryCreate(supabase, dbUser.id, dbUser.tier, body));
+    if (body.type === 'inventory_update') return json(await handleInventoryUpdate(supabase, dbUser.id, body));
+    if (body.type === 'inventory_delete') return json(await handleInventoryDelete(supabase, dbUser.id, body));
+    if (body.type === 'inventory_status') return json(await handleInventoryStatus(supabase, dbUser.id, body));
 
     // Pass-through for other claude calls
     if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
@@ -340,6 +528,9 @@ Deno.serve(async (req: Request) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (e) {
+    if (e instanceof HttpError) {
+      return json({ error: e.message, ...e.data }, e.httpStatus);
+    }
     return json({ error: (e as Error).message ?? 'Internal error' }, 500);
   }
 });

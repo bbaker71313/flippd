@@ -10,10 +10,10 @@ export interface ItemCardProps {
 }
 
 const STATUS_STYLE: Record<ItemStatus, { bg: string; text: string; label: string }> = {
-  'Unlisted':        { bg: COLORS.border,         text: COLORS.textSecondary, label: 'Unlisted'   },
-  'Listed':          { bg: `${COLORS.brand}22`,   text: COLORS.brandDim,      label: 'Listed'     },
-  'Sold':            { bg: `${COLORS.accent}22`,  text: COLORS.accent,        label: 'Sold'       },
-  'Ready to Export': { bg: `${COLORS.warning}22`, text: COLORS.warningText,   label: 'Export'     },
+  'Unlisted':        { bg: `${COLORS.warning}22`,  text: COLORS.warningText,   label: 'UNLISTED'   },
+  'Listed':          { bg: `${COLORS.brand}22`,   text: COLORS.brandDim,      label: 'LISTED'     },
+  'Sold':            { bg: `${COLORS.border}`,    text: COLORS.textMuted,     label: 'SOLD'       },
+  'Ready to Export': { bg: `${COLORS.warning}22`, text: COLORS.warningText,   label: 'EXPORT'     },
 }
 
 export function ItemCard({ item, onPress }: ItemCardProps) {
