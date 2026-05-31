@@ -14,6 +14,45 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-05-31 (2) — Phase 4 Step 2: Scout Tab
+
+### What changed this session
+
+- **`apps/mobile/lib/camera.ts`** — created; `takePicture(ref)` utility using expo-camera `takePictureAsync({ base64: true, quality: 0.6 })`; no extra dependency needed
+- **`apps/mobile/app/(tabs)/scout.tsx`** — full implementation: full-screen CameraView, SINGLE ITEM / SHELF SCAN mode toggle, capture button, Analyzing overlay, ScanResult card for single scans, scrollable ShelfItemRow list for shelf scans, Buy modal (cost input), error states for all failure paths, tier limit handled via Alert
+- **`supabase/functions/claude-proxy/index.ts`** — major rewrite: fixed broken `payload.sub as number` (was UUID string, now email-based lookup), added `getOrCreateUser()` (lazy creates users row on first scan), added `handleSingleScan()` (getSingleSys verbatim prompt, calcProfit, getDecision, writes scan_log), added `handleShelfScan()` (getShelfSys verbatim prompt, same logic), added `handleBuyItem()` (inventory insert + scan_log update), added `DEFAULT_SETTINGS` fallback
+
+### Key decisions made this session (do not reverse)
+
+- Proxy bridges Supabase Auth UUID → custom users integer ID by email lookup, with lazy row creation on first use — register.tsx does NOT need to insert into users table
+- `expo-image-manipulator` NOT installed — using `takePictureAsync({ quality: 0.6 })` native compression instead
+- Estimated thrift cost for display = `avgSoldPrice * 0.10` — user overrides actual cost in Buy modal
+- Tier gate returns 429 (matching existing proxy), not 403 as brief specified
+- Shelf scan built (it's V2-04 in FEATURE_TRIAGE) per explicit user instruction
+- AI prompts are verbatim from FEATURE_TRIAGE.md P-03 and P-04 — not rewritten
+- Decision logic from brief: HOT = ROI > 150 AND confidence ≥ 80, FLIP = ROI > adjustedTarget AND confidence ≥ 50; style mod: conservative ×1.2, balanced ×1.0, aggressive ×0.8
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `a34dece` | feat: scout tab — camera, AI scan, FLIP/PASS/HOT result |
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors**
+
+### Next task
+
+**Phase 4 Step 3** — Protected route guard + session persistence
+- Root `_layout.tsx` needs auth redirect: unauthenticated → `/(auth)/login`, authenticated → `/(tabs)/scout`
+- Add `useSession` hook (`apps/mobile/hooks/useSession.ts`) wrapping `supabase.auth.onAuthStateChange`
+- On app launch: check session → if null → replace to login; if valid → replace to tabs
+- Target files: `apps/mobile/app/_layout.tsx` (update), `apps/mobile/hooks/useSession.ts` (create)
+- Also: consider Supabase `realtime` deploy of claude-proxy Edge Function with updated JWT handling
+
+---
+
 ## Session: 2026-05-31 — Phase 4 Step 1: Auth Flow
 
 ### What changed this session
