@@ -14,6 +14,26 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-06-01 (2) — PR + gh CLI setup
+
+### What changed this session
+
+- **`gh` CLI** — installed via `winget install --id GitHub.cli`, authenticated via `GH_TOKEN` env var
+- **`pr/phase-4-build` branch** — created at initial commit `c6d2000`, pushed to origin as a base for the PR
+- **PR #20** — opened at https://github.com/bbaker71313/scanforprofit/pull/20 documenting all Phase 4 work (auth, scout tab, inventory tab, landing page, route guard, claude-proxy rewrite)
+- **PAT rotated** — the token used for this session was revoked immediately after use
+
+### gh CLI notes
+
+- Installed at system PATH (winget). For future sessions: `gh auth login` → GitHub.com → HTTPS → browser — no token needed
+- `GH_TOKEN` env var also works as a fallback for non-interactive environments
+
+### Next task
+
+**Phase 4 Step 4** — Listing Tab: AI listing generator (unchanged from prior session)
+
+---
+
 ## Session: 2026-05-31 (5) — Phase 4 Step 3: Inventory Tab
 
 ### What changed this session
