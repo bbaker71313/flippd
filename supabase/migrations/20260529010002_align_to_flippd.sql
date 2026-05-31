@@ -75,3 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_inventory_user_platform
 
 CREATE INDEX IF NOT EXISTS idx_inventory_user_status
   ON public.inventory(user_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_ebay_item
+  ON public.inventory(ebay_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_platform
+  ON public.inventory(platform);

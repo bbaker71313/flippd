@@ -1,12 +1,12 @@
 name: EAS Build — Mobile
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/mobile/**"
-      - "packages/shared/**"
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build (all, android, ios)'
+        required: false
+        default: 'all'
 
 jobs:
   build:
@@ -37,4 +37,4 @@ jobs:
 
       - name: Build
         working-directory: apps/mobile
-        run: eas build --platform all --non-interactive
+        run: eas build --platform ${{ github.event.inputs.platform || 'all' }} --non-interactive

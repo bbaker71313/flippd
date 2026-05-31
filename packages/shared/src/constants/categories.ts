@@ -32,3 +32,28 @@ export const EBAY_CATEGORIES: EbayCategory[] = [
 export const EBAY_CATEGORY_MAP: Record<string, EbayCategory> = Object.fromEntries(
   EBAY_CATEGORIES.map((c) => [c.id, c])
 );
+
+// SKU prefix — 4-char code per category, zero-padded counter appended by server
+export const CATEGORY_SKU_PREFIX: Record<string, string> = {
+  'Consumer Electronics':            'ELEC',
+  'Clothing, Shoes & Accessories':   'CLTH',
+  'Home & Garden':                   'HOME',
+  'Toys & Hobbies':                  'TOYS',
+  'Sporting Goods':                  'SPRT',
+  'Books':                           'BOOK',
+  'Music':                           'MUSC',
+  'Movies & TV':                     'MOVI',
+  'Video Games & Consoles':          'GAME',
+  'Jewelry & Watches':               'JEWL',
+  'Collectibles':                    'COLL',
+  'Art':                             'ART_',
+  'Baby':                            'BABY',
+  'Cameras & Photography':           'CAMR',
+  'Musical Instruments & Gear':      'INST',
+  'Business & Industrial':           'BIZZ',
+  'eBay Motors':                     'AUTO',
+  'Antiques':                        'ANTQ',
+  'Computers, Tablets & Networking': 'COMP',
+  'Cell Phones & Accessories':       'CELL',
+  'Entertainment Memorabilia':       'ENT_',
+};

@@ -85,30 +85,59 @@ ALTER TABLE public.growth_cache ENABLE ROW LEVEL SECURITY;
 -- ────────────────────────────────────────────────────────────
 -- 7. RLS policies — each user sees only their own rows
 -- ────────────────────────────────────────────────────────────
-CREATE POLICY scan_log_own_rows ON public.scan_log
-  USING (user_id = current_setting('app.user_id')::INTEGER);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'scan_log' AND policyname = 'scan_log_own_rows'
+  ) THEN
+    CREATE POLICY scan_log_own_rows ON public.scan_log
+      USING (user_id = current_setting('app.user_id')::INTEGER);
+  END IF;
+END $$;
 
-CREATE POLICY settings_own_rows ON public.settings
-  USING (user_id = current_setting('app.user_id')::INTEGER);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'settings' AND policyname = 'settings_own_rows'
+  ) THEN
+    CREATE POLICY settings_own_rows ON public.settings
+      USING (user_id = current_setting('app.user_id')::INTEGER);
+  END IF;
+END $$;
 
-CREATE POLICY pnl_expenses_own_rows ON public.pnl_expenses
-  USING (user_id = current_setting('app.user_id')::INTEGER);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'pnl_expenses' AND policyname = 'pnl_expenses_own_rows'
+  ) THEN
+    CREATE POLICY pnl_expenses_own_rows ON public.pnl_expenses
+      USING (user_id = current_setting('app.user_id')::INTEGER);
+  END IF;
+END $$;
 
-CREATE POLICY growth_cache_own_rows ON public.growth_cache
-  USING (user_id = current_setting('app.user_id')::INTEGER);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'growth_cache' AND policyname = 'growth_cache_own_rows'
+  ) THEN
+    CREATE POLICY growth_cache_own_rows ON public.growth_cache
+      USING (user_id = current_setting('app.user_id')::INTEGER);
+  END IF;
+END $$;
 
 -- ────────────────────────────────────────────────────────────
 -- 8. Indexes
 -- ────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_scan_log_user_id     ON public.scan_log(user_id);
-CREATE INDEX IF NOT EXISTS idx_scan_log_created_at  ON public.scan_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scan_log_user_id      ON public.scan_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_scan_log_created_at   ON public.scan_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scan_log_user_created ON public.scan_log(user_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_inventory_user_id    ON public.inventory(user_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_status     ON public.inventory(status);
+CREATE INDEX IF NOT EXISTS idx_inventory_user_id     ON public.inventory(user_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_status      ON public.inventory(status);
 
-CREATE INDEX IF NOT EXISTS idx_pnl_expenses_user_date ON public.pnl_expenses(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_pnl_expenses_user_date  ON public.pnl_expenses(user_id, date DESC);
 
-CREATE INDEX IF NOT EXISTS idx_growth_cache_user_id   ON public.growth_cache(user_id);
+CREATE INDEX IF NOT EXISTS idx_growth_cache_user_id    ON public.growth_cache(user_id);
 CREATE INDEX IF NOT EXISTS idx_growth_cache_expires_at ON public.growth_cache(expires_at);
 
 -- ────────────────────────────────────────────────────────────

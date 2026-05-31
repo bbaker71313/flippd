@@ -19,7 +19,31 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["flippd", "reseller", "saas", "stripe", "auth", "supabase"],
+  "keywords": [
+    "flippd",
+    "reseller",
+    "saas",
+    "stripe",
+    "auth",
+    "supabase"
+  ],
   "author": "Britt Baker",
-  "license": "ISC"
+  "license": "ISC",
+  "pnpm": {
+    "overrides": {
+      "react-email>next": "^15.1.11"
+    },
+    "onlyBuiltDependencies": [
+      "@sentry/cli",
+      "bcrypt",
+      "core-js",
+      "esbuild",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
+  "devDependencies": {
+    "turbo": "^2.9.16"
+  }
 }
