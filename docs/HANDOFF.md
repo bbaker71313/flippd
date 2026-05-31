@@ -14,6 +14,51 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-05-31 (5) — Phase 4 Step 3: Inventory Tab
+
+### What changed this session
+
+- **`apps/mobile/app/(tabs)/inventory.tsx`** — full replacement: FlatList + search + status filter pills (ALL/UNLISTED/LISTED/SOLD), FAB (ADD ITEM), Add/Edit BottomSheet with live profit preview, detail Modal with status change, delete confirm modal, sold-price modal, category/condition picker modals. Tier gate checked before opening Add sheet.
+- **`apps/mobile/lib/inventory.ts`** — new proxy-wrapped client: `fetchInventory`, `createItem`, `updateItem`, `deleteItem`, `changeStatus`. All ops routed through claude-proxy (RLS bypass). `mapRow` normalizes JSONB photos column.
+- **`apps/mobile/lib/storage.ts`** — new photo helper: `pickAndCompressPhoto` (expo-image-picker + expo-image-manipulator, JPEG 80%), `uploadItemPhoto` (Supabase Storage bucket `item-photos/{userId}/{itemId}/{filename}`), max 1MB enforced.
+- **`packages/shared/src/utils/createInventoryItem.ts`** — new pure function: `buildInventoryPayload` validates/defaults fields, `skuPrefix` returns prefix for category. Single source of truth for item creation shape.
+- **`packages/shared/src/constants/categories.ts`** — added `CATEGORY_SKU_PREFIX` map (21 eBay categories → 4-char code).
+- **`packages/shared/src/index.ts`** — export `createInventoryItem` utils.
+- **`apps/mobile/components/ui/ItemCard.tsx`** — fixed UNLISTED badge: now warning gold (was gray). LISTED/SOLD labels uppercased.
+- **`supabase/functions/claude-proxy/index.ts`** — added 5 handlers: `inventory_list`, `inventory_create` (tier gate + SKU generation), `inventory_update`, `inventory_delete`, `inventory_status` (transition validation). Added `HttpError` class, `ITEM_LIMITS`, `CATEGORY_SKU_PREFIX`. Deployed as version 3.
+- **Supabase Storage** — `item-photos` bucket created (public, 5MB limit, JPEG/PNG/WebP). RLS policies for authenticated upload/delete.
+- **`apps/mobile/package.json`** — added `expo-image-picker`, `expo-image-manipulator`.
+
+### Decisions made this session (do not reverse)
+
+- All inventory DB ops go through claude-proxy (service role bypasses `app.user_id` RLS)
+- Photos uploaded directly via Supabase Auth session (Storage has its own auth)
+- Settings loaded with `inventory_list` response — no separate settings fetch
+- Live profit preview uses loaded `settings.ebay_fee` / `pkg_cost` / `ship_cost` — never hardcoded
+- SKU generation is server-side (needs DB count) — proxy generates, shared util returns prefix only
+- Detail view is a full-screen Modal within inventory.tsx (no new route created)
+- `buildInventoryPayload` called by `createItem()` in lib/inventory.ts before proxy call
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `2f69ee8` | feat: inventory tab — CRUD, photo picker, item card, proxy reads |
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors** (both `apps/mobile` and `packages/shared`)
+
+### Next task
+
+**Phase 4 Step 4** — Listing Tab: AI listing generator
+- Read existing `apps/mobile/app/(tabs)/listing.tsx` stub
+- Pull selected inventory item, generate eBay listing via claude-proxy
+- Title (80 chars), description (250–400 words), condition notes, category, suggested price
+- One-tap copy each field; "Generate" button calls new `listing_generate` proxy handler
+
+---
+
 ## Session: 2026-06-01 — Landing Page Fixes
 
 ### What changed this session
