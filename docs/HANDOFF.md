@@ -14,6 +14,24 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-06-01 — Vercel builds paused
+
+### What changed this session
+
+- **`apps/web/vercel.json`** — created with `{"ignoreCommand":"exit 1"}`. Tells Vercel to skip all builds until Phase 5 web scaffold is ready. Re-enable in Phase 5 by deleting this file or changing ignoreCommand.
+
+### Next task
+
+**Phase 5** — when web scaffold is ready: delete `apps/web/vercel.json` (or remove `ignoreCommand`) to re-enable Vercel builds.
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `8202588` | chore: disable Vercel builds until Phase 5 web scaffold |
+
+---
+
 ## Session: 2026-05-31 (5) — Phase 4 Step 3: Inventory Tab
 
 ### What changed this session
