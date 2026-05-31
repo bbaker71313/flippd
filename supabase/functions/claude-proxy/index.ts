@@ -604,6 +604,235 @@ async function handleKeywordsGet(
   return { ...kwResult, fromCache: false };
 }
 
+// ── Growth Agent handler ────────────────────────────────────────────────────
+
+function mapAction(raw: string): 'relist' | 'drop_price' | 'bundle' | 'donate' {
+  const s = raw.toLowerCase();
+  if (s.includes('drop') || s.includes('price')) return 'drop_price';
+  if (s.includes('bundle')) return 'bundle';
+  if (s.includes('donate')) return 'donate';
+  return 'relist';
+}
+
+async function handleGrowthReport(
+  supabase: ReturnType<typeof createClient>,
+  anthropicKey: string,
+  userId: number,
+  settings: Settings,
+  forceRefresh: boolean,
+) {
+  // Check cache first — stored at cache_data.growth_report
+  const { data: cacheRow } = await supabase.from('growth_cache')
+    .select('cache_data').eq('user_id', userId).maybeSingle();
+
+  const cacheData = (cacheRow?.cache_data ?? {}) as Record<string, unknown>;
+  const cached = cacheData.growth_report as (Record<string, unknown> & { generatedAt?: string }) | null;
+
+  if (!forceRefresh && cached?.generatedAt) {
+    const ageHours = (Date.now() - new Date(cached.generatedAt as string).getTime()) / 3600000;
+    if (ageHours < 24) return { cached: true, data: cached, generatedAt: cached.generatedAt };
+  }
+
+  // Pull inventory stats per category
+  const { data: catRows } = await supabase.from('inventory')
+    .select('category, cost, sell_price, status')
+    .eq('user_id', userId);
+
+  const items = catRows ?? [];
+  const itemCount = items.length;
+
+  // Build category stats
+  const catMap: Record<string, { count: number; revenue: number; cogs: number; sold: number }> = {};
+  for (const row of items) {
+    const cat = (row.category as string) ?? 'Other';
+    if (!catMap[cat]) catMap[cat] = { count: 0, revenue: 0, cogs: 0, sold: 0 };
+    catMap[cat].count++;
+    if (row.status === 'Sold') {
+      catMap[cat].sold++;
+      catMap[cat].revenue += Number(row.sell_price ?? 0);
+      catMap[cat].cogs    += Number(row.cost ?? 0);
+    }
+  }
+  const categoryStats = Object.entries(catMap).map(([cat, s]) => ({
+    category: cat, item_count: s.count, sold_count: s.sold,
+    avg_cost: s.count > 0 ? s.cogs / s.count : 0,
+    total_profit: s.revenue - s.cogs,
+  })).sort((a, b) => b.total_profit - a.total_profit);
+
+  // Pull sold totals
+  const sold = items.filter(r => r.status === 'Sold');
+  const revenue = sold.reduce((s, r) => s + Number(r.sell_price ?? 0), 0);
+  const cogs    = sold.reduce((s, r) => s + Number(r.cost ?? 0), 0);
+
+  // Pull stale items (>60 days)
+  const maxDays = (settings as unknown as Record<string, unknown>).stale_days
+    ? Number((settings as unknown as Record<string, unknown>).stale_days)
+    : 60;
+  const cutoff = new Date(Date.now() - maxDays * 86400000).toISOString();
+  const { data: staleRows } = await supabase.from('inventory')
+    .select('sku, nickname, created_at')
+    .eq('user_id', userId)
+    .in('status', ['Unlisted', 'Listed'])
+    .lt('created_at', cutoff)
+    .order('created_at', { ascending: true })
+    .limit(5);
+
+  const staleItems = (staleRows ?? []).map(r => ({
+    sku: r.sku ?? '',
+    nickname: r.nickname ?? 'Unknown',
+    days: Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / 86400000),
+  }));
+
+  // Pull top scanned categories (last 30 days)
+  const { data: scanRows } = await supabase.from('scan_log')
+    .select('category')
+    .eq('user_id', userId)
+    .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString());
+
+  const scanCatMap: Record<string, number> = {};
+  for (const r of scanRows ?? []) {
+    const c = (r.category as string) ?? 'Other';
+    scanCatMap[c] = (scanCatMap[c] ?? 0) + 1;
+  }
+  const topScanCats = Object.entries(scanCatMap)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([category, scan_count]) => ({ category, scan_count }));
+
+  const inventorySummary = {
+    total_items: itemCount,
+    total_revenue: Math.round(revenue * 100) / 100,
+    total_cogs: Math.round(cogs * 100) / 100,
+    net_profit: Math.round((revenue - cogs) * 100) / 100,
+    sold_count: sold.length,
+    category_stats: categoryStats.slice(0, 8),
+    stale_items: staleItems,
+    top_scan_categories: topScanCats,
+  };
+
+  if (!anthropicKey) {
+    return { cached: false, data: buildFallbackReport(itemCount), generatedAt: new Date().toISOString() };
+  }
+
+  // Verbatim from FEATURE_TRIAGE.md F-27 P-05 (L3279–3307)
+  const prompt = `You are a business growth advisor for an eBay thrift reseller. Analyze their data and provide actionable insights.
+
+SELLER INVENTORY DATA:
+${JSON.stringify(inventorySummary, null, 2)}
+
+SELLER FEE STRUCTURE: ${settings.ebay_fee}% eBay fee + $${settings.pkg_cost} packaging per item. Minimum profit target: $${settings.min_profit}. Target ROI: ${settings.target_roi}%. Max days to sell: ${maxDays}.
+
+TODAY'S DATE: ${new Date().toLocaleDateString()}
+
+Based on this real seller data AND your knowledge of current eBay reselling trends for thrift sellers in 2025-2026, return ONLY valid JSON (no markdown, no preamble):
+{
+  "business_score": number (0-100),
+  "score_label": "Strong/Growing/Steady/Needs Attention",
+  "score_color": "#00bb66 or #c47800 or #dd0000",
+  "score_summary": "one sentence on overall business health using their actual numbers",
+  "top_categories": [
+    {"name":"string","profit":"$X","insight":"one sentence specific to their data","bar_pct":number}
+  ],
+  "stale_actions": [
+    {"sku":"string","name":"string","days":number,"action":"Relist / Drop price 10% / Bundle / Donate","reason":"one sentence"}
+  ],
+  "hunt_list": [
+    {"icon":"emoji","item":"string","why":"one sentence why to hunt this now","priority":"HIGH or MED"}
+  ],
+  "market_trends": [
+    {"arrow":"📈 or 📉","category":"string","detail":"one sentence trend insight for thrift resellers"}
+  ],
+  "advisor_message": "3-4 sentences of direct actionable advice using their actual numbers. Be specific. Tell them exactly what to do differently this week."
+}`;
+
+  let ai: Record<string, unknown>;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error?.message ?? 'Anthropic error');
+    ai = JSON.parse(d.content[0].text as string);
+  } catch {
+    return { cached: false, data: buildFallbackReport(itemCount), generatedAt: new Date().toISOString() };
+  }
+
+  // Normalize AI response → GrowthReport shape
+  const catStatsByName: Record<string, typeof categoryStats[number]> = {};
+  for (const c of categoryStats) catStatsByName[c.category] = c;
+
+  const report = {
+    business_score: Number(ai.business_score ?? 50),
+    score_label:    String(ai.score_label ?? 'Steady'),
+    score_color:    String(ai.score_color ?? '#c47800'),
+    score_summary:  String(ai.score_summary ?? ''),
+    top_categories: ((ai.top_categories as unknown[]) ?? []).slice(0, 3).map((c: unknown) => {
+      const cat = c as Record<string, unknown>;
+      const profitStr = String(cat.profit ?? '0').replace(/[^0-9.-]/g, '');
+      const dbCat = catStatsByName[String(cat.name ?? '')] ?? null;
+      return {
+        name:       String(cat.name ?? ''),
+        profit:     parseFloat(profitStr) || 0,
+        sold_count: dbCat?.sold_count ?? 0,
+        insight:    String(cat.insight ?? ''),
+      };
+    }),
+    stale_actions: ((ai.stale_actions as unknown[]) ?? []).slice(0, 5).map((s: unknown) => {
+      const row = s as Record<string, unknown>;
+      return {
+        sku:         String(row.sku ?? ''),
+        nickname:    String(row.name ?? row.nickname ?? 'Unknown'),
+        days_listed: Number(row.days ?? 0),
+        action:      mapAction(String(row.action ?? 'relist')),
+        suggestion:  String(row.reason ?? ''),
+      };
+    }),
+    hunt_list: ((ai.hunt_list as unknown[]) ?? []).slice(0, 5).map((h: unknown) => {
+      const row = h as Record<string, unknown>;
+      return {
+        item:     String(row.item ?? ''),
+        priority: (String(row.priority ?? 'MED').toUpperCase() === 'HIGH' ? 'HIGH' : 'MED') as 'HIGH' | 'MED',
+        reason:   String(row.why ?? row.reason ?? ''),
+        icon:     String(row.icon ?? ''),
+      };
+    }),
+    market_trends: ((ai.market_trends as unknown[]) ?? []).slice(0, 4).map((m: unknown) => {
+      const row = m as Record<string, unknown>;
+      const arrow = String(row.arrow ?? '');
+      return {
+        category:  String(row.category ?? ''),
+        direction: (arrow.includes('📈') ? 'up' : 'down') as 'up' | 'down',
+        reasoning: String(row.detail ?? row.reasoning ?? ''),
+      };
+    }),
+    advisor_message: String(ai.advisor_message ?? ''),
+    generatedAt:     new Date().toISOString(),
+    item_count:      itemCount,
+  };
+
+  // Save to growth_cache
+  const newCacheData = { ...cacheData, growth_report: report };
+  await supabase.from('growth_cache').upsert({
+    user_id: userId, cache_data: newCacheData,
+    generated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+  }, { onConflict: 'user_id' });
+
+  return { cached: false, data: report, generatedAt: report.generatedAt };
+}
+
+function buildFallbackReport(itemCount: number): Record<string, unknown> {
+  return {
+    business_score: 0, score_label: 'Needs Attention',
+    score_color: '#dd0000',
+    score_summary: 'Could not generate report — add more sold items for analysis.',
+    top_categories: [], stale_actions: [], hunt_list: [], market_trends: [],
+    advisor_message: 'List and sell a few items to unlock your weekly brief.',
+    generatedAt: new Date().toISOString(), item_count: itemCount,
+  };
+}
+
 const STATIC_KEYWORDS = [
   { rank: 1, word: 'vintage electronics', trend: 'up',     bar: 92 },
   { rank: 2, word: 'levi jeans',          trend: 'up',     bar: 88 },
@@ -695,6 +924,9 @@ Deno.serve(async (req: Request) => {
     }
     if (body.type === 'keywords_get') {
       return json(await handleKeywordsGet(supabase, anthropicKey, dbUser.id));
+    }
+    if (body.type === 'growth_report') {
+      return json(await handleGrowthReport(supabase, anthropicKey, dbUser.id, dbUser.settings, body.forceRefresh === true));
     }
 
     // Pass-through for other claude calls

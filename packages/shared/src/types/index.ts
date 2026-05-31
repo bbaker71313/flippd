@@ -137,6 +137,41 @@ export interface GrowthAnalysis {
   advisorMessage: string
 }
 
+// Snake_case interface matching the AI prompt output from FEATURE_TRIAGE F-27
+export interface GrowthReport {
+  business_score: number                       // 0-100
+  score_label: 'Strong' | 'Growing' | 'Steady' | 'Needs Attention'
+  score_color: string
+  score_summary: string
+  top_categories: {
+    name: string
+    profit: number
+    sold_count: number
+    insight: string
+  }[]
+  stale_actions: {
+    sku: string
+    nickname: string
+    days_listed: number
+    action: 'relist' | 'drop_price' | 'bundle' | 'donate'
+    suggestion: string
+  }[]
+  hunt_list: {
+    item: string
+    priority: 'HIGH' | 'MED'
+    reason: string
+    icon?: string
+  }[]
+  market_trends: {
+    category: string
+    direction: 'up' | 'down'
+    reasoning: string
+  }[]
+  advisor_message: string
+  generatedAt: string
+  item_count: number     // total items in inventory at generation time
+}
+
 export interface GrowthCache {
   id: number
   userId: number
