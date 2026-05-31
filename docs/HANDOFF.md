@@ -14,6 +14,91 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-06-01 — Landing Page Fixes
+
+### What changed this session
+
+- **`apps/web/public/index.html`** — 4 surgical changes:
+  1. Converted `<form id="early-form">` → `<div>`, button `type="submit"` → `type="button"`, JS listener `submit` → `click` on the button
+  2. Converted `<form id="newsletter-form">` → `<div>`, same JS update
+  3. Added PostHog web snippet to `<head>` (`__POSTHOG_KEY__` placeholder — user must replace with real key from posthog.com → Project Settings → Project API Key); updated `trackEvent()` to call `posthog.capture()`; added `page_view` on `DOMContentLoaded`; added `waitlist_signup` event on successful form submit
+  4. Added `style="display:none"` to `#social-proof` section — was visible despite having `[PLACEHOLDER — REPLACE BEFORE LAUNCH]` markers on all testimonials
+
+### Pre-flight findings (for the record)
+
+- `SUPABASE_ANON_KEY_PLACEHOLDER` never existed in the file — waitlist already calls `/api/waitlist` directly
+- All CTA buttons already used `href="#early-access"` — no dead CTAs to fix
+- `NEXT_PUBLIC_POSTHOG_KEY` is empty in `.env` — user must fill it in before analytics fire
+
+### Verification results
+
+| Check | Result |
+|---|---|
+| `grep "<form"` | 0 matches ✅ |
+| Banned phrases | 0 matches ✅ |
+| `posthog.init` present | ✅ |
+| `page_view` event | ✅ |
+| `waitlist_signup` event | ✅ |
+| `#social-proof display:none` | ✅ |
+
+### What the user must do before PostHog fires
+
+1. Go to posthog.com → your project → Project Settings → Project API Key
+2. Replace `__POSTHOG_KEY__` in `apps/web/public/index.html` line 664
+3. Also set `NEXT_PUBLIC_POSTHOG_KEY=<key>` in `.env`
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `a39980d` | fix: landing page — remove form tags, PostHog analytics, hide placeholder social proof |
+
+### Next task
+
+**Phase 4 Step 3** — Inventory Tab: CRUD + photos (unchanged)
+
+---
+
+## Session: 2026-05-31 (4) — Landing Page + Waitlist
+
+### What changed this session
+
+- **`apps/web/public/index.html`** — static ScanForProfit landing page (1438 lines, self-contained HTML/CSS/JS, no build step)
+- **`apps/web/next.config.js`** — added `beforeFiles` rewrite `/ → /index.html`; preserved existing `transpilePackages: ["@sfp/shared"]`
+- **`apps/web/app/api/waitlist/route.ts`** — POST endpoint, validates email, inserts into Supabase `waitlist` table via service role key
+- **Supabase** — `waitlist` table created (`id uuid PK`, `email text UNIQUE NOT NULL`, `created_at timestamptz`), RLS enabled
+
+### Decisions made this session (do not reverse)
+
+- Landing page served via Next.js `beforeFiles` rewrite (not a redirect) so it loads at `/` without changing the URL
+- Email form in `index.html` now POSTs to `/api/waitlist` (stub `setTimeout` removed)
+- Only service role can read/write waitlist — no user-level RLS policies needed
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `68682c5` | feat: serve static landing page at scanforprofit.com root |
+| `aed53d5` | feat: wire email capture to Supabase waitlist table |
+
+### Completed
+
+- ✅ Static landing page live at scanforprofit.com
+- ✅ Email capture wired to Supabase waitlist table
+- Landing page file: `apps/web/public/index.html` (1438 lines, static HTML)
+- next.config.js: beforeFiles rewrite from / to /index.html
+
+### Master Playbook Status
+
+- m_t1_1: Landing page build → ✅ Done — static HTML live at scanforprofit.com
+- m_t1_5: Deploy scanforprofit.com → ✅ Done — serving correctly
+
+### Next task
+
+**Phase 4 Step 3** — Inventory Tab: CRUD + photos (unchanged from prior session)
+
+---
+
 ## Session: 2026-05-31 (3) — Phase 4 Step 2.5: Protected Route Guard
 
 ### What changed this session
