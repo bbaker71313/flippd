@@ -14,6 +14,49 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-05-31 — Phase 4 Step 1: Auth Flow
+
+### What changed this session
+
+- **`apps/mobile/app/(auth)/_layout.tsx`** — created; required Expo Router group stack
+- **`apps/mobile/app/(auth)/register.tsx`** — full implementation: email + username + password + confirm, calls `signUp`, routes to verify screen on success, error states for all failure cases
+- **`apps/mobile/app/(auth)/login.tsx`** — full implementation: email + password, calls `signIn`, routes to `/(tabs)/scout` on success, specific error messages (wrong password, unverified email)
+- **`apps/mobile/app/(auth)/verify.tsx`** — new file: 6-digit OTP input, calls `verifyOtp`, routes to `/(tabs)/scout` on success, handles expired/invalid code errors
+- **`apps/mobile/lib/auth.ts`** — added `verifyOtp` function + `OtpCredentials` type; all other functions unchanged
+
+### Rules applied
+
+- NativeWind only — no StyleSheet anywhere
+- No `<form>` tags — all `onChangeText`/`onPress`
+- JWT stored via expo-secure-store adapter already wired in `supabase.ts`
+- Email verification OTP only — no magic link, no OAuth
+- Error states on all 3 screens
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `2ae300f` → pushed as `5ca1e51` | feat: auth flow — register, login, verify screens |
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors**
+
+### Next task
+
+**Phase 4 Step 2** — Protected route guard + session persistence
+- Root `_layout.tsx` needs to redirect unauthenticated users to `/(auth)/login`
+- Add `useSession` hook in `apps/mobile/lib/auth.ts` or new `apps/mobile/hooks/useSession.ts`
+- On app launch: check `getSession()` → if null → redirect to login; if valid → redirect to tabs
+- Target files: `apps/mobile/app/_layout.tsx` (update), `apps/mobile/hooks/useSession.ts` (create)
+
+### Decisions made this session (do not reverse)
+
+- Verify screen receives `email` as a route param from register — do not store email in global state
+- OTP type is `'email'` — matches Supabase email verification flow, not SMS
+
+---
+
 ## Session: 2026-05-29 — Deploy Edge Functions + Base Schema Migration
 
 ### What changed this session
