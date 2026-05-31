@@ -156,6 +156,33 @@ export const TIER_LIMITS: Record<UserTier, {
   empire: { scans: 'unlimited', items: 'unlimited' },
 }
 
+// AI-generated eBay listing draft
+export interface ListingDraft {
+  itemId: number | null
+  title: string           // ≤80 chars — eBay hard limit
+  description: string     // ≥150 chars
+  conditionNote: string
+  suggestedPrice: number | null
+  keywords: string[]      // 5–10 keywords
+  ebayCategory: string | null
+  shippingNote: string | null
+  generatedAt: string
+}
+
+export interface TrendingKeyword {
+  rank: number
+  word: string
+  trend: 'up' | 'stable' | 'down'
+  bar: number             // 0–100 relative search volume
+}
+
+export interface TrendingKeywordsResult {
+  keywords: TrendingKeyword[]
+  trending_categories: string[]
+  hot_tip: string
+  fromCache: boolean
+}
+
 // Used by calcProfit.ts
 export interface ProfitCalcResult {
   gross: number

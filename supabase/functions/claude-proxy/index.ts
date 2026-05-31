@@ -444,6 +444,181 @@ async function handleInventoryStatus(
   return { item };
 }
 
+// ── categoryHint map — verbatim from FEATURE_TRIAGE F-29 L3623-3635 ───────────
+const CATEGORY_HINT: Record<string, string> = {
+  'Consumer Electronics':          'functional, tested, specifications',
+  'Clothing, Shoes & Accessories': 'fabric, fit, brand, styling',
+  'Home & Garden':                 'materials, dimensions, functionality',
+  'Collectibles':                  'authenticity, rarity, condition',
+  'Toys & Hobbies':                'completeness, vintage value, condition',
+  'Books':                         'author, edition, binding, condition',
+  'Sporting Goods':                'brand, specifications, condition',
+  'Jewelry & Watches':             'material, brand, specifications',
+};
+
+async function handleListingGenerate(
+  supabase: ReturnType<typeof createClient>,
+  anthropicKey: string,
+  userId: number,
+  settings: Settings,
+  body: Record<string, unknown>,
+) {
+  const nickname  = (body.nickname  as string) ?? 'Unknown item';
+  const category  = (body.category  as string) ?? 'Other';
+  const condition = (body.condition as string) ?? 'Used';
+  const notes     = (body.notes     as string) ?? '';
+  const sellPrice = body.sellPrice  != null ? Number(body.sellPrice) : null;
+  const itemId    = body.itemId     as number | null ?? null;
+
+  const categoryHint = CATEGORY_HINT[category] ?? 'key details, condition, brand';
+
+  // Verbatim from FEATURE_TRIAGE.md F-29 P-06 (L3637–3656)
+  const prompt = `You are an expert eBay reseller writing product listings. Generate a title, description, and condition note for this item.
+
+Item name: ${nickname}
+Category: ${category}
+Condition: ${condition}
+Seller notes: ${notes || 'No additional notes'}
+
+Focus on: ${categoryHint}
+
+STRICT REQUIREMENTS:
+- Title: max 80 characters, eBay-optimized keywords first
+- Description: 250-400 words, bullet points for key details, mobile-friendly
+- Condition Note: 50-100 words, specific about condition
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "title": "...",
+  "description": "...",
+  "conditionNote": "...",
+  "suggestedPrice": ${sellPrice ?? 'null'},
+  "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+  "shippingNote": "Buyer pays shipping"
+}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message ?? 'Anthropic error');
+
+  let ai: Record<string, unknown>;
+  try { ai = JSON.parse(data.content[0].text as string); }
+  catch { throw new Error('AI returned invalid JSON'); }
+
+  // Enforce title ≤80 chars
+  const title = String(ai.title ?? '').slice(0, 80);
+
+  const listing = {
+    itemId,
+    title,
+    description:   String(ai.description   ?? ''),
+    conditionNote: String(ai.conditionNote  ?? ''),
+    suggestedPrice: ai.suggestedPrice != null ? Number(ai.suggestedPrice) : sellPrice,
+    keywords:       Array.isArray(ai.keywords) ? ai.keywords as string[] : [],
+    ebayCategory:   category,
+    shippingNote:   String(ai.shippingNote ?? (settings.shipping === 'buyer' ? 'Buyer pays shipping' : 'Seller pays shipping')),
+    generatedAt:    new Date().toISOString(),
+  };
+
+  // Save to inventory row if itemId provided
+  if (itemId) {
+    await supabase.from('inventory').update({
+      listing_title:       title,
+      listing_description: listing.description,
+      listing_condition:   listing.conditionNote,
+      listing_data:        listing,
+    }).eq('id', itemId).eq('user_id', userId);
+  }
+
+  return { listing };
+}
+
+async function handleKeywordsGet(
+  supabase: ReturnType<typeof createClient>,
+  anthropicKey: string,
+  userId: number,
+) {
+  // Check growth_cache for fresh trending keywords (<24hrs)
+  const { data: cacheRow } = await supabase.from('growth_cache')
+    .select('cache_data, generated_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const cacheData = cacheRow?.cache_data as Record<string, unknown> | null;
+  const cachedKw = cacheData?.trending_keywords as Record<string, unknown> | null;
+  const cachedAt = cachedKw?.cached_at as string | null;
+
+  if (cachedAt) {
+    const ageHours = (Date.now() - new Date(cachedAt).getTime()) / (1000 * 3600);
+    if (ageHours < 24) {
+      return { ...cachedKw, fromCache: true };
+    }
+  }
+
+  if (!anthropicKey) {
+    return { keywords: STATIC_KEYWORDS, trending_categories: STATIC_CATEGORIES, hot_tip: STATIC_TIP, fromCache: false };
+  }
+
+  // Verbatim from FEATURE_TRIAGE.md F-28 P-08 (L5402)
+  const prompt = `Search for the top trending eBay search keywords and most popular resale categories RIGHT NOW today ${new Date().toLocaleDateString()}. What are buyers searching for most on eBay this week? Focus on thrift resale categories: electronics, clothing, collectibles, home goods. Return ONLY valid JSON: {"keywords":[{"rank":1,"word":"string","trend":"up/stable/down","bar":85},...],"trending_categories":["string"],"hot_tip":"one sentence actionable tip for resellers today"}. Include exactly 10 keywords sorted by search volume.`;
+
+  let kwResult: Record<string, unknown>;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', 'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01', 'anthropic-beta': 'web-search-2025-03-05',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6', max_tokens: 800,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error?.message ?? 'Anthropic error');
+    const textBlock = (d.content as Array<{type: string; text?: string}>).find(b => b.type === 'text');
+    kwResult = JSON.parse(textBlock?.text ?? '{}');
+  } catch {
+    return { keywords: STATIC_KEYWORDS, trending_categories: STATIC_CATEGORIES, hot_tip: STATIC_TIP, fromCache: false };
+  }
+
+  // Cache result
+  const toCache = { ...kwResult, cached_at: new Date().toISOString() };
+  const newCacheData = { ...(cacheData ?? {}), trending_keywords: toCache };
+  await supabase.from('growth_cache').upsert({
+    user_id: userId, cache_data: newCacheData,
+    generated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+  }, { onConflict: 'user_id' });
+
+  return { ...kwResult, fromCache: false };
+}
+
+const STATIC_KEYWORDS = [
+  { rank: 1, word: 'vintage electronics', trend: 'up',     bar: 92 },
+  { rank: 2, word: 'levi jeans',          trend: 'up',     bar: 88 },
+  { rank: 3, word: 'retro gaming',        trend: 'up',     bar: 85 },
+  { rank: 4, word: 'cast iron cookware',  trend: 'stable', bar: 78 },
+  { rank: 5, word: 'nike shoes',          trend: 'up',     bar: 76 },
+  { rank: 6, word: 'vintage camera',      trend: 'up',     bar: 72 },
+  { rank: 7, word: 'band t shirt',        trend: 'stable', bar: 68 },
+  { rank: 8, word: 'pokemon cards',       trend: 'stable', bar: 65 },
+  { rank: 9, word: 'vintage pyrex',       trend: 'up',     bar: 62 },
+  { rank: 10, word: 'tools hardware',     trend: 'stable', bar: 58 },
+];
+const STATIC_CATEGORIES = ['Electronics', 'Clothing', 'Collectibles', 'Home & Garden'];
+const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always include if available.';
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -513,7 +688,14 @@ Deno.serve(async (req: Request) => {
     if (body.type === 'inventory_create') return json(await handleInventoryCreate(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_update') return json(await handleInventoryUpdate(supabase, dbUser.id, body));
     if (body.type === 'inventory_delete') return json(await handleInventoryDelete(supabase, dbUser.id, body));
-    if (body.type === 'inventory_status') return json(await handleInventoryStatus(supabase, dbUser.id, body));
+    if (body.type === 'inventory_status')  return json(await handleInventoryStatus(supabase, dbUser.id, body));
+    if (body.type === 'listing_generate') {
+      if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+      return json(await handleListingGenerate(supabase, anthropicKey, dbUser.id, dbUser.settings, body));
+    }
+    if (body.type === 'keywords_get') {
+      return json(await handleKeywordsGet(supabase, anthropicKey, dbUser.id));
+    }
 
     // Pass-through for other claude calls
     if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
