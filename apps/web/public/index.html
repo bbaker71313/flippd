@@ -661,7 +661,7 @@
        Then set NEXT_PUBLIC_POSTHOG_KEY in .env -->
   <script>
     !function(t,e){var o,n,p,r;e.__posthogLoaded=!0;var c=e.posthog=e.posthog||[];c.people=c.people||[];c.toString=function(t){var e="posthog";return"init"!==t&&(e+=" (stub)"),e};c.people.toString=function(){return c.toString(1)+" (stub)"};o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" ");for(p=0;p<o.length;p++)!function(t){c[t]=function(){var e=Array.prototype.slice.call(arguments);c.push([t].concat(e))}}(o[p]);n=document.createElement("script");n.type="text/javascript";n.async=!0;n.src="https://us-assets.i.posthog.com/static/array.js";r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(n,r)}(document,window);
-    posthog.init('__POSTHOG_KEY__', { api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only' });
+    posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', { api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only' });
   </script>
 </head>
 <body>
