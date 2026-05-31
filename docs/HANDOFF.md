@@ -14,6 +14,38 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-05-31 (3) — Phase 4 Step 2.5: Protected Route Guard
+
+### What changed this session
+
+- **`apps/mobile/app/_layout.tsx`** — added auth gate: `useState` for `{ session, checked }`, async `getSession()` on mount (errors → null), `onAuthStateChange` for mid-session changes, blank `#1c1712` loading screen while check runs, `<Redirect href="/(auth)/login">` when unauthenticated on protected route, `<Redirect href="/(tabs)/scout">` when authenticated on auth screen. `auth.ts` unchanged — `getSession()` already existed.
+
+### Decisions made this session (do not reverse)
+
+- Loading state is a solid `#1c1712` (brand inverse) `<View>` — no spinner, no content, eliminates any flash
+- `<Redirect>` from expo-router used (not `router.replace`) per brief
+- Both redirects are declarative and co-located in the same file — no separate hook file created
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `a6360d2` | feat: protected route guard — auth gate in root layout |
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors**
+
+### Next task
+
+**Phase 4 Step 3** — Inventory Tab: CRUD + photos
+- `apps/mobile/app/(tabs)/inventory.tsx` — list view, add/edit/delete items
+- `apps/mobile/app/(tabs)/listing.tsx` — AI listing generator stub (may be same step)
+- Supabase reads from `inventory` table via service-role proxy or direct client RLS
+- RLS note: current RLS uses `app.user_id` integer setting, not `auth.uid()` — writes must go through claude-proxy or via a Postgres function
+
+---
+
 ## Session: 2026-05-31 (2) — Phase 4 Step 2: Scout Tab
 
 ### What changed this session
