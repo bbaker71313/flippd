@@ -655,6 +655,14 @@
     /* utility */
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
   </style>
+  <!-- PostHog analytics
+       Replace __POSTHOG_KEY__ with your project key:
+       posthog.com → Project Settings → Project API Key
+       Then set NEXT_PUBLIC_POSTHOG_KEY in .env -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__posthogLoaded=!0;var c=e.posthog=e.posthog||[];c.people=c.people||[];c.toString=function(t){var e="posthog";return"init"!==t&&(e+=" (stub)"),e};c.people.toString=function(){return c.toString(1)+" (stub)"};o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" ");for(p=0;p<o.length;p++)!function(t){c[t]=function(){var e=Array.prototype.slice.call(arguments);c.push([t].concat(e))}}(o[p]);n=document.createElement("script");n.type="text/javascript";n.async=!0;n.src="https://us-assets.i.posthog.com/static/array.js";r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(n,r)}(document,window);
+    posthog.init('__POSTHOG_KEY__', { api_host: 'https://us.i.posthog.com', person_profiles: 'identified_only' });
+  </script>
 </head>
 <body>
   <!-- =================== NAV =================== -->
@@ -986,7 +994,7 @@
   </section>
 
   <!-- =================== SOCIAL PROOF =================== -->
-  <section id="social-proof" aria-labelledby="proof-title">
+  <section id="social-proof" aria-labelledby="proof-title" style="display:none">
     <div class="container">
       <div class="section-head">
         <span class="tag">// Real resellers · Real numbers</span>
@@ -1293,11 +1301,11 @@
         <span class="tag" style="font-family:var(--mono);font-size:12px;color:var(--green-border);text-transform:uppercase;letter-spacing:0.12em;font-weight:600;">// Early access</span>
         <h2 style="margin-top:12px;">Get in before we launch.</h2>
         <p class="sub">Free to start. No credit card. Early access members get the first 3 months of Hustle at Scout pricing.</p>
-        <form class="capture-form" id="early-form" novalidate>
+        <div class="capture-form" id="early-form">
           <label for="early-email" class="sr-only">Email address</label>
-          <input id="early-email" type="email" placeholder="your@email.com" required autocomplete="email" />
-          <button class="btn btn-primary btn-lg" type="submit" data-cta="early-access" data-location="capture">Get early access</button>
-        </form>
+          <input id="early-email" type="email" placeholder="your@email.com" autocomplete="email" />
+          <button class="btn btn-primary btn-lg" type="button" data-cta="early-access" data-location="capture">Get early access</button>
+        </div>
         <div class="capture-msg" id="capture-msg" role="status" aria-live="polite"></div>
         <p class="capture-fine">Free to start · No credit card · Cancel anytime</p>
       </div>
@@ -1349,11 +1357,11 @@
         </div>
         <div class="footer-col">
           <h4>Get sourcing tips weekly</h4>
-          <form class="newsletter" id="newsletter-form" novalidate>
+          <div class="newsletter" id="newsletter-form">
             <label for="newsletter-email" class="sr-only">Email address</label>
-            <input id="newsletter-email" type="email" placeholder="your@email.com" required />
-            <button class="btn btn-primary" type="submit">Subscribe</button>
-          </form>
+            <input id="newsletter-email" type="email" placeholder="your@email.com" />
+            <button class="btn btn-primary" type="button">Subscribe</button>
+          </div>
           <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:10px;">No spam. One sourcing tip every Tuesday.</p>
         </div>
       </div>
@@ -1370,9 +1378,13 @@
 
   <script>
     function trackEvent(name, props) {
+      if (typeof posthog !== 'undefined') posthog.capture(name, props || {});
       if (typeof gtag !== 'undefined') gtag('event', name, props);
       console.log('[event]', name, props || {});
     }
+    document.addEventListener('DOMContentLoaded', () => {
+      trackEvent('page_view', { path: window.location.pathname });
+    });
     document.querySelectorAll('[data-cta]').forEach(el => {
       el.addEventListener('click', (e) => {
         const { cta, location, tier } = e.currentTarget.dataset;
@@ -1386,8 +1398,7 @@
     });
     const nl = document.getElementById('newsletter-form');
     if (nl) {
-      nl.addEventListener('submit', (e) => {
-        e.preventDefault();
+      nl.querySelector('button').addEventListener('click', () => {
         const email = document.getElementById('newsletter-email').value;
         trackEvent('newsletter_signup', { location: 'footer', email });
         const btn = nl.querySelector('button');
@@ -1403,8 +1414,7 @@
       const msg = document.getElementById('capture-msg');
       const btn = ef.querySelector('button');
       const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      ef.addEventListener('submit', async (e) => {
-        e.preventDefault();
+      btn.addEventListener('click', async () => {
         const email = input.value.trim();
         msg.className = 'capture-msg';
         msg.textContent = '';
@@ -1429,6 +1439,7 @@
           msg.textContent = "You're on the list. ✓";
           input.value = '';
           btn.textContent = 'On the list ✓';
+          trackEvent('waitlist_signup', { email });
         } catch (err) {
           msg.classList.add('err');
           msg.textContent = 'Something went wrong — try again.';
