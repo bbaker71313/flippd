@@ -23,18 +23,18 @@ github.com/bbaker71313/scanforprofit
 | Step 2.5 | Protected route guard (auth gate in root layout) | DONE | `a6360d2` |
 | Step 3 | Inventory tab (CRUD, photos, status lifecycle, tier gate) | DONE | `2f69ee8` |
 | Step 4 | Listing tab (AI generator, CSV export, trending keywords) | DONE | `3b589b5` |
-| Step 5 | Trends tab (Growth Agent, hunt list, business score) | NEXT | - |
+| Step 5 | Trends tab (Growth Agent, hunt list, business score) | DONE | `27e1912` |
 | Step 6 | Stats tab (P&L dashboard, expenses) | TODO | - |
 | Step 7 | Settings screen | TODO | - |
 | Step 8 | EAS build + TestFlight | TODO | - |
 
 ### Current next task
-**Phase 4 Step 5 -- Trends Tab**
-- Read `apps/mobile/app/(tabs)/trends.tsx` stub
-- Call growth agent AI (FEATURE_TRIAGE F-27 / P-05 prompt verbatim)
-- Display: business score, top categories, stale actions, hunt list, market trends, advisor message
-- Cache in `growth_cache` table (24hr TTL)
-- New proxy handler: `growth_agent_run`
+**Phase 4 Step 6 -- Stats Tab + P&L + Stripe paywall**
+- Read `apps/mobile/app/(tabs)/stats.tsx` stub
+- P&L dashboard: revenue, COGS, net profit, sold count
+- Expenses tracking (add/list from pnl_expenses table)
+- Stripe paywall for premium features
+- New proxy handlers: `stats_summary`, `expenses_list`, `expenses_add`
 
 ### Key standing decisions (apply every session)
 - All inventory/listing DB ops route through `claude-proxy` Edge Function (service role bypasses `app.user_id` RLS)
@@ -47,7 +47,7 @@ github.com/bbaker71313/scanforprofit
 ### Supabase project
 - Project ID: `dqgfpchkheznvanfgsmx`
 - URL: `https://dqgfpchkheznvanfgsmx.supabase.co`
-- Edge Function `claude-proxy`: deployed, version 4 (listing_generate + keywords_get added)
+- Edge Function `claude-proxy`: deployed, version 5 (+ growth_report handler)
 - Storage bucket `item-photos`: created, public, 5MB limit
 
 ### tsc status
@@ -55,6 +55,40 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+
+---
+
+## Session: 2026-05-31 (7) -- Phase 4 Step 5: Trends Tab
+
+### What changed this session
+
+- **pps/mobile/app/(tabs)/trends.tsx** -- full replacement: 5-state machine (loading/empty/generating/ready/error). Empty state at <5 items. Ready state: 7 sections -- Business Score card (number + colored bar + summary), top categories (Scout gated), stale actions (Scout gated), hunt list (visible to Scout), market trends (Scout gated), advisor message (Scout gated), footer with refresh button.
+- **pps/mobile/lib/growth.ts** -- new: etchGrowthReport(forceRefresh?) wraps growth_report proxy call.
+- **packages/shared/src/types/index.ts** -- added GrowthReport (snake_case): usiness_score, score_label, score_color, score_summary, 	op_categories[], stale_actions[], hunt_list[], market_trends[], dvisor_message, generatedAt, item_count.
+- **supabase/functions/claude-proxy/index.ts** -- added growth_report handler: checks growth_cache.cache_data.growth_report freshness (<24hrs); pulls inventory + scan_log stats from DB; calls verbatim F-27 prompt; normalizes AI response (profit string to number, arrow emoji to up/down); upserts to growth_cache. Static fallback on AI failure. Deployed as version 5.
+
+### Decisions made this session (do not reverse)
+
+- Growth report stored at growth_cache.cache_data.growth_report sub-key (same pattern as trending_keywords -- no schema change needed)
+- Empty state at <5 total inventory items, checked before cache lookup
+- Scout tier: business score + hunt_list visible; all other sections gated with upgrade prompt
+- AI failure returns static fallback -- never surfaces as an error to the user
+- orceRefresh=true bypasses cache; if result is still cached, shows toast instead of re-calling AI
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| 27e1912 | feat: trends tab -- growth agent, weekly brief, 24h cache |
+
+### tsc result
+
+
+px tsc --noEmit -- **0 errors**
+
+### Next task
+
+**Phase 4 Step 6** -- Stats Tab + P&L + Stripe paywall
 ## Session: 2026-06-01 â€” Vercel builds paused
 
 ### What changed this session
