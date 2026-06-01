@@ -172,6 +172,36 @@ export interface GrowthReport {
   item_count: number     // total items in inventory at generation time
 }
 
+// P&L types — port from Flippd F-24 / P-12
+export interface PnlSummary {
+  totalRevenue: number        // sum of sold items sell_price
+  totalCogs: number           // sum of sold items cost
+  totalFees: number           // ebayFee applied to each sale
+  totalShipping: number       // shipping costs paid (seller-pays mode only)
+  totalPackaging: number      // pkgCost per sold item
+  totalExpenses: number       // from pnl_expenses table
+  totalMileage: number        // miles * mileageRate (from settings — NEVER hardcode 0.67)
+  netProfit: number           // revenue - cogs - fees - shipping - packaging - expenses - mileage
+  taxReserve: number          // netProfit * taxReservePct — informational only, not deducted
+  roi: number                 // (netProfit / totalCogs) * 100
+  avgDaysToSell: number
+  itemsSold: number
+  itemsListed: number
+  itemsUnlisted: number
+  periodLabel: string         // "This Month" | "Last 30 Days" | "All Time"
+}
+
+export interface PnlExpense {
+  id: number
+  userId: number
+  amount: number
+  description: string | null
+  category: 'supplies' | 'mileage' | 'storage' | 'other'
+  expenseDate: string         // UTC ISO 8601
+  miles: number | null
+  createdAt: string
+}
+
 export interface GrowthCache {
   id: number
   userId: number

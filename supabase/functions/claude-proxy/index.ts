@@ -606,6 +606,123 @@ async function handleKeywordsGet(
 
 // ── Growth Agent handler ────────────────────────────────────────────────────
 
+// ── Stats / P&L handlers ────────────────────────────────────────────────────
+
+function calcPnlServer(
+  soldItems: Record<string, unknown>[],
+  allItems: Record<string, unknown>[],
+  expenses: Record<string, unknown>[],
+  settings: Settings & { tax_reserve_pct?: number; mileage_rate?: number; stale_days?: number },
+  periodLabel: string,
+) {
+  const ebayFee      = settings.ebay_fee    ?? 13;
+  const pkgCost      = settings.pkg_cost    ?? 1.25;
+  const shipping     = settings.shipping    ?? 'buyer';
+  const shipCost     = settings.ship_cost   ?? 6.00;
+  const taxReservePct = settings.tax_reserve_pct ?? 0.25; // never hardcoded
+  const mileageRate  = settings.mileage_rate ?? 0.67;     // never hardcoded
+
+  let totalRevenue = 0, totalCogs = 0, totalFees = 0, totalPackaging = 0, totalShipping = 0;
+  for (const item of soldItems) {
+    const sell = Number(item.sell_price ?? 0);
+    const cost = Number(item.cost ?? 0);
+    totalRevenue   += sell;
+    totalCogs      += cost;
+    totalFees      += sell * (ebayFee / 100);
+    totalPackaging += pkgCost;
+    if (shipping === 'seller') totalShipping += shipCost;
+  }
+
+  let totalExpenses = 0, totalMiles = 0;
+  for (const exp of expenses) {
+    if (exp.category === 'mileage' && exp.miles != null) {
+      totalMiles += Number(exp.miles);
+    } else {
+      totalExpenses += Number(exp.amount ?? 0);
+    }
+  }
+  const totalMileage = totalMiles * mileageRate;
+  const netProfit    = r2(totalRevenue - totalCogs - totalFees - totalPackaging - totalShipping - totalExpenses - totalMileage);
+  const taxReserve   = netProfit > 0 ? r2(netProfit * taxReservePct) : 0;
+  const roi          = totalCogs > 0 ? r2((netProfit / totalCogs) * 100) : 0;
+
+  const daysArr = soldItems
+    .filter(i => i.sold_at && i.created_at)
+    .map(i => Math.max(0, (new Date(i.sold_at as string).getTime() - new Date(i.created_at as string).getTime()) / 86400000));
+  const avgDaysToSell = daysArr.length > 0 ? r2(daysArr.reduce((a, b) => a + b, 0) / daysArr.length) : 0;
+
+  return {
+    totalRevenue:   r2(totalRevenue),   totalCogs:      r2(totalCogs),
+    totalFees:      r2(totalFees),      totalShipping:  r2(totalShipping),
+    totalPackaging: r2(totalPackaging), totalExpenses:  r2(totalExpenses),
+    totalMileage:   r2(totalMileage),   netProfit,      taxReserve,    roi,
+    avgDaysToSell,  itemsSold: soldItems.length,
+    itemsListed:   allItems.filter(i => i.status === 'Listed').length,
+    itemsUnlisted: allItems.filter(i => i.status === 'Unlisted').length,
+    periodLabel,
+  };
+}
+
+async function handleStatsSummary(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  settings: Settings,
+  body: Record<string, unknown>,
+) {
+  const period = (body.period as string) ?? 'all';
+  let periodLabel = 'All Time';
+  let soldFilter = supabase.from('inventory').select('*').eq('user_id', userId).eq('status', 'Sold');
+  if (period === 'month') {
+    const start = new Date(); start.setDate(1); start.setHours(0, 0, 0, 0);
+    soldFilter = soldFilter.gte('sold_at', start.toISOString());
+    periodLabel = 'This Month';
+  } else if (period === 'last30') {
+    soldFilter = soldFilter.gte('sold_at', new Date(Date.now() - 30 * 86400000).toISOString());
+    periodLabel = 'Last 30 Days';
+  }
+
+  const { data: soldItems } = await soldFilter;
+  const { data: allItems }  = await supabase.from('inventory').select('status, sell_price, cost, sold_at, created_at').eq('user_id', userId);
+  const { data: expenses }  = await supabase.from('pnl_expenses').select('*').eq('user_id', userId);
+
+  const summary = calcPnlServer(
+    soldItems ?? [], allItems ?? [], expenses ?? [],
+    settings as Settings & { tax_reserve_pct?: number; mileage_rate?: number },
+    periodLabel,
+  );
+  return { summary };
+}
+
+async function handleExpensesList(supabase: ReturnType<typeof createClient>, userId: number) {
+  const { data, error } = await supabase.from('pnl_expenses')
+    .select('*').eq('user_id', userId).order('date', { ascending: false });
+  if (error) throw new Error(error.message);
+  return { expenses: data ?? [] };
+}
+
+async function handleExpensesAdd(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  body: Record<string, unknown>,
+) {
+  const amount   = Number(body.amount ?? 0);
+  const category = (body.category as string) ?? 'other';
+  const date     = (body.date as string) ?? new Date().toISOString().slice(0, 10);
+  if (amount <= 0) throw new Error('Amount must be greater than 0');
+
+  const { data, error } = await supabase.from('pnl_expenses').insert({
+    user_id:     userId,
+    amount,
+    category,
+    description: body.description ?? null,
+    date,
+    miles:       body.miles != null ? Number(body.miles) : null,
+  }).select('*').single();
+
+  if (error) throw new Error(error.message);
+  return { expense: data };
+}
+
 function mapAction(raw: string): 'relist' | 'drop_price' | 'bundle' | 'donate' {
   const s = raw.toLowerCase();
   if (s.includes('drop') || s.includes('price')) return 'drop_price';
@@ -925,9 +1042,10 @@ Deno.serve(async (req: Request) => {
     if (body.type === 'keywords_get') {
       return json(await handleKeywordsGet(supabase, anthropicKey, dbUser.id));
     }
-    if (body.type === 'growth_report') {
-      return json(await handleGrowthReport(supabase, anthropicKey, dbUser.id, dbUser.settings, body.forceRefresh === true));
-    }
+    if (body.type === 'growth_report')   return json(await handleGrowthReport(supabase, anthropicKey, dbUser.id, dbUser.settings, body.forceRefresh === true));
+    if (body.type === 'stats_summary')  return json(await handleStatsSummary(supabase, dbUser.id, dbUser.settings, body));
+    if (body.type === 'expenses_list')  return json(await handleExpensesList(supabase, dbUser.id));
+    if (body.type === 'expenses_add')   return json(await handleExpensesAdd(supabase, dbUser.id, body));
 
     // Pass-through for other claude calls
     if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
