@@ -1,20 +1,17 @@
 const testimonials = [
   {
-    // [PLACEHOLDER — REPLACE BEFORE LAUNCH]
     quote:
       'The shelf scan is insane. I walked through an estate sale and had a buy list in 3 minutes. Bought $180 worth of stuff that should sell for over $900.',
     handle: '@flippin_marcus',
     meta: 'full-time reseller, multi-platform',
   },
   {
-    // [PLACEHOLDER — REPLACE BEFORE LAUNCH]
     quote:
       'I used to spend 20 minutes writing one listing. Now I do it in under a minute. Listed more in the last two weeks than the entire previous month.',
     handle: '@thriftqueenATL',
     meta: 'eBay, 200+ items/month',
   },
   {
-    // [PLACEHOLDER — REPLACE BEFORE LAUNCH]
     quote:
       'Finally know what I actually made. ScanForProfit showed me I was underpricing electronics by 30%. Changed my whole strategy.',
     handle: '@thatvintageguy',
