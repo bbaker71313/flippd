@@ -6,254 +6,179 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ## Project Location
 
-`C:\Users\bbake\OneDrive\Desktop\scanforprofit`
+`/home/user/scanforprofit` (remote Claude Code session)
+Local path: `C:\Users\bbake\OneDrive\Desktop\scanforprofit`
 
 ## Repo
 
-github.com/bbaker71313/scanforprofit
+github.com/bbaker71313/scanforprofit — branch: `main`
 
 ---
 
-## Session: 2026-06-01 — Waitlist fix + PLACEHOLDER removal
+## Current Build Status (as of 2026-06-01)
 
-### What changed this session
+| Phase | Name | Status |
+|---|---|---|
+| 01 | Validate | ✅ Complete |
+| 02 | Brand & Architecture | ✅ Complete |
+| 03 | Design System | ✅ Complete (Steps 1–3) |
+| 04 | Build Mobile | 🔄 Steps 1–6 complete — **Step 7 next** |
+| 05 | Build Web | ⬜ Not started (Vercel builds paused) |
+| 06 | Launch | ⬜ Not started |
+| 07–09 | Monetize / Marketing / Scale | ⬜ Not started |
 
-- **`apps/web/app/api/waitlist/route.ts`** — replaced `SUPABASE_SERVICE_ROLE_KEY` (not set in Vercel) with `NEXT_PUBLIC_SUPABASE_ANON_KEY` (already set). Added 23505 duplicate-email handling (treat as success, not 500). Added `console.error` for debugging. Fixes `/api/waitlist` 500 error.
-- **`apps/web/public/index.html`** — removed 4 PLACEHOLDER markers: 1× inline `<em>` badge on the `@flippin_marcus` quote, 3× red `<div>` badge on proof cards. Testimonial text untouched.
-- **`apps/web/components/landing/SocialProofSection.tsx`** — removed 3 `// [PLACEHOLDER — REPLACE BEFORE LAUNCH]` comment lines (one per testimonial object). All other content identical.
+### Phase 4 Step Progress
 
-### Verification
+| Step | Task | Status | Commit |
+|---|---|---|---|
+| 1 | Auth Flow (register, login, verify screens) | ✅ Done | `2ae300f` |
+| 2 | Protected Route Guard (root layout auth gate) | ✅ Done | `a6360d2` |
+| 3 | Scout Tab (camera, AI scan, FLIP/PASS/HOT) | ✅ Done | `a34dece` |
+| 4 | Inventory Tab (CRUD, photo picker, proxy ops) | ✅ Done | `2f69ee8` |
+| 5 | Listing Tab (AI listing generator, CSV export) | ✅ Done | `3b589b5` |
+| 6 | Trends Tab (Growth Agent, 24h cache) | ✅ Done | `27e1912` |
+| 7 | Stats Tab (P&L, expenses, mileage, Stripe gate) | ✅ Done | `846c65a` |
+| **8** | **EAS Build + End-to-End Integration Test** | **⬜ NEXT** | — |
 
-| Check | Result |
+---
+
+## Next Task — Phase 4 Step 8: EAS Build + Integration Test
+
+### Goal
+Produce a working development build via EAS and test all 5 tabs end-to-end on a real device or simulator.
+
+### Success Criteria
+1. `eas build --platform ios --profile development` completes without error
+2. App installs and launches on device/simulator
+3. Auth flow works: register → email verify → login
+4. Scout tab: camera opens, AI scan returns a BUY/HOT/PASS result
+5. Inventory tab: add item → appears in list → edit → delete
+6. Listing tab: select item → generate listing → copy fields
+7. Trends tab: Growth Agent brief loads (or shows tier gate)
+8. Stats tab: P&L summary displays, expense add works
+
+### Files to check if build fails
+- `apps/mobile/app.json` — EAS project ID: `cc487254-9654-4930-ac52-37ffba835a20`
+- `apps/mobile/eas.json` — build profiles
+- `apps/mobile/package.json` — all native deps present
+- `.env` / Supabase env vars — must be set in EAS secrets
+
+---
+
+## Complete File Inventory (Phase 4 — all built)
+
+### Mobile App (`apps/mobile/`)
+
+| File | Purpose |
 |---|---|
-| `grep "PLACEHOLDER" apps/web/public/index.html` | 0 results ✅ |
-| `grep "PLACEHOLDER" apps/web/components/landing/SocialProofSection.tsx` | 0 results ✅ |
-| `POST /api/waitlist` returns 200 `{ ok: true }` | ✅ (anon key now used) |
-| Duplicate email returns 200 `{ ok: true }` | ✅ (23505 handled) |
+| `app/(auth)/_layout.tsx` | Auth group layout |
+| `app/(auth)/register.tsx` | Registration screen |
+| `app/(auth)/login.tsx` | Login screen |
+| `app/(auth)/verify.tsx` | Email verification screen |
+| `app/_layout.tsx` | Root layout with auth gate |
+| `app/(tabs)/_layout.tsx` | 5-tab bar layout |
+| `app/(tabs)/scout.tsx` | AI scanner — camera + FLIP/PASS/HOT |
+| `app/(tabs)/inventory.tsx` | Full CRUD — FlatList, search, filters, modals |
+| `app/(tabs)/listing.tsx` | AI listing generator, copy fields, CSV export |
+| `app/(tabs)/trends.tsx` | Growth Agent weekly brief, 24h cache, tier gate |
+| `app/(tabs)/stats.tsx` | P&L dashboard, expenses, mileage, Stripe paywall |
+| `lib/auth.ts` | Auth client: register, login, verifyOtp, session |
+| `lib/camera.ts` | Camera helpers: capture, pick from library |
+| `lib/inventory.ts` | Inventory proxy client: CRUD + photo upload |
+| `lib/storage.ts` | Photo helper: pickAndCompressPhoto, uploadItemPhoto |
+| `lib/listing.ts` | Listing client: generateListing, exportListingCsv |
+| `lib/growth.ts` | Growth client: fetchGrowthBrief (24h cache) |
+| `lib/stats.ts` | Stats client: fetchPnlSummary, addExpense, addMileage |
+| `lib/supabase.ts` | Supabase client (anon key, inline fallback) |
+| `lib/theme.ts` | Theme tokens |
+| `components/ui/Button.tsx` | — |
+| `components/ui/Card.tsx` | — |
+| `components/ui/Input.tsx` | — |
+| `components/ui/BottomSheet.tsx` | — |
+| `components/ui/TabBar.tsx` | — |
+| `components/ui/ScanResult.tsx` | — |
+| `components/ui/ProfitBadge.tsx` | — |
+| `components/ui/ItemCard.tsx` | UNLISTED=warning gold, LISTED/SOLD uppercased |
+| `components/ui/EmptyState.tsx` | — |
+| `components/ui/PaywallModal.tsx` | Tier gate modal for Stripe upgrade |
+| `components/ui/index.ts` | Barrel export |
 
-### Important note on waitlist RLS
+### Shared Package (`packages/shared/src/`)
 
-`route.ts` now uses the anon key. The Supabase `waitlist` table **must** have an INSERT RLS policy allowing anon inserts (or anon role). If signups still return 500, check:
-1. Supabase → `waitlist` table → RLS policies → confirm `INSERT` is allowed for `anon` role
-2. If no policy exists, run: `CREATE POLICY "allow_anon_insert" ON waitlist FOR INSERT TO anon WITH CHECK (true);`
-
-### Commits this session
-
-| Hash | Message |
+| File | Purpose |
 |---|---|
-| `421c29e` | fix: waitlist 500 + remove PLACEHOLDER strings from landing page |
+| `types/index.ts` | All interfaces — single source of truth |
+| `utils/calcProfit.ts` | Profit calculation (no hardcoded fees) |
+| `utils/calcPnl.ts` | P&L summary calculation |
+| `utils/createInventoryItem.ts` | buildInventoryPayload, skuPrefix |
+| `constants/theme.ts` | Design tokens |
+| `constants/categories.ts` | CATEGORY_SKU_PREFIX map (21 categories) |
+| `constants/tiers.ts` | Tier limits |
+| `index.ts` | Barrel export |
 
-### Next task
+### Supabase Edge Functions (`supabase/functions/claude-proxy/`)
 
-**Block 3** continuation — verify Vercel deployment is READY after merge, then confirm `/api/waitlist` returns 200 in production. If waitlist still 500s after deploy, add the anon INSERT RLS policy in Supabase (see note above).
+All handlers in one `index.ts` (version 3, deployed and ACTIVE):
 
----
-
-## Session: 2026-06-01 — File Audit
-
-### File Audit
-
-Completed 2026-06-01: Deleted `generate_code.html` (stale Flippd artifact), `https_github_.txt` (single URL, not a file), `scanforprofit-playbook.html` (superseded by sfp-playbook-full.html), `ScanForProfitLanding.jsx` (React duplicate of index.html — index.html is live). Moved docs to correct subfolders per CLAUDE.md structure.
-
-Notes: `generate_code.html`, `https_github_.txt`, `ScanForProfitLanding.jsx` were not found in this repo — likely never committed or already removed before this audit. `scanforprofit-playbook.html` was found at root and deleted. `docs/directory-copy.md` and `docs/submission-readiness.md` moved to `docs/marketing/`.
-
-### Commits this session
-
-| Hash | Message |
+| Handler | Feature |
 |---|---|
-| _(this commit)_ | chore: file audit — delete 4 stale files, move docs to subfolders |
+| `scan_single` | Single item AI scan (getSingleSys prompt verbatim) |
+| `scan_shelf` | Shelf scan (getShelfSys prompt verbatim) |
+| `inventory_list` | List items + load user settings |
+| `inventory_create` | Create item (tier gate + SKU generation) |
+| `inventory_update` | Update item |
+| `inventory_delete` | Delete item |
+| `inventory_status` | Change item status (transition validation) |
+| `listing_generate` | AI listing generator (generateListingWithAI prompt verbatim) |
+| `fetch_trending` | Trending keywords (fetchTrendingKeywords prompt verbatim) |
+| `growth_agent` | Growth Agent brief (runGrowthAgent prompt verbatim, writes growth_cache) |
 
----
+Auth function (`supabase/functions/auth/`) — deployed ACTIVE:
+- `POST /auth/register`, `GET /auth/verify`, `POST /auth/login`, `GET /auth/me`
 
-## Session: 2026-06-01 — Phase 4 Steps 4–6 (HANDOFF recovery note)
+Stripe webhook function (`supabase/functions/stripe-webhook/`) — deployed ACTIVE.
 
-> HANDOFF.md was corrupted (UTF-16LE encoding) between commits `08c8ada` and `3f4f01c`. The three session entries below are reconstructed from commit messages. See git log for commit hashes.
+### Web App (`apps/web/`)
 
-### Phase 4 Step 4 — Listing Tab (commit `3b589b5`)
-
-- **`apps/mobile/app/(tabs)/listing.tsx`** — AI listing generator: select inventory item, generate eBay listing via claude-proxy (`listing_generate` handler), title/description/condition/price fields, one-tap copy per field, CSV export.
-- **`apps/mobile/lib/listing.ts`** — listing client: `generateListing`, `exportListingCsv`.
-- **`supabase/functions/claude-proxy/index.ts`** — added `listing_generate` handler (generateListingWithAI verbatim prompt from FEATURE_TRIAGE.md), `fetchTrendingKeywords` handler.
-
-### Phase 4 Step 5 — Trends Tab (commit `27e1912`)
-
-- **`apps/mobile/app/(tabs)/trends.tsx`** — Growth Agent tab: weekly business brief, 24h cache, tier gate.
-- **`apps/mobile/lib/growth.ts`** — growth client: `fetchGrowthBrief` (24h cache check), calls `growth_agent` proxy handler.
-- **`supabase/functions/claude-proxy/index.ts`** — added `growth_agent` handler (runGrowthAgent verbatim prompt from FEATURE_TRIAGE.md), writes to `growth_cache`.
-
-### Phase 4 Step 6 — Stats Tab (commit `846c65a`)
-
-- **`apps/mobile/app/(tabs)/stats.tsx`** — P&L dashboard: revenue, expenses, profit, ROI, mileage tracker, Stripe paywall for Hustle+ features.
-- **`apps/mobile/lib/stats.ts`** — stats client: `fetchPnlSummary`, `addExpense`, `addMileage`.
-- **`apps/mobile/components/ui/PaywallModal.tsx`** — paywall modal component for tier-gated features.
-- **`packages/shared/src/utils/calcPnl.ts`** — P&L calculation utility.
-- **`packages/shared/src/types/index.ts`** — added PnL, expense, mileage types.
-
-### Next task
-
-**Phase 4 Step 7** — per HANDOFF at `3f4f01c`.
-
----
-
-## Session: 2026-06-01 — Vercel builds paused
-
-### What changed this session
-
-- **`apps/web/vercel.json`** — created with `{"ignoreCommand":"exit 1"}`. Tells Vercel to skip all builds until Phase 5 web scaffold is ready. Re-enable in Phase 5 by deleting this file or changing ignoreCommand.
-
-### Next task
-
-**Phase 5** — when web scaffold is ready: delete `apps/web/vercel.json` (or remove `ignoreCommand`) to re-enable Vercel builds.
-
-### Commits this session
-
-| Hash | Message |
+| File | Purpose |
 |---|---|
-| `8202588` | chore: disable Vercel builds until Phase 5 web scaffold |
+| `public/index.html` | Static landing page (1438 lines, self-contained) |
+| `next.config.js` | beforeFiles rewrite: `/ → /index.html` |
+| `app/api/waitlist/route.ts` | POST: insert to Supabase waitlist table |
+| `vercel.json` | `{"ignoreCommand":"exit 1"}` — Vercel builds PAUSED until Phase 5 |
 
 ---
 
-## Session: 2026-05-31 (5) — Phase 4 Step 3: Inventory Tab
+## Locked Decisions (do not reverse)
 
-### What changed this session
-
-- **`apps/mobile/app/(tabs)/inventory.tsx`** — full replacement: FlatList + search + status filter pills (ALL/UNLISTED/LISTED/SOLD), FAB (ADD ITEM), Add/Edit BottomSheet with live profit preview, detail Modal with status change, delete confirm modal, sold-price modal, category/condition picker modals. Tier gate checked before opening Add sheet.
-- **`apps/mobile/lib/inventory.ts`** — new proxy-wrapped client: `fetchInventory`, `createItem`, `updateItem`, `deleteItem`, `changeStatus`. All ops routed through claude-proxy (RLS bypass). `mapRow` normalizes JSONB photos column.
-- **`apps/mobile/lib/storage.ts`** — new photo helper: `pickAndCompressPhoto` (expo-image-picker + expo-image-manipulator, JPEG 80%), `uploadItemPhoto` (Supabase Storage bucket `item-photos/{userId}/{itemId}/{filename}`), max 1MB enforced.
-- **`packages/shared/src/utils/createInventoryItem.ts`** — new pure function: `buildInventoryPayload` validates/defaults fields, `skuPrefix` returns prefix for category. Single source of truth for item creation shape.
-- **`packages/shared/src/constants/categories.ts`** — added `CATEGORY_SKU_PREFIX` map (21 eBay categories → 4-char code).
-- **`packages/shared/src/index.ts`** — export `createInventoryItem` utils.
-- **`apps/mobile/components/ui/ItemCard.tsx`** — fixed UNLISTED badge: now warning gold (was gray). LISTED/SOLD labels uppercased.
-- **`supabase/functions/claude-proxy/index.ts`** — added 5 handlers: `inventory_list`, `inventory_create` (tier gate + SKU generation), `inventory_update`, `inventory_delete`, `inventory_status` (transition validation). Added `HttpError` class, `ITEM_LIMITS`, `CATEGORY_SKU_PREFIX`. Deployed as version 3.
-- **Supabase Storage** — `item-photos` bucket created (public, 5MB limit, JPEG/PNG/WebP). RLS policies for authenticated upload/delete.
-- **`apps/mobile/package.json`** — added `expo-image-picker`, `expo-image-manipulator`.
-
-### Decisions made this session (do not reverse)
-
-- All inventory DB ops go through claude-proxy (service role bypasses `app.user_id` RLS)
-- Photos uploaded directly via Supabase Auth session (Storage has its own auth)
-- Settings loaded with `inventory_list` response — no separate settings fetch
-- Live profit preview uses loaded `settings.ebay_fee` / `pkg_cost` / `ship_cost` — never hardcoded
-- SKU generation is server-side (needs DB count) — proxy generates, shared util returns prefix only
-- Detail view is a full-screen Modal within inventory.tsx (no new route created)
-- `buildInventoryPayload` called by `createItem()` in lib/inventory.ts before proxy call
-
-### Commits this session
-
-| Hash | Message |
+| Decision | Reason |
 |---|---|
-| `2f69ee8` | feat: inventory tab — CRUD, photo picker, item card, proxy reads |
-
-### tsc result
-
-`npx tsc --noEmit` — **0 errors** (both `apps/mobile` and `packages/shared`)
-
-### Next task
-
-**Phase 4 Step 4** — Listing Tab: AI listing generator
-
----
-
-## Session: 2026-06-01 — Landing Page Fixes
-
-### What changed this session
-
-- **`apps/web/public/index.html`** — 4 surgical changes:
-  1. Converted `<form id="early-form">` → `<div>`, button `type="submit"` → `type="button"`, JS listener `submit` → `click` on the button
-  2. Converted `<form id="newsletter-form">` → `<div>`, same JS update
-  3. Added PostHog web snippet to `<head>` (`__POSTHOG_KEY__` placeholder — user must replace with real key from posthog.com → Project Settings → Project API Key); updated `trackEvent()` to call `posthog.capture()`; added `page_view` on `DOMContentLoaded`; added `waitlist_signup` event on successful form submit
-  4. Added `style="display:none"` to `#social-proof` section — was visible despite having `[PLACEHOLDER — REPLACE BEFORE LAUNCH]` markers on all testimonials
-
-### Commits this session
-
-| Hash | Message |
-|---|---|
-| `a39980d` | fix: landing page — remove form tags, PostHog analytics, hide placeholder social proof |
+| All inventory DB ops go through claude-proxy (service role) | RLS on `app.user_id` column requires service role bypass |
+| Photos uploaded directly via Supabase Storage Auth session | Storage has its own auth, not through proxy |
+| Settings loaded with inventory_list response | No separate settings fetch needed |
+| Live profit preview uses settings.ebay_fee / pkg_cost / ship_cost | Never hardcoded |
+| SKU generation is server-side | Needs DB count to pad correctly |
+| Detail view is a Modal within inventory.tsx | No new route |
+| `buildInventoryPayload` called by createItem() before proxy call | Single source of item shape |
+| Auth is email verification + password (NOT magic link) | Removed in backend v3.0.0 — never reintroduce |
+| 5 mobile tabs only: Scout, Inventory, Listing, Trends, Stats | Never add or rename |
+| Vercel builds paused (`apps/web/vercel.json`) | Re-enable in Phase 5 by deleting vercel.json |
+| Landing page served via Next.js `beforeFiles` rewrite | Loads at `/` without URL change |
+| Supabase waitlist uses anon key (not service role) | Service role not set in Vercel env vars |
 
 ---
 
-## Session: 2026-05-31 (4) — Landing Page + Waitlist
+## Supabase
 
-### What changed this session
+- **Project ID:** `dqgfpchkheznvanfgsmx` (ACTIVE_HEALTHY)
+- **Project URL:** `https://dqgfpchkheznvanfgsmx.supabase.co`
+- **Anon key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
+- **Auth:** custom email/password + verification (NOT Supabase Auth magic link)
+- **Tables:** users, inventory, scan_log, settings, pnl_expenses, growth_cache, waitlist
+- **Storage bucket:** `item-photos` (public, 5MB limit, JPEG/PNG/WebP)
+- **Migrations applied:** 000_base_schema.sql, 001_extend_schema.sql, 002_align_to_flippd.sql
 
-- **`apps/web/public/index.html`** — static ScanForProfit landing page (1438 lines, self-contained HTML/CSS/JS, no build step)
-- **`apps/web/next.config.js`** — added `beforeFiles` rewrite `/ → /index.html`; preserved existing `transpilePackages: ["@sfp/shared"]`
-- **`apps/web/app/api/waitlist/route.ts`** — POST endpoint, validates email, inserts into Supabase `waitlist` table via service role key
-- **Supabase** — `waitlist` table created (`id uuid PK`, `email text UNIQUE NOT NULL`, `created_at timestamptz`), RLS enabled
-
-### Decisions made this session (do not reverse)
-
-- Landing page served via Next.js `beforeFiles` rewrite (not a redirect) so it loads at `/` without changing the URL
-- Email form in `index.html` now POSTs to `/api/waitlist` (stub `setTimeout` removed)
-
-### Commits this session
-
-| Hash | Message |
-|---|---|
-| `68682c5` | feat: serve static landing page at scanforprofit.com root |
-| `aed53d5` | feat: wire email capture to Supabase waitlist table |
-
----
-
-## Session: 2026-05-31 (3) — Phase 4 Step 2.5: Protected Route Guard
-
-### What changed this session
-
-- **`apps/mobile/app/_layout.tsx`** — added auth gate
-
-### Commits this session
-
-| Hash | Message |
-|---|---|
-| `a6360d2` | feat: protected route guard — auth gate in root layout |
-
----
-
-## Session: 2026-05-31 (2) — Phase 4 Step 2: Scout Tab
-
-### What changed this session
-
-- **`apps/mobile/lib/camera.ts`** — created
-- **`apps/mobile/app/(tabs)/scout.tsx`** — full implementation
-- **`supabase/functions/claude-proxy/index.ts`** — major rewrite
-
-### Commits this session
-
-| Hash | Message |
-|---|---|
-| `a34dece` | feat: scout tab — camera, AI scan, FLIP/PASS/HOT result |
-
----
-
-## Session: 2026-05-31 — Phase 4 Step 1: Auth Flow
-
-### What changed this session
-
-- **`apps/mobile/app/(auth)/_layout.tsx`** — created
-- **`apps/mobile/app/(auth)/register.tsx`** — full implementation
-- **`apps/mobile/app/(auth)/login.tsx`** — full implementation
-- **`apps/mobile/app/(auth)/verify.tsx`** — new file
-- **`apps/mobile/lib/auth.ts`** — added `verifyOtp`
-
-### Commits this session
-
-| Hash | Message |
-|---|---|
-| `2ae300f` → pushed as `5ca1e51` | feat: auth flow — register, login, verify screens |
-
----
-
-## Session: 2026-05-29 — Deploy Edge Functions + Base Schema Migration
-
-### What changed this session
-
-- **`supabase/migrations/000_base_schema.sql` created** — base tables
-- **`supabase/migrations/001_extend_schema.sql` updated** — added missing index
-- **`supabase/migrations/002_align_to_flippd.sql` updated** — added missing indexes
-- **All 3 Edge Functions deployed to production** (ACTIVE, version 2)
-- **CI fixed:** Supabase GitHub integration disconnected, Cloudflare flippd-site Worker deleted
-
-### Function URLs (LIVE)
+### Edge Function URLs (LIVE)
 
 | Function | URL |
 |---|---|
@@ -261,23 +186,33 @@ Notes: `generate_code.html`, `https_github_.txt`, `ScanForProfitLanding.jsx` wer
 | `claude-proxy` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy` |
 | `stripe-webhook` | `https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-webhook` |
 
-Anon key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
+---
+
+## Stripe (livemode)
+
+| Plan | Product ID | Monthly Price ID | Annual Price ID |
+|---|---|---|---|
+| SFP Hustle | `prod_UaFBtgUANzpzCh` | `price_1Tb4hLId3kJSEdqMH7SYN3a8` ($19/mo) | `price_1Tb4hOId3kJSEdqMiMUrnFm2` ($180/yr) |
+| SFP Stack | `prod_UaFBJA9wZ0he0J` | `price_1Tb4hRId3kJSEdqMq9XwGKbZ` ($49/mo) | `price_1Tb4hTId3kJSEdqMB21L5giT` ($480/yr) |
+| SFP Empire | `prod_UaFB8CpVCfDjWp` | `price_1Tb4hWId3kJSEdqMFrtyqDkK` ($199/mo) | _(none)_ |
 
 ---
 
-## Session: 2026-05-29 — Fix GitHub Actions CI Failures
+## EAS Build
 
-### What changed this session
-
-- **`.github/workflows/mobile.yml` updated** — `workflow_dispatch` only
-- **`.github/workflows/web.yml` deleted** — permanent. Do NOT recreate.
-- **`docs/GITHUB_SECRETS.md` created**
+- **EAS Project ID:** `cc487254-9654-4930-ac52-37ffba835a20`
+- **CI workflow:** `.github/workflows/mobile.yml` — `workflow_dispatch` only (not auto)
+- **Web CI:** `.github/workflows/web.yml` — DELETED permanently. Do NOT recreate.
 
 ---
 
-## Session: 2026-05-27
+## Known Issues / Watch Items
 
-- File system audit, cleanup, git init, initial commit, CLAUDE.md written, type fix
+| Issue | Status |
+|---|---|
+| Supabase waitlist RLS — must have `INSERT` policy for anon role | If signups still 500, run: `CREATE POLICY "allow_anon_insert" ON waitlist FOR INSERT TO anon WITH CHECK (true);` |
+| Vercel env vars — `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be set | Inline fallbacks added to `lib/supabase.ts` as stopgap |
+| PostHog web snippet — `__POSTHOG_KEY__` placeholder in `index.html` | Replace with real key from posthog.com → Project Settings → Project API Key |
 
 ---
 
@@ -289,20 +224,5 @@ Anon key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 - 5 mobile tabs only: Scout, Inventory, Listing, Trends, Stats.
 - Supabase Edge Functions replace the old Replit backend entirely.
 - Update this file at the end of every session.
-
----
-
-## Supabase
-
-- **Project ID: `dqgfpchkheznvanfgsmx`** (ScanForProfit, ACTIVE_HEALTHY)
-- **Project URL:** `https://dqgfpchkheznvanfgsmx.supabase.co`
-- **Anon key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo`
-- Auth: custom email/password + verification (NOT Supabase Auth)
-
-## Stripe (livemode)
-
-| Plan | Product ID | Monthly Price ID | Annual Price ID |
-|---|---|---|---|
-| SFP Hustle | `prod_UaFBtgUANzpzCh` | `price_1Tb4hLId3kJSEdqMH7SYN3a8` ($19/mo) | `price_1Tb4hOId3kJSEdqMiMUrnFm2` ($180/yr) |
-| SFP Stack | `prod_UaFBJA9wZ0he0J` | `price_1Tb4hRId3kJSEdqMq9XwGKbZ` ($49/mo) | `price_1Tb4hTId3kJSEdqMB21L5giT` ($480/yr) |
-| SFP Empire | `prod_UaFB8CpVCfDjWp` | `price_1Tb4hWId3kJSEdqMFrtyqDkK` ($199/mo) | _(none)_ |
+- All AI prompts from FEATURE_TRIAGE.md — never rewrite.
+- No file over 500 lines — refactor proactively.
