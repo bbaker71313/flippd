@@ -75,21 +75,22 @@ Full audit of the entire GitHub repo across all 18 branches: branch history, edg
 - Landing page live at scanforprofit.com with waitlist capture
 - Edge Functions deployed (claude-proxy v6, stripe-webhook, stripe-checkout, auth)
 
+### Bugs fixed this session (all resolved as of 2026-06-02)
+
+| Bug | Fix applied |
+|---|---|
+| JWT_SECRET fallback to dev string | Set in Supabase Dashboard → Project Settings → Functions → Secrets |
+| `min_roi` vs `target_roi` column mismatch | Migration `004_rename_min_roi_to_target_roi` applied to production |
+| `handleBuyItem` missing tier gate | Fixed in claude-proxy, redeployed (v6) |
+| `.env.example` stale Flippd vars | Rewritten to match actual monorepo vars |
+| PostHog key placeholder | Was already a real key — no action needed |
+
 ### What's NOT done (pre-launch remaining)
 
-1. **Phase 4 Step 7 — Settings screen** (next task, see below)
+1. **Phase 4 Step 7 — Settings screen** (next task)
 2. **Phase 4 Step 8 — EAS build + TestFlight**
-3. Set `JWT_SECRET` Supabase secret (Bug 1 above — critical)
-4. Fix `min_roi` → `target_roi` migration (Bug 2)
-5. Fix `handleBuyItem` tier gate (Bug 3)
-6. Rewrite `.env.example` (Bug 4)
-7. Replace `__POSTHOG_KEY__` in landing page (Bug 5)
-8. Set remaining Supabase secrets: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-9. Register Stripe webhook endpoint in Stripe Dashboard
-
-### No changes this session
-
-Audit only. No files modified (except this HANDOFF update).
+3. Set remaining Supabase secrets if not already set: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+4. Register Stripe webhook endpoint in Stripe Dashboard
 
 ---
 
