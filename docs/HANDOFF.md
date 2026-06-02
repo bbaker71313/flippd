@@ -4,6 +4,95 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-02 — Full Repo Audit (all 18 branches)
+
+### What was audited
+
+Full audit of the entire GitHub repo across all 18 branches: branch history, edge function code, mobile screens, migrations, web app, and shared packages. No code was changed — audit only.
+
+### Branch cleanup needed
+
+12 of 18 branches are stale Flippd-era dead code and should be deleted:
+
+| Branch | Reason to delete |
+|---|---|
+| `claude/admin-tier-management-X5Q2i` | Old single-file Flippd HTML work |
+| `claude/audit-run-errors-6RmCv` | Old Flippd fixes |
+| `claude/brave-brahmagupta-ff7NM` | Old Flippd work |
+| `claude/deploy-edge-functions-kHcBm` | Empty |
+| `claude/fix-flippd-bugs-nRawD` | Old Flippd eBay API work |
+| `claude/gifted-clarke-uPkI6` | Already merged (#32) |
+| `claude/new-session-YbaGj` | Already merged |
+| `claude/new-session-YbaGj-security-fix` | Already merged |
+| `claude/new-session-xpGlD` | Empty |
+| `claude/remote-session-setup-MRbJ8` | Old Flippd UI work |
+| `claude/update-css-tokens-Fm9lv` | Old Flippd CSS |
+| `claude/vibrant-thompson-kGeJA` | Empty |
+| `cloudflare/workers-autoconfig` | Cloudflare Worker for old Flippd proxy |
+| `railway/fix-deploy-3056c1` | Empty |
+| `v0/scanforprofit-56a77671` | v0 scaffold, superseded |
+| `vercel/install-vercel-speed-insights-qjw27a` | Auto-created by Vercel, stale |
+
+`pr/phase-4-build` is behind main (main has Steps 4–6 that phase-4 doesn't). The PR should be **closed without merging** — main is already ahead.
+
+### Bugs confirmed (must fix before launch)
+
+**🔴 BUG 1 — JWT_SECRET is a fallback `dev-secret-replace-in-production` string**
+- `supabase/functions/claude-proxy/index.ts:993` — falls back to `'dev-secret-replace-in-production'` if `JWT_SECRET` env var is not set
+- Mobile uses Supabase Auth JWTs; the `JWT_SECRET` env var must be set to the **Supabase JWT Secret** (Supabase dashboard → Project Settings → API → JWT Secret)
+- If not set, the proxy verifies tokens against the wrong secret and all API calls fail in production
+- Fix: `supabase secrets set JWT_SECRET="<paste from Supabase dashboard>" --project-ref dqgfpchkheznvanfgsmx`
+
+**🔴 BUG 2 — DB column `min_roi` vs code `target_roi` — breaks ROI calculation for real users**
+- Migration `20260529010000_initial_schema.sql:77` creates column `min_roi` in `settings` table
+- `claude-proxy/index.ts` reads `s.target_roi` everywhere (lines 47, 123, 190, 839)
+- `DEFAULT_SETTINGS` has `target_roi: 200` so new users (no settings row yet) work fine
+- Users who exist in the `settings` table get `target_roi = undefined` → HOT/FLIP/PASS decisions break silently
+- Fix: add migration to rename column: `ALTER TABLE public.settings RENAME COLUMN min_roi TO target_roi;`
+
+**🟠 BUG 3 — `handleBuyItem` has no tier gate**
+- `inventory_create` (line 326) correctly checks `ITEM_LIMITS` before inserting
+- `buy_item` handler (line 269) inserts directly with no limit check
+- Scout users can bypass the 10-item inventory cap by using Scout tab → "Buy It" instead of Inventory tab → "Add Item"
+- Fix: add the same tier gate from `handleInventoryCreate` to `handleBuyItem` (pass `tier` parameter)
+
+**🟡 BUG 4 — `.env.example` is stale Flippd-era content**
+- Still references `PROXY_URL`, `GA4_MEASUREMENT_ID`, `MAILCHIMP_*` — none used in this repo
+- Missing: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_POSTHOG_KEY`
+- Fix: rewrite `.env.example` to match actual monorepo vars
+
+**🟡 BUG 5 — PostHog key placeholder on live landing page**
+- `apps/web/public/index.html` still has `__POSTHOG_KEY__` literal string
+- Per HANDOFF note from 2026-06-01 session: user must replace manually
+- Analytics are silently not firing on scanforprofit.com
+
+### What's confirmed working on main
+
+- All 6 Phase 4 steps complete (auth → scout → inventory → listing → trends → stats)
+- Stripe checkout Edge Function deployed
+- P&L math in `packages/shared/src/utils/calcPnl.ts`
+- Schema migrations applied to production project `dqgfpchkheznvanfgsmx`
+- Landing page live at scanforprofit.com with waitlist capture
+- Edge Functions deployed (claude-proxy v6, stripe-webhook, stripe-checkout, auth)
+
+### What's NOT done (pre-launch remaining)
+
+1. **Phase 4 Step 7 — Settings screen** (next task, see below)
+2. **Phase 4 Step 8 — EAS build + TestFlight**
+3. Set `JWT_SECRET` Supabase secret (Bug 1 above — critical)
+4. Fix `min_roi` → `target_roi` migration (Bug 2)
+5. Fix `handleBuyItem` tier gate (Bug 3)
+6. Rewrite `.env.example` (Bug 4)
+7. Replace `__POSTHOG_KEY__` in landing page (Bug 5)
+8. Set remaining Supabase secrets: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+9. Register Stripe webhook endpoint in Stripe Dashboard
+
+### No changes this session
+
+Audit only. No files modified (except this HANDOFF update).
+
+---
+
 ## Project Location
 
 `C:\Users\bbake\OneDrive\Desktop\scanforprofit`
@@ -25,7 +114,7 @@ github.com/bbaker71313/scanforprofit
 | Step 4 | Listing tab (AI generator, CSV export, trending keywords) | DONE | `3b589b5` |
 | Step 5 | Trends tab (Growth Agent, hunt list, business score) | DONE | `27e1912` |
 | Step 6 | Stats tab (P&L dashboard, expenses, Stripe paywall) | DONE | `846c65a` |
-| Step 7 | Settings screen | TODO | - |
+| Step 7 | Settings screen | **NEXT** | - |
 | Step 8 | EAS build + TestFlight | TODO | - |
 
 ### Current next task
@@ -51,6 +140,36 @@ github.com/bbaker71313/scanforprofit
 
 ### tsc status
 `npx tsc --noEmit` — 0 errors as of last session
+
+---
+
+## Session: 2026-06-02 — Items 6–8: Form → n8n, Dead Links, Schema Markup
+
+### What changed this session
+
+- **`apps/web/components/landing/EmailCapture.tsx`** — rewired form from `/api/waitlist` to `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL`; added `source: 'landing-page-hero'`; updated success copy ("You're in — check your inbox for next steps.") and error copy (includes contact email); clears input on success
+- **`apps/web/app/page.tsx`** — removed `/privacy` and `/terms` dead `<a>` links (now plain `<span>`); injected two `<script type="application/ld+json">` blocks (SoftwareApplication + FAQPage schemas) via `dangerouslySetInnerHTML`
+- **`apps/web/lib/schema.ts`** — created: exports `softwareAppSchema` and `faqSchema` as const objects (kept out of page.tsx to stay under 500-line limit)
+- **`.env.example`** — added `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL=` placeholder
+
+### Decisions made this session (do not reverse)
+
+- Env var is `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL` (NOT `NEXT_PUBLIC_N8N_WEBHOOK_URL`) — separate from the Stripe subscription webhook
+- n8n workflow `iB0bhOJ2Y2gREciM` (`sfp-new-user-welcome`) is for Stripe events only — do NOT point early access form at it
+- Actual early access webhook URL must be set in Vercel env vars before going live
+- `dangerouslySetInnerHTML` used only for JSON-LD schema — no other usage
+
+### Commits this session
+
+_(no commit yet — run `git add -A && git commit -m "feat: wire form to n8n, fix dead links, add schema markup"` then push)_
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors**
+
+### Next task
+
+**Items 4–5** — Remove fake metrics (`2,847 scans`, `156% avg ROI`) and replace fabricated testimonials in `SocialProofSection.tsx` with honest placeholder copy.
 
 ---
 

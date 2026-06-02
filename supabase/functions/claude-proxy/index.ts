@@ -269,8 +269,19 @@ async function handleShelfScan(
 async function handleBuyItem(
   supabase: ReturnType<typeof createClient>,
   userId: number,
+  tier: string,
   body: Record<string, unknown>,
 ) {
+  const limit = ITEM_LIMITS[tier] ?? null;
+  if (limit !== null) {
+    const { count } = await supabase
+      .from('inventory').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if ((count ?? 0) >= limit) {
+      throw new HttpError('item_limit_reached', 429, { tier, limit });
+    }
+  }
+
   const { data: inv, error } = await supabase.from('inventory').insert({
     user_id: userId,
     item_id: `scan-${Date.now()}`,
@@ -1029,7 +1040,7 @@ Deno.serve(async (req: Request) => {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
       return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
     }
-    if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, body));
+    if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));
     if (body.type === 'inventory_create') return json(await handleInventoryCreate(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_update') return json(await handleInventoryUpdate(supabase, dbUser.id, body));
