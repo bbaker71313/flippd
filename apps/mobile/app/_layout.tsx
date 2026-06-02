@@ -1,3 +1,4 @@
+import "../global.css";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Redirect, Stack, useSegments } from "expo-router";
