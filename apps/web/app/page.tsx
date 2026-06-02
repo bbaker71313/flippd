@@ -5,6 +5,7 @@ import PricingSection from '@/components/landing/PricingSection';
 import FaqSection from '@/components/landing/FaqSection';
 import GuaranteeSection from '@/components/landing/GuaranteeSection';
 import EmailCapture from '@/components/landing/EmailCapture';
+import { softwareAppSchema, faqSchema } from '@/lib/schema';
 
 export default function HomePage() {
   return (
@@ -28,22 +29,21 @@ export default function HomePage() {
         </div>
       </section>
 
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
       <footer className="bg-sfp-header border-t border-sfp-textSecondary/30 py-8">
         <div className="max-w-xl mx-auto px-6 flex items-center justify-between">
           <p className="font-mono text-sfp-textMuted text-xs">© 2026 ScanForProfit</p>
           <div className="flex gap-4">
-            <a
-              href="/privacy"
-              className="font-mono text-sfp-textMuted text-xs hover:text-sfp-background transition-colors duration-150"
-            >
-              Privacy
-            </a>
-            <a
-              href="/terms"
-              className="font-mono text-sfp-textMuted text-xs hover:text-sfp-background transition-colors duration-150"
-            >
-              Terms
-            </a>
+            <span className="font-mono text-sfp-textMuted text-xs">Privacy</span>
+            <span className="font-mono text-sfp-textMuted text-xs">Terms</span>
           </div>
         </div>
       </footer>
