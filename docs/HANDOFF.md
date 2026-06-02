@@ -54,6 +54,45 @@ github.com/bbaker71313/scanforprofit
 
 ---
 
+## Session: 2026-06-02 — Web SEO + Form Backend + Schema Markup
+
+### What changed this session
+
+- **`apps/web/public/robots.txt`** — created: allows all crawlers, references sitemap
+- **`apps/web/app/sitemap.ts`** — created: Next.js App Router sitemap generator, homepage URL only
+- **`apps/web/app/layout.tsx`** — added `metadataBase: new URL('https://www.scanforprofit.com')`
+- **`apps/web/lib/schema.ts`** — created: `softwareAppSchema` (SoftwareApplication) + `faqSchema` (FAQPage) JSON-LD objects
+- **`apps/web/app/page.tsx`** — added two `<script type="application/ld+json">` blocks using schema imports
+- **`apps/web/components/landing/EmailCapture.tsx`** — fixed env var name: `NEXT_PUBLIC_N8N_WEBHOOK_URL` → `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL`
+- **`.env.example`** — added `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL=` placeholder
+- **`supabase/migrations/003_add_waitlist_source.sql`** — added `source text` column to `waitlist` table (also applied live)
+- **n8n workflow `SFP — Early Access Capture` (ID: `mYoprIglOdv2b7nb`)** — created and active: Webhook POST → Supabase native node (inserts email+source, ignores duplicates) → HTTP Request to Resend (welcome email). Uses `Supabase account` credential for DB insert.
+
+### Decisions made this session (do not reverse)
+
+- Early access form uses `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL` (not the old `NEXT_PUBLIC_N8N_WEBHOOK_URL`)
+- n8n Supabase insert uses the native Supabase node (not HTTP Request) — avoids `$env` access restriction on n8n Cloud
+- Duplicate emails silently ignored via `resolution=ignore-duplicates`
+- `source` field distinguishes hero vs footer submissions
+- Webhook URL must be set in Vercel env vars (`NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL=https://scanforprofit.app.n8n.cloud/webhook/sfp-early-access-capture`)
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `314e861` | chore: add robots.txt and sitemap, fix indexation blockers |
+| `4f15348` | feat: wire early access form, fix dead links, add schema markup |
+
+### tsc result
+
+`npx tsc --noEmit` — **0 errors**
+
+### Next task
+
+**Items 4–5** — Remove fake metrics (`2,847 scans`, `156% avg ROI`) and replace fabricated testimonials (`@flippin_marcus`, `@thatvintageguy`, `@thriftqueenATL`) in `apps/web/app/page.tsx` components with honest placeholder copy.
+
+---
+
 ## Session: 2026-06-02 — Rebuild HANDOFF.md (corrupted file recovery)
 
 ### What changed this session
