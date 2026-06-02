@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import HeroSection from '@/components/landing/HeroSection';
 import ProblemSection from '@/components/landing/ProblemSection';
 import SocialProofSection from '@/components/landing/SocialProofSection';
@@ -42,8 +43,9 @@ export default function HomePage() {
         <div className="max-w-xl mx-auto px-6 flex items-center justify-between">
           <p className="font-mono text-sfp-textMuted text-xs">© 2026 ScanForProfit</p>
           <div className="flex gap-4">
-            <span className="font-mono text-sfp-textMuted text-xs">Privacy</span>
-            <span className="font-mono text-sfp-textMuted text-xs">Terms</span>
+            <Link href="/roadmap" className="font-mono text-sfp-textMuted text-xs hover:text-sfp-textSecondary transition-colors">Roadmap</Link>
+            <Link href="/privacy" className="font-mono text-sfp-textMuted text-xs hover:text-sfp-textSecondary transition-colors">Privacy</Link>
+            <Link href="/terms" className="font-mono text-sfp-textMuted text-xs hover:text-sfp-textSecondary transition-colors">Terms</Link>
           </div>
         </div>
       </footer>
