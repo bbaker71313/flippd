@@ -13,12 +13,14 @@ export default function EmailCapture() {
     if (!trimmed || !trimmed.includes('@')) return;
     setState('loading');
     try {
-      const res = await fetch('/api/waitlist', {
+      const res = await fetch(process.env.NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL!, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed }),
+        body: JSON.stringify({ email: trimmed, source: 'landing-page-hero' }),
       });
-      setState(res.ok ? 'success' : 'error');
+      if (!res.ok) throw new Error('Failed');
+      setState('success');
+      setEmail('');
     } catch {
       setState('error');
     }
@@ -30,7 +32,7 @@ export default function EmailCapture() {
         className="font-mono text-sfp-brand text-base"
         style={{ transition: 'opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
       >
-        You're on the list. We'll email you when early access opens.
+        You&apos;re in — check your inbox for next steps.
       </p>
     );
   }
@@ -73,7 +75,7 @@ export default function EmailCapture() {
           className="font-mono text-sfp-loss text-xs mt-2"
           style={{ transition: 'opacity 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
         >
-          Something went wrong. Try again.
+          Something went wrong. Try again or email us at hello@scanforprofit.com
         </p>
       )}
     </div>

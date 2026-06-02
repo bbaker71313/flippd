@@ -1,0 +1,1 @@
+ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS source text;
