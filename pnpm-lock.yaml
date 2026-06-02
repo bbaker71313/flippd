@@ -40,6 +40,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@babel/runtime':
+        specifier: ^7.29.7
+        version: 7.29.7
       '@expo/vector-icons':
         specifier: ^14.0.4
         version: 14.0.4
@@ -10541,7 +10544,7 @@ snapshots:
 
   '@sentry/bundler-plugin-core@2.22.7':
     dependencies:
-      '@babel/core': 7.29.0
+      '@babel/core': 7.29.7
       '@sentry/babel-plugin-component-annotate': 2.22.7
       '@sentry/cli': 2.39.1
       dotenv: 16.6.1
