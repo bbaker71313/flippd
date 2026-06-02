@@ -18,6 +18,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.scanforprofit.com'),
   title: 'ScanForProfit — Know in 8 seconds',
   description:
     'Scan any item at a thrift store or garage sale. Get a BUY, PASS, or HOT decision with profit number. Early access now open.',
