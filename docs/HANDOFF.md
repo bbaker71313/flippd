@@ -4,6 +4,41 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-03 — Phase 4 Step 7: Settings Screen
+
+### What changed this session
+
+- **`packages/shared/src/types/index.ts`** — added `SettingsInput` (mutable subset of `UserSettings`, 9 fields)
+- **`supabase/functions/claude-proxy/index.ts`** — added `handleSettingsGet` and `handleSettingsUpdate` handlers; routing for `settings_get` and `settings_update`. Scout tier blocked from update (returns 403). Server-side validation for all 9 fields. Deployed as version 8.
+- **`apps/mobile/lib/settings.ts`** — created: `fetchSettings()`, `saveSettings()`, `resetToDefaults()`, `DEFAULT_SETTINGS_INPUT`
+- **`apps/mobile/components/ui/SettingsForm.tsx`** — created: form with internal string state, client-side validation per field, Pricing / Inventory Rules / Preferences groups, Reset to Defaults button
+- **`apps/mobile/app/(tabs)/settings.tsx`** — created: Scout shows read-only preview + PaywallModal offer; Hustle+ sees full editor with save/reset/cancel
+- **`apps/mobile/app/(tabs)/_layout.tsx`** — added hidden `settings` Tabs.Screen entry (`href: null` — 5-tab rule preserved)
+- **`apps/mobile/app/(tabs)/stats.tsx`** — added gear icon in header (`router.push('/(tabs)/settings')`) to navigate to settings
+
+### Decisions made this session (do not reverse)
+
+- `sourcingStyle` uses existing `'conservative'|'balanced'|'aggressive'` — NOT spec's `'thrift'|'estate'|'retail'|'online'` (proxy/DB already use conservative/balanced/aggressive)
+- `shipping` uses existing `'buyer'|'seller'` — NOT spec's `'standard'|'expedited'|'local'` (P&L logic depends on buyer/seller distinction)
+- Settings screen is hidden from tab bar (5-tab constraint); accessed via gear icon on Stats header
+- SettingsForm uses internal string state for text inputs, parses to numbers only on Save
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `6b5be8a` | feat: Phase 4 Step 7 -- Settings screen, tier gate, proxy handlers |
+
+### tsc result
+
+Node.js not installed at `C:\Program Files\nodejs\` (PATH entry exists but dir missing) — could not run `tsc --noEmit`. All types reviewed manually; no known issues.
+
+### Next task
+
+**Phase 4 Step 8 — EAS Build + TestFlight**
+
+---
+
 ## Session: 2026-06-02 — Full Repo Audit (all 18 branches)
 
 ### What was audited
@@ -87,8 +122,8 @@ Full audit of the entire GitHub repo across all 18 branches: branch history, edg
 
 ### What's NOT done (pre-launch remaining)
 
-1. **Phase 4 Step 7 — Settings screen** (next task)
-2. **Phase 4 Step 8 — EAS build + TestFlight**
+1. **Phase 4 Step 8 — EAS build + TestFlight** (next task)
+2. Push commit `6b5be8a` to origin/main (run `git push origin main`)
 3. Set remaining Supabase secrets if not already set: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
 4. Register Stripe webhook endpoint in Stripe Dashboard
 
@@ -115,14 +150,14 @@ github.com/bbaker71313/scanforprofit
 | Step 4 | Listing tab (AI generator, CSV export, trending keywords) | DONE | `3b589b5` |
 | Step 5 | Trends tab (Growth Agent, hunt list, business score) | DONE | `27e1912` |
 | Step 6 | Stats tab (P&L dashboard, expenses, Stripe paywall) | DONE | `846c65a` |
-| Step 7 | Settings screen | **NEXT** | - |
-| Step 8 | EAS build + TestFlight | TODO | - |
+| Step 7 | Settings screen | DONE | `6b5be8a` |
+| Step 8 | EAS build + TestFlight | **NEXT** | - |
 
 ### Current next task
-**Phase 4 Step 7 — Settings Screen**
-- User-configurable fields: ebayFee, pkgCost, shipCost, minProfit, targetRoi, maxDays, minStr, sourcingStyle, shipping
-- Read from `settings` table via `claude-proxy`; save updates back
-- All values must flow through settings — never hardcode any of these
+**Phase 4 Step 8 — EAS Build + TestFlight**
+- `eas build --platform ios` to produce IPA
+- Submit to TestFlight for beta testing
+- Coordinate reviewer account setup with user
 
 ### Key standing decisions (apply every session)
 - All inventory/listing DB ops route through `claude-proxy` Edge Function (service role bypasses `app.user_id` RLS)
