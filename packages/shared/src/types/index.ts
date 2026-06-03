@@ -248,6 +248,19 @@ export interface TrendingKeywordsResult {
   fromCache: boolean
 }
 
+// Mutable settings fields — used when saving user preferences
+export interface SettingsInput {
+  ebayFee: number
+  pkgCost: number
+  shipCost: number
+  minProfit: number
+  targetRoi: number
+  maxDays: number
+  minStr: number
+  sourcingStyle: SourcingStyle
+  shipping: string   // 'buyer' | 'seller'
+}
+
 // Used by calcProfit.ts
 export interface ProfitCalcResult {
   gross: number

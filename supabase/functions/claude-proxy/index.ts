@@ -950,6 +950,100 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   return { cached: false, data: report, generatedAt: report.generatedAt };
 }
 
+async function handleSettingsGet(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  tier: string,
+) {
+  const { data: row, error } = await supabase
+    .from('settings').select('*').eq('user_id', userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const s = row ?? {};
+  const settings = {
+    id:            s.id ?? 0,
+    userId,
+    ebayFee:       Number(s.ebay_fee ?? 13),
+    pkgCost:       Number(s.pkg_cost ?? 1.25),
+    minProfit:     Number(s.min_profit ?? 15),
+    targetRoi:     Number(s.target_roi ?? 200),
+    maxDays:       Number(s.stale_days ?? 60),
+    minStr:        Number(s.min_str ?? 0),
+    shipping:      s.shipping ?? 'buyer',
+    shipCost:      Number(s.ship_cost ?? 6.00),
+    sourcingStyle: s.sourcing_style ?? 'balanced',
+    taxReservePct: Number(s.tax_reserve_pct ?? 0.25),
+    mileageRate:   Number(s.mileage_rate ?? 0.67),
+    updatedAt:     s.updated_at ?? new Date().toISOString(),
+  };
+  return { success: true, settings, tier };
+}
+
+interface SettingsInput {
+  ebayFee: number; pkgCost: number; shipCost: number; minProfit: number;
+  targetRoi: number; maxDays: number; minStr: number;
+  sourcingStyle: string; shipping: string;
+}
+
+function validateSettingsInput(s: SettingsInput): string | null {
+  if (s.ebayFee < 0 || s.ebayFee > 50)   return 'ebayFee must be 0–50';
+  if (s.pkgCost < 0)                       return 'pkgCost must be ≥ 0';
+  if (s.shipCost < 0)                      return 'shipCost must be ≥ 0';
+  if (s.minProfit < 0)                     return 'minProfit must be ≥ 0';
+  if (s.targetRoi < 0 || s.targetRoi > 1000) return 'targetRoi must be 0–1000';
+  if (s.maxDays < 1 || s.maxDays > 999)   return 'maxDays must be 1–999';
+  if (s.minStr < 1 || s.minStr > 100)     return 'minStr must be 1–100';
+  const validSourcing = ['conservative', 'balanced', 'aggressive'];
+  if (!validSourcing.includes(s.sourcingStyle)) return 'Invalid sourcingStyle';
+  const validShipping = ['buyer', 'seller'];
+  if (!validShipping.includes(s.shipping)) return 'Invalid shipping';
+  return null;
+}
+
+async function handleSettingsUpdate(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  tier: string,
+  body: Record<string, unknown>,
+) {
+  if (tier === 'scout') throw new HttpError('Upgrade to Hustle+ to edit settings.', 403);
+  const s = body.settings as SettingsInput;
+  if (!s) throw new HttpError('Missing settings payload', 400);
+  const validationError = validateSettingsInput(s);
+  if (validationError) throw new HttpError(validationError, 400);
+  const { data, error } = await supabase.from('settings').upsert({
+    user_id:       userId,
+    ebay_fee:      s.ebayFee,
+    pkg_cost:      s.pkgCost,
+    ship_cost:     s.shipCost,
+    min_profit:    s.minProfit,
+    target_roi:    s.targetRoi,
+    stale_days:    s.maxDays,
+    min_str:       s.minStr,
+    sourcing_style: s.sourcingStyle,
+    shipping:      s.shipping,
+    updated_at:    new Date().toISOString(),
+  }, { onConflict: 'user_id' }).select().single();
+  if (error) throw new Error(error.message);
+  const row = data as Record<string, unknown>;
+  const updated = {
+    id:            row.id as number,
+    userId,
+    ebayFee:       Number(row.ebay_fee ?? s.ebayFee),
+    pkgCost:       Number(row.pkg_cost ?? s.pkgCost),
+    minProfit:     Number(row.min_profit ?? s.minProfit),
+    targetRoi:     Number(row.target_roi ?? s.targetRoi),
+    maxDays:       Number(row.stale_days ?? s.maxDays),
+    minStr:        Number(row.min_str ?? s.minStr),
+    shipping:      row.shipping ?? s.shipping,
+    shipCost:      Number(row.ship_cost ?? s.shipCost),
+    sourcingStyle: row.sourcing_style ?? s.sourcingStyle,
+    taxReservePct: Number(row.tax_reserve_pct ?? 0.25),
+    mileageRate:   Number(row.mileage_rate ?? 0.67),
+    updatedAt:     row.updated_at as string,
+  };
+  return { success: true, settings: updated };
+}
+
 function buildFallbackReport(itemCount: number): Record<string, unknown> {
   return {
     business_score: 0, score_label: 'Needs Attention',
@@ -1057,6 +1151,8 @@ Deno.serve(async (req: Request) => {
     if (body.type === 'stats_summary')  return json(await handleStatsSummary(supabase, dbUser.id, dbUser.settings, body));
     if (body.type === 'expenses_list')  return json(await handleExpensesList(supabase, dbUser.id));
     if (body.type === 'expenses_add')   return json(await handleExpensesAdd(supabase, dbUser.id, body));
+    if (body.type === 'settings_get')   return json(await handleSettingsGet(supabase, dbUser.id, dbUser.tier));
+    if (body.type === 'settings_update') return json(await handleSettingsUpdate(supabase, dbUser.id, dbUser.tier, body));
 
     // Pass-through for other claude calls
     if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);

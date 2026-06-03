@@ -4,6 +4,7 @@ import {
   ScrollView, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@sfp/shared'
 import type { PnlSummary, PnlExpense, UserTier } from '@sfp/shared'
 import { fetchStatsSummary, fetchExpenses, addExpense, createCheckoutSession, type Period } from '../../lib/stats'
@@ -39,6 +40,7 @@ function SectionHeader({ title }: { title: string }) {
 
 
 export default function StatsScreen() {
+  const router = useRouter()
   const [state, setState]         = useState<ScreenState>('loading')
   const [period, setPeriod]       = useState<Period>('month')
   const [tier, setTier]           = useState<string>('trial')
@@ -137,6 +139,10 @@ export default function StatsScreen() {
         {/* Header */}
         <View style={{ paddingTop: SPACING.lg, paddingBottom: SPACING.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ fontFamily: TYPOGRAPHY.h2.fontFamily, fontSize: TYPOGRAPHY.h2.fontSize, fontWeight: TYPOGRAPHY.h2.fontWeight, color: COLORS.textPrimary }}>STATS</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')}
+            style={{ paddingHorizontal: SPACING.sm, paddingVertical: 4 }}>
+            <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.textMuted }}>⚙ Settings</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── 1. Period selector ──────────────────────────────────────────── */}

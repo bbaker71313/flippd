@@ -65,6 +65,14 @@ export default function TabLayout() {
           tabBarIcon: () => null,
         }}
       />
+      {/* Settings is not a visible tab — navigate to it via router.push('/(tabs)/settings') */}
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+          title: "Settings",
+        }}
+      />
     </Tabs>
   );
 }
