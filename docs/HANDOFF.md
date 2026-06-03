@@ -4,6 +4,59 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-03 — Phase 4 Step 8: EAS Build + TestFlight
+
+### What changed this session
+
+- **`apps/mobile/eas.json`** — added `ios.buildType=app-store` + `ios.distribution=store` to `production` build profile; added `submit.production.ios.testFlightEnabled=true`
+- **`apps/mobile/app.json`** — added `NSCameraUsageDescription` + `NSPhotoLibraryUsageDescription` to `ios.infoPlist` (required for App Store review); bumped android `versionCode` to 4
+
+### Decisions made this session
+
+- `production` build profile explicitly sets `ios.buildType=app-store` + `distribution=store` (EAS default was ambiguous)
+- Privacy usage strings added before build (App Store review requires these for camera/photo library usage)
+- Node.js is not in PowerShell PATH — `eas build` must be run from user's own terminal
+
+### Build steps to run manually (open terminal where `node` is available)
+
+```bash
+cd C:\Users\bbake\OneDrive\Desktop\scanforprofit\apps\mobile
+
+# 1. Verify auth
+eas whoami
+
+# 2. Build for App Store / TestFlight
+eas build --platform ios --profile production
+
+# 3. Submit to TestFlight (after build completes ~10-15 min)
+eas submit --platform ios --latest
+
+# 4. In App Store Connect → TestFlight: add internal testers
+```
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `05f8a2f` | chore: Phase 4 Step 8 -- EAS build config + iOS privacy keys |
+
+### tsc result
+
+Node.js not in PowerShell PATH — could not run `tsc --noEmit`. No code changes this session.
+
+### What's pending (user must do)
+
+1. `git push origin main` (push blocked by auto-mode classifier — run manually)
+2. Run `eas build --platform ios --profile production` in a terminal where Node is available
+3. Run `eas submit --platform ios --latest` after build finishes
+4. Add internal testers in App Store Connect → TestFlight
+
+### Next task
+
+**Phase 5 — Web App Build** (landing page React scaffold, pricing page, Vercel deploy)
+
+---
+
 ## Session: 2026-06-03 — Phase 4 Step 7: Settings Screen
 
 ### What changed this session
@@ -122,10 +175,13 @@ Full audit of the entire GitHub repo across all 18 branches: branch history, edg
 
 ### What's NOT done (pre-launch remaining)
 
-1. **Phase 4 Step 8 — EAS build + TestFlight** (next task)
-2. Push commit `6b5be8a` to origin/main (run `git push origin main`)
-3. Set remaining Supabase secrets if not already set: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-4. Register Stripe webhook endpoint in Stripe Dashboard
+1. **Run `git push origin main`** (blocked by auto-mode classifier — run manually)
+2. **Run `eas build --platform ios --profile production`** in a terminal where Node.js is available
+3. **Run `eas submit --platform ios --latest`** after build finishes
+4. Add internal testers in App Store Connect → TestFlight
+5. Set remaining Supabase secrets if not already set: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+6. Register Stripe webhook endpoint in Stripe Dashboard
+7. **Phase 5 — Web App Build** (next development phase)
 
 ---
 
@@ -151,13 +207,14 @@ github.com/bbaker71313/scanforprofit
 | Step 5 | Trends tab (Growth Agent, hunt list, business score) | DONE | `27e1912` |
 | Step 6 | Stats tab (P&L dashboard, expenses, Stripe paywall) | DONE | `846c65a` |
 | Step 7 | Settings screen | DONE | `6b5be8a` |
-| Step 8 | EAS build + TestFlight | **NEXT** | - |
+| Step 8 | EAS build + TestFlight | DONE (config) — **run build manually** | `05f8a2f` |
 
 ### Current next task
-**Phase 4 Step 8 — EAS Build + TestFlight**
-- `eas build --platform ios` to produce IPA
-- Submit to TestFlight for beta testing
-- Coordinate reviewer account setup with user
+**Phase 5 — Web App Build**
+- Rebuild landing page from static HTML → React components
+- Create pricing page, product pages, docs
+- Set up PostHog + Google Analytics on web
+- Deploy to Vercel (remove `ignoreCommand` from `apps/web/vercel.json`)
 
 ### Key standing decisions (apply every session)
 - All inventory/listing DB ops route through `claude-proxy` Edge Function (service role bypasses `app.user_id` RLS)
