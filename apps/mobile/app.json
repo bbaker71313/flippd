@@ -19,7 +19,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.scanforprofit.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "ScanForProfit uses your camera to scan product barcodes.",
+        "NSPhotoLibraryUsageDescription": "ScanForProfit accesses your photo library to attach item photos."
       }
     },
     "android": {
@@ -32,7 +34,7 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png",

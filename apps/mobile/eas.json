@@ -14,10 +14,18 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "buildType": "app-store",
+        "distribution": "store"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "testFlightEnabled": true
+      }
+    }
   }
 }
