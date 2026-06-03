@@ -16,16 +16,14 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "buildType": "app-store",
         "distribution": "store"
+      },
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "testFlightEnabled": true
-      }
-    }
+    "production": {}
   }
 }
