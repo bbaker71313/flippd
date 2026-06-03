@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy — ScanForProfit</title>
+<meta name="description" content="Privacy Policy for ScanForProfit. How we collect, use, and protect your data." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --dark: #3a2410;
+    --light: #f2ece0;
+    --surface: #f8f5ee;
+    --gold-d: #c9a468;
+    --gold-l: #8B6A3E;
+    --green: #00bb66;
+    --ink: #1c1712;
+    --muted: #6a5f54;
+    --border: #c8b89a;
+    --syne: "Syne", sans-serif;
+    --mono: "IBM Plex Mono", monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--light);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* NAV */
+  nav {
+    background: var(--dark);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+  }
+  .nav-wordmark {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--light);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .nav-wordmark b { font-weight: 700; }
+  .nav-wordmark span { font-weight: 400; }
+  nav a.back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gold-d);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  nav a.back:hover { color: var(--light); }
+
+  /* HERO */
+  .hero {
+    background: var(--dark);
+    padding: 56px 40px 48px;
+    border-bottom: 1px solid rgba(201, 164, 104, 0.2);
+  }
+  .hero-inner { max-width: 800px; margin: 0 auto; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold-d);
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-family: var(--syne);
+    font-weight: 800;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    color: var(--light);
+    margin: 0 0 16px;
+    line-height: 1.05;
+  }
+  .hero-meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .hero-meta span { color: var(--gold-d); }
+
+  /* CONTENT */
+  .content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 56px 40px 80px;
+  }
+
+  /* TABLE OF CONTENTS */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-bottom: 48px;
+  }
+  .toc-title {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gold-l);
+    margin-bottom: 16px;
+  }
+  .toc ol {
+    margin: 0;
+    padding: 0 0 0 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 24px;
+  }
+  .toc li { font-size: 13px; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--green); }
+
+  /* SECTIONS */
+  .section { margin-bottom: 48px; }
+  .section h2 {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 16px;
+    padding-top: 8px;
+    border-top: 2px solid var(--border);
+  }
+  .section h2 .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--gold-l);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 400;
+    border-top: none;
+    font-size: 11px;
+  }
+  .section p { margin: 0 0 14px; color: var(--ink); }
+  .section p:last-child { margin-bottom: 0; }
+  .section ul, .section ol {
+    margin: 0 0 14px;
+    padding-left: 22px;
+  }
+  .section li { margin-bottom: 6px; }
+  .section a { color: var(--dark); }
+  .section a:hover { color: var(--green); }
+
+  strong { font-weight: 600; }
+
+  /* HIGHLIGHT BOX */
+  .callout {
+    background: rgba(0, 187, 102, 0.06);
+    border: 1px solid rgba(0, 187, 102, 0.25);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0 0 14px;
+    font-size: 14px;
+  }
+
+  /* CONTACT */
+  .contact-box {
+    background: var(--dark);
+    color: var(--light);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-top: 48px;
+  }
+  .contact-box h3 {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 18px;
+    margin: 0 0 10px;
+    color: var(--light);
+  }
+  .contact-box p { color: #cdbfa6; margin: 0 0 8px; font-size: 14px; }
+  .contact-box a { color: var(--gold-d); text-decoration: none; }
+  .contact-box a:hover { color: var(--light); }
+
+  /* FOOTER */
+  footer {
+    background: var(--dark);
+    padding: 32px 40px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer a { color: var(--gold-d); text-decoration: none; margin: 0 12px; }
+  footer a:hover { color: var(--light); }
+  .footer-links { margin-bottom: 10px; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 40px 24px 36px; }
+    .content { padding: 40px 24px 60px; }
+    nav { padding: 16px 24px; }
+    .toc ol { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="https://www.scanforprofit.com" class="nav-logo">
+    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M3 13 V3 H13" stroke="#c9a468" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <path d="M19 29 H29 V19" stroke="#c9a468" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <rect x="6" y="21" width="4" height="6" fill="#00bb66"/>
+      <rect x="12" y="16" width="4" height="11" fill="#00bb66"/>
+      <rect x="18" y="11" width="4" height="16" fill="#00bb66"/>
+    </svg>
+    <span class="nav-wordmark"><b>SCAN</b><span>FORPROFIT</span></span>
+  </a>
+  <a href="https://www.scanforprofit.com" class="back">← Back to home</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Legal</div>
+    <h1>Privacy Policy</h1>
+    <div class="hero-meta">Last updated: <span>June 3, 2025</span> · Effective: <span>June 3, 2025</span></div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#s1">Information We Collect</a></li>
+      <li><a href="#s2">How We Use Your Information</a></li>
+      <li><a href="#s3">Information Sharing</a></li>
+      <li><a href="#s4">Data Storage & Security</a></li>
+      <li><a href="#s5">Your Rights</a></li>
+      <li><a href="#s6">Cookies & Tracking</a></li>
+      <li><a href="#s7">Third-Party Services</a></li>
+      <li><a href="#s8">Children's Privacy</a></li>
+      <li><a href="#s9">Changes to This Policy</a></li>
+      <li><a href="#s10">Contact Us</a></li>
+    </ol>
+  </div>
+
+  <div class="callout">
+    <strong>Plain-English summary:</strong> We collect what we need to run the app. We don't sell your data. You can delete your account and all associated data at any time by emailing <a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a>.
+  </div>
+
+  <div class="section" id="s1">
+    <h2><span class="num">01</span>Information We Collect</h2>
+    <p>We collect information you provide directly to us and information generated through your use of ScanForProfit.</p>
+    <p><strong>Account information:</strong> When you register, we collect your email address, username, and password (stored as a hashed value — we never store your plain-text password).</p>
+    <p><strong>Inventory and scan data:</strong> Items you add to your inventory, scan results, photos you upload, and associated metadata (purchase price, sale price, condition, notes).</p>
+    <p><strong>Usage data:</strong> Features you use, scan counts, session duration, and app events. This is collected via PostHog and used solely to improve the product.</p>
+    <p><strong>Payment information:</strong> Billing is handled by Stripe. We do not store your credit card number, CVV, or full card details. We store only a Stripe customer ID and your current subscription tier.</p>
+    <p><strong>Device information:</strong> Device type, operating system version, and app version — used for debugging and compatibility.</p>
+  </div>
+
+  <div class="section" id="s2">
+    <h2><span class="num">02</span>How We Use Your Information</h2>
+    <p>We use your information to:</p>
+    <ul>
+      <li>Operate and maintain your account and subscription</li>
+      <li>Generate AI-powered scan decisions, listing content, and trend reports</li>
+      <li>Process payments and manage your subscription tier</li>
+      <li>Send transactional emails (account verification, purchase receipts, password resets)</li>
+      <li>Send product update emails if you opt in — you can unsubscribe at any time</li>
+      <li>Debug errors and improve app performance</li>
+      <li>Enforce our Terms of Service</li>
+    </ul>
+    <p>We do not use your data for advertising, profiling, or sale to third parties.</p>
+  </div>
+
+  <div class="section" id="s3">
+    <h2><span class="num">03</span>Information Sharing</h2>
+    <p>We do not sell, rent, or share your personal information with third parties for their marketing purposes.</p>
+    <p>We share data only with the following service providers, solely to operate ScanForProfit:</p>
+    <ul>
+      <li><strong>Supabase</strong> — database and authentication infrastructure</li>
+      <li><strong>Anthropic</strong> — AI model provider. Scan images and text are sent to Anthropic's API to generate scan decisions and listing content. Anthropic's data usage policies apply.</li>
+      <li><strong>Stripe</strong> — payment processing</li>
+      <li><strong>Resend</strong> — transactional email delivery</li>
+      <li><strong>PostHog</strong> — product analytics (anonymized usage events)</li>
+      <li><strong>Sentry</strong> — error monitoring</li>
+    </ul>
+    <p>We may disclose information if required by law, court order, or to protect the rights and safety of ScanForProfit or its users.</p>
+  </div>
+
+  <div class="section" id="s4">
+    <h2><span class="num">04</span>Data Storage & Security</h2>
+    <p>Your data is stored on Supabase infrastructure hosted in the United States. All data is transmitted over HTTPS/TLS.</p>
+    <p>We use industry-standard security practices including hashed password storage, row-level security on your inventory data, and API keys stored as server-side secrets (never exposed to client code).</p>
+    <p>No method of electronic storage or transmission is 100% secure. We take reasonable measures to protect your data but cannot guarantee absolute security.</p>
+    <p>Your inventory data is yours. You can export it as CSV at any time from within the app. We do not hold your data hostage.</p>
+  </div>
+
+  <div class="section" id="s5">
+    <h2><span class="num">05</span>Your Rights</h2>
+    <p>You have the right to:</p>
+    <ul>
+      <li><strong>Access</strong> — request a copy of all personal data we hold about you</li>
+      <li><strong>Correction</strong> — update incorrect information via account settings or by contacting us</li>
+      <li><strong>Deletion</strong> — request deletion of your account and all associated data</li>
+      <li><strong>Export</strong> — download your inventory as CSV at any time from within the app</li>
+      <li><strong>Opt-out</strong> — unsubscribe from marketing emails at any time via the unsubscribe link in any email</li>
+    </ul>
+    <p>To exercise any of these rights, email <a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a>. We will respond within 30 days.</p>
+    <p>If you are in the European Economic Area or United Kingdom, you may also have rights under GDPR including the right to lodge a complaint with your local supervisory authority.</p>
+  </div>
+
+  <div class="section" id="s6">
+    <h2><span class="num">06</span>Cookies & Tracking</h2>
+    <p>The ScanForProfit web application uses session cookies for authentication. These are required for the app to function and cannot be opted out of while using the service.</p>
+    <p>We use PostHog for product analytics. PostHog may set cookies to identify sessions. These analytics are used solely to understand how users interact with ScanForProfit and to improve the product.</p>
+    <p>We do not use advertising cookies or retargeting pixels.</p>
+  </div>
+
+  <div class="section" id="s7">
+    <h2><span class="num">07</span>Third-Party Services</h2>
+    <p>ScanForProfit integrates with eBay to retrieve sold listing data for price comparisons. We do not store your eBay credentials. eBay's Privacy Policy governs their data practices.</p>
+    <p>Links to third-party sites (eBay listings, support resources) are provided for convenience. We are not responsible for the privacy practices of those sites.</p>
+  </div>
+
+  <div class="section" id="s8">
+    <h2><span class="num">08</span>Children's Privacy</h2>
+    <p>ScanForProfit is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided us with personal information, contact us at <a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a> and we will delete it promptly.</p>
+  </div>
+
+  <div class="section" id="s9">
+    <h2><span class="num">09</span>Changes to This Policy</h2>
+    <p>We may update this Privacy Policy as the service evolves. When we make material changes, we will notify you by email (at the address on your account) and update the "Last updated" date at the top of this page.</p>
+    <p>Continued use of ScanForProfit after changes take effect constitutes acceptance of the updated policy.</p>
+  </div>
+
+  <div class="section" id="s10">
+    <h2><span class="num">10</span>Contact Us</h2>
+    <p>Questions about this Privacy Policy or your data?</p>
+  </div>
+
+  <div class="contact-box">
+    <h3>Get in touch</h3>
+    <p>ScanForProfit · Data Privacy</p>
+    <p><a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a></p>
+    <p style="margin-top: 12px; font-size: 13px;">We respond within 30 days. For urgent account issues, include "DATA REQUEST" in the subject line.</p>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-links">
+    <a href="https://www.scanforprofit.com">Home</a>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/terms.html">Terms of Service</a>
+    <a href="mailto:britt@scanforprofit.com">Contact</a>
+  </div>
+  © 2025 ScanForProfit. For resellers, by resellers.
+</footer>
+
+</body>
+</html>
