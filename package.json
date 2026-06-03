@@ -29,21 +29,6 @@
   ],
   "author": "Britt Baker",
   "license": "ISC",
-  "pnpm": {
-    "overrides": {
-      "next": "15.5.18",
-      "react-email>next": "15.5.18"
-    },
-    "onlyBuiltDependencies": [
-      "@sentry/cli",
-      "bcrypt",
-      "core-js",
-      "esbuild",
-      "protobufjs",
-      "sharp",
-      "unrs-resolver"
-    ]
-  },
   "devDependencies": {
     "turbo": "^2.9.16"
   }

@@ -5,12 +5,19 @@ packages:
 overrides:
   next: "15.5.18"
   react-email>next: "15.5.18"
+  "@expo/metro-runtime": "^56.0.13"
+
+packageExtensions:
+  "@sentry/react-native@*":
+    peerDependencies:
+      "@expo/config-plugins": "*"
 
 allowBuilds:
   '@sentry/cli': true
-  bcrypt: set this to true or false
+  bcrypt: true
   core-js: true
   esbuild: true
+  msgpackr-extract: true
   protobufjs: true
   sharp: true
   unrs-resolver: true

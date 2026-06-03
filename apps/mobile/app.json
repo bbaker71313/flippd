@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -42,6 +36,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0f172a"
+        }
+      ],
       "expo-camera",
       "expo-secure-store",
       [
@@ -50,7 +52,8 @@
           "organization": "scanforprofit",
           "project": "scanforprofit-mobile"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "scanforprofit",
     "extra": {
