@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Terms of Service — ScanForProfit</title>
+<meta name="description" content="Terms of Service for ScanForProfit. Rules for using the platform." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --dark: #3a2410;
+    --light: #f2ece0;
+    --surface: #f8f5ee;
+    --gold-d: #c9a468;
+    --gold-l: #8B6A3E;
+    --green: #00bb66;
+    --ink: #1c1712;
+    --muted: #6a5f54;
+    --border: #c8b89a;
+    --syne: "Syne", sans-serif;
+    --mono: "IBM Plex Mono", monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--light);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  nav {
+    background: var(--dark);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+  }
+  .nav-wordmark {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--light);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .nav-wordmark b { font-weight: 700; }
+  .nav-wordmark span { font-weight: 400; }
+  nav a.back {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gold-d);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  nav a.back:hover { color: var(--light); }
+
+  .hero {
+    background: var(--dark);
+    padding: 56px 40px 48px;
+    border-bottom: 1px solid rgba(201, 164, 104, 0.2);
+  }
+  .hero-inner { max-width: 800px; margin: 0 auto; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold-d);
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-family: var(--syne);
+    font-weight: 800;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    color: var(--light);
+    margin: 0 0 16px;
+    line-height: 1.05;
+  }
+  .hero-meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .hero-meta span { color: var(--gold-d); }
+
+  .content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 56px 40px 80px;
+  }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-bottom: 48px;
+  }
+  .toc-title {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gold-l);
+    margin-bottom: 16px;
+  }
+  .toc ol {
+    margin: 0;
+    padding: 0 0 0 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 24px;
+  }
+  .toc li { font-size: 13px; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--green); }
+
+  .section { margin-bottom: 48px; }
+  .section h2 {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 16px;
+    padding-top: 8px;
+    border-top: 2px solid var(--border);
+  }
+  .section h2 .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--gold-l);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 400;
+  }
+  .section p { margin: 0 0 14px; }
+  .section p:last-child { margin-bottom: 0; }
+  .section ul, .section ol {
+    margin: 0 0 14px;
+    padding-left: 22px;
+  }
+  .section li { margin-bottom: 6px; }
+  .section a { color: var(--dark); }
+  .section a:hover { color: var(--green); }
+
+  strong { font-weight: 600; }
+
+  .callout {
+    background: rgba(0, 187, 102, 0.06);
+    border: 1px solid rgba(0, 187, 102, 0.25);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0 0 14px;
+    font-size: 14px;
+  }
+
+  .warning-box {
+    background: rgba(201, 164, 104, 0.08);
+    border: 1px solid rgba(201, 164, 104, 0.35);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0 0 14px;
+    font-size: 14px;
+  }
+
+  .tier-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .tier-table th {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gold-l);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--border);
+  }
+  .tier-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .tier-table tr:last-child td { border-bottom: none; }
+
+  .contact-box {
+    background: var(--dark);
+    color: var(--light);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-top: 48px;
+  }
+  .contact-box h3 {
+    font-family: var(--syne);
+    font-weight: 700;
+    font-size: 18px;
+    margin: 0 0 10px;
+    color: var(--light);
+  }
+  .contact-box p { color: #cdbfa6; margin: 0 0 8px; font-size: 14px; }
+  .contact-box a { color: var(--gold-d); text-decoration: none; }
+  .contact-box a:hover { color: var(--light); }
+
+  footer {
+    background: var(--dark);
+    padding: 32px 40px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer a { color: var(--gold-d); text-decoration: none; margin: 0 12px; }
+  footer a:hover { color: var(--light); }
+  .footer-links { margin-bottom: 10px; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 40px 24px 36px; }
+    .content { padding: 40px 24px 60px; }
+    nav { padding: 16px 24px; }
+    .toc ol { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 30px; }
+    .tier-table { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="https://www.scanforprofit.com" class="nav-logo">
+    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M3 13 V3 H13" stroke="#c9a468" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <path d="M19 29 H29 V19" stroke="#c9a468" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <rect x="6" y="21" width="4" height="6" fill="#00bb66"/>
+      <rect x="12" y="16" width="4" height="11" fill="#00bb66"/>
+      <rect x="18" y="11" width="4" height="16" fill="#00bb66"/>
+    </svg>
+    <span class="nav-wordmark"><b>SCAN</b><span>FORPROFIT</span></span>
+  </a>
+  <a href="https://www.scanforprofit.com" class="back">← Back to home</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Legal</div>
+    <h1>Terms of Service</h1>
+    <div class="hero-meta">Last updated: <span>June 3, 2025</span> · Effective: <span>June 3, 2025</span></div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#s1">Acceptance of Terms</a></li>
+      <li><a href="#s2">Description of Service</a></li>
+      <li><a href="#s3">Account Registration</a></li>
+      <li><a href="#s4">Subscription Tiers & Billing</a></li>
+      <li><a href="#s5">Acceptable Use</a></li>
+      <li><a href="#s6">AI-Generated Content</a></li>
+      <li><a href="#s7">Your Content & Data</a></li>
+      <li><a href="#s8">Intellectual Property</a></li>
+      <li><a href="#s9">Disclaimers</a></li>
+      <li><a href="#s10">Limitation of Liability</a></li>
+      <li><a href="#s11">Termination</a></li>
+      <li><a href="#s12">Governing Law</a></li>
+      <li><a href="#s13">Changes to Terms</a></li>
+      <li><a href="#s14">Contact</a></li>
+    </ol>
+  </div>
+
+  <div class="callout">
+    <strong>Plain-English summary:</strong> Use ScanForProfit to run your reselling business. Don't abuse it. Scan decisions are estimates — verify before buying. Your data is yours. Cancel anytime.
+  </div>
+
+  <div class="section" id="s1">
+    <h2><span class="num">01</span>Acceptance of Terms</h2>
+    <p>By creating an account or using ScanForProfit ("the Service"), you agree to these Terms of Service ("Terms"). If you do not agree, do not use the Service.</p>
+    <p>These Terms constitute a legally binding agreement between you and ScanForProfit ("we," "us," "our"). By accessing or using the Service, you represent that you are at least 13 years old and have the legal capacity to enter into this agreement.</p>
+  </div>
+
+  <div class="section" id="s2">
+    <h2><span class="num">02</span>Description of Service</h2>
+    <p>ScanForProfit is a mobile and web application for eBay resellers that provides:</p>
+    <ul>
+      <li>AI-powered scan decisions (BUY / PASS / HOT) based on eBay sold listing data</li>
+      <li>Inventory tracking and management</li>
+      <li>AI-generated eBay listing content</li>
+      <li>Trend analysis and weekly sourcing recommendations</li>
+      <li>Profit and loss reporting</li>
+    </ul>
+    <p>The Service is a decision-support tool. All final purchasing and pricing decisions are yours. We are not a financial advisor, and nothing in the Service constitutes financial advice.</p>
+  </div>
+
+  <div class="section" id="s3">
+    <h2><span class="num">03</span>Account Registration</h2>
+    <p>You must register with a valid email address and create a password. You are responsible for:</p>
+    <ul>
+      <li>Keeping your password secure and confidential</li>
+      <li>All activity that occurs under your account</li>
+      <li>Notifying us immediately at <a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a> if you suspect unauthorized access</li>
+    </ul>
+    <p>One account per person. You may not create accounts on behalf of others without their explicit consent. We reserve the right to refuse registration or terminate accounts at our discretion.</p>
+  </div>
+
+  <div class="section" id="s4">
+    <h2><span class="num">04</span>Subscription Tiers & Billing</h2>
+    <p>ScanForProfit offers the following tiers:</p>
+    <table class="tier-table">
+      <thead>
+        <tr><th>Tier</th><th>Price</th><th>Scans/mo</th><th>Items</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Scout</td><td>Free</td><td>25</td><td>10</td></tr>
+        <tr><td>Hustle</td><td>$19/mo or $180/yr</td><td>Unlimited</td><td>500</td></tr>
+        <tr><td>Stack</td><td>$49/mo or $480/yr</td><td>Unlimited</td><td>Unlimited</td></tr>
+        <tr><td>Empire</td><td>$199/mo</td><td>Unlimited</td><td>Unlimited (10 seats)</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Free trial:</strong> New accounts receive 7 days of trial access. No credit card is required. At trial end, you automatically drop to the Scout tier.</p>
+    <p><strong>Billing:</strong> Paid plans are billed in advance on a monthly or annual cycle. Payments are processed by Stripe. You authorize us to charge your payment method on file at each renewal.</p>
+    <p><strong>Cancellation:</strong> You may cancel your paid subscription at any time from within the app. Cancellation takes effect at the end of your current billing period. You retain access to paid features until that date. We do not issue prorated refunds for partial periods.</p>
+    <p><strong>Refunds:</strong> We offer refunds within 7 days of initial charge if you have not used more than 10 scans. Contact <a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a> with your request.</p>
+    <p><strong>Price changes:</strong> We will provide at least 30 days advance notice of price increases via email before they take effect on your account.</p>
+  </div>
+
+  <div class="section" id="s5">
+    <h2><span class="num">05</span>Acceptable Use</h2>
+    <p>You agree to use ScanForProfit only for lawful purposes and in accordance with these Terms. You agree not to:</p>
+    <ul>
+      <li>Use the Service to facilitate fraudulent eBay listings or misrepresent item condition</li>
+      <li>Reverse engineer, decompile, or attempt to extract source code from the Service</li>
+      <li>Use automated bots, scrapers, or scripts to access the Service beyond normal use</li>
+      <li>Share your account credentials with others (Empire tier multi-seat accounts excepted)</li>
+      <li>Upload content that is illegal, harmful, or violates third-party rights</li>
+      <li>Attempt to bypass scan limits or tier restrictions through technical means</li>
+      <li>Interfere with or disrupt the Service or its infrastructure</li>
+    </ul>
+    <p>We reserve the right to suspend or terminate accounts that violate these terms without refund.</p>
+  </div>
+
+  <div class="section" id="s6">
+    <h2><span class="num">06</span>AI-Generated Content</h2>
+    <div class="warning-box">
+      <strong>Important:</strong> Scan decisions (BUY / PASS / HOT), profit estimates, and listing content are generated by AI and are estimates only. They are not guarantees of sale price, sell-through rate, or profit. Always verify before making purchasing decisions.
+    </div>
+    <p>AI-generated scan results are based on recent eBay sold listing data and your configured settings. Actual results will vary based on item condition, local market, timing, and many factors outside our control.</p>
+    <p>AI-generated listing titles and descriptions are provided as drafts. You are responsible for reviewing, editing, and ensuring accuracy before publishing any eBay listing. You are responsible for compliance with eBay's policies.</p>
+    <p>We make no warranty that AI-generated content is accurate, complete, or suitable for any particular purpose.</p>
+  </div>
+
+  <div class="section" id="s7">
+    <h2><span class="num">07</span>Your Content & Data</h2>
+    <p>You retain ownership of all content you upload to ScanForProfit, including inventory data, photos, and notes ("Your Content").</p>
+    <p>By uploading content, you grant us a limited license to store, process, and display Your Content solely for the purpose of operating the Service for you.</p>
+    <p>We do not use your inventory data, photos, or scan history to train AI models or for any purpose beyond operating the Service.</p>
+    <p>You can export your inventory as CSV at any time. If you close your account, we will delete your data within 90 days unless required by law to retain it.</p>
+  </div>
+
+  <div class="section" id="s8">
+    <h2><span class="num">08</span>Intellectual Property</h2>
+    <p>ScanForProfit, its logo, design, software, AI models, and content (excluding Your Content) are owned by ScanForProfit and protected by intellectual property laws.</p>
+    <p>You may not copy, modify, distribute, or create derivative works from any part of the Service without our written permission.</p>
+    <p>Feedback you provide about the Service may be used by us to improve the product without compensation to you.</p>
+  </div>
+
+  <div class="section" id="s9">
+    <h2><span class="num">09</span>Disclaimers</h2>
+    <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.</p>
+    <p>We do not warrant that:</p>
+    <ul>
+      <li>The Service will be uninterrupted, error-free, or secure</li>
+      <li>Scan results, profit estimates, or trend recommendations will be accurate or profitable</li>
+      <li>eBay sold data retrieved through the Service will be complete or current</li>
+    </ul>
+    <p>Use of the Service is at your own risk. Reselling involves financial risk. We are not responsible for purchasing decisions you make based on scan results.</p>
+  </div>
+
+  <div class="section" id="s10">
+    <h2><span class="num">10</span>Limitation of Liability</h2>
+    <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, SCANFORPROFIT WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING LOSS OF PROFITS, DATA, OR GOODWILL, ARISING FROM YOUR USE OF THE SERVICE.</p>
+    <p>OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM OR RELATED TO THE SERVICE WILL NOT EXCEED THE AMOUNT YOU PAID TO US IN THE 12 MONTHS PRECEDING THE CLAIM, OR $100, WHICHEVER IS GREATER.</p>
+    <p>Some jurisdictions do not allow limitations on certain warranties or liability. If these laws apply to you, some of the above limitations may not apply.</p>
+  </div>
+
+  <div class="section" id="s11">
+    <h2><span class="num">11</span>Termination</h2>
+    <p><strong>By you:</strong> You may close your account at any time from within the app or by emailing <a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a>. Paid subscription access continues until the end of the current billing period.</p>
+    <p><strong>By us:</strong> We may suspend or terminate your account if you violate these Terms, engage in fraudulent activity, or if we discontinue the Service. We will provide reasonable notice where possible.</p>
+    <p>Upon termination, your right to use the Service ends immediately. We will retain your data for 90 days after termination, after which it will be deleted.</p>
+  </div>
+
+  <div class="section" id="s12">
+    <h2><span class="num">12</span>Governing Law</h2>
+    <p>These Terms are governed by the laws of the United States. Any disputes will be resolved through binding arbitration under the rules of the American Arbitration Association, except that either party may seek injunctive relief in court for intellectual property matters.</p>
+    <p>You waive any right to participate in class action lawsuits or class-wide arbitration against ScanForProfit.</p>
+  </div>
+
+  <div class="section" id="s13">
+    <h2><span class="num">13</span>Changes to Terms</h2>
+    <p>We may update these Terms as the Service evolves. When we make material changes, we will notify you by email at least 14 days before they take effect.</p>
+    <p>Your continued use of the Service after changes take effect constitutes acceptance of the updated Terms. If you do not agree to the updated Terms, you must stop using the Service and may close your account.</p>
+  </div>
+
+  <div class="section" id="s14">
+    <h2><span class="num">14</span>Contact</h2>
+    <p>Questions about these Terms?</p>
+  </div>
+
+  <div class="contact-box">
+    <h3>Get in touch</h3>
+    <p>ScanForProfit · Legal</p>
+    <p><a href="mailto:britt@scanforprofit.com">britt@scanforprofit.com</a></p>
+    <p style="margin-top: 12px; font-size: 13px;">Include "TERMS QUESTION" in the subject line for faster routing.</p>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-links">
+    <a href="https://www.scanforprofit.com">Home</a>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/terms.html">Terms of Service</a>
+    <a href="mailto:britt@scanforprofit.com">Contact</a>
+  </div>
+  © 2025 ScanForProfit. For resellers, by resellers.
+</footer>
+
+</body>
+</html>
