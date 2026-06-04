@@ -19,6 +19,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "packageManager": "pnpm@10.33.0",
   "keywords": [
     "flippd",
     "reseller",
