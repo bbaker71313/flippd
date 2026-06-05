@@ -4,21 +4,63 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ScanForProfit — Thrift Store Scanner for eBay Resellers</title>
-  <meta name="description" content="Scan a whole shelf and rank every item by profit. Get FLIP or PASS in 8 seconds with real comps and your actual fees. Inventory, listings, and a weekly hunt list — one app." />
+  <meta name="description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list. Built for solo sellers." />
+  <link rel="canonical" href="https://scanforprofit.com/" />
+  <!-- Open Graph -->
+  <meta property="og:title" content="ScanForProfit — Thrift Store Scanner for eBay Resellers" />
+  <meta property="og:description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list." />
+  <meta property="og:url" content="https://scanforprofit.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://scanforprofit.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="ScanForProfit — Thrift Store Scanner for eBay Resellers" />
+  <meta name="twitter:description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list." />
+  <meta name="twitter:image" content="https://scanforprofit.com/og-image.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Structured data: SoftwareApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": ["SoftwareApplication", "MobileApplication"],
+    "name": "ScanForProfit",
+    "description": "The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list.",
+    "url": "https://scanforprofit.com",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "iOS, Android",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "datePublished": "2026-05-04"
+  }
+  </script>
+  <!-- Structured data: FAQ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "How accurate are the profit estimates?", "acceptedAnswer": { "@type": "Answer", "text": "ScanForProfit pulls from real eBay sold listings — not asking prices. You see the comps. You make the call. We show you the data; you make the decision." } },
+      { "@type": "Question", "name": "Does this work for all categories?", "acceptedAnswer": { "@type": "Answer", "text": "Electronics, clothing, home goods, collectibles, books, sports equipment, toys. If it sells on eBay, it works. If it doesn't sell on eBay, we'll tell you that too." } },
+      { "@type": "Question", "name": "What if I'm not tech-savvy?", "acceptedAnswer": { "@type": "Answer", "text": "Point. Tap. Done. If you can take a photo with your phone, you can use ScanForProfit. No setup, no integrations required to start." } },
+      { "@type": "Question", "name": "Can I export my data?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. CSV export anytime. Stack tier includes API access. Your inventory is yours — we never hold it hostage." } },
+      { "@type": "Question", "name": "What happens after my trial?", "acceptedAnswer": { "@type": "Answer", "text": "You drop to Scout tier automatically — 25 scans/month, 10 items, free forever. No charge, no card required, no cancelation flow. Upgrade when you're ready." } }
+    ]
+  }
+  </script>
   <style>
     :root {
-      --bg: #f2ece0;
-      --surface: #fdf8ef;
+      --bg: #f5f1eb;
+      --surface: #faf7f2;
       --card: #fffcf5;
       --border: #c8b89a;
       --border-dark: #a08060;
       --header: #3a2410;
       --text: #1e1208;
       --soft: #5c3d20;
-      --muted: #8a6e50;
+      --muted: #ad4925;
       --accent: #8B6A3E;
       --green: #00bb66;
       --green-bg: #e6fff2;
@@ -26,8 +68,8 @@
       --red: #dd0000;
       --yellow: #c47800;
       --purple: #6b3fa0;
-      --display: "Syne", system-ui, sans-serif;
-      --mono: "IBM Plex Mono", ui-monospace, monospace;
+      --display: "Plus Jakarta Sans", system-ui, sans-serif;
+      --mono: "Fira Code", ui-monospace, monospace;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -57,7 +99,7 @@
     /* ============ NAV ============ */
     .nav {
       position: sticky; top: 0; z-index: 50;
-      background: rgba(242, 236, 224, 0.85);
+      background: rgba(245, 241, 235, 0.85);
       backdrop-filter: saturate(140%) blur(10px);
       -webkit-backdrop-filter: saturate(140%) blur(10px);
       border-bottom: 1px solid rgba(200, 184, 154, 0.5);
@@ -329,8 +371,7 @@
     @media (min-width: 768px) { .proof-grid { grid-template-columns: repeat(3, 1fr); } }
 
     .proof-card {
-      padding: 28px; border-radius: 12px; background: var(--card);
-      border: 1px solid var(--border);
+      padding: 28px; border-radius: 12px; background: var(--surface);
       display: flex; flex-direction: column; gap: 16px;
       position: relative; overflow: hidden;
     }
@@ -654,6 +695,9 @@
 
     /* utility */
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
+    .agitate-card.warn { background: rgba(196,120,0,0.07); border-color: rgba(196,120,0,0.35); }
+    .skip-link { position:absolute; top:-48px; left:16px; background:var(--header); color:var(--card); padding:10px 18px; border-radius:0 0 8px 8px; z-index:200; font-family:var(--mono); font-size:13px; transition:top 0.15s; }
+    .skip-link:focus { top:0; outline:2px solid var(--green); outline-offset:2px; }
   </style>
   <!-- PostHog analytics
        Replace __POSTHOG_KEY__ with your project key:
@@ -665,6 +709,7 @@
   </script>
 </head>
 <body>
+  <a href="#hero" class="skip-link">Skip to main content</a>
   <!-- =================== NAV =================== -->
   <header class="nav">
     <div class="container nav-inner">
@@ -872,7 +917,7 @@
           <span class="agitate-lead">Standing in the store</span>
           <p>You pick up a Nintendo 64. Someone else grabs it while you're typing in eBay search. You find it listed for $190 three days later. You paid $4 in gas to walk away empty.</p>
         </div>
-        <div class="agitate-card">
+        <div class="agitate-card warn">
           <span class="agitate-num">02</span>
           <span class="agitate-lead">Getting home with a bad buy</span>
           <p>The vintage camera you thought was a slam dunk? Bought for $45. Listed for 60 days. No offers. Now it's in the pile with 46 other things you haven't listed yet.</p>
@@ -1166,7 +1211,7 @@
             <li>Basic inventory tracking</li>
             <li>Mobile app access</li>
           </ul>
-          <a class="btn btn-secondary btn-block" href="#early-access" data-cta="early-access" data-location="pricing-scout" data-tier="scout">Get early access</a>
+          <a class="btn btn-secondary btn-block" href="#early-access" data-cta="early-access" data-location="pricing-scout" data-tier="scout">Start for free →</a>
         </article>
 
         <article class="price-card featured" data-tier="hustle">
@@ -1187,7 +1232,7 @@
             <li>Cross-listing formatter</li>
           </ul>
           <div class="price-highlight">Try 7 days free, then $19/mo</div>
-          <a class="btn btn-primary btn-block" href="#early-access" data-cta="early-access" data-location="pricing-hustle" data-tier="hustle">Get early access</a>
+          <a class="btn btn-primary btn-block" href="#early-access" data-cta="early-access" data-location="pricing-hustle" data-tier="hustle">Start with Hustle →</a>
         </article>
 
         <article class="price-card" data-tier="stack">
@@ -1207,7 +1252,7 @@
             <li>API access</li>
             <li>Priority support</li>
           </ul>
-          <a class="btn btn-dark btn-block" href="#early-access" data-cta="early-access" data-location="pricing-stack" data-tier="stack">Get early access</a>
+          <a class="btn btn-dark btn-block" href="#early-access" data-cta="early-access" data-location="pricing-stack" data-tier="stack">Start with Stack →</a>
         </article>
 
         <article class="price-card" data-tier="empire">
@@ -1357,7 +1402,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <div>© 2025 ScanForProfit. For resellers, by resellers.</div>
+        <div>© 2026 ScanForProfit. For resellers, by resellers.</div>
         <div style="display:flex;gap:20px;">
           <a href="/privacy">Privacy Policy</a>
           <a href="/terms">Terms of Service</a>
@@ -1374,6 +1419,14 @@
     }
     document.addEventListener('DOMContentLoaded', () => {
       trackEvent('page_view', { path: window.location.pathname });
+      // Sync aria-expanded on FAQ details elements
+      document.querySelectorAll('details.faq').forEach(el => {
+        const summary = el.querySelector('summary');
+        summary.setAttribute('aria-expanded', el.open ? 'true' : 'false');
+        el.addEventListener('toggle', () => {
+          summary.setAttribute('aria-expanded', el.open ? 'true' : 'false');
+        });
+      });
     });
     document.querySelectorAll('[data-cta]').forEach(el => {
       el.addEventListener('click', (e) => {
