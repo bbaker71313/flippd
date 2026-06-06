@@ -4441,7 +4441,8 @@ function updateStyle(val) {
 // SOURCING — VIEWS
 // ══════════════════════════════════════════════════
 let apiKey = localStorage.getItem('fif_api_key') || '';
-const API_BASE = 'https://flippd-backend.replit.app';
+const AUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
+const API_BASE  = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy';
 const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
@@ -5699,7 +5700,7 @@ async function registerUser() {
   if (password !== confirm)           { showAuthError('Passwords do not match'); return; }
 
   try {
-    const res = await fetch(API_BASE + '/auth/register', {
+    const res = await fetch(AUTH_BASE + '/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, username, email, password })
@@ -5736,7 +5737,7 @@ async function loginUser() {
   if (!password) { showAuthError('Enter your password'); return; }
 
   try {
-    const res = await fetch(API_BASE + '/auth/login', {
+    const res = await fetch(AUTH_BASE + '/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -5792,7 +5793,7 @@ async function requestMagicLink() {
 
 async function loadUserInfo() {
   try {
-    const res = await fetch(API_BASE + '/auth/me', { headers: getApiHeaders() });
+    const res = await fetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
     if (!res.ok) {
       // Don't reload — backend may not be ready yet (CORS/deploy)
       // Only log out on explicit 401 without reloading
@@ -6171,7 +6172,7 @@ window.onload = () => {
     // Background validation: if backend rejects token, fall back to login
     (async function validateSession() {
       try {
-        const r = await fetch(API_BASE + '/auth/me', { headers: getApiHeaders() });
+        const r = await fetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
         if (r.status === 401 || r.status === 403) {
           apiKey = '';
           localStorage.removeItem('fif_api_key');
