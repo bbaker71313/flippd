@@ -1070,8 +1070,74 @@ const STATIC_KEYWORDS = [
 const STATIC_CATEGORIES = ['Electronics', 'Clothing', 'Collectibles', 'Home & Garden'];
 const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always include if available.';
 
+// ── Legacy proxy: handles old Replit-style /v1/messages endpoints ──────────
+function ab2b64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let s = '';
+  for (let i = 0; i < bytes.byteLength; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+
+async function handleLegacyProxy(req: Request, hasImage: boolean): Promise<Response> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
+  const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
+  try { await verifyJWT(authHeader.slice(7), jwtSecret); }
+  catch { return json({ error: 'Unauthorized' }, 401); }
+
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
+  if (!anthropicKey) return json({ error: 'Anthropic key not configured' }, 500);
+
+  let model: string, system: string, messages: unknown[], maxTokens: number;
+
+  if (hasImage) {
+    const form = await req.formData();
+    model     = (form.get('model') as string) ?? 'claude-sonnet-4-6';
+    system    = (form.get('system') as string) ?? '';
+    maxTokens = parseInt((form.get('max_tokens') as string) ?? '1500', 10);
+    messages  = JSON.parse((form.get('messages') as string) ?? '[]');
+    const imageFile = form.get('image') as File | null;
+    if (imageFile) {
+      const b64 = ab2b64(await imageFile.arrayBuffer());
+      if (Array.isArray(messages) && messages.length > 0) {
+        const content = (messages[0] as Record<string, unknown>).content as Array<Record<string, unknown>>;
+        const imgBlock = content?.find(b => b.type === 'image');
+        if (imgBlock) (imgBlock.source as Record<string, unknown>).data = b64;
+      }
+    }
+  } else {
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    model     = (body.model as string) ?? 'claude-sonnet-4-6';
+    system    = (body.system as string) ?? '';
+    maxTokens = (body.max_tokens as number) ?? 1500;
+    messages  = (body.messages as unknown[]) ?? [];
+  }
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
+  });
+  const data = await res.json();
+  return new Response(JSON.stringify(data), {
+    status: res.ok ? 200 : res.status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  // Route old /v1/messages* endpoints to legacy transparent proxy
+  const path = new URL(req.url).pathname;
+  if (req.method === 'POST' && (path.endsWith('/v1/messages') || path.endsWith('/v1/messages-with-image'))) {
+    return await handleLegacyProxy(req, path.endsWith('/v1/messages-with-image'));
+  }
+
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   let body: Record<string, unknown>;
