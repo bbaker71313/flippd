@@ -2113,7 +2113,11 @@ function mergeServerItem(serverItem) {
 async function syncFromServer() {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory', { headers: getApiHeaders() });
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ type: 'inventory_list' })
+    });
     if (!res.ok) return;
     const data = await res.json();
     const serverItems = (data.items || []).map(mergeServerItem);
@@ -2136,10 +2140,10 @@ async function syncFromServer() {
 async function pushItemToServer(item) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory', {
+    const res = await fetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
-      body: JSON.stringify(itemForServer(item))
+      body: JSON.stringify({ type: 'inventory_create', ...itemForServer(item) })
     });
     if (!res.ok) console.warn('Failed to push item to server:', res.status);
   } catch (err) {
@@ -2150,10 +2154,10 @@ async function pushItemToServer(item) {
 async function updateItemOnServer(item) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory/' + item.id, {
-      method: 'PUT',
+    const res = await fetch(API_BASE, {
+      method: 'POST',
       headers: getApiHeaders(),
-      body: JSON.stringify(itemForServer(item))
+      body: JSON.stringify({ type: 'inventory_update', id: item.id, ...itemForServer(item) })
     });
     if (!res.ok) console.warn('Failed to update item on server:', res.status);
   } catch (err) {
@@ -2164,9 +2168,10 @@ async function updateItemOnServer(item) {
 async function deleteItemFromServer(id) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory/' + id, {
-      method: 'DELETE',
-      headers: getApiHeaders()
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ type: 'inventory_delete', id })
     });
     if (!res.ok) console.warn('Failed to delete item on server:', res.status);
   } catch (err) {
@@ -4625,49 +4630,20 @@ async function callScan(type, hint) {
 async function callClaude(system,msg,maxTok=1500) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
 
-  // v5.17: split paths cleanly. With a photo, build a FormData and let
-  // the browser stream the raw file as binary multipart — zero base64
-  // string allocation in JS heap, no OOM on 4GB Android. Without a
-  // photo, use the original JSON path against /v1/messages.
-  const hasPhoto = !!imgFile;
-  const url = hasPhoto ? (API_BASE + '/v1/messages-with-image') : getApiUrl();
-  // For multipart we must NOT set Content-Type — the browser sets it
-  // with the correct boundary. Strip it from headers we copy.
-  const baseHeaders = getApiHeaders();
-  const headers = {};
-  for (const k in baseHeaders) {
-    if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
-  }
-  if (!hasPhoto) headers['Content-Type'] = 'application/json';
-  console.log('API Call:', {url, hasPhoto, apiKeySet: !!apiKey});
+  // Text-only path against /v1/messages. Photo scans go through callScan,
+  // which routes to the typed single_scan/shelf_scan endpoints with full
+  // server-side business logic — never through here.
+  const url = getApiUrl();
+  const headers = getApiHeaders();
+  headers['Content-Type'] = 'application/json';
+  console.log('API Call:', {url, apiKeySet: !!apiKey});
 
-  let body;
-  if (hasPhoto) {
-    const fd = new FormData();
-    fd.append('image', imgFile, imgFile.name || 'photo.jpg');
-    // Only fields the Anthropic API accepts as top-level params.
-    // Earlier versions also sent `text` which Anthropic rejects with
-    // "text: Extra inputs are not permitted" — the user text is already
-    // inside the messages array, so the standalone field is redundant.
-    fd.append('system', system);
-    fd.append('max_tokens', String(maxTok));
-    fd.append('model', 'claude-sonnet-4-6');
-    fd.append('messages', JSON.stringify([{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '' } },
-        { type: 'text', text: msg }
-      ]
-    }]));
-    body = fd;
-  } else {
-    body = JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTok,
-      system,
-      messages: [{role:'user', content:[{type:'text', text: msg}]}]
-    });
-  }
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-6',
+    max_tokens: maxTok,
+    system,
+    messages: [{role:'user', content:[{type:'text', text: msg}]}]
+  });
 
   try {
     const res = await fetch(url, { method: 'POST', headers, body });
@@ -5519,23 +5495,17 @@ async function fetchTrendingKeywords() {
   if (!el) return;
   el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Fetching live trends...</div>';
   try {
-    const res = await fetch(getApiUrl(),{
-    method:'POST',
-    headers:getApiHeaders(),
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens:800,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:`Search for the top trending eBay search keywords and most popular resale categories RIGHT NOW today ${new Date().toLocaleDateString()}. What are buyers searching for most on eBay this week? Focus on thrift resale categories: electronics, clothing, collectibles, home goods. Return ONLY valid JSON: {"keywords":[{"rank":1,"word":"string","trend":"up/stable/down","bar":85},...],"trending_categories":["string"],"hot_tip":"one sentence actionable tip for resellers today"}. Include exactly 10 keywords sorted by search volume.`}]
-      })
+    const res = await fetch(API_BASE,{
+      method:'POST',
+      headers:getApiHeaders(),
+      body: JSON.stringify({ type: 'keywords_get' })
     });
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`API Error ${res.status}`);
     }
-    const d = await res.json();
-    if (d.error) throw new Error(d.error.message);
-    const raw = d.content?.map(b=>b.text||'').filter(Boolean).join('') || '';
-    const data = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
     localStorage.setItem('fef_trending', JSON.stringify({data, ts:Date.now()}));
     renderTrendingKeywords(data, el);
   } catch(e) {
