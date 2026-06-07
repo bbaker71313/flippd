@@ -396,14 +396,14 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `Flippd
 - **Stripe portal:** `POST /stripe/portal` → redirects to `data.url`
 - **~Lines:** 6015–6114
 
-### F-43 — eBay Connect / Disconnect / Sync
+### F-43 — eBay Connect / Disconnect / Sync — ✅ DONE — built via `ebay-oauth` Edge Function (session 2026-06-07)
 - **Tab:** Sourcing → Settings sub-view
 - **Functions:** `ebayConnect()` (L4052), `ebayDisconnect()` (L4074), `checkEbayStatus()` (L4097), `checkEbayOAuthCallback()` (L4130), `showEbaySyncPanel()` (L4143), `ebayPullListings()` (L4166), `runEbaySyncPull()` (L4214)
-- ⚠️ **Hardcoded eBay client ID:** `'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c'` (L4054) — must change for ScanForProfit
-- ⚠️ **Hardcoded redirect URI:** `'https://flippd-backend.replit.app/ebay/oauth/callback'` (L4055) — must change
+- ✅ **Replaced dead Replit backend** (`flippd-backend.replit.app`, hardcoded client ID `'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c'`, hardcoded "redirect URI" that was actually a raw URL instead of a registered RuName) with a real Supabase Edge Function (`supabase/functions/ebay-oauth/index.ts`) backed by a new `ebay_connections` table (migration `20260607150000_create_ebay_connections.sql`)
+- New architecture: client calls `EBAY_OAUTH_BASE` routes — `/authorize` (returns signed-state `authUrl`), `/callback` (public; exchanges code for tokens, upserts `ebay_connections`, redirects with `?ebay_connected=true`), `/disconnect`, `/status`, `/pull-listings` — server builds the OAuth URL using `EBAY_APP_ID` + `EBAY_RU_NAME` (the opaque RuName registered in the eBay Developer Portal, not a literal URL) and exchanges/refreshes tokens server-side using `EBAY_CERT_ID`
 - **Scopes:** inventory, account, fulfillment, finances, identity.readonly
 - **Sync periods:** 30 / 60 / 90 days
-- **~Lines:** 4048–4215
+- **~Lines:** 4048–4215 (app.html — `ebayConnect`, `ebayDisconnect`, `checkEbayStatus`, `ebayPullListings` updated to call `EBAY_OAUTH_BASE`)
 
 ### F-44 — eBay Dedupe (fuzzy merge after sync)
 - **Tab:** n/a — triggered after eBay pull-listings
@@ -731,8 +731,8 @@ Features that are real but not P1. Omit from initial build.
 ### V2-01 — Photo Agent (full canvas editor)
 Brightness/contrast/saturation sliders with live canvas preview, apply-to-all, download. Core photo attachment (add photo to item) is P1; the enhancement editor is V2. Reason: requires canvas polyfill or native module work; most users won't use it on first launch.
 
-### V2-02 — eBay Connect / OAuth / Pull Listings
-Full eBay OAuth flow, listing sync, sell-through data enrichment. Reason: requires eBay developer account, production keys, redirect URI registration, and backend changes. High integration complexity. Manual CSV export (V1) covers the listing need.
+### V2-02 — eBay Connect / OAuth / Pull Listings — ✅ DONE — built via `ebay-oauth` Edge Function (session 2026-06-07)
+~~Full eBay OAuth flow, listing sync, sell-through data enrichment. Reason: requires eBay developer account, production keys, redirect URI registration, and backend changes. High integration complexity. Manual CSV export (V1) covers the listing need.~~ Blockers resolved — user obtained eBay developer credentials (`EBAY_APP_ID`, `EBAY_CERT_ID`, `EBAY_DEV_ID`, `EBAY_RU_NAME`, `EBAY_SANDBOX`, stored as Supabase Edge Function secrets) and has eBay Developer Portal access to register the callback URL. Replaced the dead Replit OAuth endpoints with a real Supabase Edge Function (`ebay-oauth`) + `ebay_connections` table — see F-43.
 
 ### V2-03 — eBay Dedupe Modal
 Fuzzy matching UI for merging Flippd items with eBay-pulled listings. Depends on V2-02. Defer entirely.

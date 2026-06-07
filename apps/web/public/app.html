@@ -4080,31 +4080,23 @@ let _ebaySyncDays = 90;
 
 function ebayConnect() {
   showToast('⏳ Redirecting to eBay...');
-  const clientId = 'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c';
-  const ruName   = 'https://flippd-backend.replit.app/ebay/oauth/callback';
-  const scopes   = [
-    'https://api.ebay.com/oauth/api_scope',
-    'https://api.ebay.com/oauth/api_scope/sell.inventory',
-    'https://api.ebay.com/oauth/api_scope/sell.account',
-    'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-    'https://api.ebay.com/oauth/api_scope/sell.finances',
-    'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
-  ].join(' ');
-  const state = btoa(JSON.stringify({ ts: Date.now() }));
-  const authUrl = 'https://auth.ebay.com/oauth2/authorize'
-    + '?client_id=' + encodeURIComponent(clientId)
-    + '&response_type=code'
-    + '&redirect_uri=' + encodeURIComponent(ruName)
-    + '&scope=' + encodeURIComponent(scopes)
-    + '&state=' + state;
-  location.href = authUrl;
+  (async () => {
+    try {
+      const res = await fetch(EBAY_OAUTH_BASE + '/authorize', { headers: getApiHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.authUrl) throw new Error(data.error || 'Could not start eBay connection');
+      location.href = data.authUrl;
+    } catch (e) {
+      showToast('❌ ' + e.message);
+    }
+  })();
 }
 
 function ebayDisconnect() {
   // Call backend to revoke tokens, then update UI
   (async () => {
     try {
-      await fetch(API_BASE + '/ebay/disconnect', {
+      await fetch(EBAY_OAUTH_BASE + '/disconnect', {
         method: 'POST',
         headers: getApiHeaders()
       });
@@ -4136,7 +4128,7 @@ async function checkEbayStatus() {
   }
   disp.textContent = 'Checking...';
   try {
-    const res = await fetch(API_BASE + '/ebay/status', { headers: getApiHeaders() });
+    const res = await fetch(EBAY_OAUTH_BASE + '/status', { headers: getApiHeaders() });
     if (!res.ok) throw new Error('status ' + res.status);
     const data = await res.json();
     if (data.connected) {
@@ -4202,7 +4194,7 @@ async function ebayPullListings(days){
   btn.style.opacity='0.5';
   
   try{
-    const r=await fetch(API_BASE+'/ebay/pull-listings',{
+    const r=await fetch(EBAY_OAUTH_BASE+'/pull-listings',{
       method:'POST',
       headers:getApiHeaders(),
       body:JSON.stringify({days})
@@ -4448,6 +4440,7 @@ function updateStyle(val) {
 let apiKey = localStorage.getItem('fif_api_key') || '';
 const AUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
 const API_BASE  = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy';
+const EBAY_OAUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/ebay-oauth';
 const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
