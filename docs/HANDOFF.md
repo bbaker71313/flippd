@@ -4,6 +4,42 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-07 (2) — Fix scanner crash + 500 errors (multipart + token budgets)
+
+### What changed this session
+
+User reported two recurring errors on real devices, especially on shelf scan:
+1. "Unable to complete previous operation due to low memory" (crash + logout) right after taking a photo
+2. "Error: Server error — try again in a moment" on shelf/single scan
+
+Root causes diagnosed and fixed:
+
+- **Memory crash = regression from the 2026-06-06 session.** `imgFileToBase64Resized()` (added that session) decoded full-res camera photos via `<img>`/canvas, allocating ~48MB of RGBA in the WebView JS heap — exactly the documented "no-decode" anti-pattern at `app.html:4017-4070`. **Fix:** removed `imgFileToBase64Resized()` entirely; rewrote `callScan(type, hint)` in `apps/web/public/app.html` to ship the raw camera `File` via `multipart/form-data` (zero client-side decode — `imgFile` goes straight from `handleImage()` to `fetch`).
+- **"Server error" 500s = `max_tokens` truncation.** Confirmed via Supabase edge-function logs: failing `POST | 500` requests had execution times (~13-17s) matching successful `200`s — the model was running to completion either way; only `JSON.parse(raw)` on the (truncated) response differed. The single-scan schema has 17 fields + 4 array fields; shelf-scan returns an array of 12-field item objects — both were getting cut off at the old 1024/2048 token budgets. **Fix:** raised `max_tokens` to 4096 (single_scan) / 8192 (shelf_scan) in `supabase/functions/claude-proxy/index.ts`.
+- Added `resizeImageToBase64()` to `claude-proxy/index.ts` using `ImageScript` (`deno.land/x/imagescript@1.2.17`) — decodes the uploaded `File`, resizes to ≤1568px (matches Anthropic vision limits), re-encodes as JPEG 85% → base64. This now does the resize that the `app.html` "IMAGE INTAKE" comment block always claimed happened server-side but never did (grepped the file pre-fix — zero matches for resize/sharp/ImageMagick/canvas).
+- Added multipart-detection to the `Deno.serve` handler: `single_scan`/`shelf_scan` requests with `content-type: multipart/form-data` are parsed via `req.formData()`, the uploaded image is decoded+resized server-side; JSON-body requests (other types) are unaffected.
+- Deployed `claude-proxy` v16 (ACTIVE, `verify_jwt: false` preserved).
+
+### Decisions made this session (must not be reversed)
+
+- **The "no-decode" client architecture is non-negotiable** — the client must NEVER decode/resize camera photos via `<img>`/`canvas`/`createImageBitmap` (Android WebView OOM-crashes on ~12MP photos). All image processing happens server-side in `claude-proxy` via `resizeImageToBase64()` (ImageScript). Do not reintroduce `imgFileToBase64Resized()` or any client-side canvas decode for the scan path.
+- `single_scan`/`shelf_scan` now require `multipart/form-data` with fields `type`, `hint`, `image` (raw File) — NOT a JSON body with `imageBase64`. `callScan()` builds its own headers (`Authorization` only, no `Content-Type`) so the browser can set the multipart boundary.
+- `max_tokens`: single_scan = 4096, shelf_scan = 8192 (user's explicit choice — "go higher" over a leaner truncation-detection approach).
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `b931f4b` | fix: restore no-decode photo upload + raise scan token budgets |
+
+### Next task
+
+1. **User: test on a real device** — take a single-item photo in Scout (confirm no memory crash, BUY/HOT/PASS renders) and run "Rank This Shelf" (confirm no "Server error", items render). Both were the reported failure points.
+2. If shelf scan still truncates with very busy shelves (many items), consider raising `max_tokens` further or instructing the prompt to cap item count — but try 8192 first.
+3. Continue prior next-task items below (eBay OAuth callback registration, scanner regression watch, `invFormDetectItem()` migration, RESEND_API_KEY, merge PR #41)
+
+---
+
 ## Session: 2026-06-07 — eBay OAuth Edge Function (replaces dead Replit flow)
 
 ### What changed this session
