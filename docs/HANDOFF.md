@@ -4,6 +4,43 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-06 — Camera Scanner Fix + Photo Scan Typed Endpoint
+
+### What changed this session
+
+- **`apps/web/public/app.html`** — replaced the broken FormData `/v1/messages-with-image` photo scanner with typed claude-proxy endpoints:
+  - Added `imgFileToBase64Resized()`: resizes photo to 1568px max on canvas (JPEG 85% quality) before base64 encoding — avoids Anthropic's 5MB image limit, keeps memory bounded vs raw file
+  - Added `callScan(type, hint)`: posts `{ type, imageBase64, hint }` JSON to `API_BASE`, handles scan-limit 429 + auth errors, returns structured server response
+  - Updated `analyze()`: photo path now calls `callScan('single_scan')` → uses server-side business logic (tier gating, scan counting, BUY/HOT/PASS decision engine, scan_log writes, user settings); text-only path unchanged (still uses `callClaude()`)
+  - Updated `analyzeShelf()`: uses `callScan('shelf_scan')`, maps camelCase server response to snake_case `renderShelf()` format
+
+### Decisions made this session
+
+- Photo scan goes through typed endpoint (`single_scan`/`shelf_scan`) — this is the intended architecture from HANDOFF.md Phase 4 design
+- Image resized to 1568px on client before sending (canvas + FileReader approach) — acceptable memory trade-off vs the old FormData server-resize approach
+- Text-only `analyze()` still uses `callClaude()` → legacy `/v1/messages` path (no image involved, legacy path works fine for this case)
+- `invFormDetectItem()` (inventory photo detect) left unchanged — separate feature, will migrate in a future session if needed
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `50850eb` | feat: replace FormData photo scanner with typed claude-proxy endpoints |
+
+### PR
+
+- PR #41 open: `claude/serve-app-html` → `main`
+- Vercel preview deployed: `scanforprofit-git-claude-serv-4bf63a-scan-for-profit-s-projects.vercel.app`
+
+### Next task
+
+1. **Test the scanner on a real device** — take a photo in Scout tab, confirm BUY/HOT/PASS result renders
+2. **Fix `invFormDetectItem()`** — also uses legacy FormData path (`/v1/messages-with-image`); migrate to typed endpoint when user confirms scanner is working
+3. **Add RESEND_API_KEY to Supabase secrets** — verification emails currently not sending for new signups
+4. **Merge PR #41** once scanner is verified working
+
+---
+
 ## Session: 2026-06-03 — Phase 4 Step 8: EAS Build + TestFlight
 
 ### What changed this session

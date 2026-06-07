@@ -4558,6 +4558,70 @@ function clearImage() {
 // displays the captured photo as a preview, so there is nothing to restore
 // after rotation. The orientation listeners are removed entirely.
 
+// Resize the stored imgFile to max 1568px (Anthropic vision limit) and
+// return the base64-encoded JPEG string. Canvas resize keeps memory bounded
+// because the resized bitmap is much smaller than the raw camera file.
+function imgFileToBase64Resized() {
+  return new Promise(function(resolve, reject) {
+    if (!imgFile) { reject(new Error('No photo selected')); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(imgFile);
+    img.onload = function() {
+      URL.revokeObjectURL(url);
+      const MAX_DIM = 1568;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        if (w >= h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+        else { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(function(blob) {
+        if (!blob) { reject(new Error('Could not process photo')); return; }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const dataUrl = e.target.result;
+          resolve(dataUrl.substring(dataUrl.indexOf(',') + 1));
+        };
+        reader.onerror = function() { reject(new Error('Could not read photo')); };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.85);
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not load photo for processing'));
+    };
+    img.src = url;
+  });
+}
+
+// Send a typed scan request to the claude-proxy typed endpoint.
+// Returns the structured JSON response (no further parsing needed).
+async function callScan(type, hint) {
+  if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
+  if (!imgFile) throw new Error('No photo selected');
+  const imageBase64 = await imgFileToBase64Resized();
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ type, imageBase64, hint }),
+  });
+  if (!res.ok) {
+    let errData = {};
+    try { errData = await res.json(); } catch(_) {}
+    if (res.status === 429 && errData.error === 'scan_limit_reached') {
+      showLimitReachedModal(errData);
+      throw new Error('scan_limit');
+    }
+    if (res.status === 401 || res.status === 403) throw new Error('Session expired. Please log in again.');
+    if (res.status === 429) throw new Error('Rate limited — wait a moment and try again');
+    if (res.status >= 500) throw new Error('Server error — try again in a moment');
+    throw new Error(errData.error || 'API Error ' + res.status);
+  }
+  return res.json();
+}
+
 async function callClaude(system,msg,maxTok=1500) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
 
@@ -4723,20 +4787,48 @@ async function analyze() {
   hideError(); setBtnLoading('analyze-btn','Identifying item...',false);
   try {
     await sleep(300); setBtnLoading('analyze-btn','Analyzing eBay market...',false);
-    const msg=imgB64&&!txt?'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.':imgB64?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:`Analyze this specific item for eBay reselling: "${txt}". Research actual eBay sold prices for this exact item.`;
-    const raw=await callClaude(getSingleSys(),msg);
-    setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
-    const item=JSON.parse(raw);
-    const fin=calcFinancials(cost,item.avg_sold_price);
-    const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate);
-    logScan(dec, fin.roi, cost, false);
-    // Store item name and potential profit in scan log
-    try {
-      const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
-      if (scanLog.length) { scanLog[0].name = item.item_name; scanLog[0].potentialProfit = fin.profit; localStorage.setItem('fef_scan_log', JSON.stringify(scanLog)); }
-    } catch(e){}
-    renderSingle({item,cost,fin,dec});
-    renderScanHistory();
+    if (imgFile) {
+      // Photo scan: use typed endpoint — full business logic on server
+      const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
+      const r=await callScan('single_scan', hint);
+      setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
+      // Map camelCase server response → snake_case for renderSingle
+      const item={
+        item_name:r.itemName, avg_sold_price:r.estimatedSell,
+        price_low:r.priceLow, price_high:r.priceHigh,
+        sell_through_rate:0, avg_days_to_sell:r.avgDaysToSell,
+        demand_level:r.demandLevel, confidence:r.confidence,
+        confidence_reason:r.reasoning, search_keywords:r.searchKeywords||[],
+        listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
+        condition_notes:r.conditionNotes||'', category:r.category,
+      };
+      const fin={profit:r.estimatedProfit, roi:r.roi,
+        fee:r.estimatedSell*(S.ebayFee/100),
+        shipCost:S.shipping==='free'?S.shipCost:0};
+      const dec=r.decision;
+      logScan(dec, r.roi, cost, false);
+      try {
+        const scanLog=JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('fef_scan_log',JSON.stringify(scanLog));}
+      } catch(_){}
+      renderSingle({item,cost,fin,dec});
+      renderScanHistory();
+    } else {
+      // Text-only scan: legacy Claude path
+      const msg=`Analyze this specific item for eBay reselling: "${txt}". Research actual eBay sold prices for this exact item.`;
+      const raw=await callClaude(getSingleSys(),msg);
+      setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
+      const item=JSON.parse(raw);
+      const fin=calcFinancials(cost,item.avg_sold_price);
+      const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate);
+      logScan(dec, fin.roi, cost, false);
+      try {
+        const scanLog=JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('fef_scan_log',JSON.stringify(scanLog));}
+      } catch(_){}
+      renderSingle({item,cost,fin,dec});
+      renderScanHistory();
+    }
   } catch(e){resetBtn('analyze-btn','⚡ FLIP OR PASS?','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
@@ -4761,11 +4853,20 @@ async function analyzeShelf() {
   hideError(); setBtnLoading('shelf-btn','Scanning shelf...',true);
   try {
     await sleep(300); setBtnLoading('shelf-btn','Identifying all items...',true);
-    const hint=document.getElementById('text-input').value.trim();
-    const msg=hint?`Scan this shelf. Context: "${hint}"`:'Scan this shelf and identify every item for eBay resell analysis.';
-    const raw=await callClaude(getShelfSys(),msg,2500);
+    const hintTxt=document.getElementById('text-input').value.trim();
+    const hint=hintTxt?`Scan this shelf. Context: "${hintTxt}"`:'Scan this shelf and identify every item for eBay resell analysis.';
+    const r=await callScan('shelf_scan', hint);
     setBtnLoading('shelf-btn','Ranking items...',true); await sleep(200);
-    renderShelf(JSON.parse(raw));
+    // Map camelCase server response → snake_case for renderShelf
+    const shelfItems=(r.items||[]).map(function(i){return{
+      item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
+      estimated_profit:i.estimatedProfit, estimated_cost_at_thrift:i.estimatedCost,
+      demand_level:i.demandLevel, decision:i.decision,
+      decision_reason:i.decisionReason||'', condition_notes:i.conditionNotes||'',
+      category:i.category, confidence:i.confidence,
+      sell_through_rate:0, avg_days_to_sell:0,
+    };});
+    renderShelf(shelfItems);
   } catch(e){resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
