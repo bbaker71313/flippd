@@ -2113,7 +2113,11 @@ function mergeServerItem(serverItem) {
 async function syncFromServer() {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory', { headers: getApiHeaders() });
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ type: 'inventory_list' })
+    });
     if (!res.ok) return;
     const data = await res.json();
     const serverItems = (data.items || []).map(mergeServerItem);
@@ -2136,10 +2140,10 @@ async function syncFromServer() {
 async function pushItemToServer(item) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory', {
+    const res = await fetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
-      body: JSON.stringify(itemForServer(item))
+      body: JSON.stringify({ type: 'inventory_create', ...itemForServer(item) })
     });
     if (!res.ok) console.warn('Failed to push item to server:', res.status);
   } catch (err) {
@@ -2150,10 +2154,10 @@ async function pushItemToServer(item) {
 async function updateItemOnServer(item) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory/' + item.id, {
-      method: 'PUT',
+    const res = await fetch(API_BASE, {
+      method: 'POST',
       headers: getApiHeaders(),
-      body: JSON.stringify(itemForServer(item))
+      body: JSON.stringify({ type: 'inventory_update', id: item.id, ...itemForServer(item) })
     });
     if (!res.ok) console.warn('Failed to update item on server:', res.status);
   } catch (err) {
@@ -2164,9 +2168,10 @@ async function updateItemOnServer(item) {
 async function deleteItemFromServer(id) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE + '/inventory/' + id, {
-      method: 'DELETE',
-      headers: getApiHeaders()
+    const res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ type: 'inventory_delete', id })
     });
     if (!res.ok) console.warn('Failed to delete item on server:', res.status);
   } catch (err) {
