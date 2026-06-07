@@ -4,6 +4,43 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-07 — eBay OAuth Edge Function (replaces dead Replit flow)
+
+### What changed this session
+
+- **`supabase/migrations/20260607150000_create_ebay_connections.sql`** — new `ebay_connections` table (one row per user, RLS enabled with `current_setting('app.user_id', true)::integer` policies matching existing tables). Applied to live project `dqgfpchkheznvanfgsmx`.
+- **`supabase/functions/ebay-oauth/index.ts`** — new Edge Function (344 lines, deployed, ACTIVE) replacing the dead `flippd-backend.replit.app` eBay endpoints. Routes: `GET /authorize` (builds signed-state eBay consent URL from `EBAY_APP_ID`/`EBAY_RU_NAME`), `GET /callback` (public — eBay redirects browser here with `?code&state`, exchanges code for tokens via `api.ebay.com/identity/v1/oauth2/token`, upserts `ebay_connections`, redirects to app with `?ebay_connected=true`/`?ebay_error=...`), `POST /disconnect`, `GET /status`, `POST /pull-listings` (auto-refreshes expired tokens, pulls recent orders from Sell Fulfillment API). Mirrors `claude-proxy` conventions (CORS, `HttpError`, `json()`, `verifyJWT`, `getOrCreateUser`). Deployed with `verify_jwt: false` (implements its own auth + has a public callback route).
+- **`apps/web/public/app.html`** — added `EBAY_OAUTH_BASE` constant; rewrote `ebayConnect()` to fetch `{authUrl}` from `/authorize` and redirect (was: hardcoded client ID `Brittany-Flippd-PRD-67b75c3f4-fb4ff30c` + a literal URL used incorrectly as the OAuth `redirect_uri`/RuName); repointed `ebayDisconnect()`, `checkEbayStatus()`, `ebayPullListings()` from dead `API_BASE + '/ebay/...'` Replit routes to `EBAY_OAUTH_BASE + '/...'`. `checkEbayOAuthCallback()` needed no changes (already reads `ebay_connected`/`ebay_error` query params).
+- **`docs/FEATURE_TRIAGE.md`** — flipped F-43 and V2-02 from deferred/broken to ✅ DONE, documenting the new architecture.
+
+### Decisions made this session (must not be reversed)
+
+- **eBay's OAuth `redirect_uri` parameter must be an opaque RuName** registered in the eBay Developer Portal (NOT a literal callback URL) — eBay maps the RuName internally to the real callback. The old code's `ruName` value was actually a URL string, which was wrong.
+- All eBay token exchange/refresh happens server-side in the Edge Function using `EBAY_APP_ID`/`EBAY_CERT_ID` (Supabase secrets) — never in the client.
+- OAuth `state` is HMAC-SHA256 signed (`signState`/`verifyState`, reusing `JWT_SECRET`) encoding `{userId, ts}` to prevent forgery.
+- Sandbox vs production hosts switch on the `EBAY_SANDBOX` secret.
+
+### Manual action required from user (blocking end-to-end test)
+
+Register this callback URL as the redirect for the existing RuName (`EBAY_RU_NAME` secret value) in developer.ebay.com → Application Keys → User Tokens:
+```
+https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/ebay-oauth/callback
+```
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `a1aa2db` | feat: replace dead Replit eBay OAuth flow with ebay-oauth Edge Function |
+
+### Next task
+
+1. **User registers the new callback URL** (above) in the eBay Developer Portal for their RuName
+2. **End-to-end test the flow**: click "Connect to eBay" in the live app → confirm redirect to real eBay consent screen → grant access → confirm redirect back with `?ebay_connected=true` and "✅ Connected to eBay!" toast → reopen Scout settings, confirm `checkEbayStatus()` shows "Connected to eBay as <username>" → click "Sync 90 days", confirm `pull-listings` returns data → click "Disconnect", confirm status flips back and the `ebay_connections` row is removed
+3. Continue prior next-task items from the 2026-06-06 session below (scanner device test, `invFormDetectItem()` migration, RESEND_API_KEY, merge PR #41)
+
+---
+
 ## Session: 2026-06-06 — Camera Scanner Fix + Photo Scan Typed Endpoint
 
 ### What changed this session
