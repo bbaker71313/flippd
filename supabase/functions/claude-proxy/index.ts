@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 // ── Item limits per tier ────────────────────────────────────────────────────
 const ITEM_LIMITS: Record<string, number | null> = {
@@ -201,7 +202,7 @@ async function handleSingleScan(
   settings: Settings,
   imageBase64: string,
 ) {
-  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), imageBase64);
+  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), imageBase64, 4096);
   let ai: Record<string, unknown>;
   try { ai = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
@@ -238,7 +239,7 @@ async function handleShelfScan(
   settings: Settings,
   imageBase64: string,
 ) {
-  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), imageBase64, 2048);
+  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), imageBase64, 8192);
   let aiItems: Record<string, unknown>[];
   try { aiItems = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
@@ -1078,6 +1079,23 @@ function ab2b64(buf: ArrayBuffer): string {
   return btoa(s);
 }
 
+// Decode + resize an uploaded photo server-side (Deno has no WebView memory
+// limits) and re-encode as a JPEG base64 string within Anthropic's vision
+// limits. Keeps the client on a "no-decode" path — it ships the raw camera
+// file via multipart and never touches a canvas/Image element.
+async function resizeImageToBase64(file: File, maxDim = 1568): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const img = await Image.decode(bytes);
+  if (img.width > maxDim || img.height > maxDim) {
+    if (img.width >= img.height) img.resize(maxDim, Image.RESIZE_AUTO);
+    else img.resize(Image.RESIZE_AUTO, maxDim);
+  }
+  const jpeg = await img.encodeJPEG(85);
+  let s = '';
+  for (let i = 0; i < jpeg.byteLength; i++) s += String.fromCharCode(jpeg[i]);
+  return btoa(s);
+}
+
 async function handleLegacyProxy(req: Request, hasImage: boolean): Promise<Response> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
@@ -1140,9 +1158,23 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  // single_scan / shelf_scan ship the raw camera photo via multipart so the
+  // client never decodes it (avoids the WebView "low memory" crash) — the
+  // image is decoded + resized here in Deno instead, where there's no
+  // mobile-heap constraint.
   let body: Record<string, unknown>;
-  try { body = await req.json(); }
-  catch { return json({ error: 'Invalid JSON body' }, 400); }
+  let uploadedImage: File | null = null;
+  const contentType = req.headers.get('content-type') ?? '';
+  if (contentType.includes('multipart/form-data')) {
+    let form: FormData;
+    try { form = await req.formData(); }
+    catch { return json({ error: 'Invalid form data' }, 400); }
+    body = { type: form.get('type') as string, hint: (form.get('hint') as string) ?? '' };
+    uploadedImage = form.get('image') as File | null;
+  } else {
+    try { body = await req.json(); }
+    catch { return json({ error: 'Invalid JSON body' }, 400); }
+  }
 
   if (body.type === 'health') {
     return json({ status: 'ok', function: 'claude-proxy', ts: new Date().toISOString() });
@@ -1192,13 +1224,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    if (body.type === 'single_scan') {
+    if (body.type === 'single_scan' || body.type === 'shelf_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
-    }
-    if (body.type === 'shelf_scan') {
-      if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+      let imageBase64: string;
+      if (uploadedImage) {
+        try { imageBase64 = await resizeImageToBase64(uploadedImage); }
+        catch { throw new Error('Could not process photo'); }
+      } else {
+        imageBase64 = body.imageBase64 as string;
+      }
+      if (!imageBase64) return json({ error: 'No image provided' }, 400);
+      if (body.type === 'single_scan') {
+        return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imageBase64));
+      }
+      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imageBase64));
     }
     if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));

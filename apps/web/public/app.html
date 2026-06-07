@@ -4556,54 +4556,22 @@ function clearImage() {
 // displays the captured photo as a preview, so there is nothing to restore
 // after rotation. The orientation listeners are removed entirely.
 
-// Resize the stored imgFile to max 1568px (Anthropic vision limit) and
-// return the base64-encoded JPEG string. Canvas resize keeps memory bounded
-// because the resized bitmap is much smaller than the raw camera file.
-function imgFileToBase64Resized() {
-  return new Promise(function(resolve, reject) {
-    if (!imgFile) { reject(new Error('No photo selected')); return; }
-    const img = new Image();
-    const url = URL.createObjectURL(imgFile);
-    img.onload = function() {
-      URL.revokeObjectURL(url);
-      const MAX_DIM = 1568;
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX_DIM || h > MAX_DIM) {
-        if (w >= h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
-        else { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob(function(blob) {
-        if (!blob) { reject(new Error('Could not process photo')); return; }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const dataUrl = e.target.result;
-          resolve(dataUrl.substring(dataUrl.indexOf(',') + 1));
-        };
-        reader.onerror = function() { reject(new Error('Could not read photo')); };
-        reader.readAsDataURL(blob);
-      }, 'image/jpeg', 0.85);
-    };
-    img.onerror = function() {
-      URL.revokeObjectURL(url);
-      reject(new Error('Could not load photo for processing'));
-    };
-    img.src = url;
-  });
-}
-
-// Send a typed scan request to the claude-proxy typed endpoint.
-// Returns the structured JSON response (no further parsing needed).
+// Send a typed scan request to the claude-proxy typed endpoint via multipart
+// upload — ships the raw camera File with zero client-side decode (no
+// <img>/canvas/createImageBitmap), keeping the "no-decode" guarantee from the
+// IMAGE INTAKE notes above. The server decodes + resizes in Deno, where
+// there's no WebView heap ceiling, then forwards a 1568px JPEG to Anthropic.
 async function callScan(type, hint) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
   if (!imgFile) throw new Error('No photo selected');
-  const imageBase64 = await imgFileToBase64Resized();
+  const form = new FormData();
+  form.append('type', type);
+  form.append('hint', hint || '');
+  form.append('image', imgFile, imgFile.name || 'photo.jpg');
   const res = await fetch(API_BASE, {
     method: 'POST',
-    headers: getApiHeaders(),
-    body: JSON.stringify({ type, imageBase64, hint }),
+    headers: { 'Authorization': 'Bearer ' + apiKey },
+    body: form,
   });
   if (!res.ok) {
     let errData = {};
