@@ -2541,7 +2541,13 @@ function renderInventoryHome() {
   if (total === 0) {
     document.getElementById('inv-home-stats').innerHTML = '';
     document.getElementById('inv-status-cards').innerHTML = '';
-    document.getElementById('inv-cat-cards').innerHTML = '<div style="text-align:center;padding:40px 20px;border:2px dashed var(--border);border-radius:12px;margin-top:8px"><div style="font-size:36px;margin-bottom:12px">📦</div><div style="font-family:Syne,sans-serif;font-weight:900;font-size:16px;color:var(--text);margin-bottom:8px">Nothing here yet</div><div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:16px">Scan an item in SCOUT and tap FLIP to add it here — or add one manually.</div><button onclick="showInvView(' + "'add'" + ')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-family:Syne,sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Your First Item</button></div>';
+    document.getElementById('inv-cat-cards').innerHTML = `
+      <div class="empty-state-dashed">
+        <div class="empty-icon">📦</div>
+        <div class="empty-title">Nothing here yet</div>
+        <div class="empty-body">Scan an item in SCOUT and tap FLIP to add it here — or add one manually.</div>
+        <button class="btn btn-amber" onclick="showInvView('add')">+ Add Your First Item</button>
+      </div>`;
     return;
   }
   const listed = items.filter(i=>i.status==='Listed').length;
@@ -2553,18 +2559,13 @@ function renderInventoryHome() {
     <div class="inv-stat-card"><div class="inv-stat-num">${total}</div><div class="inv-stat-label">Total</div></div>
     <div class="inv-stat-card"><div class="inv-stat-num">${listed}</div><div class="inv-stat-label">Listed</div></div>
     <div class="inv-stat-card"><div class="inv-stat-num">${sold}</div><div class="inv-stat-label">Sold</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num" style="color:var(--green)">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
+    <div class="inv-stat-card"><div class="inv-stat-num u-pos">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
 
-  const statusDefs = [
-    {s:'Unlisted', color:'#a89060', bg:'rgba(90,80,60,0.2)', border:'#4a4030'},
-    {s:'Listed',   color:'#00e676', bg:'#D4E8E0', border:'#7ABDA0'},
-    {s:'Sold',     color:'#2D4F6B', bg:'#D4E0EC', border:'#7AA0BD'},
-  ];
-  document.getElementById('inv-status-cards').innerHTML = statusDefs.map(d => {
-    const count = items.filter(i=>i.status===d.s).length;
-    return `<div class="inv-status-card" style="border-color:${d.border};background:${d.bg}" onclick="openFilteredList('status','${d.s}')" role="button" tabindex="0">
-      <div style="font-size:26px;font-weight:900;font-family:'Syne',sans-serif;color:${d.color}">${count}</div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:${d.color};margin-top:3px">${d.s}</div>
+  document.getElementById('inv-status-cards').innerHTML = ['Unlisted','Listed','Sold'].map(s => {
+    const count = items.filter(i=>i.status===s).length;
+    return `<div class="inv-status-card is-${s.toLowerCase()}" onclick="openFilteredList('status','${s}')" role="button" tabindex="0">
+      <div class="inv-status-num">${count}</div>
+      <div class="inv-status-lbl">${s}</div>
     </div>`;
   }).join('');
 
@@ -2575,16 +2576,16 @@ function renderInventoryHome() {
     const listedC = ci.filter(i=>i.status==='Listed').length;
     const unlistedC = ci.filter(i=>i.status==='Unlisted').length;
     return `<div class="inv-cat-card" onclick="openFilteredList('category','${cat}')" role="button" tabindex="0">
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:var(--space-2)">
         <div style="font-size:24px">${CAT_ICONS[cat]||'📦'}</div>
         <div>
-          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--text)">${cat}</div>
-          <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:1px">${listedC} listed · ${unlistedC} unlisted</div>
+          <div class="inv-cat-name">${cat}</div>
+          <div class="inv-cat-meta">${listedC} listed · ${unlistedC} unlisted</div>
         </div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:20px;font-weight:900;font-family:'Syne',sans-serif;color:var(--accent)">${ci.length}</div>
-        <div style="font-size:11px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700">$${profit.toFixed(0)}</div>
+      <div class="u-center">
+        <div class="inv-cat-count">${ci.length}</div>
+        <div class="inv-cat-profit">$${profit.toFixed(0)}</div>
       </div>
     </div>`;
   }).filter(Boolean).join('');
