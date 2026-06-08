@@ -28,7 +28,7 @@
   });
 })();
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ScanForProfit — Scan the shelf. Know what to buy.</title>
@@ -139,6 +139,10 @@ body::before{
 /* ══ MAIN CONTENT ══ */
 .tab-panel{display:none;max-width:540px;margin:0 auto;padding:16px 14px}
 .tab-panel.active{display:block}
+
+@media (min-width: 600px) {
+  .app-header, .tab-bar { max-width: 540px; margin: 0 auto; }
+}
 
 /* ══ CARDS ══ */
 .card{
@@ -834,14 +838,14 @@ body::before{
 <!-- GLOBAL SEARCH BAR -->
 <div id="global-search-bar" style="display:none;background:var(--header);padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.1)">
   <div style="display:flex;gap:8px;align-items:center">
-    <input id="global-search-input" class="search-box" placeholder="Search all inventory by name or SKU..." style="flex:1;margin:0" oninput="runGlobalSearch(this.value)" autofocus>
+    <input id="global-search-input" aria-label="Search all inventory by name or SKU" class="search-box" placeholder="Search all inventory by name or SKU..." style="flex:1;margin:0" oninput="runGlobalSearch(this.value)" autofocus>
     <button onclick="toggleGlobalSearch()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
   </div>
   <div id="global-search-results" style="margin-top:8px;max-height:280px;overflow-y:auto"></div>
 </div>
 
 <!-- ACTIVITY FEED OVERLAY -->
-<div id="activity-overlay" onclick="toggleActivityFeed()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200"></div>
+<div id="activity-overlay" onclick="toggleActivityFeed()" role="button" tabindex="0" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200"></div>
 <div id="activity-panel" style="display:none;position:fixed;top:0;right:0;width:min(320px,90vw);height:100vh;background:var(--card);z-index:201;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,0.3)">
   <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
     <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--text)">Recent Activity</div>
@@ -899,17 +903,17 @@ body::before{
 
       <!-- Login fields -->
       <div id="auth-login-fields">
-        <input class="setup-input" id="auth-username" type="text" placeholder="Username" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-username" aria-label="Username" type="text" placeholder="Username" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-password" aria-label="Password" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
       </div>
 
       <!-- Register fields -->
       <div id="auth-register-fields" style="display:none">
-        <input class="setup-input" id="auth-name" type="text" placeholder="Your first name (e.g. Brittany)" autocomplete="given-name" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-reg-username" type="text" placeholder="Username (letters, numbers, underscores)" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-email" type="email" placeholder="Email address" autocomplete="email" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-reg-password" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-password-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-name" aria-label="Your first name" type="text" placeholder="Your first name (e.g. Brittany)" autocomplete="given-name" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-reg-username" aria-label="Username" type="text" placeholder="Username (letters, numbers, underscores)" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-email" aria-label="Email address" type="email" placeholder="Email address" autocomplete="email" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-reg-password" aria-label="Password" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-password-confirm" aria-label="Confirm password" type="password" placeholder="Confirm password" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
       </div>
 
       <!-- Check email screen (shown after register) -->
@@ -941,7 +945,7 @@ body::before{
       <p style="color:var(--muted);font-size:12px;line-height:1.6;font-weight:500">Set your fee rate, profit targets, and sourcing style.</p>
     </div>
     <div class="card">
-      <div class="card-title">🎯 Decision Thresholds</div>
+      <h3 class="card-title">🎯 Decision Thresholds</h3>
       <div class="setting-row">
         <div style="flex:1"><span class="setting-name">Minimum Profit</span><span class="setting-desc">Item must clear this to get a FLIP</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -965,7 +969,7 @@ body::before{
       </div>
     </div>
     <div class="card">
-      <div class="card-title">💸 Your eBay Fees</div>
+      <h3 class="card-title">💸 Your eBay Fees</h3>
       <div class="setting-row">
         <div style="flex:1"><span class="setting-name">eBay Fee %</span><span class="setting-desc">Platform + payment fee</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -982,7 +986,7 @@ body::before{
       </div>
     </div>
     <div class="card">
-      <div class="card-title">🧠 Sourcing Style</div>
+      <h3 class="card-title">🧠 Sourcing Style</h3>
       <label class="radio-row" id="style-conservative"><input type="radio" name="style" value="conservative" onchange="updateStyle('conservative')"><div><strong>Conservative</strong> — Only clear winners</div></label>
       <label class="radio-row" id="style-balanced"><input type="radio" name="style" value="balanced" checked onchange="updateStyle('balanced')"><div><strong>Balanced</strong> — Default, good mix</div></label>
       <label class="radio-row" id="style-aggressive"><input type="radio" name="style" value="aggressive" onchange="updateStyle('aggressive')"><div><strong>Aggressive</strong> — Wider net, more buys</div></label>
@@ -1038,7 +1042,7 @@ body::before{
     <textarea class="text-input" id="text-input" placeholder='e.g. "Xbox 360 with games" or any item...'></textarea>
     <div class="cost-row" id="cost-row">
       <span class="cost-label">💵 Your cost</span>
-      <div style="display:flex;align-items:center"><span class="cost-dollar">$</span><input class="cost-input" id="cost-input" type="number" placeholder="0.00" min="0" step="0.25"></div>
+      <div style="display:flex;align-items:center"><span class="cost-dollar">$</span><input class="cost-input" id="cost-input" aria-label="Your cost" type="number" placeholder="0.00" min="0" step="0.25"></div>
     </div>
     <div id="error-box" class="error-box" style="display:none"></div>
     <button class="btn btn-green" id="analyze-btn" onclick="analyze()">⚡ FLIP OR PASS?</button>
@@ -1079,7 +1083,7 @@ body::before{
       <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">📥 Import</button>
     </div>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
-    <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="🔍 Quick search..." id="inv-search-home" oninput="invHomeSearch(this.value)">
+    <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="🔍 Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Status</div>
     <div id="inv-status-cards" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px"></div>
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
@@ -1093,7 +1097,7 @@ body::before{
       <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text)" id="inv-list-title">Items</div>
       <button onclick="showInvView('add')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
     </div>
-    <input class="search-box" style="width:100%;margin-bottom:10px" placeholder="Search..." id="inv-search-list" oninput="renderFilteredList()">
+    <input class="search-box" style="width:100%;margin-bottom:10px" placeholder="Search..." id="inv-search-list" aria-label="Search inventory list" oninput="renderFilteredList()">
     <div class="count-row" id="inv-list-count"></div>
     <div id="inv-list-items"></div>
   </div>
@@ -1105,7 +1109,7 @@ body::before{
 
     <!-- PHOTO + AI DETECT SECTION -->
     <div class="card" style="margin-bottom:14px">
-      <div class="card-title">📷 Photo — AI will detect item automatically</div>
+      <h3 class="card-title">📷 Photo — AI will detect item automatically</h3>
       <div id="inv-form-photo-preview" style="display:none;margin-bottom:10px">
         <img id="inv-form-photo-img" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:block">
         <button onclick="invFormClearPhoto()" style="margin-top:6px;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Clear photo</button>
@@ -1194,7 +1198,7 @@ body::before{
 
   <!-- Link to inventory item (optional) -->
   <div class="card" style="margin-bottom:12px">
-    <div class="card-title">📦 Attach to inventory item <span style="color:var(--muted);font-weight:500">(optional)</span></div>
+    <h3 class="card-title">📦 Attach to inventory item <span style="color:var(--muted);font-weight:500">(optional)</span></h3>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select class="f-select" id="pa-cat-select" onchange="paFilterByCategory(this.value)">
         <option value="">— Select category —</option>
@@ -1237,7 +1241,7 @@ body::before{
     </div>
     <!-- Adjustments -->
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">🎨 Adjustments</div>
+      <h3 class="card-title">🎨 Adjustments</h3>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Brightness</span><span id="pa-bright-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">15</span></div>
@@ -1316,38 +1320,38 @@ body::before{
 
     <!-- Section: Top performers -->
     <div id="growth-top-section" class="card" style="margin-bottom:14px">
-      <div class="card-title">🏆 Top Performing Categories</div>
+      <h3 class="card-title">🏆 Top Performing Categories</h3>
       <div id="growth-top-content"></div>
     </div>
 
     <!-- Section: Stale items -->
     <div id="growth-stale-section" class="card" style="margin-bottom:14px">
-      <div class="card-title">⏳ Stale Items — Action Needed</div>
+      <h3 class="card-title">⏳ Stale Items — Action Needed</h3>
       <div id="growth-stale-content"></div>
     </div>
 
     <!-- Section: Hunt list -->
     <div id="growth-hunt-section" class="card" style="margin-bottom:14px">
-      <div class="card-title">🎯 What to Hunt This Week</div>
+      <h3 class="card-title">🎯 What to Hunt This Week</h3>
       <div id="growth-hunt-content"></div>
     </div>
 
     <!-- Section: Market trends -->
     <div id="growth-market-section" class="card" style="margin-bottom:14px">
-      <div class="card-title">📡 Live eBay Market Trends</div>
+      <h3 class="card-title">📡 Live eBay Market Trends</h3>
       <div id="growth-market-content"></div>
     </div>
 
     <!-- Section: AI advice -->
     <div id="growth-advice-section" class="card" style="margin-bottom:14px;background:var(--green-bg);border-color:var(--green-border)">
-      <div class="card-title" style="color:#005522">💡 Your Business Advisor Says</div>
+      <h3 class="card-title" style="color:#005522">💡 Your Business Advisor Says</h3>
       <div id="growth-advice-content" style="font-size:13px;color:#005522;line-height:1.8;font-weight:500"></div>
     </div>
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
     <div class="card" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div class="card-title" style="margin-bottom:0">🔥 Trending on eBay Right Now</div>
+        <h3 class="card-title" style="margin-bottom:0">🔥 Trending on eBay Right Now</h3>
         <button onclick="fetchTrendingKeywords()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Refresh</button>
       </div>
       <div id="growth-trending"><div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:'IBM Plex Mono',monospace">Tap Refresh to load live trends →</div></div>
@@ -1388,7 +1392,7 @@ body::before{
   <!-- EXPENSES VIEW -->
   <div id="pnl-view-expenses" style="display:none">
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">➕ Add Expense</div>
+      <h3 class="card-title">➕ Add Expense</h3>
       <div class="form-grid">
         <div class="f-group" style="grid-column:1/-1">
           <label class="f-label">Description</label>
@@ -1433,9 +1437,9 @@ body::before{
 
   <!-- MILEAGE QUICK-LOGGER (always visible) -->
   <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:#e8b840">
-    <div class="card-title" style="color:var(--yellow)">🚗 Quick Mileage Logger</div>
+    <h3 class="card-title" style="color:var(--yellow)">🚗 Quick Mileage Logger</h3>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="pnl-miles-input" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid #e8b840;border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
+      <input type="number" id="pnl-miles-input" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid #e8b840;border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
       <button onclick="pnlLogMileage()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
     </div>
     <div style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace">IRS rate: $0.67/mile · Auto-added to Gas & Travel expenses</div>
@@ -1452,12 +1456,12 @@ body::before{
 
   <!-- FORMAT SELECTOR -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="mode-tab active-green" id="csv-tab-ebay" onclick="setCsvExportMode('ebay')" style="cursor:pointer">
+    <div class="mode-tab active-green" id="csv-tab-ebay" onclick="setCsvExportMode('ebay')" role="button" tabindex="0" style="cursor:pointer">
       <span class="tab-icon">📋</span>
       <div style="font-size:12px;font-weight:700">eBay CSV</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Draft listings template</div>
     </div>
-    <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" style="cursor:pointer">
+    <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" role="button" tabindex="0" style="cursor:pointer">
       <span class="tab-icon">💾</span>
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Full JSON export</div>
@@ -1467,7 +1471,7 @@ body::before{
   <!-- EBAY CSV MODE -->
   <div id="csv-mode-ebay">
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">⏱ Export Window</div>
+      <h3 class="card-title">⏱ Export Window</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
         <button class="csv-win-btn" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
@@ -1478,16 +1482,16 @@ body::before{
       <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">📋 Items Ready to Export</div>
+      <h3 class="card-title">📋 Items Ready to Export</h3>
       <div id="csv-items-list"></div>
     </div>
     <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">⬇ Download CSV for eBay</button>
     <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.7;font-weight:500">After downloading: eBay Seller Hub → Reports → Upload → select your CSV file</p>
     <div class="card" style="margin-top:10px;background:var(--yellow-bg);border-color:#e8b840">
-      <div class="card-title" style="color:var(--yellow)">⏰ Daily Reminder</div>
+      <h3 class="card-title" style="color:var(--yellow)">⏰ Daily Reminder</h3>
       <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="time" id="csv-reminder-time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
+        <input type="time" id="csv-reminder-time" aria-label="Reminder time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
         <button onclick="saveCsvReminder()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">Save</button>
       </div>
       <div id="csv-reminder-saved" style="font-size:11px;color:#c47800;margin-top:6px;font-family:'IBM Plex Mono',monospace"></div>
@@ -1497,7 +1501,7 @@ body::before{
   <!-- FLIPPD BACKUP MODE -->
   <div id="csv-mode-backup" style="display:none">
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">💾 Export Full Backup</div>
+      <h3 class="card-title">💾 Export Full Backup</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
       <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:0">⬇ Download Full Backup</button>
     </div>
@@ -1516,12 +1520,12 @@ body::before{
 
   <!-- FORMAT SELECTOR -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="mode-tab active-green" id="import-tab-flippd" onclick="setImportMode('flippd')" style="cursor:pointer">
+    <div class="mode-tab active-green" id="import-tab-flippd" onclick="setImportMode('flippd')" role="button" tabindex="0" style="cursor:pointer">
       <span class="tab-icon">🔄</span>
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Restore your data</div>
     </div>
-    <div class="mode-tab" id="import-tab-manual" onclick="setImportMode('manual')" style="cursor:pointer">
+    <div class="mode-tab" id="import-tab-manual" onclick="setImportMode('manual')" role="button" tabindex="0" style="cursor:pointer">
       <span class="tab-icon">📊</span>
       <div style="font-size:12px;font-weight:700">Spreadsheet CSV</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Import from Excel/Sheets</div>
@@ -1531,9 +1535,9 @@ body::before{
   <!-- FLIPPD BACKUP MODE -->
   <div id="import-mode-flippd">
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">🔄 Restore from ScanForProfit Backup</div>
+      <h3 class="card-title">🔄 Restore from ScanForProfit Backup</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:14px">Upload a ScanForProfit JSON backup file to restore your inventory. New items will be added. Items with matching SKUs will be skipped to prevent duplicates.</p>
-      <div id="import-flippd-dropzone" onclick="document.getElementById('import-flippd-file').click()" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
+      <div id="import-flippd-dropzone" onclick="document.getElementById('import-flippd-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
         <div style="font-size:32px;margin-bottom:8px">📁</div>
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose file</div>
         <div style="font-size:11px;color:var(--muted)">ScanForProfit-backup-*.json</div>
@@ -1545,13 +1549,13 @@ body::before{
   <!-- SPREADSHEET CSV MODE -->
   <div id="import-mode-manual" style="display:none">
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">📊 Import from Spreadsheet</div>
+      <h3 class="card-title">📊 Import from Spreadsheet</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a CSV with your inventory. Required: <strong>nickname</strong> and <strong>cost</strong>. Optional: category, condition, status, sellPrice, platform, notes, dateAcquired.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.8;word-break:break-all">
         nickname,cost,category,condition,status,sellPrice<br>
         "Xbox 360",8.00,Electronics,Good,Unlisted,45.00
       </div>
-      <div id="import-csv-dropzone" onclick="document.getElementById('import-csv-file').click()" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
+      <div id="import-csv-dropzone" onclick="document.getElementById('import-csv-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
         <div style="font-size:32px;margin-bottom:8px">📄</div>
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose CSV</div>
         <div style="font-size:11px;color:var(--muted)">Any .csv file</div>
@@ -1563,7 +1567,7 @@ body::before{
   <!-- IMPORT PREVIEW -->
   <div id="import-preview" style="display:none">
     <div class="card" style="margin-bottom:12px;border-color:var(--green-border);background:var(--green-bg)">
-      <div class="card-title" style="color:#005522">✓ Ready to Import</div>
+      <h3 class="card-title" style="color:#005522">✓ Ready to Import</h3>
       <div id="import-summary" style="font-size:13px;color:#005522;font-weight:600;margin-bottom:10px"></div>
       <div id="import-preview-list" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px">
@@ -1607,7 +1611,7 @@ body::before{
     <div id="spnl-sales"></div>
     <div id="spnl-exp" style="display:none">
       <div class="card" style="margin-bottom:12px">
-        <div class="card-title">➕ Add Expense</div>
+        <h3 class="card-title">➕ Add Expense</h3>
         <div class="form-grid">
           <div class="f-group" style="grid-column:1/-1"><label class="f-label">Description</label><input class="f-input" id="spnl-desc" placeholder="Gas, poly mailers, tape..."></div>
           <div class="f-group"><label class="f-label">Amount ($)</label><input class="f-input" type="number" id="spnl-amt" placeholder="12.50" step="0.01"></div>
@@ -1620,9 +1624,9 @@ body::before{
     </div>
     <div id="spnl-mo" style="display:none"><div class="card" style="padding:0 12px" id="spnl-mo-content"></div></div>
     <div class="card" style="margin-top:12px;background:var(--yellow-bg,#fffbe6);border-color:#e8b840">
-      <div class="card-title" style="color:var(--yellow)">🚗 Mileage Logger</div>
+      <h3 class="card-title" style="color:var(--yellow)">🚗 Mileage Logger</h3>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" id="spnl-miles" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid #e8b840;border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
+        <input type="number" id="spnl-miles" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid #e8b840;border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
         <button onclick="sPnlMiles()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
       </div>
       <div style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace">IRS rate: $0.67/mile</div>
@@ -1736,7 +1740,7 @@ body::before{
     <div class="modal-title">Mark as Sold</div>
     <div class="modal-item" id="sold-modal-name"></div>
     <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">What did it sell for?</div>
-    <input type="number" step="0.01" class="modal-input" id="sold-price-input" placeholder="0.00" oninput="updateSoldProfit()">
+    <input type="number" step="0.01" class="modal-input" id="sold-price-input" aria-label="Sale price" placeholder="0.00" oninput="updateSoldProfit()">
     <div class="modal-profit" id="sold-profit-preview" style="display:none">
       <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">Net Profit</span>
       <span id="sold-profit-val" style="font-weight:800;font-family:'Syne',sans-serif;color:var(--green);font-size:18px"></span>
@@ -2282,7 +2286,7 @@ function renderInventoryHome() {
   ];
   document.getElementById('inv-status-cards').innerHTML = statusDefs.map(d => {
     const count = items.filter(i=>i.status===d.s).length;
-    return `<div class="inv-status-card" style="border-color:${d.border};background:${d.bg}" onclick="openFilteredList('status','${d.s}')">
+    return `<div class="inv-status-card" style="border-color:${d.border};background:${d.bg}" onclick="openFilteredList('status','${d.s}')" role="button" tabindex="0">
       <div style="font-size:26px;font-weight:900;font-family:'Syne',sans-serif;color:${d.color}">${count}</div>
       <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:${d.color};margin-top:3px">${d.s}</div>
     </div>`;
@@ -2294,7 +2298,7 @@ function renderInventoryHome() {
     const profit = ci.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
     const listedC = ci.filter(i=>i.status==='Listed').length;
     const unlistedC = ci.filter(i=>i.status==='Unlisted').length;
-    return `<div class="inv-cat-card" onclick="openFilteredList('category','${cat}')">
+    return `<div class="inv-cat-card" onclick="openFilteredList('category','${cat}')" role="button" tabindex="0">
       <div style="display:flex;align-items:center;gap:10px">
         <div style="font-size:24px">${CAT_ICONS[cat]||'📦'}</div>
         <div>
@@ -2338,9 +2342,9 @@ function renderFilteredList() {
     const hasListing = item.listing ? true : false;
     return `<div class="item-card">
       <div style="display:flex;align-items:flex-start;gap:10px">
-        ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="" onclick="startEdit(${item.id})" style="cursor:pointer">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;cursor:pointer" onclick="startEdit(${item.id})">${CAT_ICONS[item.category]||'📦'}</div>`}
+        ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="" onclick="startEdit(${item.id})" role="button" tabindex="0" style="cursor:pointer">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;cursor:pointer" onclick="startEdit(${item.id})" role="button" tabindex="0">${CAT_ICONS[item.category]||'📦'}</div>`}
         <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="startEdit(${item.id})">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="startEdit(${item.id})" role="button" tabindex="0">
             <div style="flex:1;min-width:0">
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.nickname}</div>
@@ -2896,7 +2900,7 @@ function paHandlePhotos(e) {
 function paRenderThumbs() {
   document.getElementById('pa-count-label').textContent = `${paPhotos.length} photo${paPhotos.length!==1?'s':''}`;
   document.getElementById('pa-thumbs').innerHTML = paPhotos.map((p, i) => `
-    <div class="pa-thumb${i===paActiveIdx?' active':''}" onclick="paSelectPhoto(${i})">
+    <div class="pa-thumb${i===paActiveIdx?' active':''}" onclick="paSelectPhoto(${i})" role="button" tabindex="0">
       <img src="${p.original}">
       <button class="pa-thumb-del" onclick="event.stopPropagation();paDeletePhoto(${i})">✕</button>
     </div>`).join('');
@@ -3171,7 +3175,7 @@ function pnlRenderReport() {
 
   document.getElementById('pnl-report-content').innerHTML = `
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">📊 Full P&amp;L Summary</div>
+      <h3 class="card-title">📊 Full P&amp;L Summary</h3>
       <div style="font-size:13px;font-family:'IBM Plex Mono',monospace">
         <div class="pnl-row"><span style="color:var(--muted)">Gross Revenue</span><span>$${c.totalRevenue.toFixed(2)}</span></div>
         <div class="pnl-row"><span style="color:var(--muted)">Cost of Goods</span><span style="color:var(--red)">-$${c.totalCOGS.toFixed(2)}</span></div>
@@ -3188,8 +3192,8 @@ function pnlRenderReport() {
         <div class="pnl-row"><span style="color:var(--green);font-weight:700">After-Tax Estimate</span><span style="color:var(--green);font-weight:700">$${(c.netProfit-c.taxReserve).toFixed(2)}</span></div>
       </div>
     </div>
-    ${catBreakdown ? `<div class="card" style="margin-bottom:12px"><div class="card-title">By Category</div>${catBreakdown}</div>` : ''}
-    ${Object.keys(expByCat).length ? `<div class="card"><div class="card-title">Expenses by Type</div>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</div>` : ''}`;
+    ${catBreakdown ? `<div class="card" style="margin-bottom:12px"><h3 class="card-title">By Category</div>${catBreakdown}</h3>` : ''}
+    ${Object.keys(expByCat).length ? `<div class="card"><h3 class="card-title">Expenses by Type</div>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</h3>` : ''}`;
 }
 
 // ══════════════════════════════════════════════════
@@ -3802,7 +3806,7 @@ function renderDashboard() {
     const catList = ci.filter(i=>i.status==='Listed');
     const catProf = catSold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
     const pct     = sold.length ? Math.round((catSold.length/Math.max(sold.length,1))*100) : 0;
-    return `<div class="dash-cat-card" onclick="switchTab('inventory');openFilteredList('category','${cat}')">
+    return `<div class="dash-cat-card" onclick="switchTab('inventory');openFilteredList('category','${cat}')" role="button" tabindex="0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:20px">${CAT_ICONS[cat]||'📦'}</span>
@@ -3848,22 +3852,22 @@ function renderDashboard() {
 
     <!-- ① KPI STAT CARDS -->
     <div class="kpi-grid">
-      <div class="kpi-card" onclick="showKpiDrillDown('sales')" style="cursor:pointer">
+      <div class="kpi-card" onclick="showKpiDrillDown('sales')" role="button" tabindex="0" style="cursor:pointer">
         <div class="kpi-icon">💵</div>
         <div class="kpi-val">$${totalSales.toFixed(0)}</div>
         <div class="kpi-label">Total Sales</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('profit')" style="cursor:pointer">
+      <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" style="cursor:pointer">
         <div class="kpi-icon">📈</div>
         <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
         <div class="kpi-label">Net Profit</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('sold')" style="cursor:pointer">
+      <div class="kpi-card" onclick="showKpiDrillDown('sold')" role="button" tabindex="0" style="cursor:pointer">
         <div class="kpi-icon">🏷️</div>
         <div class="kpi-val">${sold.length}</div>
         <div class="kpi-label">Items Sold</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('listed')" style="cursor:pointer">
+      <div class="kpi-card" onclick="showKpiDrillDown('listed')" role="button" tabindex="0" style="cursor:pointer">
         <div class="kpi-icon">📦</div>
         <div class="kpi-val">${listed.length}</div>
         <div class="kpi-label">Active Listings</div>
@@ -3874,7 +3878,7 @@ function renderDashboard() {
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Sections</div>
     <div class="nav-card-grid">
 
-      <div class="nav-card" onclick="showSourcingDrillDown()">
+      <div class="nav-card" onclick="showSourcingDrillDown()" role="button" tabindex="0">
         <div class="nav-card-header">
           <span class="nav-card-icon">🔍</span>
           <span class="nav-card-title">Sourcing</span>
@@ -3888,7 +3892,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="showInventoryDrillDown()">
+      <div class="nav-card" onclick="showInventoryDrillDown()" role="button" tabindex="0">
         <div class="nav-card-header">
           <span class="nav-card-icon">📦</span>
           <span class="nav-card-title">Inventory</span>
@@ -3902,7 +3906,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('pnl')">
+      <div class="nav-card" onclick="switchTab('pnl')" role="button" tabindex="0">
         <div class="nav-card-header">
           <span class="nav-card-icon">💰</span>
           <span class="nav-card-title">P&amp;L</span>
@@ -3916,7 +3920,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="showPhotosDrillDown()">
+      <div class="nav-card" onclick="showPhotosDrillDown()" role="button" tabindex="0">
         <div class="nav-card-header">
           <span class="nav-card-icon">📸</span>
           <span class="nav-card-title">Photos</span>
@@ -3931,7 +3935,7 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('growth')">
+      <div class="nav-card" onclick="switchTab('growth')" role="button" tabindex="0">
         <div class="nav-card-header">
           <span class="nav-card-icon">📈</span>
           <span class="nav-card-title">Growth</span>
@@ -3946,7 +3950,7 @@ function renderDashboard() {
         </div>`:'<div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:\'IBM Plex Mono\',monospace">Tap to run your first analysis \u2192</div>';})()}
       </div>
 
-      <div class="nav-card" onclick="showSourcingSettings()">
+      <div class="nav-card" onclick="showSourcingSettings()" role="button" tabindex="0">
         <div class="nav-card-header">
           <span class="nav-card-icon">⚙️</span>
           <span class="nav-card-title">Settings</span>
@@ -4897,7 +4901,7 @@ function renderSingle({item,cost,fin,dec}) {
     </div>
 
     <div class="card">
-      <div class="card-title">💰 Financial Breakdown</div>
+      <h3 class="card-title">💰 Financial Breakdown</h3>
       <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv" style="font-size:20px;font-family:'Syne',sans-serif">$${item.avg_sold_price?.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${item.price_low} – $${item.price_high}</span></div>
       <hr class="divider">
@@ -4910,7 +4914,7 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="data-row"><span class="dl">ROI</span><span class="dv" style="font-size:18px;font-family:'Syne',sans-serif;color:${rc}">${roi.toFixed(0)}%</span></div>
     </div>
     <div class="card">
-      <div class="card-title">📊 Market Intelligence</div>
+      <h3 class="card-title">📊 Market Intelligence</h3>
       <div class="data-row"><span class="dl">Demand</span><span class="dv" style="color:${DC[item.demand_level]||'#a89080'};font-size:15px">${item.demand_level}</span></div>
       <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv" style="color:${stc}">${item.sell_through_rate}%</span></div>
       <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv" style="color:${dayc}">${item.avg_days_to_sell} days</span></div>
@@ -4923,14 +4927,14 @@ function renderSingle({item,cost,fin,dec}) {
       </div>
     </div>
     <div class="two-col">
-      <div class="card"><div class="card-title">✍️ Listing Tips</div><ul class="tips-list">${tips}</ul></div>
-      <div class="card"><div class="card-title">🔎 Check This</div><div style="font-size:13px;color:var(--soft);line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list" style="margin-top:8px">${flags}</ul>`:''}</div>
+      <div class="card"><h3 class="card-title">✍️ Listing Tips</div><ul class="tips-list">${tips}</ul></h3>
+      <div class="card"><h3 class="card-title">🔎 Check This</div><div style="font-size:13px;color:var(--soft);line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list" style="margin-top:8px">${flags}</ul>`:''}</h3>
     </div>
     <div class="card">
-      <div class="card-title">🔍 eBay Search Terms</div>
+      <h3 class="card-title">🔍 eBay Search Terms</h3>
       <div class="tags-wrap">${kw}</div>
     </div>
-    ${item.notes?`<div class="card"><div class="card-title">📌 Notes</div><div style="font-size:13px;color:var(--soft);line-height:1.7;font-weight:500">${item.notes}</div></div>`:''}
+    ${item.notes?`<div class="card"><h3 class="card-title">📌 Notes</div><div style="font-size:13px;color:var(--soft);line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
     <div class="legend-row">
       <span class="legend-item">✅ Min profit: $${S.minProfit}</span>
       <span class="legend-item">🎯 Target ROI: ${S.targetRoi}%+</span>
@@ -5156,7 +5160,7 @@ function runGlobalSearch(q) {
     const thumb = i.photos && i.photos[0]
       ? `<img class="gs-thumb" src="${i.photos[0]}">`
       : `<div class="gs-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">${CAT_ICONS[i.category]||'📦'}</div>`;
-    return `<div class="gs-item" onclick="gsGoToItem(${i.id})">
+    return `<div class="gs-item" onclick="gsGoToItem(${i.id})" role="button" tabindex="0">
       ${thumb}
       <div><div class="gs-name">${i.nickname}</div>
       <div class="gs-sub">${i.sku||''} · ${i.category} · ${i.status} · $${i.sellPrice||'0'}</div></div>
@@ -5280,7 +5284,7 @@ function renderPhotoGallery(photos, containerId) {
   }
   const id = containerId || 'gallery-' + Date.now();
   const imgs = photos.map((p,i)=>`<img src="${p}" onclick="galleryDot('${id}',${i})">`).join('');
-  const dots = photos.map((_,i)=>`<div class="photo-dot${i===0?' active':''}" id="${id}-dot-${i}" onclick="galleryDot('${id}',${i})"></div>`).join('');
+  const dots = photos.map((_,i)=>`<div class="photo-dot${i===0?' active':''}" id="${id}-dot-${i}" onclick="galleryDot('${id}',${i})" role="button" tabindex="0"></div>`).join('');
   return `<div style="margin-bottom:14px">
     <div class="photo-gallery" id="${id}" onscroll="galleryScroll('${id}',${photos.length})">${imgs}</div>
     <div class="photo-dots">${dots}</div>
@@ -5472,7 +5476,7 @@ function renderScanHistory() {
   el.innerHTML = `
     <div class="card" style="margin-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div class="card-title" style="margin-bottom:0">📋 Today's Scans</div>
+        <h3 class="card-title" style="margin-bottom:0">📋 Today's Scans</h3>
         ${totalPotentialProfit>0?`<div style="font-size:12px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700">+$${totalPotentialProfit.toFixed(0)} potential</div>`:''}
       </div>
       ${todayScans.map(s=>`
@@ -5996,7 +6000,7 @@ function showInventoryDrillDown() {
   const sold     = items.filter(i=>i.status==='Sold');
   const rows = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
     ${[['All Items',items.length,'All','var(--accent)'],['Listed',listed.length,'Listed','var(--green)'],['Unlisted',unlisted.length,'Unlisted','var(--yellow)'],['Sold',sold.length,'Sold','var(--muted)']].map(([lbl,cnt,status,color])=>`
-    <div onclick="document.getElementById('drill-down-modal').remove();switchTab('inventory');filterStatus='${status}';renderInventory()"
+    <div onclick="document.getElementById('drill-down-modal').remove();switchTab('inventory');filterStatus='${status}';renderInventory()" role="button" tabindex="0"
       style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer">
       <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:${color}">${cnt}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${lbl}</div>
@@ -6208,6 +6212,14 @@ async function openCustomerPortal() {
     else showToast('Portal error: ' + (data.error||'Unknown'));
   } catch(e) { showToast('Portal error: ' + e.message); }
 }
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const target = e.target.closest('[role="button"][tabindex]');
+  if (!target) return;
+  e.preventDefault();
+  target.click();
+});
 
 window.onload = () => {
   // Run migration FIRST before anything else
