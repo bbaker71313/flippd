@@ -2665,7 +2665,6 @@ function showDetail(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
   const p = calcProfit(item.cost, item.sellPrice);
-  const pColor = p >= 0 ? '#00e676' : '#ff3333';
   const soldBtnHtml = item.status !== 'Sold'
     ? `<button class="sm-btn" style="background:#2D6B52;color:#fff" onclick="openSoldModal(${item.id})">✓ Mark Sold</button>`
     : '';
@@ -2674,15 +2673,15 @@ function showDetail(id) {
     ? renderPhotoGallery(item.photos, galleryId)
     : '';
   document.getElementById('inv-detail-content').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--space-3)">
       <div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;letter-spacing:1px">${item.sku||''}</div>
-        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--accent);margin-top:2px">${item.nickname}</div>
+        <div class="detail-item-sku">${item.sku||''}</div>
+        <div class="detail-item-name">${item.nickname}</div>
       </div>
       <span class="status-badge status-${item.status}">${item.status}</span>
     </div>
     ${item.created_from && item.created_from !== 'manual' ? `
-    <div style="display:inline-flex;align-items:center;gap:6px;background:#e8fff2;border:1px solid #7ABDA0;border-radius:6px;padding:4px 10px;margin-bottom:12px;font-size:11px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700">
+    <div class="ai-sourced-badge">
       🔍 AI Sourced${item.sourcing_meta?.scanned_at ? ' · ' + new Date(item.sourcing_meta.scanned_at).toLocaleDateString() : ''}
       ${item.sourcing_meta?.confidence ? ` · ${item.sourcing_meta.confidence}% confidence` : ''}
     </div>` : ''}
@@ -2694,13 +2693,13 @@ function showDetail(id) {
       <div class="detail-box"><div class="d-lbl">Platform</div><div class="d-val">${item.platform}</div></div>
       <div class="detail-box"><div class="d-lbl">Cost</div><div class="d-val">$${item.cost||'0.00'}</div></div>
       <div class="detail-box"><div class="d-lbl">Sell Price</div><div class="d-val">$${item.sellPrice||'0.00'}</div></div>
-      <div class="detail-box"><div class="d-lbl">eBay Fees</div><div class="d-val" style="color:var(--red)">-$${((parseFloat(item.sellPrice)||0)*(S.ebayFee/100)).toFixed(2)}</div></div>
+      <div class="detail-box"><div class="d-lbl">eBay Fees</div><div class="d-val u-neg">-$${((parseFloat(item.sellPrice)||0)*(S.ebayFee/100)).toFixed(2)}</div></div>
       <div class="detail-box" style="background:var(--green-bg);border-color:var(--green-border)">
         <div class="d-lbl">Est. Profit</div>
-        <div class="d-val" style="font-size:18px;font-weight:900;color:${pColor}">$${p.toFixed(2)}</div>
+        <div class="detail-profit-val ${profitClass(p)}">$${p.toFixed(2)}</div>
       </div>
     </div>
-    ${item.notes ? `<div class="notes-box"><div class="d-lbl" style="margin-bottom:6px">Notes / Flaws</div><div style="font-size:13px;color:var(--soft);line-height:1.6">${item.notes}</div></div>` : ''}
+    ${item.notes ? `<div class="notes-box"><div class="d-lbl u-mb-1">Notes / Flaws</div><div class="u-soft" style="font-size:var(--text-base);line-height:1.6">${item.notes}</div></div>` : ''}
     <div class="btn-row">
       <button class="sm-btn sm-btn-primary" onclick="startEdit(${item.id})">✏️ Edit</button>
       <button class="sm-btn" style="background:#185FA5;color:#fff" onclick="openPhotoAgentFor(${item.id})">📸 Photos</button>
@@ -2875,9 +2874,9 @@ function startEdit(id) {
   if (editPhotosEl) {
     if (item.photos && item.photos.length) {
       editPhotosEl.style.display = 'block';
-      editPhotosEl.innerHTML = `<div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:6px">EXISTING PHOTOS — tap ✕ to remove</div>`
-        + `<div style="display:flex;flex-wrap:wrap;gap:6px">`
-        + item.photos.map((p,i)=>`<div style="position:relative"><img src="${p}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="editRemovePhoto(${id},${i})" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,0.65);color:#fff;border:none;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer">✕</button></div>`).join('')
+      editPhotosEl.innerHTML = `<div class="edit-photos-label">EXISTING PHOTOS — tap ✕ to remove</div>`
+        + `<div class="edit-photo-grid">`
+        + item.photos.map((p,i)=>`<div class="edit-photo-wrap"><img src="${p}"><button class="edit-photo-del" onclick="editRemovePhoto(${id},${i})">✕</button></div>`).join('')
         + `</div>`;
     } else {
       editPhotosEl.style.display = 'none';
@@ -2908,7 +2907,7 @@ function updateProfitPreview() {
   if (cost && price) {
     const p = calcProfit(cost, price);
     val.textContent = '$' + p.toFixed(2);
-    val.style.color = p >= 0 ? '#00e676' : '#ff3333';
+    val.className = profitClass(p);
     row.style.display = 'block';
   } else {
     row.style.display = 'none';
