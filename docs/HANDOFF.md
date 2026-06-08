@@ -25,7 +25,7 @@ Continuation of the design-audit session below (P0/P1 already merged via PR #43)
 
 | Hash | Message |
 |---|---|
-| _pending_ | style: remove side-tab accent borders and bounce-easing from app.html |
+| `a5c0f34` | style: remove side-tab accent borders and bounce-easing from app.html |
 
 ### Next task
 
