@@ -438,6 +438,9 @@ body::before{
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .conf-bar-bg{height:6px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:5px}
 .conf-bar-fill{height:100%;border-radius:2px}
+.conf-bar-fill.u-pos  { background: var(--green); }
+.conf-bar-fill.u-warn { background: var(--yellow); }
+.conf-bar-fill.u-neg  { background: var(--red); }
 .legend-row{
   display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
   padding:10px 14px;
@@ -5123,6 +5126,18 @@ async function analyzeShelf() {
   } catch(e){resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
+// Threshold classifier helpers — return CSS class name for token-based coloring.
+// Used by renderSingle, renderShelf, renderFilteredList, pnlRenderMonthly.
+function profitClass(p)  { return p >= S.minProfit ? 'u-pos' : 'u-neg'; }
+function roiClass(r)     { return r >= 200 ? 'u-pos' : r >= 100 ? 'u-warn' : 'u-neg'; }
+function daysClass(d)    { return d <= 30 ? 'u-pos' : d <= 60 ? 'u-warn' : 'u-neg'; }
+function strClass(s)     { return s >= 60 ? 'u-pos' : s >= 35 ? 'u-warn' : 'u-neg'; }
+function confClass(c)    { return c >= 75 ? 'u-pos' : c >= 50 ? 'u-warn' : 'u-neg'; }
+function demandClass(lv) {
+  return {'VERY HIGH':'text-demand-vh','HIGH':'text-demand-high',
+          'MEDIUM':'text-demand-med','LOW':'text-demand-low'}[lv]||'u-muted';
+}
+
 // ══════════════════════════════════════════════════
 // SOURCING — RENDER SINGLE RESULT
 // ══════════════════════════════════════════════════
@@ -5133,31 +5148,22 @@ function renderSingle({item,cost,fin,dec}) {
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const shipLine=S.shipping==='free'
-    ?`<span class="dv" style="color:var(--red)">-$${fin.shipCost.toFixed(2)}</span>`
-    :`<span class="dv" style="color:#006633;font-weight:800">Buyer Pays ✓</span>`;
-  const D={
-    HOT:{bg:'linear-gradient(135deg,#00cc66,#00aa99)',col:'#fff',sh:'0 4px 20px rgba(0,180,80,0.45)',icon:'🔥',lbl:'HIGH PRIORITY — BUY NOW'},
-    BUY:{bg:'linear-gradient(135deg,#1a9940,#157a30)',col:'#fff',sh:'0 4px 16px rgba(20,140,50,0.35)',icon:'✅',lbl:'BUY IT'},
-    PASS:{bg:'linear-gradient(135deg,#dd0000,#aa0000)',col:'#fff',sh:'0 4px 16px rgba(180,0,0,0.35)',icon:'❌',lbl:'PASS ON THIS ONE'},
-  }[dec];
-  const DC={'VERY HIGH':'#00e676','HIGH':'#00c060','MEDIUM':'#f5a623','LOW':'#ff3333'};
-  const pc=profit>=S.minProfit?'#00e676':'#ff3333';
-  const rc=roi>=200?'#00e676':roi>=100?'#f5a623':'#ff3333';
-  const dayc=item.avg_days_to_sell<=30?'#00e676':item.avg_days_to_sell<=60?'#f5a623':'#ff3333';
-  const stc=item.sell_through_rate>=60?'#00e676':item.sell_through_rate>=35?'#f5a623':'#ff3333';
+    ?`<span class="dv u-neg">-$${fin.shipCost.toFixed(2)}</span>`
+    :`<span class="dv u-pos" style="font-weight:800">Buyer Pays ✓</span>`;
+  const D_ICON={HOT:'🔥',BUY:'✅',PASS:'❌'};
+  const D_LBL={HOT:'HIGH PRIORITY — BUY NOW',BUY:'BUY IT',PASS:'PASS ON THIS ONE'};
   const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${k} ↗</a>`).join('');
   const tips=(item.listing_tips||[]).map(t=>`<li class="tip-item"><span class="tip-arrow">→</span>${t}</li>`).join('');
-  const flags=(item.risk_flags||[]).filter(Boolean).map(f=>`<li class="tip-item" style="color:var(--red)"><span class="tip-arrow" style="color:var(--red)">!</span>${f}</li>`).join('');
-  const confColor=item.confidence>=75?'#00e676':item.confidence>=50?'#f5a623':'#ff3333';
+  const flags=(item.risk_flags||[]).filter(Boolean).map(f=>`<li class="tip-item u-neg"><span class="tip-arrow u-neg">!</span>${f}</li>`).join('');
 
   // Determine what category to map to for inventory
   const invCategory = mapToInvCategory(item.category);
 
   document.getElementById('results-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
-    <div class="decision-banner${dec==='HOT'?' is-hot':dec==='BUY'?' is-buy':''}" style="background:${D.bg};box-shadow:${D.sh};color:${D.col}">
-      <span class="d-icon">${D.icon}</span>
-      <div style="flex:1;min-width:0"><div class="d-label">${D.lbl}</div><div class="d-name">${item.item_name}</div></div>
+    <div class="decision-banner is-${dec.toLowerCase()}">
+      <span class="d-icon">${D_ICON[dec]}</span>
+      <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${item.item_name}</div></div>
       <div class="conf-pill">${item.confidence}%</div>
     </div>
     <div class="source-badge">🤖 AI Estimated · Buyer pays shipping · Verify with real eBay data</div>
@@ -5167,47 +5173,47 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="buy-action-title">What do you want to do?</div>
       <div class="buy-action-sub">Tap Buy to add this item to your inventory automatically.</div>
       <div class="buy-action-btns">
-        <button class="action-btn action-buy" onclick="buyItem()">🛒 BUY<br><span style="font-size:10px;font-weight:600;opacity:0.9">Add to Inventory</span></button>
-        <button class="action-btn action-watch" onclick="watchItem()">👀 WATCH<br><span style="font-size:10px;font-weight:600;opacity:0.9">Save for Later</span></button>
-        <button class="action-btn action-pass" onclick="goSrcBack()">❌ PASS<br><span style="font-size:10px;font-weight:600;opacity:0.9">Skip This One</span></button>
+        <button class="action-btn action-buy" onclick="buyItem()">🛒 BUY<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
+        <button class="action-btn action-watch" onclick="watchItem()">👀 WATCH<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Save for Later</span></button>
+        <button class="action-btn action-pass" onclick="goSrcBack()">❌ PASS<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Skip This One</span></button>
       </div>
     </div>
 
     <div class="card">
       <h3 class="card-title">💰 Financial Breakdown</h3>
-      <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv" style="font-size:20px;font-family:'Syne',sans-serif">$${item.avg_sold_price?.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv u-syne u-text-lg">$${item.avg_sold_price?.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${item.price_low} – $${item.price_high}</span></div>
       <hr class="divider">
       <div class="data-row"><span class="dl">Your Cost</span><span class="dv">$${cost.toFixed(2)}</span></div>
-      <div class="data-row"><span class="dl">eBay Fee (${S.ebayFee}%)</span><span class="dv" style="color:var(--red)">-$${fee.toFixed(2)}</span></div>
-      <div class="data-row"><span class="dl">Packaging</span><span class="dv" style="color:var(--red)">-$${S.pkgCost.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">eBay Fee (${S.ebayFee}%)</span><span class="dv u-neg">-$${fee.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">Packaging</span><span class="dv u-neg">-$${S.pkgCost.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Shipping</span>${shipLine}</div>
       <hr class="divider">
-      <div class="data-row"><span class="dl" style="font-weight:800;font-size:15px">Net Profit</span><span class="dv" style="font-size:22px;font-family:'Syne',sans-serif;color:${pc}">$${profit.toFixed(2)}</span></div>
-      <div class="data-row"><span class="dl">ROI</span><span class="dv" style="font-size:18px;font-family:'Syne',sans-serif;color:${rc}">${roi.toFixed(0)}%</span></div>
+      <div class="data-row"><span class="dl u-text-md u-bold9">Net Profit</span><span class="dv u-syne u-text-xl ${profitClass(profit)}">$${profit.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">ROI</span><span class="dv u-syne u-text-lg ${roiClass(roi)}">${roi.toFixed(0)}%</span></div>
     </div>
     <div class="card">
       <h3 class="card-title">📊 Market Intelligence</h3>
-      <div class="data-row"><span class="dl">Demand</span><span class="dv" style="color:${DC[item.demand_level]||'#a89080'};font-size:15px">${item.demand_level}</span></div>
-      <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv" style="color:${stc}">${item.sell_through_rate}%</span></div>
-      <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv" style="color:${dayc}">${item.avg_days_to_sell} days</span></div>
+      <div class="data-row"><span class="dl">Demand</span><span class="dv u-text-md ${demandClass(item.demand_level)}">${item.demand_level}</span></div>
+      <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv ${strClass(item.sell_through_rate)}">${item.sell_through_rate}%</span></div>
+      <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv ${daysClass(item.avg_days_to_sell)}">${item.avg_days_to_sell} days</span></div>
       <div class="data-row"><span class="dl">Category</span><span class="dv">${item.category}</span></div>
       ${item.brand?`<div class="data-row"><span class="dl">Brand</span><span class="dv">${item.brand}</span></div>`:''}
-      <div style="margin-top:14px">
-        <div style="font-size:12px;color:var(--soft);margin-bottom:5px;font-weight:600">AI Confidence: ${item.confidence}%</div>
-        <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${item.confidence}%;background:${confColor}"></div></div>
-        <div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5">${item.confidence_reason}</div>
+      <div class="u-mt-3">
+        <div class="u-text-base u-soft u-mb-1" style="font-weight:600">AI Confidence: ${item.confidence}%</div>
+        <div class="conf-bar-bg"><div class="conf-bar-fill ${confClass(item.confidence)}" style="width:${item.confidence}%"></div></div>
+        <div class="u-text-base u-muted u-mt-1" style="line-height:1.5">${item.confidence_reason}</div>
       </div>
     </div>
     <div class="two-col">
       <div class="card"><h3 class="card-title">✍️ Listing Tips</div><ul class="tips-list">${tips}</ul></h3>
-      <div class="card"><h3 class="card-title">🔎 Check This</div><div style="font-size:13px;color:var(--soft);line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list" style="margin-top:8px">${flags}</ul>`:''}</h3>
+      <div class="card"><h3 class="card-title">🔎 Check This</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</h3>
     </div>
     <div class="card">
       <h3 class="card-title">🔍 eBay Search Terms</h3>
       <div class="tags-wrap">${kw}</div>
     </div>
-    ${item.notes?`<div class="card"><h3 class="card-title">📌 Notes</div><div style="font-size:13px;color:var(--soft);line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
+    ${item.notes?`<div class="card"><h3 class="card-title">📌 Notes</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
     <div class="legend-row">
       <span class="legend-item">✅ Min profit: $${S.minProfit}</span>
       <span class="legend-item">🎯 Target ROI: ${S.targetRoi}%+</span>
