@@ -4,6 +4,47 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 — Fix persistent "Server error" on scans (markdown-fenced JSON)
+
+### Correction to prior session's claim
+
+The 2026-06-07 (2) entry below claims `claude-proxy` v16 (raised `max_tokens` to 4096/8192 + multipart image resize) fixed the "Server error — try again in a moment" message on shelf/single scan. **It did not.** User reported: *"the server error is still constant on shelf scan and such. this wasn't an issue back in the day"* — i.e. this is a long-standing, persistent latent bug, not a v16 regression.
+
+### Root cause (finally identified)
+
+`JSON.parse(raw)` was called directly on Claude's raw text reply in 5 places (`handleSingleScan`, `handleShelfScan`, `handleListingGenerate`, `handleKeywordsGet`, `handleGrowthReport`). Claude sometimes wraps JSON replies in `\`\`\`json ... \`\`\`` fences or adds a sentence of preamble/trailing prose despite explicit "Return ONLY valid JSON, no markdown" instructions in the prompts. This threw `'AI returned invalid JSON'` → became an HTTP 500 → and was masked into the generic toast by `app.html`'s `callScan()`, which collapses **all** `res.status >= 500` into `'Server error — try again in a moment'` and discards the real `errData.error`. That blanket masking is why this bug survived so many sessions — nobody could ever see the actual error string.
+
+Diagnosed via execution-time analysis of Supabase Edge Function gateway logs: failing 500s (8880ms, 12472ms) were *shorter* than successful 200s (15000-33000ms) on the same v16 code — meaning the failure happens *after* the Anthropic round-trip completes (during response parsing), not during image decode or mid-generation truncation.
+
+### Fix — deployed as `claude-proxy` v17 (ACTIVE, sha256 `a7b27bcb59d3...`)
+
+- Added `extractJSON(raw)` helper to `supabase/functions/claude-proxy/index.ts`: strips ` ```json ` / ` ``` ` fences and slices to the outermost `{...}`/`[...]` substring before parsing.
+- Applied it at all 5 `JSON.parse(...)` call sites that parse Claude-generated text (did **not** touch the JWT-decode or legacy-form-parsing `JSON.parse` calls — those parse non-AI structured data).
+- In `apps/web/public/app.html`'s `callScan()`, added `console.error('Scan server error detail:', res.status, errData)` right before the generic 5xx toast — so if scans ever fail again for **any** reason, the real error is now visible in browser devtools without changing the user-facing message. This closes the "we can never see the real error" gap.
+
+### Decisions made this session (must not be reversed)
+
+- All AI-generated JSON parsing in `claude-proxy` MUST go through `extractJSON()` — never raw `JSON.parse(claudeText)`. Apply this to any new AI-JSON call sites added in the future.
+- Keep the new `console.error('Scan server error detail:', ...)` diagnostic logging in `callScan()` — it's the only way to see real server error text from the field; do not remove it when "cleaning up."
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `b348cfb` | fix: make AI JSON parsing tolerant of markdown-fenced replies (deployed as claude-proxy v17) |
+
+### Next task
+
+1. **User: retest shelf scan AND single scan live** to confirm v17 actually resolves "Server error". This is the deliverable we're waiting on.
+2. **If it still fails**: open browser devtools console, retry the scan, and report the exact text after `'Scan server error detail:'` — that will reveal the true error for the first time and enable a definitive fix.
+3. Continue prior next-task items below (eBay OAuth callback registration, `invFormDetectItem()` migration, RESEND_API_KEY, merge PR #41).
+
+### Blockers
+
+None — fix deployed and pushed. Awaiting live user confirmation.
+
+---
+
 ## Session: 2026-06-07 (2) — Fix scanner crash + 500 errors (multipart + token budgets)
 
 ### What changed this session
