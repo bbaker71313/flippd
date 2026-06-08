@@ -155,6 +155,22 @@ async function callAnthropic(
   return data.content[0].text as string;
 }
 
+// Claude sometimes wraps JSON replies in ```json fences or adds a sentence of
+// preamble/trailing prose despite "return ONLY valid JSON" instructions — strip
+// fences and slice to the outermost {...} or [...] before parsing so those
+// replies don't surface as opaque "Server error" failures.
+function extractJSON(raw: string): string {
+  let s = raw.trim();
+  const fenceMatch = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (fenceMatch) s = fenceMatch[1].trim();
+  const start = s.search(/[[{]/);
+  if (start > 0) {
+    const end = s[start] === '[' ? s.lastIndexOf(']') : s.lastIndexOf('}');
+    if (end > start) s = s.slice(start, end + 1);
+  }
+  return s;
+}
+
 // Verbatim from FEATURE_TRIAGE.md P-03 (getSingleSys L4644–4663)
 function buildSinglePrompt(s: Settings): string {
   return `You are a meticulous eBay sourcing expert with deep product knowledge. Your job is to ACCURATELY identify items and provide REALISTIC eBay sold market data — not retail prices.
@@ -204,7 +220,7 @@ async function handleSingleScan(
 ) {
   const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), imageBase64, 4096);
   let ai: Record<string, unknown>;
-  try { ai = JSON.parse(raw); }
+  try { ai = JSON.parse(extractJSON(raw)); }
   catch { throw new Error('AI returned invalid JSON'); }
 
   const avgSell = (ai.avg_sold_price as number) ?? 0;
@@ -241,7 +257,7 @@ async function handleShelfScan(
 ) {
   const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), imageBase64, 8192);
   let aiItems: Record<string, unknown>[];
-  try { aiItems = JSON.parse(raw); }
+  try { aiItems = JSON.parse(extractJSON(raw)); }
   catch { throw new Error('AI returned invalid JSON'); }
   if (!Array.isArray(aiItems)) throw new Error('AI returned non-array for shelf scan');
 
@@ -522,7 +538,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   if (!res.ok) throw new Error(data.error?.message ?? 'Anthropic error');
 
   let ai: Record<string, unknown>;
-  try { ai = JSON.parse(data.content[0].text as string); }
+  try { ai = JSON.parse(extractJSON(data.content[0].text as string)); }
   catch { throw new Error('AI returned invalid JSON'); }
 
   // Enforce title ≤80 chars
@@ -599,7 +615,7 @@ async function handleKeywordsGet(
     const d = await res.json();
     if (!res.ok) throw new Error(d.error?.message ?? 'Anthropic error');
     const textBlock = (d.content as Array<{type: string; text?: string}>).find(b => b.type === 'text');
-    kwResult = JSON.parse(textBlock?.text ?? '{}');
+    kwResult = JSON.parse(extractJSON(textBlock?.text ?? '{}'));
   } catch {
     return { keywords: STATIC_KEYWORDS, trending_categories: STATIC_CATEGORIES, hot_tip: STATIC_TIP, fromCache: false };
   }
@@ -882,7 +898,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error?.message ?? 'Anthropic error');
-    ai = JSON.parse(d.content[0].text as string);
+    ai = JSON.parse(extractJSON(d.content[0].text as string));
   } catch {
     return { cached: false, data: buildFallbackReport(itemCount), generatedAt: new Date().toISOString() };
   }

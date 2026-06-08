@@ -4582,7 +4582,10 @@ async function callScan(type, hint) {
     }
     if (res.status === 401 || res.status === 403) throw new Error('Session expired. Please log in again.');
     if (res.status === 429) throw new Error('Rate limited — wait a moment and try again');
-    if (res.status >= 500) throw new Error('Server error — try again in a moment');
+    if (res.status >= 500) {
+      console.error('Scan server error detail:', res.status, errData);
+      throw new Error('Server error — try again in a moment');
+    }
     throw new Error(errData.error || 'API Error ' + res.status);
   }
   return res.json();
