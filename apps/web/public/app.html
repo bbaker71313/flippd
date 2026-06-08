@@ -5669,7 +5669,7 @@ function renderBestWorst() {
 // ══════════════════════════════════════════════════
 function pnlRenderMonthly() {
   const sold = items.filter(i=>i.status==='Sold');
-  if (!sold.length) return '<div style="font-size:13px;color:var(--muted);padding:8px 0">No sold items yet.</div>';
+  if (!sold.length) return '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sold items yet.</div>';
   const byMonth = {};
   sold.forEach(i => {
     const d = new Date(i.createdAt||i.dateAcquired);
@@ -5682,9 +5682,9 @@ function pnlRenderMonthly() {
   });
   return Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([,m])=>`
     <div class="month-row">
-      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${m.label}</div>
-      <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${m.count} sold · $${m.revenue.toFixed(0)} revenue</div></div>
-      <div style="font-size:15px;font-weight:900;font-family:'Syne',sans-serif;color:${m.profit>=0?'var(--green)':'var(--red)'}">$${m.profit.toFixed(0)}</div>
+      <div><div style="font-size:var(--text-base);font-weight:700">${m.label}</div>
+      <div class="u-text-xs u-muted">${m.count} sold · $${m.revenue.toFixed(0)} revenue</div></div>
+      <div class="u-syne u-bold9 u-text-md ${m.profit>=0?'u-pos':'u-neg'}">$${m.profit.toFixed(0)}</div>
     </div>`).join('');
 }
 
