@@ -611,7 +611,10 @@ body::before{
 .growth-cat-row:last-child{border-bottom:none}
 .growth-cat-name{font-size:13px;font-weight:700;color:var(--text)}
 .growth-cat-sub{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px}
-.growth-profit{font-size:14px;font-weight:900;font-family:'Syne',sans-serif;color:var(--green)}
+.growth-profit{font-size:14px;font-weight:900;font-family:'Syne',sans-serif;color:var(--green);margin-left:12px;flex-shrink:0}
+.hunt-priority{display:inline-block;font-size:var(--text-xs);padding:2px 7px;border-radius:8px;font-weight:800;vertical-align:middle}
+.hunt-priority.is-high{background:rgba(0,230,118,0.12);color:var(--green)}
+.hunt-priority.is-warn{background:rgba(245,166,35,0.12);color:var(--yellow)}
 .growth-bar-bg{height:4px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden}
 .growth-bar-fill{height:100%;border-radius:2px;background:var(--green)}
 .stale-item{padding:9px 0;border-bottom:1px solid var(--border)}
@@ -3655,8 +3658,8 @@ function renderGrowthResults(r) {
         <div class="score-label">Business Score</div>
       </div>
       <div style="flex:1">
-        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:4px">${r.score_label}</div>
-        <div style="font-size:13px;color:var(--soft);line-height:1.5;font-weight:500">${r.score_summary}</div>
+        <div class="u-syne u-bold9" style="font-size:var(--text-lg);margin-bottom:var(--space-1)">${r.score_label}</div>
+        <div class="u-text-base u-soft" style="line-height:1.5">${r.score_summary}</div>
       </div>
     </div>`;
 
@@ -3668,9 +3671,9 @@ function renderGrowthResults(r) {
         <div class="growth-cat-sub">${c.insight}</div>
         <div class="growth-bar-bg"><div class="growth-bar-fill" style="width:${c.bar_pct||0}%"></div></div>
       </div>
-      <div class="growth-profit" style="margin-left:12px;flex-shrink:0">${c.profit}</div>
+      <div class="growth-profit">${c.profit}</div>
     </div>`).join('');
-  document.getElementById('growth-top-content').innerHTML = topContent || '<div style="font-size:13px;color:var(--muted);padding:8px 0">No sales data yet — keep listing!</div>';
+  document.getElementById('growth-top-content').innerHTML = topContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sales data yet — keep listing!</div>';
 
   // Stale items
   const staleContent = (r.stale_actions||[]).length ? (r.stale_actions||[]).map(i=>`
@@ -3679,11 +3682,11 @@ function renderGrowthResults(r) {
         <div>
           <div class="stale-name">${i.name}</div>
           <div class="stale-meta">${i.sku||''} · Listed ${i.days} days</div>
-          <div style="font-size:12px;color:var(--soft);margin-top:3px;font-weight:500">${i.reason}</div>
+          <div class="u-text-sm u-soft u-mt-1">${i.reason}</div>
         </div>
         <span class="stale-action">${i.action}</span>
       </div>
-    </div>`).join('') : '<div style="font-size:13px;color:var(--green);padding:8px 0;font-weight:600">✓ No stale listings — great turnover!</div>';
+    </div>`).join('') : '<div class="u-text-base u-pos" style="padding:var(--space-2) 0">✓ No stale listings — great turnover!</div>';
   document.getElementById('growth-stale-content').innerHTML = staleContent;
 
   // Hunt list
@@ -3691,11 +3694,11 @@ function renderGrowthResults(r) {
     <div class="hunt-item">
       <div class="hunt-icon">${h.icon||'🎯'}</div>
       <div>
-        <div class="hunt-name">${h.item} <span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:800;font-family:'IBM Plex Mono',monospace;${h.priority==='HIGH'?'background:rgba(0,230,118,0.12);color:var(--green)':'background:rgba(245,166,35,0.12);color:var(--yellow)'}">${h.priority}</span></div>
+        <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
         <div class="hunt-why">${h.why}</div>
       </div>
     </div>`).join('');
-  document.getElementById('growth-hunt-content').innerHTML = huntContent || '<div style="font-size:13px;color:var(--muted);padding:8px 0">Run refresh to get hunt list</div>';
+  document.getElementById('growth-hunt-content').innerHTML = huntContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">Run refresh to get hunt list</div>';
 
   // Market trends
   const trendContent = (r.market_trends||[]).map(t=>`
@@ -3706,7 +3709,7 @@ function renderGrowthResults(r) {
         <div class="trend-detail">${t.detail}</div>
       </div>
     </div>`).join('');
-  document.getElementById('growth-market-content').innerHTML = trendContent || '<div style="font-size:13px;color:var(--muted);padding:8px 0">Tap Refresh to pull live market data</div>';
+  document.getElementById('growth-market-content').innerHTML = trendContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">Tap Refresh to pull live market data</div>';
 
   // Advisor message
   document.getElementById('growth-advice-content').innerHTML = r.advisor_message || '';
@@ -3731,7 +3734,7 @@ function updateSoldProfit() {
   if (price && soldModalItem) {
     const p = calcProfit(soldModalItem.cost, price);
     val.textContent = '$' + p.toFixed(2);
-    val.style.color = p >= 0 ? '#00e676' : '#ff3333';
+    val.className = profitClass(p);
     preview.style.display = 'flex';
   } else {
     preview.style.display = 'none';
