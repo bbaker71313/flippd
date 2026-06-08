@@ -4,6 +4,88 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 (3) — Brand Unification: index.html reworked to match app.html's dark system
+
+### What changed this session
+
+The prior re-audit session flagged something the `impeccable` detector can't catch on its own: `index.html` (marketing landing page) and `app.html` (the actual product) read as two different brands — different fonts (Plus Jakarta Sans + Fira Code vs. the spec's Syne + IBM Plex Mono), different palettes (light warm-beige "editorial" vs. dark "industrial terminal"), different component personalities (soft drop-shadow lift-on-hover vs. quiet glow language). User chose **full unification** over keeping two registers: rework `index.html` end-to-end to match `app.html`'s dark system.
+
+**`apps/web/public/index.html`** — CSS/token rewrite only; copy, structure, IDs, `aria-*`/`role`, every `<a href>`/CTA destination, the PostHog snippet, both JSON-LD blocks (verified byte-for-byte unchanged), `<meta>`/`<link rel="preconnect">` tags, and the hidden `#social-proof` state are all untouched:
+
+1. **Fonts** (line 24): swapped Plus Jakarta Sans + Fira Code → `Syne:wght@700;800;900` + `IBM+Plex+Mono:wght@400;500;600;700` (now matches `app.html` exactly — shared cached font payload, and finally matches the documented spec in `BRAND_IDENTITY.md`).
+2. **`:root` palette** (lines 54-77): full swap to app.html's dark tokens (`--bg:#0a0a0a`, `--card:#161616`, `--text:#f0ead8`, `--accent:#d4a843` gold, `--green:#00e676`, etc.), added tokens index lacked (`--card-hover`, `--accent-dim`, `--red-bg`, `--yellow-bg`, translucent `--green-bg`/`--purple-*`).
+3. **`--header` deleted** (do-not-reverse decision — see below).
+4. **Scanline overlay**: ported `body::before` `repeating-linear-gradient` + `mix-blend-mode:multiply` + `z-index:9000` verbatim from app.html — the signature "industrial terminal" texture.
+5. **Nav, buttons, hero, section headings, cards, badges/pills/status, FAQ, final CTA, footer**: retinted to dark tokens; unified card radius to 6px (matches app.html's actual `.card` value), badge/pill radius to 3px; replaced soft-shadow lift-on-hover with app.html's quiet glow language (`background → var(--card-hover)` + `border-color → var(--accent)`, no transform); buttons now glow (`box-shadow: 0 0 20px rgba(0,230,118,0.25)`) and press (`scale(0.97) translateY(1px)` + `brightness(0.9)`) instead of lifting; added focus ring on `.newsletter input` matching app.html's input-focus pattern (`box-shadow: 0 0 0 2px rgba(212,168,67,0.15)`).
+6. **Logo** reskinned to match `.app-logo-name` exactly (gold, glow text-shadow, 900 weight, 0.12em tracking).
+7. **Locked easing curve**: every new/changed transition uses `cubic-bezier(0.16,1,0.3,1)` (the one approved curve per the prior session's bounce-easing fix — never elastic/overshoot).
+8. **Did NOT port** `hotPulse`/`buySweep`/`statFlash` (tied to live decision states that don't exist on a marketing page) or the `.card::before` gold side-stripe (the team actively removed this exact "side-tab" tell from app.html dashboard cards in commit `a5c0f34` — reintroducing it on marketing cards would be regressive).
+9. **Remapped every orphaned old-palette literal** found during the rewrite (not all were itemized in the plan — found via systematic grep after the token swap): old green `#00bb66`/`rgba(0,187,102,*)` → new `#00e676`/`rgba(0,230,118,*)`; old card-cream `rgba(253,248,239,*)` → `rgba(240,234,216,*)`; old header-brown `rgba(58,36,16,*)` → near-black/white-translucent equivalents; old yellow `rgba(196,120,0,*)` → `rgba(245,166,35,*)`; old purple `rgba(107,63,160,*)` → `rgba(179,136,255,*)`. Left `.inv-thumb`/`.scout-frame`/`.scan-thumb` photo-tint gradients (`#8b6a3e`, `#3a2410`, etc.) untouched — they're photo placeholder tints, not brand chrome.
+10. **Contrast fixes**: applied app.html's `color:#000` convention on bright `--accent`/`--green` backgrounds (`.avatar`, `.feature-card.green .feature-icon`, `.price-card.featured .price-badge`).
+
+### Decision that must NOT be reversed: `--header` token deleted
+
+`index.html` used `--header` (`#3a2410` brown) as a *heading/ink text color* in ~44 places, while `app.html` uses `--header` (`#000000`) as a *background* for nav/tab-bar only — these are semantically incompatible, not interchangeable. **Resolution: deleted `--header` entirely.** All ~44 text-color references became `var(--text)` (app.html's light-ink-on-dark color, `#f0ead8`). The ~10 places where index.html used `--header` as a *background* ("dark chip with light text") got individual case-by-case replacements chosen by finding the closest analog in app.html's actual vocabulary (verified by reading/grepping app.html first — e.g. `.hunt-head`/`.skip-link` → pure-black `#000` bars, matching app.html's only literal `--header:#000000` usage; `.ps-tab.active` → gold accent, matching `.tab-btn.active{color:var(--accent)}`; `.feature-icon`/`.avatar.a2` → translucent `--green-bg` badge pattern). **Do not reintroduce a `--header` token or restore the brown palette** — this was the single largest and most deliberate decision in the rewrite.
+
+### Verification
+
+- Re-ran `node cli/bin/cli.js detect --json apps/web/public/index.html` from `/home/user/impeccable`: the `overused-font` finding is gone (as predicted — fonts now match the documented spec). New `dark-glow` finding appeared, but it's **not a regression** — `app.html` carries the identical `dark-glow` finding (confirmed by running the detector on both files side-by-side), because both pages now intentionally share the same gold-glow "industrial terminal" aesthetic defined in `BRAND_IDENTITY.md`. `em-dash-overuse`, `numbered-section-markers`, `aphoristic-cadence` findings are unchanged copy-voice items, untouched per scope.
+- Confirmed 0 remaining `var(--header)` / `var(--border-dark)` / old-palette hex-rgba literals via grep sweep.
+- Confirmed both JSON-LD `<script type="application/ld+json">` blocks present and untouched (2 blocks, byte count unchanged).
+- No build/typecheck step applies — `index.html` is a static asset (`next.config.js:9` does a plain route rewrite). Verification is visual; recommend opening `index.html` and `app.html` side-by-side in a browser at 375/768/1280px to confirm they now read as one cohesive product.
+
+### Next task
+
+1. Visual spot-check in a real browser at mobile/tablet/desktop widths — confirm fonts render as Syne/IBM Plex Mono, no orphaned light-mode colors, glow/press states feel right, scanline doesn't fight the nav backdrop-filter or hero radial glows.
+2. **Recommend updating `docs/BRAND_IDENTITY.md`** to document the dark "industrial terminal" system as the single canonical brand register — the spec currently still defines an unused light "Warm Parchment" token set that no longer matches either surface.
+3. Push this work to the existing PR #45 branch (or open a new PR) once visually verified.
+
+### Blockers
+
+None.
+
+---
+
+## Session: 2026-06-08 (2) — Re-audit Confirmation (index.html + app.html)
+
+### What changed this session
+
+No code changes — re-ran the `impeccable` anti-pattern detector fresh on both `apps/web/public/index.html` (scanforprofit.com) and `apps/web/public/app.html` (scanforprofit.com/app.html) to confirm the P2/P3 fixes from the prior session (commit `a5c0f34`) landed cleanly and to capture the current baseline.
+
+**Confirmed fixed (no longer flagged):**
+- `side-tab` accent border on `.dash-cat-card` / `.inv-cat-card` — gone
+- `bounce-easing` — all 4 animations (`modalIn`, `soldBurst`, `toastIn`, `scoreCount`) now use `cubic-bezier(0.16,1,0.3,1)`, confirmed in source at lines 656/746/754/817
+
+**Findings remaining (identical to last session's list — all previously triaged as false positives or deferred brand/copy decisions, intentionally untouched):**
+
+`index.html` (4 findings):
+| Rule | Severity | Detail |
+|---|---|---|
+| `overused-font` | warning | line 24 — Plus Jakarta Sans |
+| `em-dash-overuse` | warning | 6 em-dashes in body text |
+| `numbered-section-markers` | advisory | sequence 01, 02, 03, 10, 12 |
+| `aphoristic-cadence` | warning | 6 constructions, e.g. "Listed for 60 days. No offers." |
+
+`app.html` (14 findings):
+| Rule | Severity | Detail |
+|---|---|---|
+| `layout-transition` ×3 | warning | lines 604, 1684, 3824 — `transition: height/width` |
+| `broken-image` ×8 | warning | lines 1039, 1114, 1235, 1675, 4025, 4522, 6734, 6739 — confirmed false positives (JS-populated `<img>` placeholders) |
+| `em-dash-overuse` | warning | 19 em-dashes in body text |
+| `dark-glow` | warning | line 172 — gold glow `rgb(212,168,67)` on dark bg, intentional brand aesthetic |
+
+No new findings appeared. No action taken — re-run was confirmation only, per the prior session's "do not change anything that isn't explicitly in this session" decision.
+
+### Next task
+
+Same as prior session's open items: spot-check the re-eased animations/hover states on a real device, and revisit the deferred `dark-glow`/`em-dash-overuse`/`overused-font`/`numbered-section-markers`/`aphoristic-cadence`/`layout-transition` items only if a dedicated brand-voice or perf-profiling session is scheduled.
+
+### Blockers
+
+None.
+
+---
+
 ## Session: 2026-06-08 — P2/P3 Audit Fixes (app.html)
 
 ### What changed this session
