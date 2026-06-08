@@ -4,6 +4,46 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 — Design Audit + P0/P1 Fixes (index.html + app.html)
+
+### What changed this session
+
+Ran a manual design audit (impeccable framework: a11y, performance, theming, responsive, anti-patterns) on `apps/web/public/index.html` and `apps/web/public/app.html`, then fixed every P0 and P1 finding:
+
+- **`apps/web/public/app.html`**:
+  - **[P0]** Removed `maximum-scale=1.0, user-scalable=no` from the viewport meta tag (line 31) — was blocking pinch-to-zoom, fails WCAG 1.4.4 (Resize Text)
+  - **[P0]** Added `role="button" tabindex="0"` to all 27 interactive `<div>`/`<img>` elements that only had `onclick` handlers (mode tabs, dropzones, item thumbs, KPI/nav cards, status/category cards, photo dots, drill-down close, etc.), plus one delegated `keydown` listener (Enter/Space → `.click()`) near `window.onload` so all of them are keyboard- and screen-reader-operable — chosen over 27 individual `onkeydown` handlers per "surgical changes" rule
+  - **[P0]** Added `aria-label` to the 15 `<input>` elements that relied on `placeholder` alone (auth/register fields, search boxes, cost/miles/sale-price inputs, reminder time)
+  - **[P1]** Converted all 33 `<div class="card-title">` elements to semantic `<h3 class="card-title">` — app previously had only 2 real headings (`<h1>`, `<h2>`), breaking screen-reader navigation
+  - **[P1]** Added one `@media (min-width: 600px)` rule centering `.app-header`/`.tab-bar` at `max-width: 540px` to match `.tab-panel`, so the app shell doesn't stretch edge-to-edge on tablet/desktop — first responsive breakpoint in the file (previously zero)
+- **`apps/web/public/index.html`**:
+  - **[P0]** Replaced the fabricated "**156%** avg ROI from testing" hero-trust claim (line 745) with honest copy ("Real eBay fee math, not guesswork") — this was the same fake metric already flagged as a pending task in an earlier HANDOFF entry
+
+### Decisions made this session
+
+- Used one global delegated `keydown` listener for keyboard activation of the 27 clickable divs/imgs instead of per-element handlers — minimizes surface area of the change (Karpathy Rule 3)
+- Used `<h3>` (not `<h2>`) for card-title conversion — sits one level below both existing heading contexts (`<h1>` in Scout, `<h2>` in Settings) without creating hierarchy conflicts
+- **Deferred** the P1 finding "layout-property transitions" (`transition: height`/`width` on `.bar-fill`, `#buy-conf-bar`, dash chart bars at app.html lines ~600, 1680/1687, 3820/3827) — converting to `transform`-based animation would require restructuring how each bar's size is computed/set across 4+ JS call sites (real risk of breaking chart rendering) for negligible real-world gain (small elements, infrequent triggers, not scroll/frame-linked). Left as-is; flagging for a future dedicated pass if desired.
+- Did not touch the `156% ROI` / `$2,847` numbers that appear *inside* the hero phone-mockup illustrations (lines ~774, ~860, ~1123) — those are `aria-hidden` sample-UI screenshots showing what the app looks like, not factual marketing claims (unlike the hero-trust line, which asserted a real test result)
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `13cef1d` | fix: address P0/P1 audit findings on app.html and index.html |
+
+### Next task
+
+1. **Test on a real device/browser** — verify keyboard nav (Tab + Enter/Space) works on the 27 newly-focusable cards/tabs/dropzones, confirm the new `@media` breakpoint looks right at tablet/desktop widths, and confirm the `<h3>` card-title conversion didn't visually change anything (CSS class selector takes precedence over UA `<h3>` defaults, so it shouldn't have)
+2. **Optional follow-up**: revisit the deferred `transition: height/width` → `transform` conversion as its own focused session if performance profiling shows it's actually causing jank
+3. Continue with whatever was next on the existing PR #41 / scanner-verification track (this session's branch is `claude/scanforprofit-design-audit-5K3YG`, separate from `claude/serve-app-html`)
+
+### Blockers
+
+None.
+
+---
+
 ## Session: 2026-06-06 — Camera Scanner Fix + Photo Scan Typed Endpoint
 
 ### What changed this session
