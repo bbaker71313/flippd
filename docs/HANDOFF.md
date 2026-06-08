@@ -4,6 +4,41 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 — P2/P3 Audit Fixes (app.html)
+
+### What changed this session
+
+Continuation of the design-audit session below (P0/P1 already merged via PR #43). Re-ran the `impeccable` anti-pattern detector fresh on `index.html` and `app.html` and fixed the P2/P3 findings that were genuine, surgical, low-risk defects:
+
+- **`apps/web/public/app.html`**:
+  - **[P2] side-tab accent border** — removed the `border-left:2px solid var(--border)` accent stripe from `.dash-cat-card` (line 527) and `.inv-cat-card` (line 567), the most recognizable "AI-generated UI" tell per the anti-pattern rule. Changed the matching `:hover` rules from `border-left-color:var(--accent)` to `border-color:var(--accent)` so the hover state still highlights the whole card border instead of a now-removed stripe.
+  - **[P3] bounce-easing** — replaced all 4 instances of the elastic/overshoot timing function `cubic-bezier(0.34,1.56,0.64,1)` (lines 656 `modalIn`, 746 `soldBurst`, 754 `toastIn`, 817 `scoreCount`) with the smooth exponential ease-out curve `cubic-bezier(0.16,1,0.3,1)` — the anti-pattern rule's own stated recommendation (no overshoot/wobble).
+
+### Decisions made this session — findings investigated and deliberately NOT changed
+
+- **`broken-image` ×8** (app.html lines 1039, 1114, 1235, 1675, 4025, 4522, 6734, 6739) — confirmed false positives: all are dynamically-populated `<img>` placeholders that JS sets `src` on at runtime, or detector matches inside JS string/comments mentioning `<img>`. Fixing would actively break the UX (showing broken-image icons before JS populates them).
+- **`dark-glow`** (app.html line 172, gold glow `rgb(212,168,67)` on dark background) — intentional brand aesthetic (the gold-accent "industrial terminal" look defined in BRAND_IDENTITY.md). A redesign decision, not a defect — out of scope for "fix p2/p3" without a brand discussion.
+- **`layout-transition` ×3** (app.html lines 604, 1684, 3824) — already identified as P1 and explicitly deferred in the prior session's HANDOFF entry (converting `transition: height/width` to `transform` risks breaking 4+ chart-rendering call sites for negligible real-world gain). Not re-opening per "do not change anything that isn't explicitly in this session."
+- **`em-dash-overuse`** (app.html: 19 instances; index.html: 6 instances), **`overused-font`** (index.html line 24, Plus Jakarta Sans), **`numbered-section-markers`** (index.html sequence 01/02/03/10/12), **`aphoristic-cadence`** (index.html: 6 constructions like "Listed for 60 days. No offers.") — all copy-voice / brand / structural decisions requiring subjective judgment and broader consultation, not surgical defect fixes. Left untouched to honor "do not change anything that isn't explicitly in this session."
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `a5c0f34` | style: remove side-tab accent borders and bounce-easing from app.html |
+
+### Next task
+
+1. Visually spot-check `.dash-cat-card`/`.inv-cat-card` hover states and the 4 re-eased animations (modal open, sold-burst, toast, score count-up) on a real device/browser to confirm they read as smoother/cleaner with no regressions
+2. If a brand/copy session is ever scheduled, the deferred findings above (`dark-glow`, `em-dash-overuse`, `overused-font`, `numbered-section-markers`, `aphoristic-cadence`) are the candidate list — each needs a deliberate brand-voice decision, not a mechanical fix
+3. Revisit the deferred `layout-transition` → `transform` conversion as its own focused/profiled session if needed
+
+### Blockers
+
+None.
+
+---
+
 ## Session: 2026-06-08 — Design Audit + P0/P1 Fixes (index.html + app.html)
 
 ### What changed this session

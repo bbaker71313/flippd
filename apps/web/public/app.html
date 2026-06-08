@@ -524,8 +524,8 @@ body::before{
 .nav-stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'IBM Plex Mono',monospace;margin-top:2px}
 
 .dash-cat-grid{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
-.dash-cat-card{background:var(--card);border:1px solid var(--border);border-left:2px solid var(--border);border-radius:3px;padding:10px 12px;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
-.dash-cat-card:hover{border-left-color:var(--accent)}
+.dash-cat-card{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:10px 12px;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.dash-cat-card:hover{border-color:var(--accent)}
 .dash-cat-card:active{opacity:0.8}
 .dash-section{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px;font-family:'IBM Plex Mono',monospace;border-bottom:1px solid var(--border);padding-bottom:6px}
 .cat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid rgba(42,42,42,0.6)}
@@ -564,8 +564,8 @@ body::before{
 .inv-stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;font-family:'IBM Plex Mono',monospace}
 .inv-status-card{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:12px 10px;cursor:pointer;text-align:center;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
 .inv-status-card:active{transform:scale(0.96)}
-.inv-cat-card{background:var(--card);border:1px solid var(--border);border-left:2px solid var(--border);border-radius:3px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
-.inv-cat-card:hover{border-left-color:var(--accent)}
+.inv-cat-card{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.inv-cat-card:hover{border-color:var(--accent)}
 .inv-cat-card:active{opacity:0.8}
 
 /* ══ PHOTO AGENT ══ */
@@ -653,7 +653,7 @@ body::before{
   border-radius:4px;padding:22px;
   max-width:340px;width:100%;
   box-shadow:0 0 60px rgba(0,0,0,0.6);
-  animation:modalIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  animation:modalIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards;
 }
 @keyframes modalIn{from{opacity:0;transform:scale(0.92) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .modal-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:5px}
@@ -743,7 +743,7 @@ body::before{
   60% { transform: scale(1.04); }
   100% { transform: scale(1); opacity: 1; }
 }
-.modal-box { animation: soldBurst 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.modal-box { animation: soldBurst 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
 
 /* Toast — slide up with bounce */
 @keyframes toastIn {
@@ -751,7 +751,7 @@ body::before{
   70% { transform: translateX(-50%) translateY(-3px); }
   100% { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
-.toast.show { animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.toast.show { animation: toastIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
 
 /* Decision banner text entrance */
 @keyframes bannerIn {
@@ -814,7 +814,7 @@ body::before{
   from { transform: scale(0.7); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
-.score-big { animation: scoreCount 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+.score-big { animation: scoreCount 0.5s cubic-bezier(0.16,1,0.3,1) both; }
 
 </style>
 </head>
