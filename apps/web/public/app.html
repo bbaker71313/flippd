@@ -887,6 +887,208 @@ body::before{
 }
 .score-big { animation: scoreCount 0.5s cubic-bezier(0.16,1,0.3,1) both; }
 
+/* ══ GROUP A — DECISION BANNER STATES ══════════════════════════════════
+   Background/color/shadow per decision applied via modifier class.
+   Inline style="..." in renderSingle/renderShelf takes precedence until
+   those are removed in Phase 2 (renderSingle → renderShelf refactors).   */
+.decision-banner.is-hot {
+  background: linear-gradient(135deg,#00cc66,#00aa99);
+  box-shadow: 0 4px 20px rgba(0,180,80,0.45);
+  color: #fff;
+}
+.decision-banner.is-buy {
+  background: linear-gradient(135deg,#1a9940,#157a30);
+  box-shadow: 0 4px 16px rgba(20,140,50,0.35);
+  color: #fff;
+}
+.decision-banner.is-pass {
+  background: linear-gradient(135deg,#dd0000,#aa0000);
+  box-shadow: 0 4px 16px rgba(180,0,0,0.35);
+  color: #fff;
+}
+
+/* Threshold-based color utilities — 3-level (positive / warning / negative).
+   Used by profitClass(), roiClass(), daysClass(), strClass(), confClass()
+   JS helpers added in Phase 2. Also replaces DC{} demand object partially. */
+.u-pos  { color: var(--green); }
+.u-warn { color: var(--yellow); }
+.u-neg  { color: var(--red); }
+
+/* Demand level text colors (replaces DC{} in renderSingle / renderShelf) */
+.text-demand-vh   { color: var(--green); }
+.text-demand-high { color: var(--green-border); }
+.text-demand-med  { color: var(--yellow); }
+.text-demand-low  { color: var(--red); }
+
+/* ══ GROUP B — SPARSE LAYOUT / TYPOGRAPHY UTILITIES ════════════════════
+   Only patterns that repeat 3+ times across render functions.
+   Not a Tailwind clone — keep this list small.                           */
+.u-text-xs  { font-size: var(--text-xs); }
+.u-text-sm  { font-size: var(--text-sm); }
+.u-text-md  { font-size: var(--text-md); }
+.u-text-lg  { font-size: var(--text-lg); }
+.u-mt-1     { margin-top: var(--space-1); }
+.u-mt-2     { margin-top: var(--space-2); }
+.u-mt-3     { margin-top: var(--space-3); }
+.u-mb-1     { margin-bottom: var(--space-1); }
+.u-mb-2     { margin-bottom: var(--space-2); }
+.u-muted    { color: var(--muted); }
+.u-soft     { color: var(--soft); }
+.u-accent   { color: var(--accent); }
+.u-center   { text-align: center; }
+.u-mono     { font-family: 'IBM Plex Mono', monospace; }
+.u-syne     { font-family: 'Syne', sans-serif; }
+.u-bold9    { font-weight: 900; }
+.u-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.u-flex-col { flex: 1; min-width: 0; }
+
+/* Extended empty state — dashed border variant for inventory / listing tabs */
+.empty-state-dashed {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-2);
+  color: var(--muted);
+}
+.empty-state-dashed .empty-icon { font-size: 36px; margin-bottom: var(--space-3); }
+.empty-state-dashed .empty-title {
+  font-family: 'Syne', sans-serif; font-weight: 900;
+  font-size: var(--text-md); color: var(--text); margin-bottom: var(--space-2);
+}
+.empty-state-dashed .empty-body {
+  font-size: var(--text-base); color: var(--muted);
+  line-height: 1.7; margin-bottom: var(--space-4);
+}
+
+/* ══ GROUP C — SHELF ITEM STATE VARIANTS ═══════════════════════════════
+   Replaces SD{} object's light-mode hex leak in renderShelf
+   (#e8fff2/#f0fff5/#fff0f0 → dark-theme-correct translucent tints).
+   Also fixes same bug class as PR #46 Stats-tab fix.                     */
+.shelf-item.is-hot  { background: rgba(0,230,118,0.10); border-color: var(--green-border); }
+.shelf-item.is-buy  { background: var(--green-bg);      border-color: #005530; }
+.shelf-item.is-pass { background: var(--red-bg);        border-color: #550000; }
+
+.shelf-item.is-hot  .s-badge { background: var(--green);  color: #000; }
+.shelf-item.is-buy  .s-badge { background: #228844;        color: #fff; }
+.shelf-item.is-pass .s-badge { background: var(--red);     color: #fff; }
+
+/* Buy button inside a shelf item */
+.shelf-buy-btn {
+  margin-top: var(--space-2);
+  background: var(--green); color: #000;
+  border: none; border-radius: var(--radius-md);
+  padding: 7px 14px;
+  font-family: 'Syne', sans-serif; font-size: var(--text-base); font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.shelf-buy-btn:active { opacity: 0.85; }
+
+/* Shelf section headers (HOT / BUY / PASS section labels) */
+.shelf-section-hdr {
+  font-size: var(--text-xs); letter-spacing: 0.18em;
+  font-weight: 800; margin-bottom: var(--space-2);
+  text-transform: uppercase; font-family: 'IBM Plex Mono', monospace;
+}
+.shelf-section-hdr.is-hot  { color: var(--green-border); }
+.shelf-section-hdr.is-buy  { color: #228844; }
+.shelf-section-hdr.is-pass { color: var(--red); }
+
+/* Shelf summary stat cards (HOT/BUY/PASS counts at top) */
+.shelf-stat-num {
+  font-size: var(--text-2xl); font-family: 'Syne', sans-serif; font-weight: 900;
+}
+.shelf-stat-num.is-hot  { color: var(--green-border); }
+.shelf-stat-num.is-buy  { color: #228844; }
+.shelf-stat-num.is-pass { color: var(--red); }
+
+/* ══ GROUP D — INVENTORY DETAIL / STATUS CARD STATES ════════════════════
+   showDetail() header structure + inv-status-card dark-theme variants.   */
+
+/* Detail view header row */
+.detail-item-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: var(--space-3);
+}
+.detail-item-sku {
+  font-size: var(--text-xs); color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px;
+}
+.detail-item-name {
+  font-family: 'Syne', sans-serif; font-size: var(--text-xl);
+  font-weight: 900; color: var(--accent); margin-top: var(--space-1);
+}
+/* "AI Sourced" badge — replaces light-mode bg:#e8fff2/border:#7ABDA0 */
+.ai-sourced-badge {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  background: var(--green-bg); border: 1px solid var(--green-border);
+  border-radius: var(--radius-sm); padding: 4px 10px;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm); color: var(--green);
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+}
+/* Profit value in detail grid (large, coloured by pos/neg via u-pos/u-neg) */
+.detail-profit-val {
+  font-size: var(--text-lg); font-weight: 900; color: var(--text);
+}
+
+/* Inventory status cards — dark-theme-correct state variants.
+   Replaces hardcoded #D4E8E0 (Listed) and #D4E0EC (Sold) light-mode bgs. */
+.inv-status-num {
+  font-size: 26px; font-weight: 900; font-family: 'Syne', sans-serif;
+}
+.inv-status-lbl {
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; font-family: 'IBM Plex Mono', monospace;
+  margin-top: 3px;
+}
+.inv-status-card.is-unlisted {
+  background: rgba(90,80,60,0.2); border-color: #4a4030; color: #a89060;
+}
+.inv-status-card.is-listed {
+  background: var(--green-bg); border-color: var(--green-border); color: var(--green);
+}
+.inv-status-card.is-sold {
+  background: rgba(68,138,255,0.1); border-color: #1a3a80; color: #448aff;
+}
+
+/* Category card inner layout helpers */
+.inv-cat-name {
+  font-family: 'Syne', sans-serif; font-size: var(--text-md);
+  font-weight: 800; color: var(--text);
+}
+.inv-cat-meta {
+  font-size: var(--text-sm); color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace; margin-top: 1px;
+}
+.inv-cat-count {
+  font-size: var(--text-xl); font-weight: 900;
+  font-family: 'Syne', sans-serif; color: var(--accent);
+}
+.inv-cat-profit {
+  font-size: var(--text-sm); color: var(--green);
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+}
+
+/* Existing photo panel in edit form */
+.edit-photos-label {
+  font-size: var(--text-sm); color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace; margin-bottom: var(--space-1);
+}
+.edit-photo-grid { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.edit-photo-wrap { position: relative; }
+.edit-photo-wrap img {
+  width: 60px; height: 60px; object-fit: cover;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+}
+.edit-photo-del {
+  position: absolute; top: 1px; right: 1px;
+  background: rgba(0,0,0,0.65); color: #fff;
+  border: none; border-radius: var(--radius-xs);
+  font-size: var(--text-xs); padding: 1px 5px; cursor: pointer; line-height: 1.4;
+}
+
 </style>
 </head>
 <body>
