@@ -4,6 +4,54 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 (5) — Design-system architecture overhaul: token system + component class consolidation
+
+### What changed this session
+
+Executed the approved Phase 2 plan (`/root/.claude/plans/use-the-ui-pro-wild-island.md`). Full inline-style→class migration across both static HTML files. Baseline was ~785 inline style instances in `app.html` and 25 in `index.html`. End result: ~723 in `app.html` (62 eliminated), 16 in `index.html` (all legitimately dynamic or structural).
+
+**`apps/web/public/app.html`** — 10 commits:
+
+- **Phase 0** (already done from prior session): 5 token groups added to `:root` — spacing scale (--space-1→9), border-radius scale (--radius-xs→full), typography scale (--text-2xs→3xl), shadow system (--shadow-sm/md/lg + 3 glow tokens), z-index scale (--z-base through --z-toast).
+- **Phase 1** (already done from prior session): ~200 lines of new CSS classes (Groups A–D): decision-banner state variants (.is-hot/.is-buy/.is-pass), threshold utilities (.u-pos/.u-warn/.u-neg), demand text colors, shelf item states (.shelf-item.is-*), typography/spacing utilities (.u-syne, .u-text-*, .u-mt-*, .u-mb-*, .u-muted, .u-soft, .u-accent, .u-bold9, .u-center), empty-state-dashed, edit-photo-* classes, detail-item-* classes, ai-sourced-badge, inventory card helpers.
+- **Phase 2 Step 1** — `renderSingle`: removed D/DC/pc/rc/dayc/stc/confColor inline color-lookup objects; added 6 JS classifier helpers (profitClass, roiClass, daysClass, strClass, confClass, demandClass); decision-banner now uses .is-hot/.is-buy/.is-pass CSS; conf-bar-fill color via .u-pos/.u-warn/.u-neg.
+- **Phase 2 Step 2** — `renderShelf`: removed SD/DC objects (light-mode hex leak #e8fff2/#f0fff5/#fff0f0); shelf items now use .is-hot/.is-buy/.is-pass; section headers use .shelf-section-hdr.is-*; stat count cards use .shelf-stat-num.is-*; buy button 6-property inline → .shelf-buy-btn; demandClass()/profitClass() reused.
+- **Phase 2 Step 3** — `renderInventoryHome`: empty state giant inline → .empty-state-dashed/.empty-title/.empty-body/.empty-icon; status cards remove statusDefs with light-mode hex #D4E8E0/#D4E0EC → .inv-status-card.is-*; category cards 4 inline props each → .inv-cat-name/.inv-cat-meta/.inv-cat-count/.inv-cat-profit.
+- **Phase 2 Step 4** — `renderFilteredList`: action row → .item-row-bot + token gap; price label → u-text-sm u-muted (removes redundant font-family); listing detail → token sizing; status badge margin → token; .item-nick truncation moved to CSS class definition.
+- **Phase 2 Step 5** — `showDetail` + `startEdit`: SKU/name inline → .detail-item-sku/.detail-item-name; AI-sourced badge #e8fff2 light-mode bug → .ai-sourced-badge; eBay fees color → u-neg; Est.Profit → .detail-profit-val + profitClass(); photo grid inline → .edit-photo-grid/.edit-photo-wrap/.edit-photo-del; updateProfitPreview() val.style.color → val.className = profitClass(p).
+- **Phase 2 Step 6** — `pnlRenderMonthly`: empty/meta/profit typography → utility classes + tokens.
+- **Phase 2 Step 7** — `renderGrowthResults` + `updateSoldProfit`: score label/summary → u-syne/u-bold9/u-soft; hunt priority badge 7-prop inline → .hunt-priority.is-high/.is-warn (new CSS class); stale reason/success → utility classes; empty messages → token padding; val.style.color → profitClass().
+
+**`apps/web/public/index.html`** — 1 commit (Phase 3):
+
+- Added 4 new CSS classes: .u-green-bdr, .tag-section, .ps-meta, .fine-print.
+- Replaced 3× repeated .tag overrides → .tag.tag-section.
+- Replaced 2× .ps-title span overrides → .ps-meta.
+- Replaced 4× style="color:var(--green-border)" → class="u-green-bdr".
+- Tokenized 4× raw margin-top px values (12px→--space-3, 8px→--space-2) and fine-print margin.
+- Replaced fine-print style block → class="fine-print".
+- Residual 16 inline styles: 6 unique background-image URLs, 4 dynamic bar-fill widths (%),
+  3 token-based spacings already converted (expected residual), 2 structural layout one-offs, 1 flex gap.
+
+### Decisions that should not be reversed (new this session)
+
+- **Icon system deferred**: 138 emoji instances (~17 unique emojis) used as functional icons throughout app.html. Orthogonal to token/component architecture; brand-adjacent (icon style = visual identity); no-build-step constraint makes SVG a separate initiative. Good candidate for a dedicated session.
+- **App-wide hex sweep deferred**: `#005522`, `#006633`, `#005530`, `#228844`, `#ffe6e6`, `#f0fff5` scattered throughout Growth Agent, Scout, Import, and inventory cards — per plan, a dedicated cross-cutting pass is needed, not bundled with function-level refactors.
+- **`.growth-profit` layout properties** (margin-left/flex-shrink) moved into the CSS class definition rather than remaining inline — all usages now rely on the CSS class; don't add inline overrides.
+- **`.item-nick` truncation** moved into the CSS class definition — don't add inline white-space/overflow/text-overflow on elements using this class.
+
+### Next task
+
+1. Deploy to Vercel (merge/push branch, verify live deployment) — the Vercel webhook deploys from `scanforprofit` repo's main branch; this work is on `claude/scanforprofit-ui-seo-audit-9xn510`, needs a PR merge.
+2. Browser regression check: open `/app.html` and click through Scout (single scan + shelf scan result), Inventory (home, list, detail, empty state), and Growth Agent — confirm HOT/BUY/PASS banners, shelf item cards, status badges, profit colors, AI-sourced badge, and edit-photo grid all render correctly against the dark theme.
+3. Consider the app-wide hex color sweep as a follow-up session (see deferred items above).
+4. Consider the icon system (emoji→SVG) as a dedicated future session.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-08 (4) — Visual + SEO audit fixes: Stats tab polish + homepage cleanup
 
 ### What changed this session
