@@ -5288,39 +5288,32 @@ function renderShelf(shelfItems) {
   const hot=shelfItems.filter(i=>i.decision==='HOT');
   const buy=shelfItems.filter(i=>i.decision==='BUY');
   const pass=shelfItems.filter(i=>i.decision==='PASS');
-  const DC={'VERY HIGH':'#00e676','HIGH':'#00c060','MEDIUM':'#f5a623','LOW':'#ff3333'};
-  const SD={
-    HOT:{bg:'#e8fff2',bdr:'#00993d',bb:'#00cc66',bc:'#fff',icon:'🔥'},
-    BUY:{bg:'#f0fff5',bdr:'#228844',bb:'#228844',bc:'#fff',icon:'✅'},
-    PASS:{bg:'#fff0f0',bdr:'#cc4444',bb:'#dd0000',bc:'#fff',icon:'❌'},
-  };
-  const ri=(i,idx)=>{
-    const s=SD[i.decision];
-    return `<div class="shelf-item" style="background:${s.bg};border-color:${s.bdr}">
-      <span class="s-badge" style="background:${s.bb};color:${s.bc}">${s.icon} ${i.decision}</span>
+  const icon={HOT:'🔥',BUY:'✅',PASS:'❌'};
+  const ri=(i,idx)=>
+    `<div class="shelf-item is-${i.decision.toLowerCase()}">
+      <span class="s-badge">${icon[i.decision]} ${i.decision}</span>
       <div class="s-name">${i.item_name}</div>
       <div class="s-detail">
-        <span style="color:#006633;font-weight:700">~$${i.avg_sold_price} sold</span> &nbsp;·&nbsp;
-        Est. profit: <span style="color:${i.estimated_profit>=S.minProfit?'#00e676':'#ff3333'};font-weight:700">$${i.estimated_profit?.toFixed(2)}</span> &nbsp;·&nbsp;
-        <span style="color:${DC[i.demand_level]||'#a89080'}">${i.demand_level} demand</span>
+        <span class="u-pos u-bold9">~$${i.avg_sold_price} sold</span> &nbsp;·&nbsp;
+        Est. profit: <span class="${profitClass(i.estimated_profit)} u-bold9">$${i.estimated_profit?.toFixed(2)}</span> &nbsp;·&nbsp;
+        <span class="${demandClass(i.demand_level)}">${i.demand_level} demand</span>
       </div>
-      <div style="font-size:12px;color:var(--soft);margin-top:5px;line-height:1.5;font-weight:500">${i.decision_reason}</div>
-      ${i.condition_notes?`<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">🔎 ${i.condition_notes}</div>`:''}
-      ${i.decision!=='PASS'?`<button style="margin-top:10px;background:#00cc66;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer" onclick="buyShelfItem(${idx})">🛒 Buy → Add to Inventory</button>`:''}
+      <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${i.decision_reason}</div>
+      ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">🔎 ${i.condition_notes}</div>`:''}
+      ${i.decision!=='PASS'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">🛒 Buy → Add to Inventory</button>`:''}
     </div>`;
-  };
   document.getElementById('shelf-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Scan</button>
-    <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:900;margin-bottom:4px;color:var(--text)">Shelf Report</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;font-weight:500">${shelfItems.length} items · ${hot.length+buy.length} worth buying · ${pass.length} to skip</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-      <div class="card" style="text-align:center;padding:14px 6px"><div style="font-size:26px;font-family:'Syne',sans-serif;font-weight:900;color:#006633">${hot.length}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;font-weight:700">🔥 HOT</div></div>
-      <div class="card" style="text-align:center;padding:14px 6px"><div style="font-size:26px;font-family:'Syne',sans-serif;font-weight:900;color:#228844">${buy.length}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;font-weight:700">✅ BUY</div></div>
-      <div class="card" style="text-align:center;padding:14px 6px"><div style="font-size:26px;font-family:'Syne',sans-serif;font-weight:900;color:var(--red)">${pass.length}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;font-weight:700">❌ PASS</div></div>
+    <div class="u-syne u-bold9" style="font-size:var(--text-2xl);margin-bottom:var(--space-1);color:var(--text)">Shelf Report</div>
+    <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+buy.length} worth buying · ${pass.length} to skip</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-bottom:var(--space-4)">
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-hot">${hot.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">🔥 HOT</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-buy">${buy.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">✅ BUY</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-pass">${pass.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">❌ PASS</div></div>
     </div>
-    ${hot.length?`<div style="font-size:10px;letter-spacing:0.18em;color:#006633;font-weight:800;margin-bottom:8px;text-transform:uppercase">🔥 Grab These First</div>${hot.map((i,idx)=>ri(i,idx)).join('')}`:''}
-    ${buy.length?`<div style="font-size:10px;letter-spacing:0.18em;color:#228844;font-weight:800;margin:14px 0 8px;text-transform:uppercase">✅ Worth Buying</div>${buy.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
-    ${pass.length?`<div style="font-size:10px;letter-spacing:0.18em;color:var(--red);font-weight:800;margin:14px 0 8px;text-transform:uppercase">❌ Skip These</div>${pass.map((i,idx)=>ri(i,hot.length+buy.length+idx)).join('')}`:''}`;
+    ${hot.length?`<div class="shelf-section-hdr is-hot">🔥 Grab These First</div>${hot.map((i,idx)=>ri(i,idx)).join('')}`:''}
+    ${buy.length?`<div class="shelf-section-hdr is-buy u-mt-3">✅ Worth Buying</div>${buy.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
+    ${pass.length?`<div class="shelf-section-hdr is-pass u-mt-3">❌ Skip These</div>${pass.map((i,idx)=>ri(i,hot.length+buy.length+idx)).join('')}`:''}`;
   showSrcView('shelf');
 }
 
