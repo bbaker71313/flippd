@@ -64,6 +64,78 @@
   --blue:#448aff;
   --hot:#ffb300;           /* HOT = gold alarm */
   --tab-h:56px;
+
+  /* ── Spacing scale (base-8) ──────────────────────────────────────────
+     Collapses 19 raw values. Rounding guide:
+       3px → --space-1(4)   5px → --space-1(4)   6px → --space-1(4)
+       9px → --space-2(8)  10px → --space-2(8)  14px → --space-3(12)
+      18px → --space-4(16) 28px → --space-7(32) 36px → --space-7(32)
+      56px → --space-8(48) 88px → --space-9(64) 96px → --space-9(64)
+     Use --space-1/2 for tightest UI (icon gaps, badge padding).
+     Use --space-4 for standard card padding.                         ── */
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-7:32px;
+  --space-8:48px;
+  --space-9:64px;
+
+  /* ── Border-radius scale ─────────────────────────────────────────────
+       xs=chips/micro  sm=inputs/buttons  md=cards  lg=modals  full=pills
+     Rounding: 3px→sm, 6px→sm (tight) or md (card context), 10px→md   ── */
+  --radius-xs:2px;
+  --radius-sm:4px;
+  --radius-md:8px;
+  --radius-lg:12px;
+  --radius-full:999px;
+
+  /* ── Typography scale (18 raw sizes → 9 named steps) ─────────────────
+     Raw → token mapping:
+       7px  → --text-2xs     8px  → --text-2xs (or xs by context)
+      10px  → --text-xs     11px  → --text-sm
+      12px  → --text-base   13px  → --text-base
+      14px  → --text-base (or md) 15px → --text-md  16px → --text-md
+      17px  → --text-md     20px  → --text-lg
+      22px  → --text-xl     24px  → --text-xl (or 2xl by context)
+      26px  → --text-2xl    28px  → --text-2xl   44px → --text-3xl     ── */
+  --text-2xs:9px;
+  --text-xs:10px;
+  --text-sm:11px;
+  --text-base:13px;
+  --text-md:15px;
+  --text-lg:18px;
+  --text-xl:22px;
+  --text-2xl:28px;
+  --text-3xl:44px;
+
+  /* ── Shadow system ───────────────────────────────────────────────────
+     --shadow-* = structural elevation (cards, sticky headers, modals).
+     --glow-*   = brand-language state signals (decision banners, CTAs).
+     HOT decision banner's bespoke layered glow stays inline — it's a
+     deliberate one-off state effect, not generic elevation.            ── */
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg:0 4px 32px rgba(0,0,0,0.6);
+  --glow-accent:0 0 20px rgba(212,168,67,0.25);
+  --glow-green:0 0 20px rgba(0,230,118,0.3);
+  --glow-red:0 0 16px rgba(255,51,51,0.3);
+
+  /* ── Z-index scale ───────────────────────────────────────────────────
+     Names only — zero value changes. Add new layers here; never use
+     raw numbers in CSS going forward.                                  ── */
+  --z-base:1;
+  --z-sticky:50;
+  --z-dropdown:150;
+  --z-tabbar:199;
+  --z-header:200;
+  --z-header-popover:201;
+  --z-overlay:500;
+  --z-modal:600;
+  --z-scanline:9000;
+  --z-toast:9500;
 }
 
 html,body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;min-height:100vh;overflow-x:hidden;-webkit-text-size-adjust:100%;font-size:16px}
