@@ -4,6 +4,46 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 (2) — Re-audit Confirmation (index.html + app.html)
+
+### What changed this session
+
+No code changes — re-ran the `impeccable` anti-pattern detector fresh on both `apps/web/public/index.html` (scanforprofit.com) and `apps/web/public/app.html` (scanforprofit.com/app.html) to confirm the P2/P3 fixes from the prior session (commit `a5c0f34`) landed cleanly and to capture the current baseline.
+
+**Confirmed fixed (no longer flagged):**
+- `side-tab` accent border on `.dash-cat-card` / `.inv-cat-card` — gone
+- `bounce-easing` — all 4 animations (`modalIn`, `soldBurst`, `toastIn`, `scoreCount`) now use `cubic-bezier(0.16,1,0.3,1)`, confirmed in source at lines 656/746/754/817
+
+**Findings remaining (identical to last session's list — all previously triaged as false positives or deferred brand/copy decisions, intentionally untouched):**
+
+`index.html` (4 findings):
+| Rule | Severity | Detail |
+|---|---|---|
+| `overused-font` | warning | line 24 — Plus Jakarta Sans |
+| `em-dash-overuse` | warning | 6 em-dashes in body text |
+| `numbered-section-markers` | advisory | sequence 01, 02, 03, 10, 12 |
+| `aphoristic-cadence` | warning | 6 constructions, e.g. "Listed for 60 days. No offers." |
+
+`app.html` (14 findings):
+| Rule | Severity | Detail |
+|---|---|---|
+| `layout-transition` ×3 | warning | lines 604, 1684, 3824 — `transition: height/width` |
+| `broken-image` ×8 | warning | lines 1039, 1114, 1235, 1675, 4025, 4522, 6734, 6739 — confirmed false positives (JS-populated `<img>` placeholders) |
+| `em-dash-overuse` | warning | 19 em-dashes in body text |
+| `dark-glow` | warning | line 172 — gold glow `rgb(212,168,67)` on dark bg, intentional brand aesthetic |
+
+No new findings appeared. No action taken — re-run was confirmation only, per the prior session's "do not change anything that isn't explicitly in this session" decision.
+
+### Next task
+
+Same as prior session's open items: spot-check the re-eased animations/hover states on a real device, and revisit the deferred `dark-glow`/`em-dash-overuse`/`overused-font`/`numbered-section-markers`/`aphoristic-cadence`/`layout-transition` items only if a dedicated brand-voice or perf-profiling session is scheduled.
+
+### Blockers
+
+None.
+
+---
+
 ## Session: 2026-06-08 — P2/P3 Audit Fixes (app.html)
 
 ### What changed this session
