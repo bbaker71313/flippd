@@ -4,6 +4,49 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-08 (4) — Visual + SEO audit fixes: Stats tab polish + homepage cleanup
+
+### What changed this session
+
+User asked for a full visual/SEO audit of scanforprofit.com (homepage) and scanforprofit.com/app.html, specifically calling out "the stats tab looks horrible." Produced an audit + fix plan (`/root/.claude/plans/use-the-ui-pro-wild-island.md`), got it approved, then implemented the fixes. User's explicit mandate: **(a) do NOT add `noindex` to app.html — Google discoverability is "very important"; (b) don't just fix bugs, "make it look the best that it can."**
+
+**`apps/web/public/app.html`** — Stats tab dark-theme color pass:
+1. Renamed `class="kpi-num"` → `class="kpi-val"` (4× in `sPnlRender()`) — fixes an undefined-CSS-class bug that left P&L summary numbers unstyled (plain body text instead of bold gold Syne, inconsistent with Dashboard KPI cards).
+2. Re-themed both Mileage Logger cards — the Stats > P&L one AND the `#panel-pnl` drill-down's (same component, same bug, fixed both for consistency): hardcoded `#e8b840`/`#c47800`/`var(--yellow-bg,#fffbe6)` light-mode hex → `var(--yellow)`/`var(--yellow-bg)` theme tokens; button text `#fff`→`#000` on gold background (matches the established `.btn-green` convention).
+3. Fixed two light-mode badge bugs in `renderSubscriptionPanel()`: FREE-tier badge `background:'#f4f4f4'` (near-white)/`color:'var(--muted)'` → `background:'var(--surface)'`/`color:'var(--soft)'`; low-days trial-warning badge `'#ffe6e6'` (light pink) → `'var(--red-bg)'` — both now use pre-existing dark-theme-correct CSS variables.
+4. Removed the duplicate Google Fonts load in `<head>` — folded the `@import`'s extra weight (IBM Plex Mono 700) into the existing `<link rel="stylesheet">` and deleted the redundant `@import url(...)` inside `<style>`.
+5. **Did NOT add `<meta name="robots" content="noindex">`** — user explicitly wants the app discoverable via Google search.
+
+**`apps/web/public/index.html`** — homepage SEO/UX cleanup:
+1. Added `<link rel="icon" href="/favicon.png">` + `<link rel="apple-touch-icon" href="/apple-touch-icon.png">` — copied `apps/mobile/assets/favicon.png` (32×32) and `icon.png` (1024×1024, renamed `apple-touch-icon.png`) into `apps/web/public/` (no suitable web favicon existed before).
+2. Wrapped the page's content sections in a `<main>` landmark (hero through final-CTA, before `<footer>`).
+3. **Removed** the hidden `#social-proof` section entirely (markup + its dedicated CSS: `.proof-grid`/`.proof-card`/`.proof-metric`/`.proof-label`/`.proof-quote`/`.proof-attr`/`.avatar*`/`.proof-name`/`.proof-role`, ~70 lines) — it contained fabricated testimonials (fake handles like `@flippin_marcus`, unverified numbers like "$180→$900+") shipped with `display:none`. Decided to delete rather than re-enable: shipping fake social proof on a pre-launch site is a trust/credibility risk, and `display:none` content that's still crawlable is an SEO smell either way.
+4. Fixed dead `href="#"` links: both header/footer logo links → `href="/"`; removed all 5 dead "Learn more →" feature-card links (and their now-unused `.feature-link`/`.feature-link:hover` CSS) since no feature detail pages exist — the cards already convey the info and the page CTA is "Get early access," so a non-functional secondary link added no value.
+5. **"Contact Sales"** (Empire tier) — was routing to the same `#early-access` waitlist anchor as every other CTA (misleading for a "talk to sales" intent). Changed to `mailto:customerservice@scanforprofit.com?subject=Empire%20plan%20inquiry` — reused the real support address already live in the footer (`<li><a href="mailto:customerservice@scanforprofit.com">Contact</a></li>`), no new infrastructure invented.
+6. **Wired the footer newsletter form** to the same `/api/waitlist` endpoint as the hero capture form (it previously had zero backend wiring — just disabled the button and fired an analytics event). Added the same email-regex validation, loading/success/error states, and `trackEvent` calls as the proven `early-form` handler — both forms now behave consistently and actually persist signups to Supabase.
+
+### Decisions that should not be reversed
+- **No `noindex` on app.html** — explicit user instruction; Google discoverability of the app shell is a product priority, not an oversight.
+- **`#social-proof` deleted, not re-enabled** — the testimonials were fabricated placeholder content (fake usernames/unverified metrics). Don't resurrect this markup; if real testimonials are collected later, build a fresh section with real attributions.
+- **`#panel-pnl` is NOT dead code** — corrected a wrong finding from the initial audit (a sub-agent claimed it was orphaned). It's a legitimate drill-down screen reached via the Dashboard's `nav-card onclick="switchTab('pnl')"`. Do not delete it.
+
+### Flagged but explicitly NOT fixed (scope decisions — documented for a future session)
+- **Hardcoded `tax = net * 0.25` and `mileageRate = 0.67`** (CLAUDE.md violations — "never hardcode taxReservePct/mileageRate"): on inspection, the live `DEFAULTS`/`S` settings object (app.html line ~4079) has **no `taxReservePct` or `mileageRate` fields at all** — there is no settings infrastructure to read from. Properly fixing this means building a new settings feature (DB columns, settings UI, defaults wiring) — out of scope for "improve Stats visuals." Recommend a dedicated follow-up session.
+- **App-wide light-mode hex colors** (`#005522`, `#228844`, `#006633`, `#005530`, `#ffe6e6`, `#f0fff5` etc.) — NOT Stats-specific; they appear throughout Growth Agent, Scout scan results, Import screen, and inventory cards. Re-theming all of them is a large cross-cutting change beyond "fix the Stats tab." Left as-is per surgical-changes rule.
+- **Border-radius "normalization"** — the original audit flagged 8px/12px in the Subscription panel as inconsistent, but on reviewing the wider app, 8px/12px are actually the *dominant, established* radii (buttons, cards, modals, dropzones); only `.kpi-card` uses 4px. Normalizing the Subscription panel down would have made it *less* consistent with the rest of the app. No change made.
+- **Inline-style consolidation / emoji→icon replacement** — large refactors (`renderSubTierCards`, `renderSubscriptionPanel`, multiple template-string blocks) that go beyond "fix Stats visuals" scope. Recommended as a dedicated follow-up.
+- **`.dash-section` (9px label text)** — defined in CSS but has zero usages in markup (`grep -c 'class="dash-section'` → 0); it's dead CSS, not a visible/rendered issue. Left alone.
+
+### Next task
+1. Visual spot-check `/app.html` Stats tab (Overview/P&L/Plan sub-tabs) and the homepage in a real browser — confirm badges/numbers/cards read correctly against the dark theme, favicon shows in the browser tab, newsletter signup round-trips to Supabase.
+2. Consider the flagged-but-deferred items above for a future session (settings infrastructure for `taxReservePct`/`mileageRate`, app-wide light-mode hex color sweep, inline-style consolidation).
+3. Corrected the audit plan file (`/root/.claude/plans/use-the-ui-pro-wild-island.md`) in place — it now reflects what was actually verified/done/deferred and corrects the wrong "`#panel-pnl` is orphaned" claim from the initial pass.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-08 (3) — Brand Unification: index.html reworked to match app.html's dark system
 
 ### What changed this session

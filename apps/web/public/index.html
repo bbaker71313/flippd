@@ -6,6 +6,8 @@
   <title>ScanForProfit — Thrift Store Scanner for eBay Resellers</title>
   <meta name="description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list. Built for solo sellers." />
   <link rel="canonical" href="https://scanforprofit.com/" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <!-- Open Graph -->
   <meta property="og:title" content="ScanForProfit — Thrift Store Scanner for eBay Resellers" />
   <meta property="og:description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list." />
@@ -379,39 +381,6 @@
     .section-head h2 { font-size: clamp(32px, 4.5vw, 52px); margin-top: 12px; }
     .section-head p { margin-top: 16px; color: var(--soft); font-size: 17px; max-width: 620px; }
 
-    /* ============ SOCIAL PROOF ============ */
-    #social-proof { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .proof-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
-    @media (min-width: 768px) { .proof-grid { grid-template-columns: repeat(3, 1fr); } }
-
-    .proof-card {
-      padding: 28px; border-radius: 6px; background: var(--surface);
-      display: flex; flex-direction: column; gap: 16px;
-      position: relative; overflow: hidden;
-    }
-    .proof-card::before {
-      content: ""; position: absolute; top: 0; right: 0; width: 140px; height: 140px;
-      background: radial-gradient(circle, rgba(0, 230, 118, 0.12), transparent 65%);
-    }
-    .proof-metric {
-      font-family: var(--display); font-weight: 800; font-size: 56px; line-height: 1; color: var(--text);
-      letter-spacing: -0.03em;
-    }
-    .proof-label { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green-border); font-weight: 600; }
-    .proof-quote { font-size: 15px; line-height: 1.55; color: var(--soft); font-style: italic; }
-    .proof-quote::before { content: "\201C"; font-family: var(--display); color: var(--accent); font-size: 24px; line-height: 0; vertical-align: -6px; margin-right: 2px; }
-    .proof-attr { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 8px; }
-    .avatar {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: var(--accent); color: #000;
-      display: grid; place-items: center;
-      font-family: var(--display); font-weight: 700; font-size: 14px;
-    }
-    .avatar.a2 { background: var(--green); }
-    .avatar.a3 { background: var(--purple); }
-    .proof-name { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
-    .proof-role { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-
     /* ============ FEATURES ============ */
     .features-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
     @media (min-width: 768px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -444,13 +413,6 @@
     .feature-icon svg { width: 26px; height: 26px; }
     .feature-card h3 { font-size: 24px; }
     .feature-card p { color: var(--soft); font-size: 15px; line-height: 1.55; }
-    .feature-link {
-      font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 600;
-      display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
-      border-bottom: 1px solid var(--border-bright); padding-bottom: 2px; width: fit-content;
-      transition: gap 0.2s cubic-bezier(0.16,1,0.3,1), border-color 0.2s cubic-bezier(0.16,1,0.3,1);
-    }
-    .feature-link:hover { gap: 10px; border-color: var(--accent); }
 
     .feature-preview {
       margin-top: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -727,7 +689,7 @@
   <!-- =================== NAV =================== -->
   <header class="nav">
     <div class="container nav-inner">
-      <a href="#" class="logo" aria-label="ScanForProfit home">
+      <a href="/" class="logo" aria-label="ScanForProfit home">
         <span class="logo-mark" aria-hidden="true">S</span>
         <span>ScanForProfit</span>
       </a>
@@ -740,6 +702,7 @@
     </div>
   </header>
 
+  <main>
   <!-- =================== HERO =================== -->
   <section class="hero" id="hero">
     <div class="container hero-grid">
@@ -1051,59 +1014,6 @@
     </div>
   </section>
 
-  <!-- =================== SOCIAL PROOF =================== -->
-  <section id="social-proof" aria-labelledby="proof-title" style="display:none">
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">// Real resellers · Real numbers</span>
-        <h2 id="proof-title">From garage hustle to full-time income.</h2>
-      </div>
-      <div class="proof-grid">
-        <div class="proof-card">
-          <div>
-            <div class="proof-label">Estate sale ROI</div>
-            <div class="proof-metric" style="font-size:36px;">$180→$900+</div>
-          </div>
-          <p class="proof-quote">The shelf scan is insane. I walked through an estate sale and had a buy list in 3 minutes. Bought $180 worth of stuff that should sell for over $900.</p>
-          <div class="proof-attr">
-            <div class="avatar">FM</div>
-            <div>
-              <div class="proof-name">@flippin_marcus</div>
-              <div class="proof-role">Full-time reseller · eBay, Posh, Mercari</div>
-            </div>
-          </div>
-        </div>
-        <div class="proof-card">
-          <div>
-            <div class="proof-label">Pricing gap found</div>
-            <div class="proof-metric">30%</div>
-          </div>
-          <p class="proof-quote">Finally know what I actually made. ScanForProfit showed me I was underpricing electronics by 30%. Changed my whole strategy.</p>
-          <div class="proof-attr">
-            <div class="avatar a2">TV</div>
-            <div>
-              <div class="proof-name">@thatvintageguy</div>
-              <div class="proof-role">eBay · electronics specialist</div>
-            </div>
-          </div>
-        </div>
-        <div class="proof-card">
-          <div>
-            <div class="proof-label">Time per listing</div>
-            <div class="proof-metric" style="font-size:40px;">20m→&lt;1m</div>
-          </div>
-          <p class="proof-quote">I used to spend 20 minutes writing one listing. Now I do it in under a minute. Listed more in the last two weeks than the entire previous month.</p>
-          <div class="proof-attr">
-            <div class="avatar a3">TQ</div>
-            <div>
-              <div class="proof-name">@thriftqueenATL</div>
-              <div class="proof-role">eBay · 200+ items/month</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- =================== FEATURES =================== -->
   <section id="features">
@@ -1132,7 +1042,6 @@
             <div class="row"><span>Comp avg (last 30d)</span><b>$46.20</b></div>
             <div class="row"><span>Projected ROI</span><b style="color:var(--green-border)">156%</b></div>
           </div>
-          <a class="feature-link" href="#">Learn more →</a>
         </article>
 
         <!-- Feature 2: Inventory -->
@@ -1153,7 +1062,6 @@
             <div class="row"><span>Le Creuset 5.5qt</span><span class="pill warn">Listed</span></div>
             <div class="row"><span>Total listed value</span><b>$1,284</b></div>
           </div>
-          <a class="feature-link" href="#">Learn more →</a>
         </article>
 
         <!-- Feature 3: Listing -->
@@ -1166,7 +1074,6 @@
           </div>
           <h3>AI Listings, 90 Seconds Flat</h3>
           <p>Generate eBay-ready titles, descriptions, and pricing. One-click cross-list to Poshmark, Mercari, Facebook. Save 2 hours/week.</p>
-          <a class="feature-link" href="#">Learn more →</a>
         </article>
 
         <!-- Feature 4: Trends -->
@@ -1179,7 +1086,6 @@
           </div>
           <h3>Trends &amp; Hunt List</h3>
           <p>Stale listing alerts. A hunt list of high-ROI categories. Market heat by category. Double-check your sourcing strategy.</p>
-          <a class="feature-link" href="#">Learn more →</a>
         </article>
 
         <!-- Feature 5: Stats -->
@@ -1192,7 +1098,6 @@
           </div>
           <h3>Stats: Your Profit Dashboard</h3>
           <p>Revenue, expenses, net profit, ROI%, sell-through rate (STR). See P&amp;L by category. Know if you're scaling or plateauing.</p>
-          <a class="feature-link" href="#">Learn more →</a>
         </article>
 
       </div>
@@ -1286,7 +1191,7 @@
             <li>Team analytics dashboard</li>
             <li>Dedicated account manager</li>
           </ul>
-          <a class="btn btn-secondary btn-block" href="#early-access" data-cta="contact-sales" data-location="pricing-empire" data-tier="empire">Contact Sales</a>
+          <a class="btn btn-secondary btn-block" href="mailto:customerservice@scanforprofit.com?subject=Empire%20plan%20inquiry" data-cta="contact-sales" data-location="pricing-empire" data-tier="empire">Contact Sales</a>
         </article>
 
       </div>
@@ -1380,13 +1285,14 @@
       </div>
     </div>
   </section>
+  </main>
 
   <!-- =================== FOOTER =================== -->
   <footer>
     <div class="container">
       <div class="footer-grid">
         <div class="footer-col footer-brand">
-          <a href="#" class="logo">
+          <a href="/" class="logo">
             <span class="logo-mark" aria-hidden="true">S</span>
             <span>ScanForProfit</span>
           </a>
@@ -1455,12 +1361,32 @@
     });
     const nl = document.getElementById('newsletter-form');
     if (nl) {
-      nl.querySelector('button').addEventListener('click', () => {
-        const email = document.getElementById('newsletter-email').value;
+      const nlInput = document.getElementById('newsletter-email');
+      const nlBtn = nl.querySelector('button');
+      const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      nlBtn.addEventListener('click', async () => {
+        const email = nlInput.value.trim();
+        if (!reEmail.test(email)) {
+          nlInput.focus();
+          return;
+        }
+        nlBtn.disabled = true;
+        const label = nlBtn.textContent;
+        nlBtn.textContent = 'Sending…';
         trackEvent('newsletter_signup', { location: 'footer', email });
-        const btn = nl.querySelector('button');
-        btn.textContent = 'Subscribed ✓';
-        btn.disabled = true;
+        try {
+          const res = await fetch('/api/waitlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          });
+          if (!res.ok) throw new Error('failed');
+          nlBtn.textContent = 'Subscribed ✓';
+          nlInput.value = '';
+        } catch (err) {
+          nlBtn.disabled = false;
+          nlBtn.textContent = label;
+        }
       });
     }
 

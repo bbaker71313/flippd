@@ -32,9 +32,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ScanForProfit — Scan the shelf. Know what to buy.</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
@@ -1436,11 +1435,11 @@ body::before{
   </div>
 
   <!-- MILEAGE QUICK-LOGGER (always visible) -->
-  <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:#e8b840">
+  <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:var(--yellow)">
     <h3 class="card-title" style="color:var(--yellow)">🚗 Quick Mileage Logger</h3>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="pnl-miles-input" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid #e8b840;border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
-      <button onclick="pnlLogMileage()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
+      <input type="number" id="pnl-miles-input" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid var(--yellow);border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
+      <button onclick="pnlLogMileage()" style="background:var(--yellow);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
     </div>
     <div style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace">IRS rate: $0.67/mile · Auto-added to Gas & Travel expenses</div>
   </div>
@@ -1623,11 +1622,11 @@ body::before{
       <div id="spnl-explist"></div>
     </div>
     <div id="spnl-mo" style="display:none"><div class="card" style="padding:0 12px" id="spnl-mo-content"></div></div>
-    <div class="card" style="margin-top:12px;background:var(--yellow-bg,#fffbe6);border-color:#e8b840">
+    <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:var(--yellow)">
       <h3 class="card-title" style="color:var(--yellow)">🚗 Mileage Logger</h3>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" id="spnl-miles" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid #e8b840;border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
-        <button onclick="sPnlMiles()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
+        <input type="number" id="spnl-miles" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid var(--yellow);border-radius:4px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
+        <button onclick="sPnlMiles()" style="background:var(--yellow);color:#000;border:none;border-radius:4px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
       </div>
       <div style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace">IRS rate: $0.67/mile</div>
     </div>
@@ -6178,10 +6177,10 @@ function renderSubscriptionPanel() {
   if(nameEl) nameEl.textContent = tierName;
   if(tier === 'trial' && user.trialEndsAt) {
     var daysLeft = Math.max(0, Math.ceil((new Date(user.trialEndsAt)-new Date())/(1000*60*60*24)));
-    if(badgeEl){ badgeEl.textContent = daysLeft+' DAY'+(daysLeft===1?'':'S')+' LEFT'; badgeEl.style.background=daysLeft<=2?'#ffe6e6':'var(--green-bg)'; badgeEl.style.color=daysLeft<=2?'var(--red)':'var(--green-border)'; }
+    if(badgeEl){ badgeEl.textContent = daysLeft+' DAY'+(daysLeft===1?'':'S')+' LEFT'; badgeEl.style.background=daysLeft<=2?'var(--red-bg)':'var(--green-bg)'; badgeEl.style.color=daysLeft<=2?'var(--red)':'var(--green-border)'; }
     if(detailEl) detailEl.textContent = 'Full access for '+daysLeft+' more day'+(daysLeft===1?'':'s')+'. Upgrade to keep all features.';
   } else if(tier==='scout') {
-    if(badgeEl){ badgeEl.textContent='FREE'; badgeEl.style.background='#f4f4f4'; badgeEl.style.color='var(--muted)'; }
+    if(badgeEl){ badgeEl.textContent='FREE'; badgeEl.style.background='var(--surface)'; badgeEl.style.color='var(--soft)'; }
     if(detailEl) detailEl.textContent = 'Free plan: 25 scans/month, up to 10 inventory items.';
   } else {
     if(badgeEl){ badgeEl.textContent='ACTIVE'; badgeEl.style.background='var(--green-bg)'; badgeEl.style.color='var(--green-border)'; }
@@ -6636,10 +6635,10 @@ function sPnlRender() {
   var tax = net > 0 ? net * 0.25 : 0;
   var sumEl = document.getElementById('spnl-sum');
   if(sumEl) sumEl.innerHTML =
-    '<div class="kpi-card"><div class="kpi-num" style="color:var(--green)">$'+totalRev.toFixed(0)+'</div><div class="kpi-label">Revenue</div></div>'+
-    '<div class="kpi-card"><div class="kpi-num" style="color:var(--accent)">$'+net.toFixed(0)+'</div><div class="kpi-label">Net Profit</div></div>'+
-    '<div class="kpi-card"><div class="kpi-num" style="color:var(--red)">$'+totalFees.toFixed(0)+'</div><div class="kpi-label">eBay Fees</div></div>'+
-    '<div class="kpi-card"><div class="kpi-num" style="color:var(--yellow)">$'+tax.toFixed(0)+'</div><div class="kpi-label">Tax Reserve</div></div>';
+    '<div class="kpi-card"><div class="kpi-val" style="color:var(--green)">$'+totalRev.toFixed(0)+'</div><div class="kpi-label">Revenue</div></div>'+
+    '<div class="kpi-card"><div class="kpi-val" style="color:var(--accent)">$'+net.toFixed(0)+'</div><div class="kpi-label">Net Profit</div></div>'+
+    '<div class="kpi-card"><div class="kpi-val" style="color:var(--red)">$'+totalFees.toFixed(0)+'</div><div class="kpi-label">eBay Fees</div></div>'+
+    '<div class="kpi-card"><div class="kpi-val" style="color:var(--yellow)">$'+tax.toFixed(0)+'</div><div class="kpi-label">Tax Reserve</div></div>';
   var salesEl = document.getElementById('spnl-sales');
   if(salesEl) {
     if(!sold.length) {
