@@ -406,6 +406,7 @@ body::before{
 .d-icon{font-size:38px;flex-shrink:0}
 .d-label{font-size:9px;letter-spacing:0.25em;font-weight:800;opacity:0.8;margin-bottom:4px;text-transform:uppercase}
 .d-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:900;line-height:1.2;letter-spacing:-0.01em}
+.d-max-cost{font-size:11px;font-weight:700;opacity:0.85;margin-top:5px;letter-spacing:0.02em}
 .conf-pill{
   background:rgba(0,0,0,0.35);
   border:1px solid rgba(255,255,255,0.1);
@@ -453,7 +454,8 @@ body::before{
 .shelf-item{border-radius:10px;padding:14px 16px;margin-bottom:8px;border:1px solid;box-shadow:0 4px 16px rgba(0,0,0,0.55)}
 .s-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:900;margin-bottom:4px;color:var(--text);letter-spacing:-0.01em}
 .s-detail{font-size:11px;color:var(--soft);line-height:1.6;font-weight:500}
-.s-badge{display:inline-block;border-radius:3px;padding:3px 10px;font-size:10px;font-weight:800;letter-spacing:0.14em;margin-bottom:5px;text-transform:uppercase}
+.s-badge{display:inline-block;border-radius:3px;padding:3px 10px;font-size:10px;font-weight:800;letter-spacing:0.14em;margin-bottom:3px;text-transform:uppercase}
+.s-max-cost{font-size:11px;font-weight:700;color:var(--soft);margin-bottom:5px;letter-spacing:0.01em}
 .error-box{
   background:var(--red-bg);border:1px solid #550000;
   border-radius:4px;padding:10px 12px;
@@ -5028,6 +5030,11 @@ function calcFinancials(cost,soldPrice) {
   const profit=soldPrice-total; const roi=cost>0?(profit/cost)*100:0;
   return{fee,shipCost,total,profit,roi};
 }
+function calcMaxCost(avgSoldPrice) {
+  const p = parseFloat(avgSoldPrice) || 0;
+  return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit;
+}
+
 function getDecision(profit,roi,days,sellThrough) {
   const sb={conservative:1.3,balanced:1.0,aggressive:0.75}[S.style]||1.0;
   const aMP=S.minProfit*sb,aMD=S.maxDays/sb,aMS=S.minStr*sb;
@@ -5176,11 +5183,14 @@ function renderSingle({item,cost,fin,dec}) {
   // Determine what category to map to for inventory
   const invCategory = mapToInvCategory(item.category);
 
+  const maxCostSingle = calcMaxCost(item.avg_sold_price);
+  const maxCostHint = (cost === 0 && maxCostSingle > 0)
+    ? `<div class="d-max-cost">if item is under $${maxCostSingle.toFixed(2)}</div>` : '';
   document.getElementById('results-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
     <div class="decision-banner is-${dec.toLowerCase()}">
       <span class="d-icon">${D_ICON[dec]}</span>
-      <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${item.item_name}</div></div>
+      <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${item.item_name}</div>${maxCostHint}</div>
       <div class="conf-pill">${item.confidence}%</div>
     </div>
     <div class="source-badge">🤖 AI Estimated · Buyer pays shipping · Verify with real eBay data</div>
@@ -5306,9 +5316,11 @@ function renderShelf(shelfItems) {
   const buy=shelfItems.filter(i=>i.decision==='BUY');
   const pass=shelfItems.filter(i=>i.decision==='PASS');
   const icon={HOT:'🔥',BUY:'✅',PASS:'❌'};
-  const ri=(i,idx)=>
-    `<div class="shelf-item is-${i.decision.toLowerCase()}">
-      <span class="s-badge">${icon[i.decision]} ${i.decision}</span>
+  const ri=(i,idx)=>{
+    const mc=calcMaxCost(i.avg_sold_price);
+    const mcHint=mc>0?`<div class="s-max-cost">if item is under $${mc.toFixed(2)}</div>`:'';
+    return `<div class="shelf-item is-${i.decision.toLowerCase()}">
+      <span class="s-badge">${icon[i.decision]} ${i.decision}</span>${mcHint}
       <div class="s-name">${i.item_name}</div>
       <div class="s-detail">
         <span class="u-pos u-bold9">~$${i.avg_sold_price} sold</span> &nbsp;·&nbsp;
@@ -5319,6 +5331,7 @@ function renderShelf(shelfItems) {
       ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">🔎 ${i.condition_notes}</div>`:''}
       ${i.decision!=='PASS'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">🛒 Buy → Add to Inventory</button>`:''}
     </div>`;
+  };
   document.getElementById('shelf-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Scan</button>
     <div class="u-syne u-bold9" style="font-size:var(--text-2xl);margin-bottom:var(--space-1);color:var(--text)">Shelf Report</div>
