@@ -4197,34 +4197,6 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="nav-card" onclick="switchTab('pnl')" role="button" tabindex="0">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">💰</span>
-          <span class="nav-card-title">P&amp;L</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">$${totalSales.toFixed(0)}</div><div class="nav-stat-lbl">Revenue</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div><div class="nav-stat-lbl">Net profit</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${pnlData?'$'+pnlData.totalExpenses.toFixed(0):'$0'}</div><div class="nav-stat-lbl">Expenses</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:var(--yellow)">${pnlData&&pnlData.taxReserve>0?'$'+pnlData.taxReserve.toFixed(0):'$0'}</div><div class="nav-stat-lbl">Tax reserve</div></div>
-        </div>
-      </div>
-
-      <div class="nav-card" onclick="showPhotosDrillDown()" role="button" tabindex="0">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">📸</span>
-          <span class="nav-card-title">Photos</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.length).length}</div><div class="nav-stat-lbl">With photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.filter(i=>i.photos&&i.photos.some&&i.photos.some(p=>p&&p.enhanced)).length}</div><div class="nav-stat-lbl">AI enhanced</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="color:${items.filter(i=>!i.photos||!i.photos.length).length>0?'var(--red)':'var(--green)'}">
-            ${items.filter(i=>!i.photos||!i.photos.length).length}</div><div class="nav-stat-lbl">Need photos</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${items.reduce((s,i)=>s+(i.photos?.length||0),0)}</div><div class="nav-stat-lbl">Total photos</div></div>
-        </div>
-      </div>
 
       <div class="nav-card" onclick="switchTab('growth')" role="button" tabindex="0">
         <div class="nav-card-header">
