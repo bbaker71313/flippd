@@ -413,7 +413,7 @@
 
     .section-head { text-align: left; max-width: 720px; margin-bottom: 48px; }
     .section-head .tag { font-family: var(--mono); font-size: 12px; color: var(--green-border); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
-    .section-head h2 { font-size: clamp(32px, 4.5vw, 52px); margin-top: 12px; }
+    .section-head h2 { font-size: clamp(32px, 4.5vw, 52px); margin-top: 12px; letter-spacing: -0.02em; line-height: 1.1; }
     .section-head p { margin-top: 16px; color: var(--soft); font-size: 17px; max-width: 620px; }
 
     /* ============ FEATURES ============ */
@@ -422,11 +422,12 @@
     @media (min-width: 1024px) { .features-grid { grid-template-columns: repeat(6, 1fr); } }
 
     .feature-card {
-      padding: 32px; border-radius: 6px; background: var(--card); border: 1px solid var(--border);
+      padding: 32px; border-radius: 6px; background: var(--card); border: 1px solid rgba(255,255,255,0.07);
       display: flex; flex-direction: column; gap: 16px; position: relative; overflow: hidden;
-      transition: background 0.2s cubic-bezier(0.16,1,0.3,1), border-color 0.2s cubic-bezier(0.16,1,0.3,1);
+      transition: background 0.2s cubic-bezier(0.16,1,0.3,1), border-color 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s cubic-bezier(0.16,1,0.3,1), transform 0.2s cubic-bezier(0.16,1,0.3,1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
     }
-    .feature-card:hover { background: var(--card-hover); border-color: var(--accent); }
+    .feature-card:hover { background: var(--card-hover); border-color: rgba(212,168,67,0.3); box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(212,168,67,0.15); transform: translateY(-3px); }
     @media (min-width: 1024px) {
       .feature-card.span-3 { grid-column: span 3; }
       .feature-card.span-2 { grid-column: span 2; }
@@ -436,8 +437,9 @@
       background: var(--green-bg); color: var(--green);
       display: grid; place-items: center;
       border: 1px solid var(--green-border);
+      box-shadow: 0 0 20px rgba(0,230,118,0.12);
     }
-    .feature-card.green .feature-icon { background: var(--green); color: #000; }
+    .feature-card.green .feature-icon { background: var(--green); color: #000; box-shadow: 0 0 28px rgba(0,230,118,0.3); }
     .feature-card .spotlight-tag {
       font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
       color: var(--green-border); width: fit-content;
@@ -466,12 +468,13 @@
     @media (min-width: 1100px) { .pricing-grid { grid-template-columns: repeat(4, 1fr); } }
 
     .price-card {
-      padding: 28px; border-radius: 6px; background: var(--card); border: 1px solid var(--border);
+      padding: 28px; border-radius: 6px; background: var(--card); border: 1px solid rgba(255,255,255,0.07);
       display: flex; flex-direction: column; gap: 18px; position: relative;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .price-card.featured {
       border: 1px solid var(--green-border); background: linear-gradient(135deg, var(--card), #0a1f10);
-      box-shadow: 0 0 40px rgba(0, 230, 118, 0.12);
+      box-shadow: 0 0 50px rgba(0, 230, 118, 0.18), 0 4px 24px rgba(0,0,0,0.4);
     }
     .price-badge {
       font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
@@ -505,10 +508,11 @@
     .faq-grid { display: grid; gap: 12px; max-width: 880px; }
     @media (min-width: 768px) { .faq-grid { grid-template-columns: 1fr 1fr; } }
     details.faq {
-      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-      padding: 0; overflow: hidden; transition: border-color 0.2s ease;
+      background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px;
+      padding: 0; overflow: hidden; transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
-    details.faq[open] { border-color: var(--border-bright); }
+    details.faq[open] { border-color: var(--border-bright); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
     details.faq summary {
       list-style: none; cursor: pointer; padding: 20px 24px;
       display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
@@ -618,8 +622,9 @@
     .agitate-grid { display: grid; gap: 18px; grid-template-columns: 1fr; }
     @media (min-width: 768px) { .agitate-grid { grid-template-columns: repeat(3, 1fr); } }
     .agitate-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+      background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px;
       padding: 28px; position: relative; display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .agitate-num { font: 800 28px var(--display); color: var(--muted); letter-spacing: -0.02em; line-height: 1; }
     .agitate-lead { font: 700 15px var(--display); color: var(--text); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -678,7 +683,7 @@
     #guarantee { background: var(--bg); }
     .guarantee-grid { display: grid; gap: 18px; grid-template-columns: 1fr; margin-top: 8px; }
     @media (min-width: 768px) { .guarantee-grid { grid-template-columns: repeat(3, 1fr); } }
-    .guarantee-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 26px; display: flex; gap: 14px; align-items: flex-start; }
+    .guarantee-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; padding: 26px; display: flex; gap: 14px; align-items: flex-start; box-shadow: 0 2px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04); }
     .guarantee-check { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--green-bg); display: grid; place-items: center; }
     .guarantee-check svg { width: 16px; height: 16px; }
     .guarantee-card p { font-size: 15px; color: var(--soft); line-height: 1.5; }
@@ -706,7 +711,7 @@
 
     /* utility */
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
-    .agitate-card.warn { background: rgba(245,166,35,0.07); border-color: rgba(245,166,35,0.35); }
+    .agitate-card.warn { background: rgba(245,166,35,0.07); border-color: rgba(245,166,35,0.35); box-shadow: 0 2px 12px rgba(0,0,0,0.3), 0 0 20px rgba(245,166,35,0.06); }
     .skip-link { position:absolute; top:-48px; left:16px; background:var(--accent); color:#000; padding:10px 18px; border-radius:0 0 4px 4px; z-index:200; font-family:var(--mono); font-size:13px; transition:top 0.15s; }
     .skip-link:focus { top:0; outline:2px solid var(--green); outline-offset:2px; }
 
