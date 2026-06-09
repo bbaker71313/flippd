@@ -3237,7 +3237,7 @@ function paApplyFilters() {
   const img = new Image();
   img.onload = () => {
     if (whiteBg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     const cFactor = (contrast + 100) / 100;
