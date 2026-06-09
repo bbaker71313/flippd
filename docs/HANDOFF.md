@@ -4,6 +4,53 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-09 (6) — Bold visual pass 2: gradient cards, larger numbers, stronger glows
+
+### What changed this session
+
+User feedback after PR #48 merged: "it still looks the same." Root cause diagnosed: on a `#0a0a0a` background, drop shadows (`rgba(0,0,0,x)`) are invisible — shadows only cast against light surfaces. Fix: applied "Modern Dark Cinema Mobile" design-system recommendations from ui-ux-pro-max skill.
+
+**`apps/web/public/app.html`** — commit `7b3c062`:
+- **Gradient card backgrounds**: `.card`, `.kpi-card`, `.nav-card`, `.stat-card`, `.item-card`, `.modal-box`, `.dash-cat-card`, `.inv-stat-card`, `.pnl-sum-card` all get `linear-gradient(160deg, #1d1d1d 0%, #131313 100%)` — creates visible depth against near-black where flat colors had near-zero contrast
+- **Paper texture block updated**: combined paper SVG + gradient into multi-layer `background-image` so gradient shows through texture correctly
+- **50% larger numbers**: `kpi-val` 18→24px, `stat-num` 20→30px, `inv-stat-num` 22→32px, `pnl-sum-num` 20→28px; glow text-shadow opacity 0.4→0.65
+- **Border tokens upgraded**: `--border` #2a2a2a→#383838, `--border-bright` #3a3a3a→#4a4a4a — 50% brighter; propagates to all row separators, dividers, form outlines
+- **Border-radius modernized**: cards 6→10px, kpi/nav-card 4→10px, modal 4→16px, shelf-item 4→10px, btn 4→8px, item-card 3→8px
+- **Button gradients**: `btn-green` and `btn-amber` get linear-gradient backgrounds; all glow shadows doubled (20→36px spread, opacity doubled)
+- **Decision banners**: radius 6→14px, stronger gradient colors; `hotPulse` animation peak glow `rgba(0,240,120,0.9)` + 10px ring spread
+- **Item cards**: gold left-border tint at rest `rgba(212,168,67,0.22)` → fully gold on hover; stronger hover shadow
+- **Late CSS overrides fixed**: item-card:hover (line 822), inv-status-card:hover, inv-cat-card:hover all had near-invisible `rgba(80,40,0,0.13)` amber glows — replaced with proper `rgba(0,0,0,0.65)` dark shadows
+- **Setup card**: stronger gradient (#1e1800→#100c00), bigger radius (6→14px), gold glow tripled
+- **Body**: subtle warm top gradient `#100f0c→#0a0a0a` over 25vh (ambient light from gold accent)
+
+**`apps/web/public/index.html`** — commit `7b3c062`:
+- Feature cards: gradient bg, radius 6→12px, shadow 0.35→0.55 opacity, stronger hover
+- Price cards: gradient bg, radius 6→12px; featured card glow tripled (0.18→0.28 opacity + inset highlight)
+- `btn-primary`: gradient background, glow doubled
+- FAQ details: gradient bg, radius 6→10px, gold open-state border ring
+- Border tokens: same upgrade as app.html
+- Body: same warm top gradient
+
+**PR #49** created as draft. CI: Vercel ✅ Ready, Supabase ✅ Skipped, Railway ✅ Building (not a blocking check). No review comments.
+
+### Decisions that should not be reversed (new this session)
+
+- **Gradient card backgrounds are now the standard**: `linear-gradient(160deg, #1d1d1d 0%, #131313 100%)` is the canonical card background for all card-style components in both files. Do not revert to flat `#161616`.
+- **Border brightness**: `--border: #383838` and `--border-bright: #4a4a4a` are the new token values. Do not revert to #2a2a2a/#3a3a3a — those were too dark to see on the near-black background.
+- **Paper texture block**: the `.card` override block in app.html now uses combined `background-color + background-image: url(paper), gradient`. If adding future CSS overrides to this block, maintain the multi-layer pattern.
+
+### Next task
+
+1. Merge PR #49 after Railway CI completes.
+2. If user still says "looks the same": the next escalation is a structural layout change — consider upgrading the app's max-width from 540px to a wider layout on desktop, or adding an ambient glowing blob element behind content using `body::after`.
+3. Deferred: emoji→SVG icon system (138 instances, see prior session notes).
+4. Deferred: app-wide hex color sweep (#005522, #228844 etc. in Growth Agent / Scout).
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-08 (5) — Design-system architecture overhaul: token system + component class consolidation
 
 ### What changed this session
