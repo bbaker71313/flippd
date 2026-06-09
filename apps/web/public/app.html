@@ -5074,7 +5074,7 @@ async function analyze() {
       const fin={profit:r.estimatedProfit, roi:r.roi,
         fee:r.estimatedSell*(S.ebayFee/100),
         shipCost:S.shipping==='free'?S.shipCost:0};
-      const dec=r.decision;
+      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0);
       logScan(dec, r.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
@@ -5127,14 +5127,18 @@ async function analyzeShelf() {
     const r=await callScan('shelf_scan', hint);
     setBtnLoading('shelf-btn','Ranking items...',true); await sleep(200);
     // Map camelCase server response → snake_case for renderShelf
-    const shelfItems=(r.items||[]).map(function(i){return{
-      item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
-      estimated_profit:i.estimatedProfit, estimated_cost_at_thrift:i.estimatedCost,
-      demand_level:i.demandLevel, decision:i.decision,
-      decision_reason:i.decisionReason||'', condition_notes:i.conditionNotes||'',
-      category:i.category, confidence:i.confidence,
-      sell_through_rate:0, avg_days_to_sell:0,
-    };});
+    const shelfItems=(r.items||[]).map(function(i){
+      const _profit=typeof i.estimatedProfit==='number'?i.estimatedProfit:0;
+      const _roi=i.estimatedCost>0?(_profit/i.estimatedCost*100):0;
+      return{
+        item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
+        estimated_profit:_profit, estimated_cost_at_thrift:i.estimatedCost,
+        demand_level:i.demandLevel, decision:getDecision(_profit,_roi,0,0),
+        decision_reason:i.decisionReason||'', condition_notes:i.conditionNotes||'',
+        category:i.category, confidence:i.confidence,
+        sell_through_rate:0, avg_days_to_sell:0,
+      };
+    });
     renderShelf(shelfItems);
   } catch(e){resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');showError('Error: '+(e.message||'Try again.'));}
 }
