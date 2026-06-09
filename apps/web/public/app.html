@@ -4069,68 +4069,72 @@ function toggleListingDetail(itemId) {
 function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  // -- Timeframe filtering --
-  const tfStart = getTimeframeStart(dashTimeframe);
-  const allSold = items.filter(i=>i.status==='Sold');
-  const sold    = allSold.filter(i => new Date(i.createdAt||i.dateAcquired) >= tfStart);
-  const listed     = items.filter(i=>i.status==='Listed');
-  const unlisted   = items.filter(i=>i.status==='Unlisted');
-  const totalSales = sold.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0), 0);
-  const totalProfit= sold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice), 0);
-  const pnlData    = pnlCalc ? pnlCalc() : null;
-  const netProfit  = pnlData ? pnlData.netProfit : totalProfit;
+  // ── Data ──
+  const tfStart   = getTimeframeStart(dashTimeframe);
+  const sold      = items.filter(i=>i.status==='Sold').filter(i=>new Date(i.createdAt||i.dateAcquired)>=tfStart);
+  const listed    = items.filter(i=>i.status==='Listed');
+  const unlisted  = items.filter(i=>i.status==='Unlisted');
+  const totalProfit = sold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
+  const pnlData   = pnlCalc ? pnlCalc() : null;
+  const netProfit = pnlData ? pnlData.netProfit : totalProfit;
 
-  // ── Sourcing scan log (today) ──
-  const today = new Date().toDateString();
-  const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
-  const todayScans = scanLog.filter(s=>new Date(s.ts).toDateString()===today);
-  const todayBuys  = todayScans.filter(s=>s.dec==='BUY'||s.dec==='HOT').length;
-  const todayPasses= todayScans.filter(s=>s.dec==='PASS').length;
-  const todaySpent = todayScans.filter(s=>s.bought).reduce((a,s)=>a+(parseFloat(s.cost)||0),0);
-  const avgROI     = todayScans.length ? Math.round(todayScans.reduce((a,s)=>a+(s.roi||0),0)/todayScans.length) : 0;
+  // ── Growth cache ──
+  const gc = loadGrowthCache();
+  const huntItems      = gc ? (gc.data.hunt_list||[]) : [];
+  const staleFromCache = gc ? (gc.data.stale_actions||[]).slice(0,5) : [];
 
-  // ── Category breakdown ──
-  const activeCats = CATEGORIES.filter(cat=>items.some(i=>i.category===cat));
-  const catCards = activeCats.map(cat => {
-    const ci      = items.filter(i=>i.category===cat);
-    const catSold = ci.filter(i=>i.status==='Sold');
-    const catList = ci.filter(i=>i.status==='Listed');
-    const catProf = catSold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
-    const pct     = sold.length ? Math.round((catSold.length/Math.max(sold.length,1))*100) : 0;
-    return `<div class="dash-cat-card" onclick="switchTab('inventory');openFilteredList('category','${cat}')" role="button" tabindex="0">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:20px">${CAT_ICONS[cat]||'📦'}</span>
-          <div>
-            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--text)">${cat}</div>
-            <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${ci.length} total · ${catList.length} listed</div>
-          </div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:16px;font-weight:900;font-family:'Syne',sans-serif;color:var(--green)">$${catProf.toFixed(0)}</div>
-          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${catSold.length} sold</div>
-        </div>
-      </div>
-      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:var(--green);border-radius:2px;transition:width 0.4s"></div>
-      </div>
-    </div>`;
-  }).join('') || `<div style="font-size:13px;color:var(--muted);padding:12px 0;font-family:'IBM Plex Mono',monospace">No inventory yet — add items to see breakdown.</div>`;
+  // ── Stale items fallback (computed when no growth cache) ──
+  const now = Date.now();
+  const staleComputed = listed.filter(i=>{
+    const days=(now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000;
+    return days>S.maxDays;
+  }).slice(0,5).map(i=>({
+    sku:i.sku, name:i.nickname,
+    days:Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000),
+    action:'Review pricing',
+    reason:`Listed ${Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000)} days — over your ${S.maxDays}-day target.`
+  }));
+  const staleItems = staleFromCache.length ? staleFromCache : staleComputed;
 
-  // ── Recent sales ──
-  const soldRows = sold.slice().reverse().slice(0,8).map(i => {
-    const p = calcProfit(i.cost, i.sellPrice);
-    return `<div class="sold-history-item">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif">${i.nickname}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · ${CAT_ICONS[i.category]||''} ${i.category}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:14px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif">+$${p.toFixed(2)}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">$${i.sellPrice||'0'} sold</div>
-      </div>
-    </div>`;
-  }).join('') || `<div class="empty-state" style="padding:24px"><div class="empty-txt">No sales yet — keep listing! 🚀</div></div>`;
+  // ── Hunt list HTML ──
+  const huntHTML = huntItems.length
+    ? `<div class="card" style="padding:14px 16px">
+        ${gc?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <div style="width:8px;height:8px;border-radius:50%;background:${gc.data.score_color||'var(--accent)'}"></div>
+          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted)">${gc.data.score_label} · Score ${gc.data.business_score}</div>
+        </div>`:''}
+        ${huntItems.slice(0,5).map(h=>`
+          <div class="hunt-item">
+            <div class="hunt-icon">${h.icon||'🎯'}</div>
+            <div>
+              <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
+              <div class="hunt-why">${h.why}</div>
+            </div>
+          </div>`).join('')}
+      </div>`
+    : `<div class="card" style="border-style:dashed;text-align:center;padding:24px 16px">
+        <div style="font-size:28px;margin-bottom:8px">🎯</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No hunt list yet</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Run the Growth Agent in Trends to get AI-curated items to look for this week.</div>
+        <button onclick="switchTab('growth')" style="background:var(--accent);color:#000;border:none;border-radius:4px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Go to Trends →</button>
+      </div>`;
+
+  // ── Stale items HTML ──
+  const staleHTML = staleItems.length
+    ? `<div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:16px 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Action Queue</div>
+       <div class="card" style="padding:14px 16px">
+         ${staleItems.map(i=>`
+           <div class="stale-item">
+             <div style="display:flex;justify-content:space-between;align-items:flex-start">
+               <div>
+                 <div class="stale-name">${i.name}</div>
+                 <div class="stale-meta">${i.sku||''} · Listed ${i.days} days</div>
+                 <div style="font-size:11px;color:var(--soft);margin-top:3px;line-height:1.4">${i.reason}</div>
+               </div>
+               <span class="stale-action">${i.action}</span>
+             </div>
+           </div>`).join('')}
+       </div>` : '';
 
   document.getElementById('dash-content').innerHTML = `
 
@@ -4141,13 +4145,8 @@ function renderDashboard() {
       <button class="filter-btn${dashTimeframe==='year'?' active':''}" onclick="setDashTimeframe('year')">Year</button>
     </div>
 
-    <!-- ① KPI STAT CARDS -->
-    <div class="kpi-grid">
-      <div class="kpi-card" onclick="showKpiDrillDown('sales')" role="button" tabindex="0" style="cursor:pointer">
-        <div class="kpi-icon">💵</div>
-        <div class="kpi-val">$${totalSales.toFixed(0)}</div>
-        <div class="kpi-label">Total Sales</div>
-      </div>
+    <!-- ① 3-KPI STRIP -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" style="cursor:pointer">
         <div class="kpi-icon">📈</div>
         <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
@@ -4158,92 +4157,21 @@ function renderDashboard() {
         <div class="kpi-val">${sold.length}</div>
         <div class="kpi-label">Items Sold</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('listed')" role="button" tabindex="0" style="cursor:pointer">
-        <div class="kpi-icon">📦</div>
-        <div class="kpi-val">${listed.length}</div>
-        <div class="kpi-label">Active Listings</div>
+      <div class="kpi-card" onclick="switchTab('inventory')" role="button" tabindex="0" style="cursor:pointer">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-val" style="color:${unlisted.length>0?'var(--yellow)':'var(--green)'}">${unlisted.length}</div>
+        <div class="kpi-label">To List</div>
       </div>
     </div>
 
-    <!-- ② NAVIGATION CARDS -->
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Sections</div>
-    <div class="nav-card-grid">
+    <!-- ② HUNT LIST -->
+    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">This Week's Hunt List</div>
+    ${huntHTML}
 
-      <div class="nav-card" onclick="showSourcingDrillDown()" role="button" tabindex="0">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">🔍</span>
-          <span class="nav-card-title">Sourcing</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${todayScans.length||'—'}</div><div class="nav-stat-lbl">Scanned today</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${todayBuys||'—'}</div><div class="nav-stat-lbl">Buy decisions</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${todaySpent>0?'$'+todaySpent.toFixed(0):'—'}</div><div class="nav-stat-lbl">Spent today</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${avgROI>0?avgROI+'%':'—'}</div><div class="nav-stat-lbl">Avg ROI</div></div>
-        </div>
-      </div>
-
-      <div class="nav-card" onclick="showInventoryDrillDown()" role="button" tabindex="0">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">📦</span>
-          <span class="nav-card-title">Inventory</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${items.length}</div><div class="nav-stat-lbl">Total items</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${listed.length}</div><div class="nav-stat-lbl">Listed</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${unlisted.length}</div><div class="nav-stat-lbl">Unlisted</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${sold.length}</div><div class="nav-stat-lbl">Sold</div></div>
-        </div>
-      </div>
-
-
-      <div class="nav-card" onclick="switchTab('growth')" role="button" tabindex="0">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">📈</span>
-          <span class="nav-card-title">Growth</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        ${(()=>{const gc=loadGrowthCache();return gc?`
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val" style="color:${gc.data.score_color||'var(--accent)'}">${gc.data.business_score}</div><div class="nav-stat-lbl">Business score</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="font-size:11px">${gc.data.score_label}</div><div class="nav-stat-lbl">Status</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${gc.data.stale_actions?.length||0}</div><div class="nav-stat-lbl">Stale items</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${gc.data.hunt_list?.length||0}</div><div class="nav-stat-lbl">Hunt targets</div></div>
-        </div>`:'<div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:\'IBM Plex Mono\',monospace">Tap to run your first analysis \u2192</div>';})()}
-      </div>
-
-      <div class="nav-card" onclick="showSourcingSettings()" role="button" tabindex="0">
-        <div class="nav-card-header">
-          <span class="nav-card-icon">⚙️</span>
-          <span class="nav-card-title">Settings</span>
-          <span class="nav-card-arrow">→</span>
-        </div>
-        <div class="nav-card-stats">
-          <div class="nav-stat"><div class="nav-stat-val">${S.ebayFee}%</div><div class="nav-stat-lbl">eBay fee</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">$${S.minProfit}</div><div class="nav-stat-lbl">Min profit</div></div>
-          <div class="nav-stat"><div class="nav-stat-val">${S.targetRoi}%</div><div class="nav-stat-lbl">Target ROI</div></div>
-          <div class="nav-stat"><div class="nav-stat-val" style="text-transform:capitalize">${S.style}</div><div class="nav-stat-lbl">Style</div></div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ③ INVENTORY CATEGORIES -->
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Inventory by Category</div>
-    <div class="dash-cat-grid">${catCards}</div>
-
-    <!-- ④ ANALYTICS -->
-    ${sold.length ? `
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:16px 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Profit by Category</div>
-    <div class="card" style="margin-bottom:12px">${renderProfitChart()}</div>
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:0 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Sales Trend</div>
-    <div class="card" style="margin-bottom:12px">${renderTrendLine()}</div>
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:0 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Best & Lowest Performers</div>
-    <div class="card" style="margin-bottom:12px">${renderBestWorst()}</div>
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:0 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Recent Sales</div>
-    ${soldRows}` : ''}`;
+    <!-- ③ ACTION QUEUE -->
+    ${staleHTML}`;
 }
+
 
 // ══════════════════════════════════════════════════
 // TOAST
