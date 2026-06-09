@@ -77,6 +77,41 @@
       --purple-border: #7c4dff;
       --display: "Syne", system-ui, sans-serif;
       --mono: "IBM Plex Mono", ui-monospace, monospace;
+
+      /* ── Spacing scale (base-8) ──────────────────────────────────
+         3/5/6px→space-1  9/10px→space-2  14px→space-3
+         18px→space-4  28/36px→space-7  56/88/96px→space-8/9     ── */
+      --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+      --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
+      --space-7: 32px;  --space-8: 48px;  --space-9: 64px;
+
+      /* ── Border-radius scale ─────────────────────────────────────
+         xs=chips  sm=inputs/buttons  md=cards  lg=modals  full=pills ─ */
+      --radius-xs: 2px;  --radius-sm: 4px;   --radius-md: 8px;
+      --radius-lg: 12px; --radius-full: 999px;
+
+      /* ── Typography scale (18 raw sizes → 9 named steps) ─────────
+         7→2xs  8→2xs/xs  10→xs  11→sm  12/13→base  14/15/16/17→md
+         20→lg  22/24→xl  26/28→2xl  44→3xl                        ── */
+      --text-2xs: 9px;  --text-xs: 10px;  --text-sm: 11px;
+      --text-base: 13px; --text-md: 15px; --text-lg: 18px;
+      --text-xl: 22px;  --text-2xl: 28px; --text-3xl: 44px;
+
+      /* ── Shadow system ───────────────────────────────────────────
+         sm/md/lg = structural elevation; glow-* = brand state signals ─ */
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+      --shadow-lg: 0 4px 32px rgba(0,0,0,0.6);
+      --glow-accent: 0 0 20px rgba(212,168,67,0.25);
+      --glow-green:  0 0 20px rgba(0,230,118,0.3);
+      --glow-red:    0 0 16px rgba(255,51,51,0.3);
+
+      /* ── Z-index scale ───────────────────────────────────────────
+         Names only — never use raw z-index values going forward.   ── */
+      --z-base: 1;       --z-sticky: 50;     --z-dropdown: 150;
+      --z-tabbar: 199;   --z-header: 200;    --z-header-popover: 201;
+      --z-overlay: 500;  --z-modal: 600;     --z-scanline: 9000;
+      --z-toast: 9500;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -674,6 +709,19 @@
     .agitate-card.warn { background: rgba(245,166,35,0.07); border-color: rgba(245,166,35,0.35); }
     .skip-link { position:absolute; top:-48px; left:16px; background:var(--accent); color:#000; padding:10px 18px; border-radius:0 0 4px 4px; z-index:200; font-family:var(--mono); font-size:13px; transition:top 0.15s; }
     .skip-link:focus { top:0; outline:2px solid var(--green); outline-offset:2px; }
+
+    /* ── Phase 3 convergence helpers (mirrors app.html vocabulary) ── */
+    .u-green-bdr { color: var(--green-border); }
+    .tag-section  {
+      font-family: var(--mono); font-size: var(--text-xs);
+      color: var(--green-border); text-transform: uppercase;
+      letter-spacing: 0.12em; font-weight: 600;
+    }
+    .ps-meta {
+      font-family: var(--mono); font-size: var(--text-xs);
+      font-weight: 500; color: var(--muted);
+    }
+    .fine-print { font-family: var(--mono); font-size: var(--text-sm); color: var(--muted); }
   </style>
   <!-- PostHog analytics
        Replace __POSTHOG_KEY__ with your project key:
@@ -748,7 +796,7 @@
                   </div>
                   <div class="scout-metric"><span>Buy at</span><b>$18</b></div>
                   <div class="scout-metric"><span>Sells for</span><b>$46</b></div>
-                  <div class="scout-metric"><span>Net profit</span><b style="color:var(--green-border)">$28</b></div>
+                  <div class="scout-metric"><span>Net profit</span><b class="u-green-bdr">$28</b></div>
                 </div>
               </div>
               <div class="ps-tabbar">
@@ -766,7 +814,7 @@
             <div class="phone-screen">
               <div class="notch"></div>
               <div class="ps-top"><span>9:41</span><span>● ● ●</span></div>
-              <div class="ps-title">Inventory <span style="font-family:var(--mono);font-size:10px;font-weight:500;color:var(--muted)">· 38 items</span></div>
+              <div class="ps-title">Inventory <span class="ps-meta">· 38 items</span></div>
               <div class="ps-body">
                 <div class="inv-row">
                   <div class="inv-thumb t1"></div>
@@ -825,7 +873,7 @@
             <div class="phone-screen">
               <div class="notch"></div>
               <div class="ps-top"><span>9:41</span><span>● ● ●</span></div>
-              <div class="ps-title">Stats <span style="font-family:var(--mono);font-size:10px;font-weight:500;color:var(--muted)">· Nov</span></div>
+              <div class="ps-title">Stats <span class="ps-meta">· Nov</span></div>
               <div class="ps-body">
                 <div class="stat-grid">
                   <div class="stat-card green">
@@ -861,7 +909,7 @@
                     <path d="M0,55 L20,48 L40,52 L60,38 L80,42 L100,28 L120,32 L140,20 L160,24 L180,12 L200,8" fill="none" stroke="#00c060" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
-                <div style="margin-top:8px;">
+                <div style="margin-top:var(--space-2)">
                   <div class="cat-row"><span>Electronics</span><div class="cat-bar"><span style="width:82%"></span></div><b>$1,143</b></div>
                   <div class="cat-row"><span>Clothing</span><div class="cat-bar"><span style="width:64%"></span></div><b>$872</b></div>
                   <div class="cat-row"><span>Home</span><div class="cat-bar"><span style="width:48%"></span></div><b>$612</b></div>
@@ -914,8 +962,8 @@
     <div class="container">
       <div class="showcase-grid">
         <div class="showcase-copy">
-          <span class="tag" style="font-family:var(--mono);font-size:12px;color:var(--green-border);text-transform:uppercase;letter-spacing:0.12em;font-weight:600;">// Shelf Scan</span>
-          <h2 style="margin-top:12px;">One photo. Entire shelf ranked by flip potential.</h2>
+          <span class="tag tag-section">// Shelf Scan</span>
+          <h2 style="margin-top:var(--space-3)">One photo. Entire shelf ranked by flip potential.</h2>
           <p class="lead">No other app does this. Walk a 200-item estate sale in 3 minutes. Not 30.</p>
           <p class="showcase-foot">"The shelf scan is insane. I walked through an estate sale and had a buy list in 3 minutes. Bought $180 worth of stuff that should sell for over $900." — @flippin_marcus</p>
         </div>
@@ -1005,8 +1053,8 @@
           </div>
         </div>
         <div class="showcase-copy">
-          <span class="tag" style="font-family:var(--mono);font-size:12px;color:var(--green-border);text-transform:uppercase;letter-spacing:0.12em;font-weight:600;">// Growth Agent</span>
-          <h2 style="margin-top:12px;">Know what to hunt before you leave the house.</h2>
+          <span class="tag tag-section">// Growth Agent</span>
+          <h2 style="margin-top:var(--space-3)">Know what to hunt before you leave the house.</h2>
           <p class="lead">The Growth Agent analyzes your inventory, your recent sells, and live eBay trends. Then it builds your hunt list for the week. Not generic "electronics are hot." Your specific gaps. Your specific opportunity.</p>
           <p class="showcase-foot">Generated every Monday morning. Based on what sold in your area last week, what's trending on eBay, and what's been sitting in your inventory too long.</p>
         </div>
@@ -1040,7 +1088,7 @@
             <div class="row"><span>Decision</span><span class="pill">BUY · HOT</span></div>
             <div class="row"><span>Buy at</span><b>$18.00</b></div>
             <div class="row"><span>Comp avg (last 30d)</span><b>$46.20</b></div>
-            <div class="row"><span>Projected ROI</span><b style="color:var(--green-border)">156%</b></div>
+            <div class="row"><span>Projected ROI</span><b class="u-green-bdr">156%</b></div>
           </div>
         </article>
 
@@ -1139,7 +1187,7 @@
             <h3>Hustle</h3>
           </div>
           <div class="price-amount"><span class="num">$19</span><span class="unit">/mo</span></div>
-          <div class="price-billing">or $180/yr · <strong style="color:var(--green-border);">Save $48</strong></div>
+          <div class="price-billing">or $180/yr · <strong class="u-green-bdr">Save $48</strong></div>
           <div class="price-meta">
             <div><div class="k">Scans/mo</div><div class="v">Unlimited</div></div>
             <div><div class="k">Items</div><div class="v">500</div></div>
@@ -1160,7 +1208,7 @@
             <h3>Stack</h3>
           </div>
           <div class="price-amount"><span class="num">$49</span><span class="unit">/mo</span></div>
-          <div class="price-billing">or $480/yr · <strong style="color:var(--green-border);">Save $108</strong></div>
+          <div class="price-billing">or $480/yr · <strong class="u-green-bdr">Save $108</strong></div>
           <div class="price-meta">
             <div><div class="k">Scans/mo</div><div class="v">Unlimited</div></div>
             <div><div class="k">Items</div><div class="v">Unlimited</div></div>
@@ -1258,8 +1306,8 @@
   <section id="early-access">
     <div class="container">
       <div class="capture">
-        <span class="tag" style="font-family:var(--mono);font-size:12px;color:var(--green-border);text-transform:uppercase;letter-spacing:0.12em;font-weight:600;">// Early access</span>
-        <h2 style="margin-top:12px;">Get in before we launch.</h2>
+        <span class="tag tag-section">// Early access</span>
+        <h2 style="margin-top:var(--space-3)">Get in before we launch.</h2>
         <p class="sub">Free to start. No credit card. Early access members get the first 3 months of Hustle at Scout pricing.</p>
         <div class="capture-form" id="early-form">
           <label for="early-email" class="sr-only">Email address</label>
@@ -1318,7 +1366,7 @@
             <input id="newsletter-email" type="email" placeholder="your@email.com" />
             <button class="btn btn-primary" type="button">Subscribe</button>
           </div>
-          <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:10px;">No spam. One sourcing tip every Tuesday.</p>
+          <p class="fine-print" style="margin-top:var(--space-2)">No spam. One sourcing tip every Tuesday.</p>
         </div>
       </div>
       <div class="footer-bottom">
