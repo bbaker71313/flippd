@@ -4,6 +4,65 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-10 — Conversion kit adaptation: mobile onboarding flow + hero sell-through signal
+
+### Context
+User received a 3-part "conversion rebuild kit" from ChatGPT (homepage rewrite, pricing rewrite, app onboarding flow) aimed at improving conversion. After investigation and user clarification: pricing tiers stay locked (Scout/Hustle/Stack/Empire — no name/price changes), decision terminology stays `BUY`/`HOT`/`PASS` (the kit's invented "MARGIN" tier was dropped), and the mobile onboarding flow (planned in FEATURE_TRIAGE.md, KPI #1: 60%+ first-scan rate, never built) was the real gap to fill.
+
+### What changed this session
+
+**New: 5-screen mobile onboarding flow** — `apps/mobile/app/(onboarding)/`
+- `_layout.tsx` — Stack, headerShown: false
+- `identity.tsx` — "What kind of reseller are you?" (4 selectable Card options, local state only)
+- `permission.tsx` — "Try a scan" — Allow Camera (`useCameraPermissions`) or Scan Sample Item, both → result
+- `result.tsx` — renders `ScanResult` with static demo data (BUY, Vintage Cast Iron Skillet, $4→$47, +$38.50, 962% ROI, 92% confidence) + sold-range/sell-through caption
+- `how-it-works.tsx` — 4-step trust reinforcement (Scan → BUY/HOT/PASS decision → Inventory → Stats)
+- `upgrade.tsx` — Hustle tier teaser via `TIER_CONFIGS.hustle`; both CTAs mark onboarding complete and route to `(tabs)/scout` or `(tabs)/settings`
+
+**New: `apps/mobile/lib/onboarding.ts`** — SecureStore-based one-time gating (`hasCompletedOnboarding`/`markOnboardingComplete`)
+
+**New: `apps/mobile/lib/onboardingDemoData.ts`** — `DEMO_SCAN_RESULT`, `DEMO_SOLD_RANGE`, `DEMO_AVG_DAYS_TO_SELL` (mobile-only demo content, not added to `@sfp/shared`)
+
+**Edited: `apps/mobile/app/_layout.tsx`** — root redirect logic now also checks `hasCompletedOnboarding()` alongside the session check; new redirect rules:
+- `!session && !inAuth && !inOnboarding` → `/(auth)/login`
+- `session && !onboardingDone && !inOnboarding` → `/(onboarding)/identity`
+- `session && onboardingDone && (inAuth || inOnboarding)` → `/(tabs)/scout`
+
+**Edited: `apps/web/components/landing/HeroSection.tsx`** — `FlipResultCard` footer line now reads `6.2s · 12 sold last 90 days · 9 days avg to sell` (was `· eBay comps`).
+
+**Edited: `apps/web/public/index.html`** (the actual live homepage — see "Important discovery" below) — added a 4th `.scout-metric` row to the hero phone mockup's Scout result card: `Sold last 90d → 12 · 9d avg`, matching the same sell-through signal added to the React hero card.
+
+**New: `apps/mobile/nativewind-env.d.ts`** — this file is referenced in `apps/mobile/tsconfig.json`'s `include` array (`"nativewind-env.d.ts"`) but was **missing from the repo entirely**. Its absence caused all 165 of the pre-existing `Property 'className' does not exist` (TS2769/TS2322) errors across the mobile app (ScanResult, Input, BottomSheet, ItemCard, EmptyState, Button, scout.tsx, login/register/verify.tsx, etc.) — `tsc` had no idea NativeWind augments RN component props with `className`. Restored it (standard NativeWind-generated content: `/// <reference types="nativewind/types" />`), plus added one line `declare module "*.css";` to fix the last remaining error (`global.css` side-effect import in `_layout.tsx`, TS2882). **Result: `npx tsc --noEmit` now returns 0 errors in `apps/mobile`, `packages/shared`, and `apps/web`** — previously `apps/mobile` had 166 errors before this fix (unrelated to this session's other changes, but blocking the mandatory 0-error commit gate).
+
+### Important discovery — `apps/web/public/index.html` is the live homepage, not `app/page.tsx`
+`apps/web/next.config.js` has a rewrite: `source: '/'` → `destination: '/index.html'`. So **`apps/web/public/index.html` (static file) is what's actually served at scanforprofit.com**, not `apps/web/app/page.tsx` + `components/landing/*`. This was confirmed by running `next dev` and curling `/` — it returned the static `index.html` markup (Vintage Coach satchel, STR 94%, etc.), not the `HeroSection.tsx` "Vintage Cast Iron Skillet" mockup. `app/page.tsx` is an in-progress React rebuild (per many prior HANDOFF sessions: "Rebuild landing page from static HTML → React components") that is not yet wired to a live route.
+
+This session's plan was originally written assuming `app/page.tsx` was live. Both files were edited with the equivalent sell-through-signal addition so the change has actual effect on the live site (`public/index.html`) while staying consistent with the in-progress React rebuild (`HeroSection.tsx`).
+
+**Follow-up for next session:** decide when/how `app/page.tsx` gets wired up to replace the `next.config.js` rewrite to `index.html`, so future "homepage" edits target one source of truth instead of two.
+
+### Verification
+- `apps/mobile`, `apps/web`, `packages/shared`: `npx tsc --noEmit` → 0 errors each. ✅
+- `apps/web`: ran `next dev`, curled `/`, confirmed `Sold last 90d · 12 · 9d avg` renders in the live hero phone mockup. ✅ (reverted auto-generated `tsconfig.json`/`next-env.d.ts` changes from `next dev` startup — not part of this change)
+- `apps/mobile`: no simulator available in this remote environment. Ran `EXPO_OFFLINE=1 npx expo export --platform ios`, which bundled all 2066 modules (including all 5 new onboarding screens and `_layout.tsx`) successfully via Metro/Babel (which understands `className`/JSX). Final Hermes-compile step failed on an unrelated pre-existing `@sentry/react-native` OpenTelemetry dynamic-import issue, not caused by this session's changes.
+- Did not run on-device: full onboarding walkthrough (identity → permission → result → how-it-works → upgrade), relaunch persistence check, or returning-user skip check. **Needs manual verification on a simulator/device next session.**
+
+### Decisions made (do not reverse)
+- Pricing tiers (Scout/Hustle/Stack/Empire, $0/$19/$49/$199) unchanged — restyling/copy only, ever.
+- Decision terminology is `BUY`/`HOT`/`PASS` everywhere — the ChatGPT kit's "MARGIN" tier was rejected.
+- Onboarding uses static demo data only (`DEMO_SCAN_RESULT`) — no real AI/API call during onboarding.
+
+### Out of scope / pre-existing, not touched
+- `packages/shared/src/constants/tiers.ts` (`TIER_CONFIGS.hustle.limits` shows `scansPerMonth: 300, inventoryItems: 1000`) drifts from CLAUDE.md's table and `PricingSection.tsx` (both say Hustle = unlimited scans / 500 items). Pre-existing, worth reconciling separately.
+- "Growth Agent" naming in marketing/docs vs. brand-voice guidance to avoid it — pre-existing, out of scope.
+
+### Next task
+1. Run the mobile onboarding flow on a simulator/device: fresh install → register → verify → confirm lands on `/(onboarding)/identity` (not `/(tabs)/scout`); walk all 5 screens; confirm both upgrade CTAs mark onboarding complete and route correctly; relaunch as same user → onboarding does not re-show; existing onboarded users skip onboarding entirely.
+2. Decide on `app/page.tsx` vs `public/index.html` as the long-term homepage source of truth (see "Important discovery" above).
+3. (Optional, separate task) Reconcile `tiers.ts` Hustle limits drift noted above.
+
+---
+
 ## Session: 2026-06-09 (6) — Bold visual pass 2: gradient cards, larger numbers, stronger glows
 
 ### What changed this session
