@@ -46,7 +46,7 @@ function FlipResultCard() {
         </div>
 
         <p className="font-mono text-sfp-textMuted text-[10px] mt-3">
-          6.2s &middot; 12 sold last 90 days &middot; eBay comps
+          6.2s &middot; 12 sold last 90 days &middot; 9 days avg to sell
         </p>
       </div>
     </div>
