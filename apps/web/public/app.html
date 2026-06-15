@@ -4758,54 +4758,28 @@ function clearImage() {
 // displays the captured photo as a preview, so there is nothing to restore
 // after rotation. The orientation listeners are removed entirely.
 
-// Resize the stored imgFile to max 1568px (Anthropic vision limit) and
-// return the base64-encoded JPEG string. Canvas resize keeps memory bounded
-// because the resized bitmap is much smaller than the raw camera file.
-function imgFileToBase64Resized() {
-  return new Promise(function(resolve, reject) {
-    if (!imgFile) { reject(new Error('No photo selected')); return; }
-    const img = new Image();
-    const url = URL.createObjectURL(imgFile);
-    img.onload = function() {
-      URL.revokeObjectURL(url);
-      const MAX_DIM = 1568;
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX_DIM || h > MAX_DIM) {
-        if (w >= h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
-        else { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob(function(blob) {
-        if (!blob) { reject(new Error('Could not process photo')); return; }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const dataUrl = e.target.result;
-          resolve(dataUrl.substring(dataUrl.indexOf(',') + 1));
-        };
-        reader.onerror = function() { reject(new Error('Could not read photo')); };
-        reader.readAsDataURL(blob);
-      }, 'image/jpeg', 0.85);
-    };
-    img.onerror = function() {
-      URL.revokeObjectURL(url);
-      reject(new Error('Could not load photo for processing'));
-    };
-    img.src = url;
-  });
-}
-
 // Send a typed scan request to the claude-proxy typed endpoint.
 // Returns the structured JSON response (no further parsing needed).
+// v5.18: multipart/form-data upload of the raw imgFile — no client-side
+// decode (matches invFormDetectItem's memory-safe pattern). The backend
+// converts to base64 server-side, where memory isn't constrained.
 async function callScan(type, hint) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
   if (!imgFile) throw new Error('No photo selected');
-  const imageBase64 = await imgFileToBase64Resized();
+  const fd = new FormData();
+  fd.append('type', type);
+  if (hint) fd.append('hint', hint);
+  fd.append('image', imgFile, imgFile.name || 'photo.jpg');
+  // Strip Content-Type — browser sets it with the multipart boundary
+  const baseHeaders = getApiHeaders();
+  const headers = {};
+  for (const k in baseHeaders) {
+    if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+  }
   const res = await fetch(API_BASE, {
     method: 'POST',
-    headers: getApiHeaders(),
-    body: JSON.stringify({ type, imageBase64, hint }),
+    headers: headers,
+    body: fd,
   });
   if (!res.ok) {
     let errData = {};
@@ -5774,11 +5748,13 @@ function markExported(ids) {
 function getCsvCandidates() {
   const cutoff = Date.now() - (csvWindowHours * 3600000);
   const exported = getExportedIds();
-  return items.filter(i =>
-    i.status === 'Unlisted' &&
-    !exported.has(String(i.id)) &&
-    new Date(i.createdAt||0).getTime() >= cutoff
-  );
+  return items.filter(i => {
+    if (exported.has(String(i.id))) return false;
+    // Items explicitly queued via "Save + Export" are always candidates,
+    // regardless of the time window.
+    if (i.status === 'Ready to Export') return true;
+    return i.status === 'Unlisted' && new Date(i.createdAt||0).getTime() >= cutoff;
+  });
 }
 
 function renderCsvPreview() {
@@ -5860,9 +5836,13 @@ function generateAndDownloadCSV() {
   URL.revokeObjectURL(url);
 
   markExported(candidates.map(i=>String(i.id)));
+  // Items queued via "Save + Export" are now drafted on eBay — mark Listed.
+  candidates.forEach(i => { if (i.status === 'Ready to Export') i.status = 'Listed'; });
+  saveItems();
   localStorage.setItem('fef_last_csv_export', new Date().toLocaleString());
   showToast(`✓ Exported ${candidates.length} item${candidates.length!==1?'s':''}`);
   renderCsvPreview();
+  renderInventory();
 }
 
 function saveCsvReminder() {

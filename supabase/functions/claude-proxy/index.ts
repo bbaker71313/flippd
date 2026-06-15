@@ -1141,8 +1141,26 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); }
-  catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const contentType = req.headers.get('Content-Type') ?? '';
+  if (contentType.includes('multipart/form-data')) {
+    // Mobile clients upload the raw camera file directly (no client-side
+    // base64/decode — avoids OOM on low-RAM Android WebViews). Convert to
+    // base64 here, server-side, where memory isn't constrained.
+    try {
+      const form = await req.formData();
+      const imageFile = form.get('image') as File | null;
+      body = {
+        type: form.get('type') as string,
+        hint: form.get('hint') as string | null,
+        imageBase64: imageFile ? ab2b64(await imageFile.arrayBuffer()) : '',
+      };
+    } catch {
+      return json({ error: 'Invalid form data' }, 400);
+    }
+  } else {
+    try { body = await req.json(); }
+    catch { return json({ error: 'Invalid JSON body' }, 400); }
+  }
 
   if (body.type === 'health') {
     return json({ status: 'ok', function: 'claude-proxy', ts: new Date().toISOString() });
