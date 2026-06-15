@@ -855,7 +855,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
 {
   "business_score": number (0-100),
   "score_label": "Strong/Growing/Steady/Needs Attention",
-  "score_color": "#00bb66 or #c47800 or #dd0000",
+  "score_color": "#00e676 or #f5a623 or #ff3333",
   "score_summary": "one sentence on overall business health using their actual numbers",
   "top_categories": [
     {"name":"string","profit":"$X","insight":"one sentence specific to their data","bar_pct":number}
@@ -893,7 +893,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   const report = {
     business_score: Number(ai.business_score ?? 50),
     score_label:    String(ai.score_label ?? 'Steady'),
-    score_color:    String(ai.score_color ?? '#c47800'),
+    score_color:    String(ai.score_color ?? '#f5a623'),
     score_summary:  String(ai.score_summary ?? ''),
     top_categories: ((ai.top_categories as unknown[]) ?? []).slice(0, 3).map((c: unknown) => {
       const cat = c as Record<string, unknown>;
@@ -1047,7 +1047,7 @@ async function handleSettingsUpdate(
 function buildFallbackReport(itemCount: number): Record<string, unknown> {
   return {
     business_score: 0, score_label: 'Needs Attention',
-    score_color: '#dd0000',
+    score_color: '#ff3333',
     score_summary: 'Could not generate report — add more sold items for analysis.',
     top_categories: [], stale_actions: [], hunt_list: [], market_trends: [],
     advisor_message: 'List and sell a few items to unlock your weekly brief.',

@@ -5,7 +5,7 @@ export const ScanMark: React.FC<{ size?: number; dark?: boolean }> = ({
   size = 40,
   dark = true,
 }) => {
-  const bracketColor = dark ? '#c9a468' : brand.accent;
+  const bracketColor = dark ? brand.accent : brand.accentDim;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
       <path

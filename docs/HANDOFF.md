@@ -4,6 +4,56 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-15(2) — Full rebrand to dark "Industrial Terminal" (docs + mobile + web + video)
+
+### Context
+User reported the brand docs/app still used the retired light "Warm Parchment" palette (light brown) instead of the canonical dark "Industrial Terminal" palette already live in `apps/web/public/app.html`/`index.html`. User chose the broadest option: rebrand **everything** (mobile + web + docs + video) to the dark palette.
+
+### What changed this session
+
+**`docs/BRAND_IDENTITY.md`** — fully rewritten as the canonical dark "Industrial Terminal" spec: new logo colors (`#d4a843` brackets / `#00e676` bars, light-bg variant `#8a6c28`), full §2 color palette tables (backgrounds, brand, semantic, text, borders, scan-decision colors) with computed WCAG ratios, icon-style rationale updated for the near-black background. Header note declares Warm Parchment retired.
+
+**`packages/shared/src/constants/theme.ts`** (`@sfp/shared`, single source of truth for mobile) — `COLORS` rewritten to the dark palette (background `#0a0a0a`, surface `#161616`, elevated `#1c1c1c`, inverse `#000000`, brand/profit green `#00e676`, accent gold `#d4a843`/`#8a6c28`, loss `#ff3333`, warning `#f5a623`, neutral `#8a8070`, text/border tokens updated). `SHADOWS.shadowColor` changed from `#1c1712` → `#000000` (matches new bg.inverse). File-header comments updated to match.
+
+**Mobile hardcoded hex fixes** (theme.ts doesn't auto-cascade to literals):
+- `apps/mobile/app/_layout.tsx` — splash background `#1c1712` → `#0a0a0a`
+- `apps/mobile/app/(tabs)/scout.tsx` — `DECISION_COLOR` map, profit/loss text color, `ActivityIndicator` color all updated to new palette
+- `apps/mobile/components/ui/ScanResult.tsx` / `BottomSheet.tsx` — stale hex values in comments updated to match new `COLORS` constants
+
+**Web (`apps/web/`)**:
+- `tailwind.config.ts` — all 12 `sfp-*` color tokens rewritten to dark palette (used across landing pages, roadmap/terms/privacy app routes)
+- `components/landing/Nav.tsx` — `LogoMark` SVG hex updated (`#c9a468`→`#d4a843`, `#00bb66`→`#00e676`)
+- `public/privacy.html` and `public/terms.html` — `:root` palette rewritten to dark tokens (new `--bg`/`--dark`/`--light`/etc.), body bg, `.hero` border, `.section a` link color (was unreadable `var(--dark)`→now `#000000`, switched to gold), `.callout`/`.warning-box` rgba tints updated to new green/gold, `.contact-box p` color, nav/footer Logo SVG hex
+
+**Video (`apps/video/`)** — resolves the brand-divergence flag from the 2026-06-15(1) session:
+- `src/lib/brand.ts` — all color tokens rewritten to dark "Industrial Terminal" (was literal "warm parchment" per old PROMPT_1 spec)
+- `src/components/Logo.tsx` — removed hardcoded `#c9a468`, `bracketColor` now derives from `brand.accent`/`brand.accentDim`
+- `src/compositions/HeroVideo.tsx`, `YouTubePreroll.tsx` — radial-gradient highlight color `#4a2f17` → `#2e2410` (dark-gold glow against new `#0a0a0a` header)
+
+**AI prompt `score_color` field** (3 occurrences, kept in sync per "port verbatim" rule — only the literal hex values changed, not prompt wording):
+- `docs/FEATURE_TRIAGE.md`, `supabase/functions/claude-proxy/index.ts` (prompt spec + response normalization fallback + error-path fallback), `apps/web/public/app.html` (prompt spec line only) — `"#00bb66 or #c47800 or #dd0000"` → `"#00e676 or #f5a623 or #ff3333"`
+
+### Explicitly out of scope (untouched, per prior "do not reverse" decisions)
+- `apps/web/public/app.html` / `index.html` — all other old-palette hex residuals (photo-tint gradients, etc.) remain part of the previously-deferred "app-wide hex sweep," a separate session.
+- `docs/HANDOFF.md`, `docs/ScanForProfit_v5_24.html` — historical/archival, not "current branding."
+
+### Verification
+- Repo-wide grep for all retired palette hex codes (`#00bb66`, `#f2ece0`, `#8B6A3E`, `#c9a468`, `#1c1712`, `#dd0000`, `#e6850a`, `#5c5248`, `#c47800`, etc.) across `.ts`/`.tsx`/`.html`/`.md` → only remaining hits are the explicitly-deferred `app.html`/`index.html` app-wide sweep.
+- `npx tsc --noEmit` in `packages/shared` → 0 errors. `apps/web`, `apps/mobile`, `apps/video` show only pre-existing module-resolution errors (`node_modules` not installed in this sandbox) unrelated to this change — no new errors introduced by the hex/value-only edits.
+
+### Decisions made (do not reverse)
+- Dark "Industrial Terminal" is the single canonical brand palette everywhere (docs, mobile, web, video). Warm Parchment is fully retired — do not reintroduce.
+- `COLORS.brandDim`/`profitText`/`lossText`/`warningText` now equal their non-`*Text` counterparts (no separate "deep" variant needed — AAA contrast achieved directly on dark backgrounds).
+- `apps/video/src/lib/brand.ts` now matches the app-wide dark palette — the prior "warm parchment vs dark" divergence is resolved.
+
+### Next task
+App-wide hex sweep on `apps/web/public/app.html` / `index.html` (previously deferred) — separate session.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-15 — New `apps/video/` Remotion pipeline: 5 marketing video compositions rendered
 
 ### Context

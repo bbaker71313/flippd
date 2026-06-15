@@ -59,7 +59,7 @@ export function BottomSheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      {/* Backdrop — COLORS.inverse (#1c1712) at ~55% opacity via #RRGGBBAA */}
+      {/* Backdrop — COLORS.inverse (#000000) at ~55% opacity via #RRGGBBAA */}
       <Pressable
         className="flex-1"
         style={{ backgroundColor: `${COLORS.inverse}8c` }}

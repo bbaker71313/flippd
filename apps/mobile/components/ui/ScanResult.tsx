@@ -25,16 +25,16 @@ const DECISION_LABEL: Record<ScanResultProps['decision'], string> = {
 // Card border, bracket corners, confidence bar, decision badge background
 // HOT → COLORS.accent (Scout Gold) per brand spec; BUY → profit green; PASS → loss red
 const DECISION_COLOR: Record<ScanResultProps['decision'], string> = {
-  BUY:  COLORS.profit,  // #00bb66 — display-level green
-  HOT:  COLORS.accent,  // #8B6A3E — Scout Gold (was COLORS.warning)
-  PASS: COLORS.loss,    // #dd0000 — display-level red
+  BUY:  COLORS.profit,  // #00e676 — display-level green
+  HOT:  COLORS.accent,  // #d4a843 — Money Gold (was COLORS.warning)
+  PASS: COLORS.loss,    // #ff3333 — display-level red
 }
 
 // Decision label badge text color
 const DECISION_TEXT_COLOR: Record<ScanResultProps['decision'], string> = {
-  BUY:  COLORS.profitText,  // #00663a — deep profit, AA on light
-  HOT:  COLORS.accent,      // #8B6A3E — Scout Gold at h1 (32px) passes large-text AA
-  PASS: COLORS.lossText,    // #b80000 — deep red, AA on light
+  BUY:  COLORS.profitText,  // #00e676 — AAA on dark
+  HOT:  COLORS.accent,      // #d4a843 — Money Gold at h1 (32px), AAA on dark
+  PASS: COLORS.lossText,    // #ff3333 — AA on dark
 }
 
 // Scan-bracket corner — 4 absolute-positioned L-shapes marking card corners

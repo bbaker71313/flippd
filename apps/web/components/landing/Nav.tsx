@@ -9,21 +9,21 @@ function LogoMark() {
     >
       <path
         d="M3 13 V3 H13"
-        stroke="#c9a468"
+        stroke="#d4a843"
         strokeWidth="2.5"
         strokeLinecap="square"
         strokeLinejoin="miter"
       />
       <path
         d="M19 29 H29 V19"
-        stroke="#c9a468"
+        stroke="#d4a843"
         strokeWidth="2.5"
         strokeLinecap="square"
         strokeLinejoin="miter"
       />
-      <rect x="6" y="21" width="4" height="6" fill="#00bb66" />
-      <rect x="12" y="16" width="4" height="11" fill="#00bb66" />
-      <rect x="18" y="11" width="4" height="16" fill="#00bb66" />
+      <rect x="6" y="21" width="4" height="6" fill="#00e676" />
+      <rect x="12" y="16" width="4" height="11" fill="#00e676" />
+      <rect x="18" y="11" width="4" height="16" fill="#00e676" />
     </svg>
   );
 }
