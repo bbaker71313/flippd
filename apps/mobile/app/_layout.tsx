@@ -41,7 +41,7 @@ export default function RootLayout() {
 
   // Hold a blank screen while the async session/onboarding check runs — prevents any flash
   if (!checked) {
-    return <View style={{ flex: 1, backgroundColor: '#1c1712' }} />;
+    return <View style={{ flex: 1, backgroundColor: '#0a0a0a' }} />;
   }
 
   const inAuth = segments[0] === '(auth)';

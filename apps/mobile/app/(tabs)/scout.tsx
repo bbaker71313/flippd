@@ -39,7 +39,7 @@ interface ShelfItem {
 }
 
 const DECISION_COLOR: Record<'BUY' | 'HOT' | 'PASS', string> = {
-  BUY: '#00bb66', HOT: '#e6850a', PASS: '#5c5248',
+  BUY: '#00e676', HOT: '#f5a623', PASS: '#8a8070',
 };
 const DECISION_LABEL: Record<'BUY' | 'HOT' | 'PASS', string> = {
   BUY: 'FLIP', HOT: 'HOT', PASS: 'PASS',
@@ -58,7 +58,7 @@ function ShelfItemRow({ item, onBuy }: { item: ShelfItem; onBuy: (item: ShelfIte
         <Text className="text-stone-500 text-xs mt-0.5">{item.decisionReason as string}</Text>
       </View>
       <View className="items-end">
-        <Text className="font-bold text-base" style={{ color: item.estimatedProfit >= 0 ? '#00bb66' : '#dd0000' }}>
+        <Text className="font-bold text-base" style={{ color: item.estimatedProfit >= 0 ? '#00e676' : '#ff3333' }}>
           {item.estimatedProfit >= 0 ? '+' : ''}${Math.abs(item.estimatedProfit).toFixed(0)}
         </Text>
         <Text className="text-stone-400 text-xs">{item.roi.toFixed(0)}% ROI</Text>
@@ -268,7 +268,7 @@ export default function ScoutScreen() {
       {/* Analyzing overlay */}
       {status === 'analyzing' && (
         <View className="absolute inset-0 bg-black/70 items-center justify-center">
-          <ActivityIndicator size="large" color="#00bb66" />
+          <ActivityIndicator size="large" color="#00e676" />
           <Text className="text-white font-semibold text-base mt-4">Analyzing...</Text>
           <Text className="text-stone-400 text-sm mt-1">
             {mode === 'single' ? 'Identifying item and pulling sold comps' : 'Scanning shelf for flip opportunities'}

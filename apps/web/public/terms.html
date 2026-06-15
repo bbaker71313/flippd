@@ -10,15 +10,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --dark: #3a2410;
-    --light: #f2ece0;
-    --surface: #f8f5ee;
-    --gold-d: #c9a468;
-    --gold-l: #8B6A3E;
-    --green: #00bb66;
-    --ink: #1c1712;
-    --muted: #6a5f54;
-    --border: #c8b89a;
+    --bg: #0a0a0a;
+    --dark: #000000;
+    --light: #f0ead8;
+    --surface: #161616;
+    --gold-d: #d4a843;
+    --gold-l: #8a6c28;
+    --green: #00e676;
+    --ink: #f0ead8;
+    --muted: #8a8070;
+    --border: #383838;
     --syne: "Syne", sans-serif;
     --mono: "IBM Plex Mono", monospace;
   }
@@ -26,7 +27,7 @@
   html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    background: var(--light);
+    background: var(--bg);
     color: var(--ink);
     font-family: var(--mono);
     font-size: 15px;
@@ -70,7 +71,7 @@
   .hero {
     background: var(--dark);
     padding: 56px 40px 48px;
-    border-bottom: 1px solid rgba(201, 164, 104, 0.2);
+    border-bottom: 1px solid rgba(212, 168, 67, 0.2);
   }
   .hero-inner { max-width: 800px; margin: 0 auto; }
   .eyebrow {
@@ -158,14 +159,14 @@
     padding-left: 22px;
   }
   .section li { margin-bottom: 6px; }
-  .section a { color: var(--dark); }
+  .section a { color: var(--gold-d); }
   .section a:hover { color: var(--green); }
 
   strong { font-weight: 600; }
 
   .callout {
-    background: rgba(0, 187, 102, 0.06);
-    border: 1px solid rgba(0, 187, 102, 0.25);
+    background: rgba(0, 230, 118, 0.06);
+    border: 1px solid rgba(0, 230, 118, 0.25);
     border-radius: 8px;
     padding: 18px 22px;
     margin: 0 0 14px;
@@ -173,8 +174,8 @@
   }
 
   .warning-box {
-    background: rgba(201, 164, 104, 0.08);
-    border: 1px solid rgba(201, 164, 104, 0.35);
+    background: rgba(212, 168, 67, 0.08);
+    border: 1px solid rgba(212, 168, 67, 0.35);
     border-radius: 8px;
     padding: 18px 22px;
     margin: 0 0 14px;
@@ -219,7 +220,7 @@
     margin: 0 0 10px;
     color: var(--light);
   }
-  .contact-box p { color: #cdbfa6; margin: 0 0 8px; font-size: 14px; }
+  .contact-box p { color: #c8bfb0; margin: 0 0 8px; font-size: 14px; }
   .contact-box a { color: var(--gold-d); text-decoration: none; }
   .contact-box a:hover { color: var(--light); }
 
@@ -250,11 +251,11 @@
 <nav>
   <a href="https://www.scanforprofit.com" class="nav-logo">
     <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M3 13 V3 H13" stroke="#c9a468" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
-      <path d="M19 29 H29 V19" stroke="#c9a468" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
-      <rect x="6" y="21" width="4" height="6" fill="#00bb66"/>
-      <rect x="12" y="16" width="4" height="11" fill="#00bb66"/>
-      <rect x="18" y="11" width="4" height="16" fill="#00bb66"/>
+      <path d="M3 13 V3 H13" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <path d="M19 29 H29 V19" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <rect x="6" y="21" width="4" height="6" fill="#00e676"/>
+      <rect x="12" y="16" width="4" height="11" fill="#00e676"/>
+      <rect x="18" y="11" width="4" height="16" fill="#00e676"/>
     </svg>
     <span class="nav-wordmark"><b>SCAN</b><span>FORPROFIT</span></span>
   </a>

@@ -106,7 +106,7 @@ const Demo: React.FC = () => {
     <AbsoluteFill
       style={{
         backgroundColor: brand.header,
-        background: `radial-gradient(circle at center, #4a2f17 0%, ${brand.header} 70%)`,
+        background: `radial-gradient(circle at center, #2e2410 0%, ${brand.header} 70%)`,
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',

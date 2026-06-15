@@ -85,7 +85,7 @@ const Scene3: React.FC = () => {
         backgroundColor: brand.header,
         justifyContent: 'center',
         alignItems: 'center',
-        background: `radial-gradient(circle at center, #4a2f17 0%, ${brand.header} 70%)`,
+        background: `radial-gradient(circle at center, #2e2410 0%, ${brand.header} 70%)`,
       }}
     >
       <PhoneFrame
