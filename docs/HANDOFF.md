@@ -4,6 +4,60 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-15 — New `apps/video/` Remotion pipeline: 5 marketing video compositions rendered
+
+### Context
+User (via `PROMPT_1_CLAUDE_CODE_VIDEO.md` + 3 uploaded screen-recording clips) requested a new isolated Remotion video-production app to generate marketing ad creatives from real app footage.
+
+### What changed this session
+
+**New package: `apps/video/`** (`@sfp/video`, Remotion 4.0.477) — added to the pnpm workspace:
+- `package.json`, `tsconfig.json`, `remotion.config.ts` (jpeg image format, overwrite output)
+- `src/index.ts` — `registerRoot(Root)`
+- `src/Root.tsx` — registers all 5 compositions (ids/dimensions/durations, fps=30) + top-of-file comment documenting ffprobe footage triage findings
+- `src/lib/brand.ts` — brand tokens **exactly per PROMPT_1's "warm parchment" spec** (bg `#f2ece0`, header `#3a2410`, green `#00bb66`, Syne + IBM Plex Mono, spacing scale)
+- `src/lib/fonts.ts` — self-hosted `@fontsource/syne` (400/700/800) + `@fontsource/ibm-plex-mono` (400/500) — avoids runtime fetches to fonts.gstatic.com
+- `src/components/` — `Logo.tsx` (ScanMark + wordmark), `PhoneFrame.tsx` (white-bezel device frame), `FlipBadge.tsx` (FLIP/HOT/PASS animated label), `ProfitCounter.tsx` (animated $ counter), `CTAPill.tsx`
+- `src/compositions/` — `HeroVideo.tsx` (1920x1080, 30s/900f), `TikTokAd.tsx` & `StoryAd.tsx` & `SquareAd.tsx`/`YouTubePreroll.tsx` per PROMPT_1 scene specs (1080x1920 / 1080x1080 / 1920x1080, 8-15s)
+- `public/footage/` — 3 real screen-recording clips copied in (`screen-20260614-140716.mp4`, `-140913.mp4`, `-141341.mp4`)
+
+**Rendered all 5 compositions** → `apps/video/out/*.mp4` (gitignored — added `apps/video/out/` to `.gitignore`), then copied final renders to `docs/marketing/video-assets/`:
+- `hero-1920x1080.mp4` (3.1MB), `tiktok-1080x1920.mp4` (9.8MB), `square-1080x1080.mp4` (6.2MB), `youtube-1920x1080.mp4` (0.9MB), `story-1080x1920.mp4` (3.9MB)
+
+`npx tsc --noEmit` in `apps/video` → **0 errors**.
+
+### ⚠️ Brand palette divergence — flagged, not resolved
+`apps/video/src/lib/brand.ts` uses PROMPT_1's literal "warm parchment" palette (`#f2ece0` bg, `#3a2410` header/brown, `#00bb66` green). This **does not match** the live web app's current dark "industrial terminal" palette (`#0a0a0a` bg, `#d4a843` gold accent, `#00e676` green — see 2026-06-08(3) session). Followed PROMPT_1 verbatim since this is a new isolated app and the prompt said "use these exact tokens, never substitute." **Next session should decide**: either restyle `apps/video` to match the dark brand, or treat video ads as an intentionally distinct "warm parchment" sub-brand — needs a deliberate brand decision, not a silent fix.
+
+### Environment workarounds (needed to reproduce renders)
+- **Chrome binary**: `remotion render` needs `--browser-executable`. Auto-download is blocked (`remotion.media` not in network allowlist). Installed via: `PUPPETEER_DOWNLOAD_BASE_URL=https://storage.googleapis.com/chrome-for-testing-public npx --yes puppeteer browsers install chrome` → binary at `/root/.cache/puppeteer/chrome/linux-149.0.7827.22/chrome-linux64/chrome`.
+- **Fonts**: `@remotion/google-fonts` fails (`ERR_CERT_AUTHORITY_INVALID` on fonts.gstatic.com in this sandbox). Use self-hosted `@fontsource/syne` + `@fontsource/ibm-plex-mono` CSS imports instead (already done in `src/lib/fonts.ts`).
+- Render command pattern: `npx remotion render <CompositionId> out/<file>.mp4 --browser-executable=<chrome path>`
+
+### Footage triage (documented in `Root.tsx` header comment)
+- Clip `screen-20260614-140716.mp4` — coffee maker scan → PASS result
+- Clip `screen-20260614-140913.mp4` — shelf scan → Shelf Report, HOT $50-profit modem (best FLIP-style result; used inside `PhoneFrame` for HeroVideo/SquareAd/YouTubePreroll)
+- Clip `screen-20260614-141341.mp4` — Goodwill teacups w/ $2.99 tag (best thrift-shelf b-roll; used full-bleed looped in TikTok/Square/StoryAd, `SHELF_CLIP_FRAMES=389`)
+
+### Verification
+- `npx tsc --noEmit` (apps/video) → 0 errors
+- All 5 renders confirmed correct dimensions/duration via `ffprobe`
+- HeroVideo spot-checked visually at 5 timestamps (1s/5s/12s/22s/28s) — all 5 scenes render correctly (logo intro, hook text, PhoneFrame demo footage, FLIP badge + profit counter, outro CTA)
+- TikTokAd/SquareAd/YouTubePreroll/StoryAd not individually frame-checked this session — recommend a quick visual spot-check before using in ad campaigns
+
+### Decisions made (do not reverse)
+- `apps/video` is a new, isolated pnpm workspace package — does not affect mobile/web/shared
+- `apps/video/out/` is gitignored; final renders live in `docs/marketing/video-assets/`
+- Brand palette divergence (warm parchment vs. dark industrial) — flagged above, intentionally left unresolved
+
+### Next task
+Run `PROMPT_2_COWORK_DISTRIBUTION.md` in Cowork.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-10 — Conversion kit adaptation: mobile onboarding flow + hero sell-through signal
 
 ### Context
