@@ -37,7 +37,7 @@ Add decisions here when something is locked. Reference CLAUDE.md for implementat
 
 ### Supabase Edge Functions replace Replit backend entirely
 **Decision:** All backend logic runs in Supabase Edge Functions (Deno/TypeScript). The old Replit backend is decommissioned.
-**Functions:** `claude-proxy`, `auth`, `stripe-webhook`. No others.
+**Functions:** `claude-proxy`, `auth`, `stripe-webhook`, `stripe-checkout`, `ebay-oauth`. No others.
 **Why:** Supabase is already the database and auth provider. Consolidating removes a dependency, improves latency, and keeps all secrets in one place.
 **Do not reference:** `flippd-backend.bbaker71313.repl.co` or any Replit URL. Dead.
 
@@ -81,5 +81,5 @@ Add decisions here when something is locked. Reference CLAUDE.md for implementat
 **Why:** Google Play review process is faster and less restrictive for initial launch. Allows real-user testing before the more scrutinous App Store submission.
 
 ### Source of truth for business logic is ScanForProfit_v5_24.html
-**Decision:** All AI prompts, profit calculations, and business rules are ported from `ScanForProfit_v5_24.html`. Never rewrite from scratch.
+**Decision:** All AI prompts, profit calculations, and business rules are ported from `docs/ScanForProfit_v5_24.html`. Never rewrite from scratch.
 **Why:** Those prompts and calculations have been tested in production. Rewriting introduces errors. Port verbatim.

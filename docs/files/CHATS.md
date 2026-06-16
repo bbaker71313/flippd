@@ -25,7 +25,7 @@ End every session following END_OF_CHAT_PROTOCOL.md.
 **Owns:** `apps/mobile/` — screens, components, navigation, camera, local state
 **Does not own:** Edge Functions, database schema, auth logic, payments
 **Key files:** `CLAUDE.md`, `HANDOFF.md`, `FEATURE_TRIAGE.md`, `BRAND_IDENTITY.md`, `PHASE_4_CHAT_SETUP.md`
-**Source of truth for logic:** `ScanForProfit_v5_24.html` — port prompts and business rules verbatim
+**Source of truth for logic:** `docs/ScanForProfit_v5_24.html` — port prompts and business rules verbatim
 **Stack:** React Native + Expo SDK 52 + Expo Router 4 + NativeWind 4
 **Rule:** NativeWind classes only — never `StyleSheet.create()`
 
@@ -33,7 +33,7 @@ End every session following END_OF_CHAT_PROTOCOL.md.
 **Owns:** `supabase/functions/`, `supabase/migrations/`, database schema, RLS policies, Stripe webhook
 **Does not own:** Frontend components, mobile screens, marketing copy
 **Key files:** `CLAUDE.md`, `HANDOFF.md`, `BACKEND_INTEGRATION.md`, `FEATURE_TRIAGE.md`
-**Functions:** `claude-proxy`, `auth`, `stripe-webhook` — nothing else
+**Functions:** `claude-proxy`, `auth`, `stripe-webhook`, `stripe-checkout`, `ebay-oauth` — nothing else
 **Rule:** `ANTHROPIC_API_KEY` in Supabase secrets only — never in `.env` or client
 
 ### [MARKETING]

@@ -392,7 +392,7 @@ eBay OAuth flow — /authorize, /callback, /status, /disconnect
 Rules:
 
 Anthropic API key in Supabase secrets — never in client
-eBay client ID in Supabase secrets: was Brittany-Flippd-PRD-67b75c3f4-fb4ff30c — move to EBAY_CLIENT_ID env var
+eBay client ID in Supabase secrets — set EBAY_CLIENT_ID env var (get new credential from developer.ebay.com)
 All keys read from env — never hardcoded
 
 

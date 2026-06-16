@@ -2223,8 +2223,16 @@ let activeTab = 'sourcing';
 // ══════════════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════════════
-(function(){try{const O='ebayhq_items_v1',N='flippd_items_v1';if(!localStorage.getItem(N)&&localStorage.getItem(O)){localStorage.setItem(N,localStorage.getItem(O));localStorage.removeItem(O);}}catch(e){}})();
-const STORAGE_KEY = 'flippd_items_v1';
+(function(){try{
+  // v1: ebayhq_items_v1 → sfp_items_v1 (pre-rebrand)
+  var _o='ebayhq_items_v1',_v=localStorage.getItem(_o);
+  if(_v!==null){if(!localStorage.getItem('sfp_items_v1'))localStorage.setItem('sfp_items_v1',_v);localStorage.removeItem(_o);}
+  // v2: flippd_* → sfp_* (ScanForProfit rebrand)
+  var _pairs=[['flippd_items_v1','sfp_items_v1'],['flippd_jwt','sfp_jwt'],['flippd_user_name','sfp_user_name'],['flippd_seeded','sfp_seeded'],['flippd_events','sfp_events']];
+  for(var _i=0;_i<_pairs.length;_i++){var _p=_pairs[_i];var _pv=localStorage.getItem(_p[0]);if(_pv!==null){if(!localStorage.getItem(_p[1]))localStorage.setItem(_p[1],_pv);localStorage.removeItem(_p[0]);}}
+
+}catch(e){}})();
+const STORAGE_KEY = 'sfp_items_v1';
 
 // ══════════════════════════════════════════════════
 // INDEXEDDB PHOTO STORE — keeps base64 out of localStorage
@@ -2336,10 +2344,10 @@ function loadItems() {
     }
 
     if (!saved.length) {
-      const hasBeenSeeded = localStorage.getItem('flippd_seeded');
+      const hasBeenSeeded = localStorage.getItem('sfp_seeded');
       if (!hasBeenSeeded) {
         items = SEED_ITEMS.map(i=>({...i, category: migrateCategory(i.category), photos: i.photos||[]}));
-        localStorage.setItem('flippd_seeded', '1');
+        localStorage.setItem('sfp_seeded', '1');
       } else {
         items = [];
       }
@@ -2375,7 +2383,7 @@ function saveItems() {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       try {
         localStorage.removeItem('fef_growth_cache');
-        localStorage.removeItem('flippd_events');
+        localStorage.removeItem('sfp_events');
         localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
       } catch(e2) {
         showToast('\u26a0\ufe0f Storage full. Delete some items or photos to continue.');
@@ -4632,7 +4640,7 @@ function updateStyle(val) {
 // ══════════════════════════════════════════════════
 // SOURCING — VIEWS
 // ══════════════════════════════════════════════════
-let apiKey = localStorage.getItem('fif_api_key') || '';
+let apiKey = localStorage.getItem('sfp_jwt') || '';
 const AUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
 const EBAY_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/ebay-oauth';
 const API_BASE  = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy';
@@ -6001,10 +6009,9 @@ async function loginUser() {
 
     if (data.token || data.jwt) {
       const jwt = data.token || data.jwt;
-      localStorage.setItem('flippd_jwt', jwt);
-      localStorage.setItem('fif_api_key', jwt);
+      localStorage.setItem('sfp_jwt', jwt);
       // Store name for greeting
-      if (data.user?.name) localStorage.setItem('flippd_user_name', data.user.name);
+      if (data.user?.name) localStorage.setItem('sfp_user_name', data.user.name);
       apiKey = jwt;
       updateDashGreeting();
       switchTab('sourcing');
@@ -6021,7 +6028,7 @@ async function loginUser() {
 }
 
 function updateDashGreeting() {
-  const name = localStorage.getItem('flippd_user_name');
+  const name = localStorage.getItem('sfp_user_name');
   const el = document.getElementById('dash-greeting');
   if (!el) return;
   const hour = new Date().getHours();
@@ -6032,8 +6039,8 @@ function updateDashGreeting() {
 function showForgotPassword() {
   const username = document.getElementById('auth-username').value.trim();
   const msg = username
-    ? `To reset your password, email support@flippd.app with your username: "${username}"`
-    : 'Email support@flippd.app with your username to reset your password.';
+    ? `To reset your password, email support@scanforprofit.com with your username: "${username}"`
+    : 'Email support@scanforprofit.com with your username to reset your password.';
   alert(msg);
 }
 
@@ -6048,8 +6055,8 @@ async function loadUserInfo() {
       // Don't reload — backend may not be ready yet (CORS/deploy)
       // Only log out on explicit 401 without reloading
       if (res.status === 401) {
-        localStorage.removeItem('flippd_jwt');
-        localStorage.removeItem('flippd_user_name');
+        localStorage.removeItem('sfp_jwt');
+        localStorage.removeItem('sfp_user_name');
         apiKey = '';
         showSrcView('setup');
         setAuthMode('login');
@@ -6060,7 +6067,7 @@ async function loadUserInfo() {
     currentUser = user;
     window._currentUser = user;
     if (user.name) {
-      localStorage.setItem('flippd_user_name', user.name);
+      localStorage.setItem('sfp_user_name', user.name);
       updateDashGreeting();
     }
     // Update tier banner (trial countdown / scan usage)
@@ -6401,7 +6408,7 @@ window.onload = () => {
   const oldKey = localStorage.getItem('fif_api_key');
   if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
     localStorage.removeItem('fif_api_key');
-    localStorage.removeItem('flippd_jwt');
+    localStorage.removeItem('sfp_jwt');
     apiKey = '';
   }
 
@@ -6419,11 +6426,10 @@ window.onload = () => {
   // Restore session from saved JWT and validate against backend
   // A JWT has 3 dot-separated parts; anything else is a legacy access code
   // and is treated as not-logged-in.
-  const storedJwt = localStorage.getItem('flippd_jwt') || localStorage.getItem('fif_api_key') || '';
+  const storedJwt = localStorage.getItem('sfp_jwt') || '';
   if (storedJwt && storedJwt.split('.').length === 3 && storedJwt.length > 50) {
     apiKey = storedJwt;
-    localStorage.setItem('fif_api_key', storedJwt);
-    localStorage.setItem('flippd_jwt', storedJwt);
+    localStorage.setItem('sfp_jwt', storedJwt);
     // Optimistically show app; verify token server-side in background
     switchTab('sourcing');
     showSrcView('input');
@@ -6434,7 +6440,7 @@ window.onload = () => {
         if (r.status === 401 || r.status === 403) {
           apiKey = '';
           localStorage.removeItem('fif_api_key');
-          localStorage.removeItem('flippd_jwt');
+          localStorage.removeItem('sfp_jwt');
           showSrcView('setup');
           setAuthMode('login');
           showToast('Session expired — please log in');
@@ -6454,7 +6460,7 @@ window.onload = () => {
     // No valid token stored — clear any garbage and show login
     apiKey = '';
     localStorage.removeItem('fif_api_key');
-    localStorage.removeItem('flippd_jwt');
+    localStorage.removeItem('sfp_jwt');
     switchTab('sourcing');
     showSrcView('setup');
     setAuthMode('login');
@@ -6760,10 +6766,10 @@ function exportFlippdBackup() {
 // ── Analytics event tracking ─────────────────────────────────────────────────
 function trackEvent(name, props) {
   try {
-    var events = JSON.parse(localStorage.getItem('flippd_events')||'[]');
+    var events = JSON.parse(localStorage.getItem('sfp_events')||'[]');
     events.push(Object.assign({event:name,ts:Date.now()},props||{}));
     if(events.length>500) events.splice(0,events.length-500);
-    localStorage.setItem('flippd_events',JSON.stringify(events));
+    localStorage.setItem('sfp_events',JSON.stringify(events));
   } catch(e){}
 }
 
