@@ -173,7 +173,7 @@ scanforprofit/
 
 ├── .github/
 
-│   └── workflows/                 # mobile.yml (EAS), web.yml (Vercel)
+│   └── workflows/                 # mobile.yml (EAS build), web.yml (TypeScript check)
 
 ├── .env                           # Never commit — all keys from env
 
@@ -384,6 +384,10 @@ auth
 /auth/register, /auth/verify, /auth/login, /auth/me
 stripe-webhook
 Stripe event handling
+stripe-checkout
+Stripe Checkout session creation (returns { url })
+ebay-oauth
+eBay OAuth flow — /authorize, /callback, /status, /disconnect
 
 Rules:
 
