@@ -1,0 +1,14 @@
+[functions.auth]
+verify_jwt = false
+
+[functions.claude-proxy]
+verify_jwt = false
+
+[functions.stripe-checkout]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.ebay-oauth]
+verify_jwt = false

@@ -1240,21 +1240,30 @@ body::before{
       <div class="setting-row">
         <div style="flex:1"><span class="setting-name">Minimum Profit</span><span class="setting-desc">Item must clear this to get a FLIP</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <span class="setting-val" id="val-min-profit">$15</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="num-min-profit" min="5" max="50" step="1" value="15" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('min-profit',this.value,'$','')">
+            <span class="setting-val" id="val-min-profit">$15</span>
+          </div>
           <input type="range" class="slider" id="slider-min-profit" min="5" max="50" step="1" value="15" oninput="updateSetting('min-profit',this.value,'$','')">
         </div>
       </div>
       <div class="setting-row">
         <div style="flex:1"><span class="setting-name">Target ROI %</span><span class="setting-desc">ROI needed for HIGH PRIORITY</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <span class="setting-val" id="val-target-roi">200%</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="num-target-roi" min="50" max="500" step="25" value="200" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('target-roi',this.value,'','%')">
+            <span class="setting-val" id="val-target-roi">200%</span>
+          </div>
           <input type="range" class="slider" id="slider-target-roi" min="50" max="500" step="25" value="200" oninput="updateSetting('target-roi',this.value,'','%')">
         </div>
       </div>
       <div class="setting-row">
         <div style="flex:1"><span class="setting-name">Max Days to Sell</span><span class="setting-desc">Slower items get a PASS</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <span class="setting-val" id="val-max-days">60 days</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="num-max-days" min="14" max="120" step="7" value="60" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('max-days',this.value,'',' days')">
+            <span class="setting-val" id="val-max-days">60 days</span>
+          </div>
           <input type="range" class="slider" id="slider-max-days" min="14" max="120" step="7" value="60" oninput="updateSetting('max-days',this.value,'',' days')">
         </div>
       </div>
@@ -1264,14 +1273,20 @@ body::before{
       <div class="setting-row">
         <div style="flex:1"><span class="setting-name">eBay Fee %</span><span class="setting-desc">Platform + payment fee</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <span class="setting-val" id="val-ebay-fee">13%</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="num-ebay-fee" min="8" max="18" step="0.5" value="13" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('ebay-fee',this.value,'','%')">
+            <span class="setting-val" id="val-ebay-fee">13%</span>
+          </div>
           <input type="range" class="slider" id="slider-ebay-fee" min="8" max="18" step="0.5" value="13" oninput="updateSetting('ebay-fee',this.value,'','%')">
         </div>
       </div>
       <div class="setting-row" style="border-bottom:none">
         <div style="flex:1"><span class="setting-name">Packaging Cost</span><span class="setting-desc">Boxes, tape, padding</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <span class="setting-val" id="val-pkg-cost">$1.25</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="num-pkg-cost" min="0" max="5" step="0.25" value="1.25" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('pkg-cost',this.value,'$','')">
+            <span class="setting-val" id="val-pkg-cost">$1.25</span>
+          </div>
           <input type="range" class="slider" id="slider-pkg-cost" min="0" max="5" step="0.25" value="1.25" oninput="updateSetting('pkg-cost',this.value,'$','')">
         </div>
       </div>
@@ -1298,8 +1313,41 @@ body::before{
       <button id="ebay-connect-btn" class="btn btn-green" style="width:100%;font-size:13px;padding:10px" onclick="ebayConnect()">Connect eBay Account</button>
       <button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
     </div>
-    <div style="text-align:center;margin-top:12px">
-      <button onclick="showSrcView('setup')" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">⚙ Change Access Code</button>
+    <div class="card" style="margin-top:8px">
+      <h3 class="card-title">👤 Account</h3>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--muted)">Username</span>
+          <span id="acct-username" style="color:var(--text);font-weight:700">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--muted)">Email</span>
+          <span id="acct-email" style="color:var(--text)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0">
+          <span style="color:var(--muted)">Plan</span>
+          <span id="acct-tier" style="color:var(--green);font-weight:700;text-transform:uppercase">—</span>
+        </div>
+      </div>
+      <button onclick="requestPasswordReset()" style="width:100%;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--surface);border:1.5px solid var(--border);color:var(--muted);border-radius:6px;padding:10px;cursor:pointer">🔑 Reset Password</button>
+      <button onclick="signOut()" style="width:100%;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--red-bg);border:1.5px solid var(--red);color:var(--red);border-radius:6px;padding:10px;cursor:pointer">↩ Sign Out</button>
+    </div>
+  </div>
+
+  <!-- PASSWORD RESET (reached via email link ?reset=TOKEN) -->
+  <div id="src-view-reset" style="display:none">
+    <div style="padding:10px 0 18px">
+      <h2 style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--text);margin-bottom:4px">Reset Password</h2>
+      <p style="color:var(--muted);font-size:12px;line-height:1.6">Enter your new password below.</p>
+    </div>
+    <div class="setup-card">
+      <input class="setup-input" id="reset-password-new" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" style="margin-bottom:8px">
+      <input class="setup-input" id="reset-password-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" style="margin-bottom:8px">
+      <div id="reset-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;padding:10px 12px;margin-bottom:10px;font-weight:600"></div>
+      <button class="btn btn-green" onclick="submitPasswordReset()" style="width:100%">Set New Password →</button>
+      <div style="text-align:center;margin-top:10px">
+        <button onclick="showSrcView('setup');setAuthMode('login')" style="background:none;border:none;color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">← Back to Login</button>
+      </div>
     </div>
   </div>
 
@@ -1360,8 +1408,6 @@ body::before{
     <div class="results-wrap" id="shelf-content"></div>
   </div>
 
-  <!-- SCAN HISTORY (shown on input view) -->
-  <div id="scan-history" style="display:none"></div>
 
 </div><!-- /panel-sourcing -->
 
@@ -4816,6 +4862,7 @@ function resetSettings() { S={...DEFAULTS}; localStorage.removeItem('fif_setting
 function showSourcingSettings() {
   if (activeTab !== 'sourcing') switchTab('sourcing');
   populateSettingsUI();
+  populateAccountUI();
   showSrcView('settings');
 }
 
@@ -4834,8 +4881,13 @@ function populateSettingsUI() {
 function updateSetting(key,val,prefix,suffix) {
   const num=parseFloat(val);
   const el=document.getElementById('val-'+key); if(el) el.textContent=prefix+(Number.isInteger(num)?num:num.toFixed(2))+suffix;
+  const numEl=document.getElementById('num-'+key); if(numEl && document.activeElement!==numEl) numEl.value=num;
   const map={'min-profit':'minProfit','target-roi':'targetRoi','max-days':'maxDays','min-str':'minStr','ebay-fee':'ebayFee','pkg-cost':'pkgCost','ship-cost':'shipCost'};
   if(map[key]) S[map[key]]=num;
+}
+function syncFromNum(key,val,prefix,suffix) {
+  const slider=document.getElementById('slider-'+key); if(slider) slider.value=val;
+  updateSetting(key,val,prefix,suffix);
 }
 function updateStyle(val) {
   S.style=val;
@@ -4867,7 +4919,7 @@ let imgFile = null;
 const MAX_IMG_SIZE = 500000; // 500KB limit for base64 image
 
 function showSrcView(n) {
-  ['setup','settings','input','results','shelf'].forEach(v => {
+  ['setup','settings','input','results','shelf','reset'].forEach(v => {
     const el = document.getElementById('src-view-'+v);
     if (el) el.style.display = v===n ? 'block' : 'none';
   });
@@ -6242,12 +6294,79 @@ function updateDashGreeting() {
 }
 
 function showForgotPassword() {
-  const username = document.getElementById('auth-username').value.trim();
-  const msg = username
-    ? `To reset your password, email support@scanforprofit.com with your username: "${username}"`
-    : 'Email support@scanforprofit.com with your username to reset your password.';
-  alert(msg);
+  const email = prompt('Enter the email address on your account. We\'ll send a reset link.');
+  if (!email || !email.trim()) return;
+  requestPasswordResetByEmail(email.trim());
 }
+
+async function requestPasswordResetByEmail(email) {
+  showToast('Sending reset link...');
+  try {
+    const res = await fetch(AUTH_BASE + '/reset-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (res.ok) showToast('✓ Reset link sent — check your email');
+    else { const d = await res.json(); showToast('Error: ' + (d.error || 'Could not send reset email')); }
+  } catch (e) { showToast('Error: ' + e.message); }
+}
+
+async function requestPasswordReset() {
+  const user = window._currentUser;
+  const email = user && user.email;
+  if (!email) { showToast('Cannot determine email — try logging in again'); return; }
+  requestPasswordResetByEmail(email);
+}
+
+let _resetToken = null;
+async function submitPasswordReset() {
+  const pw = document.getElementById('reset-password-new').value;
+  const pw2 = document.getElementById('reset-password-confirm').value;
+  const errEl = document.getElementById('reset-error');
+  if (!pw || pw.length < 6) { errEl.textContent='Password must be at least 6 characters'; errEl.style.display='block'; return; }
+  if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  try {
+    const res = await fetch(AUTH_BASE + '/reset-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _resetToken, password: pw })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('✓ Password updated — please log in');
+      _resetToken = null;
+      showSrcView('setup'); setAuthMode('login');
+    } else {
+      errEl.textContent = data.error || 'Reset failed — link may have expired';
+      errEl.style.display = 'block';
+    }
+  } catch (e) { errEl.textContent = e.message; errEl.style.display='block'; }
+}
+
+function signOut() {
+  apiKey = '';
+  currentUser = null;
+  window._currentUser = null;
+  localStorage.removeItem('sfp_jwt');
+  localStorage.removeItem('sfp_user_name');
+  localStorage.removeItem('sfp_settings');
+  showSrcView('setup');
+  setAuthMode('login');
+  showToast('Signed out');
+}
+
+function populateAccountUI() {
+  const user = window._currentUser || {};
+  const usernameEl = document.getElementById('acct-username');
+  const emailEl = document.getElementById('acct-email');
+  const tierEl = document.getElementById('acct-tier');
+  if (usernameEl) usernameEl.textContent = user.username || localStorage.getItem('sfp_user_name') || '—';
+  if (emailEl) emailEl.textContent = user.email || '—';
+  if (tierEl) tierEl.textContent = user.tier || 'scout';
+}
+
 
 async function requestMagicLink() {
   // Legacy stub — no longer used
@@ -6506,7 +6625,7 @@ var _subInterval = 'month';
 
 var TIER_INFO = {
   hustle: { name:'Hustle', month:19,  year:180,  color:'#00e676', tagline:'For active resellers',
-    features:['Unlimited AI scans','500 inventory items','Full listing generator','Cross-listing prep','Photo enhancement','P&L dashboard'] },
+    features:['Unlimited AI scans','500 inventory items','Full eBay API Boost Listing','Cross-listing prep','Photo enhancement'] },
   stack:  { name:'Stack',  month:49,  year:468,  color:'#6b3fa0', tagline:'For serious operators',
     features:['Everything in Hustle','Unlimited inventory','Live pricing intel','Growth agent','Bulk listing','Stale alerts'] },
   empire: { name:'Empire', month:199, year:1908, color:'#f5a623', tagline:'For teams & agencies',
@@ -6579,9 +6698,10 @@ function renderSubscriptionPanel() {
   renderSubTierCards();
 }
 
+const STRIPE_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-checkout';
 async function startCheckout(tier, interval) {
   try {
-    var res = await fetch(API_BASE + '/stripe/checkout', {
+    var res = await fetch(STRIPE_BASE, {
       method: 'POST', headers: getApiHeaders(),
       body: JSON.stringify({ tier: tier, interval: interval })
     });
@@ -6609,6 +6729,17 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.onload = () => {
+  // Check for password reset token in URL (?reset=TOKEN)
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetToken = urlParams.get('reset');
+  if (resetToken) {
+    _resetToken = resetToken;
+    switchTab('sourcing');
+    showSrcView('reset');
+    history.replaceState({}, '', window.location.pathname);
+    return;
+  }
+
   // Run migration FIRST before anything else
   const oldKey = localStorage.getItem('fif_api_key');
   if (oldKey && !oldKey.includes('.') && oldKey.length < 100) {
