@@ -33,7 +33,7 @@ This file is the persistent session context. Update it at the end of every Claud
 `2ec501d` — `feat: Settings tab audit — Phase 1 of 6`
 
 ### PR
-`bbaker71313/scanforprofit#68` — merging into main (conflict with PR #67 + PR #69 resolved).
+`bbaker71313/scanforprofit#68` — **merged to main** at squash commit `4385037`. Merge conflict with PR #67 (sfp_* key migration) and PR #69 (photo editor) resolved: kept our backend reset flow, updated `signOut()` / `populateAccountUI()` to use `sfp_*` keys.
 
 ### Decisions made (do not reverse)
 - `startCheckout()` calls `stripe-checkout` function directly via its own URL — not routed through `claude-proxy`.
