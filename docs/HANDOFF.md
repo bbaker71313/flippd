@@ -4,6 +4,40 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — CLAUDE.md gap fixes (8 documentation errors corrected)
+
+### What changed this session
+
+**`CLAUDE.md`** — 8 documentation gaps corrected (PR #61, merged to main at `46848aa`):
+
+1. **Onboarding flow added to monorepo structure** — `apps/mobile/app/(onboarding)/` with 6 screens (`_layout.tsx`, `how-it-works.tsx`, `identity.tsx`, `permission.tsx`, `result.tsx`, `upgrade.tsx`) was fully built (2026-06-10 session) but missing from the file tree and Phase 4 progress table. Both sections updated.
+2. **Migration list corrected** — CLAUDE.md listed 2 stale filenames (`001_extend_schema.sql`, `002_align_to_flippd.sql`); reality is 9 timestamped migrations. Replaced with all 9 correct names.
+3. **`apps/video/` (Remotion) added** — built in 2026-06-15 session but absent from both the monorepo structure and tech stack. Added `apps/video/` entry with Remotion 4 (`@sfp/video`), 5 compositions, and a Video Ads section in tech stack.
+4. **`docs/` structure fixed** — CLAUDE.md referenced non-existent `decisions/` and `strategy/` subdirs; removed. Removed references to `docs/prototype.html` and `docs/prototype-test-script.md` (never created). Added actual subfolders (`files/`, `marketing/` with its contents) and `GITHUB_SECRETS.md`.
+5. **Source-of-truth file updated** — was `Flippd_v5_23.html`; actual file is `docs/ScanForProfit_v5_24.html`.
+6. **Duplicate `docs/CLAUDE.md` deleted** — 452-line stale snapshot violated CLAUDE.md's own "Do NOT create duplicate files" rule.
+7. **Session Start check #2 fixed** — was PowerShell `Get-ChildItem`; replaced with `ls`.
+8. **Session Start check #5 fixed** — expected `decisions/ strategy/ marketing/` (wrong); corrected to `marketing/ and files/` (actual).
+
+### Files changed
+- `CLAUDE.md` — modified
+- `docs/CLAUDE.md` — deleted
+
+### Commit
+`46848aa` — "docs: fix 8 CLAUDE.md gaps — onboarding, migrations, video app, docs structure"
+
+### Decisions made (do not reverse)
+- `docs/CLAUDE.md` is permanently deleted — `CLAUDE.md` at repo root is the only authoritative copy.
+- `docs/decisions/` and `docs/strategy/` do not exist and should not be created unless explicitly requested.
+
+### Next task
+No code tasks were started this session. Resume from the prior session's next task: Phase 3 Step 3 (Component Library redo) or Phase 5 (Web App Build) — whichever the user prioritizes.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-16 — App-wide hex sweep on app.html
 
 ### Context
