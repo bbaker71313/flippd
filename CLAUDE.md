@@ -22,7 +22,7 @@ cat packages/shared/package.json | grep '"name"'
 
 # 2. Confirm all 12 UI component files exist
 
-Get-ChildItem apps/mobile/components/ui/ | Select-Object Name
+ls apps/mobile/components/ui/
 
 # Expected: BottomSheet.tsx, Button.tsx, Card.tsx, EmptyState.tsx,
 #           index.ts, Input.tsx, ItemCard.tsx, PaywallModal.tsx,
@@ -45,10 +45,10 @@ git ls-files .env
 
 # 5. Confirm docs folder structure exists
 
-Get-ChildItem docs/
+ls docs/
 
-# Expected: decisions/ strategy/ marketing/ folders present
-# If missing → create them before starting work (mkdir docs/decisions docs/strategy docs/marketing)
+# Expected: marketing/ and files/ folders present, plus HANDOFF.md, FEATURE_TRIAGE.md, BRAND_IDENTITY.md
+# If marketing/ or files/ are missing → create them: mkdir -p docs/marketing docs/files
 
 STOP RULE: If any check produces unexpected output, do not continue. Document the failure in docs/HANDOFF.md and wait for instruction. Do not guess. Do not self-fix without reporting first.
 
@@ -60,7 +60,7 @@ Target user: Solo reseller sourcing from thrift stores, garage sales, estate sal
 
 Primary platform: eBay. Future: Poshmark, Mercari, Facebook Marketplace.
 
-Source of truth for business logic: Flippd_v5_23.html (6,642 lines). All AI prompts, calculations, and business rules are ported from this file — never rewritten.
+Source of truth for business logic: docs/ScanForProfit_v5_24.html. All AI prompts, calculations, and business rules are ported from this file — never rewritten.
 
 
 📁 Monorepo Structure
@@ -73,6 +73,12 @@ scanforprofit/
 │   │   ├── app/                   # Expo Router screens
 
 │   │   │   ├── (auth)/            # login.tsx, register.tsx
+
+│   │   │   ├── (onboarding)/      # _layout.tsx, how-it-works.tsx,
+
+│   │   │   │                      # identity.tsx, permission.tsx,
+
+│   │   │   │                      # result.tsx, upgrade.tsx
 
 │   │   │   └── (tabs)/            # scout.tsx, inventory.tsx,
 
@@ -92,15 +98,21 @@ scanforprofit/
 
 │   │   └── eas.json
 
-│   └── web/                       # Next.js 14 App Router (after mobile)
+│   ├── web/                       # Next.js 14 App Router (after mobile)
 
-│       ├── app/
+│   │   ├── app/
 
-│       │   ├── (dashboard)/       # auth-gated web app
+│   │   │   ├── (dashboard)/       # auth-gated web app
 
-│       │   └── page.tsx           # marketing homepage
+│   │   │   └── page.tsx           # marketing homepage
 
-│       └── lib/                   # supabase-server.ts, supabase-client.ts
+│   │   └── lib/                   # supabase-server.ts, supabase-client.ts
+
+│   └── video/                     # Remotion (@sfp/video) — ad video generation
+
+│       └── src/compositions/      # HeroVideo, SquareAd, StoryAd,
+
+│                                  # TikTokAd, YouTubePreroll
 
 ├── packages/
 
@@ -118,15 +130,19 @@ scanforprofit/
 
 │   ├── functions/                 # Edge Functions (Deno/TypeScript)
 
-│   └── migrations/                # 001_extend_schema.sql, 002_align_to_flippd.sql
+│   └── migrations/                # timestamped — see "Migrations Applied" section below
 
 ├── docs/
 
-│   ├── decisions/             # Every locked decision as a .md file — source of truth
-
-│   ├── strategy/              # Pricing, positioning, roadmap docs
-
 │   ├── marketing/             # Ad copy, hooks, content calendar, creator outreach
+
+│   │   ├── directory-copy.md
+
+│   │   ├── submission-readiness.md
+
+│   │   └── video-assets/
+
+│   ├── files/                 # Miscellaneous tracked assets
 
 │   ├── HANDOFF.md             # Session context — update every session
 
@@ -134,15 +150,11 @@ scanforprofit/
 
 │   ├── BRAND_IDENTITY.md      # Logo, colors, typography, spacing
 
-│   ├── prototype.html         # Phase 3 Step 5 test artifact
+│   ├── GITHUB_SECRETS.md      # Secret names reference (no values)
 
-│   ├── prototype-test-script.md
+│   ├── ScanForProfit_v5_24.html  # Source of truth for all business logic
 
-│   ├── directory-tracker.csv
-
-│   ├── directory-copy.md
-
-│   └── submission-readiness.md
+│   └── directory-tracker.csv
 
 ├── .github/
 
@@ -185,6 +197,9 @@ AI proxy: Edge Function calls Anthropic API server-side
 Payments
 Platform: Stripe
 Tiers: Scout (free) · Hustle ($19/mo) · Stack ($49/mo) · Empire ($199/mo)
+Video Ads
+Framework: Remotion 4 (@sfp/video)
+Compositions: HeroVideo, SquareAd, StoryAd, TikTokAd, YouTubePreroll
 Infrastructure
 Monorepo: pnpm 11 workspaces + Turborepo
 Deploy mobile: EAS Build
@@ -261,7 +276,16 @@ mileageRate: 0.67  // IRS rate — configurable — never hardcode
 Supabase Tables
 users, inventory, scan_log, settings, pnl_expenses, growth_cache
 
-Migrations applied: 001_extend_schema.sql, 002_align_to_flippd.sql
+Migrations applied (9 total — timestamped naming):
+20260529010000_initial_schema.sql
+20260529010001_rls_enable_tables.sql
+20260529010002_rls_auto_enable_trigger.sql
+20260530132149_003_rls_policies_users_inventory.sql
+20260531123241_create_waitlist_table.sql
+20260601143533_waitlist_rls_insert_policy.sql
+20260602164748_003_add_waitlist_source.sql
+20260602224043_004_rename_min_roi_to_target_roi.sql
+20260603000000_005_add_ebay_oauth_columns.sql
 
 
 💰 Business Logic Rules
@@ -552,8 +576,11 @@ Trends tab (Growth Agent, hunt list, business score)
 Stats tab (P&L dashboard, expenses, Stripe paywall)
 ✅ Done
 7
-Settings screen
+Onboarding flow (how-it-works, identity, permission, result, upgrade)
 ✅ Done
 8
+Settings screen
+✅ Done
+9
 EAS build config + iOS privacy keys
 ✅ Done (run build manually)
