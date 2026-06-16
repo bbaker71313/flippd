@@ -4,6 +4,38 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Fix stale doc references (PR #64)
+
+### What changed this session
+
+**`CLAUDE.md`** — 2 fixes:
+- Line 213: Supabase project ID `gymuhbscxmmcbqoovvud` → `dqgfpchkheznvanfgsmx`
+- Line 246: Same stale project ID corrected in the Data Model section
+- CLAUDE.md was the only file in the repo pointing at the retired project
+
+**`docs/FEATURE_TRIAGE.md`** — 2 fixes:
+- Line 3: Source file `Flippd_v5_23.html` → `ScanForProfit_v5_24.html`
+- Line 10: Same stale filename in the Section 1 preamble
+
+### Files changed
+- `CLAUDE.md` — modified
+- `docs/FEATURE_TRIAGE.md` — modified
+
+### Commit / PR
+PR #64 merged to main — squash commit `d9771a6`
+
+### Decisions made (do not reverse)
+- Active Supabase project is `dqgfpchkheznvanfgsmx`. The retired project `gymuhbscxmmcbqoovvud` must never appear in any file again.
+- Source-of-truth HTML file is `docs/ScanForProfit_v5_24.html`. All references to `Flippd_v5_23.html` are stale and incorrect.
+
+### Next task
+Resume from prior: Phase 3 Step 3 (Component Library redo) or Phase 5 (Web App Build) — whichever the user prioritizes.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-16 — Missing edge functions and workflows (#6, #7, web.yml)
 
 ### What changed this session
