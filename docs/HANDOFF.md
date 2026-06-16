@@ -4,6 +4,49 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Missing edge functions and workflows (#6, #7, web.yml)
+
+### What changed this session
+
+**`supabase/functions/ebay-oauth/index.ts`** — created (new file):
+- Standalone Deno edge function matching what `app.html` calls via `EBAY_BASE`
+- Routes: GET `/authorize` (start OAuth, returns `{ authUrl }`), GET `/callback` (exchange code → store tokens → redirect), GET `/status`, POST `/disconnect`
+- Route names match `app.html` exactly (`/authorize`, not `/connect` — which was the auth function's route name)
+- JWT utilities and eBay handlers extracted from `supabase/functions/auth/index.ts` (where they were added in commit ac9d053 but the app pointed to a separate `ebay-oauth` function per commit b6469c7)
+- Requires same Supabase secrets: `JWT_SECRET`, `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_RUNAME`, `FRONTEND_URL`
+
+**`.github/workflows/web.yml`** — created (new file):
+- Triggers on push to main or PRs that touch `apps/web/**`, `packages/shared/**`, or `pnpm-workspace.yaml`
+- Runs `tsc --noEmit` on `@sfp/shared` and `apps/web` with the `type-check` script
+- Uses Node 22, pnpm 10, `--frozen-lockfile`
+- Note: Vercel deployments are handled by Vercel's own GitHub integration — this workflow adds TypeScript CI that Vercel's integration does not provide
+
+**`CLAUDE.md`** — 3 changes:
+1. Added `stripe-checkout` and `ebay-oauth` to the edge functions table (issue #7 and #6)
+2. Fixed workflows comment: "mobile.yml (EAS), web.yml (Vercel)" → "mobile.yml (EAS build), web.yml (TypeScript check)"
+
+**`docs/files/SCOPE_TEMPLATES.md`** — 2 changes:
+1. `[BACKEND]` template: `claude-proxy, auth, stripe-webhook (these three only)` → all 5 functions listed
+2. `[APP]` template: stale `Flippd_v5_23.html` source reference → `docs/ScanForProfit_v5_24.html`
+
+### Files changed
+- `supabase/functions/ebay-oauth/index.ts` — created
+- `.github/workflows/web.yml` — created
+- `CLAUDE.md` — modified
+- `docs/files/SCOPE_TEMPLATES.md` — modified
+
+### Decisions made (do not reverse)
+- `ebay-oauth` is a **separate** edge function from `auth` — even though both have eBay handlers. The `auth` function's eBay routes (`/ebay/connect`, `/ebay-callback`) are now dead code; the app points to `functions/v1/ebay-oauth`. Do not remove them from `auth` without first confirming no live traffic routes there (e.g., if EBAY_RUNAME still points to the auth callback URL).
+- `web.yml` is for TypeScript CI only — Vercel handles deployments via its own GitHub integration, not this workflow.
+
+### Next task
+No code tasks started this session. Resume from prior: Phase 3 Step 3 (Component Library redo) or Phase 5 (Web App Build) — whichever the user prioritizes.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-16 — CLAUDE.md gap fixes (8 documentation errors corrected)
 
 ### What changed this session
