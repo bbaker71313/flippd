@@ -1,6 +1,6 @@
 import type { InventoryItem, PnlExpense, PnlSummary, UserSettings } from '../types'
 
-// Port from Flippd pnlCalc() L3028 — all values from settings, never hardcoded
+// Port from ScanForProfit_v5_24.html pnlCalc() L3028 — all values from settings, never hardcoded
 export function calcPnl(
   soldItems: InventoryItem[],
   allItems: InventoryItem[],
