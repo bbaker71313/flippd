@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Item limits per tier ────────────────────────────────────────────────────
 const ITEM_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 10, hustle: 500, stack: null, empire: null,
+  trial: null, scout: 10, hustle: 250, stack: null, empire: null,
 };
 
 const CATEGORY_SKU_PREFIX: Record<string, string> = {
@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const SCAN_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 25, hustle: null, stack: null, empire: null,
+  trial: null, scout: 25, hustle: 250, stack: null, empire: null,
 };
 
 type Settings = typeof DEFAULT_SETTINGS;

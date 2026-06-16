@@ -52,13 +52,13 @@ export const TIER_CONFIGS: Record<UserTier, TierConfig> = {
     priceMonthly: 19,
     priceYearly: 190,
     limits: {
-      scansPerMonth: null,
-      inventoryItems: 500,
+      scansPerMonth: 250,
+      inventoryItems: 250,
       activeListings: 200,
     },
     features: [
-      "Unlimited scans",
-      "500 inventory items",
+      "250 scans/month",
+      "250 inventory items",
       "P&L tracking",
       "CSV export",
       "Shelf scan",

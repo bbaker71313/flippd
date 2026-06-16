@@ -229,8 +229,8 @@ scout
 25
 10
 hustle
-Unlimited
-500
+250
+250
 stack
 Unlimited
 Unlimited
