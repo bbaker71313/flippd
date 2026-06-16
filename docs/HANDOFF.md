@@ -52,6 +52,100 @@ Commit `fb8f7de` on branch `claude/trends-tab-redesign-l5f2wp` — PR #70 (draft
 - Optional: Replace hunt list fallback icon `🎯` with SVG (requires changing the JS template literal default, low priority)
 - Optional: Wire real eBay Price Change API call in `syncDropPriceToEbay()` once eBay OAuth is confirmed working
 
+---
+
+## Session: 2026-06-16 — Web App Audit Phase 1: Settings Tab
+
+### What changed this session
+
+**`apps/web/public/app.html`** — 9 Settings Tab audit changes:
+1. **TIER_INFO** (line ~6297): Removed `'P&L dashboard'` from Hustle tier features; renamed `'Full listing generator'` → `'Full eBay API Boost Listing'`
+2. **Settings sliders** (lines 1240–1291): Added `<input type="number" id="num-{key}">` alongside each of the 5 sliders. Slider and number box stay in sync via `syncFromNum()` / `updateSetting()`.
+3. **Removed** `<div id="scan-history">` (Today's Scans card) from the Scout panel HTML — `renderScanHistory()` JS function left in place (returns early when el is null, harmless).
+4. **Removed** "Change Access Code" button from the bottom of the settings panel.
+5. **Added** Account card to settings: username, email, plan tier — populated by `populateAccountUI()` called from `showSourcingSettings()`.
+6. **Added** Sign Out button in Account card — clears `sfp_jwt`, `sfp_user_name`, `sfp_settings` from localStorage (updated to `sfp_*` prefix when merging PR #67), resets `currentUser`, redirects to login.
+7. **Added** Reset Password button in Account card — calls `requestPasswordReset()` → `AUTH_BASE + '/reset-request'` using user's stored email.
+8. **Added** `src-view-reset` in-app password reset view — reached via email link `?reset=TOKEN`. `window.onload` detects token, shows reset form. `submitPasswordReset()` calls `AUTH_BASE + '/reset-confirm'`.
+9. **Fixed** `startCheckout()` — was calling `API_BASE + '/stripe/checkout'` (wrong path on claude-proxy); now calls dedicated `stripe-checkout` Edge Function via `STRIPE_BASE` constant.
+- Also replaced legacy `showForgotPassword()` `alert(support@flippd.app)` with proper backend call.
+- `showSrcView()` updated to include `'reset'` in the view list.
+
+**`supabase/functions/auth/index.ts`** — Added password reset endpoints:
+- `POST /auth/reset-request` — looks up user by email, signs a 1-hour self-expiring JWT reset token (no new DB columns needed), sends reset link via Resend. Always returns success to prevent email enumeration.
+- `POST /auth/reset-confirm` — verifies reset JWT, bcrypt-hashes and stores new password.
+
+### Files changed
+- `apps/web/public/app.html`
+- `supabase/functions/auth/index.ts`
+
+### Commit
+`2ec501d` — `feat: Settings tab audit — Phase 1 of 6`
+
+### PR
+`bbaker71313/scanforprofit#68` — merging into main (conflict with PR #67 + PR #69 resolved).
+
+### Decisions made (do not reverse)
+- `startCheckout()` calls `stripe-checkout` function directly via its own URL — not routed through `claude-proxy`.
+- Password reset uses JWT-based tokens (self-expiring, no DB column) — no migration needed.
+- `scan-history` div removed from HTML; `renderScanHistory()` JS function left in place (safe — returns early on null el).
+- `signOut()` and `populateAccountUI()` use `sfp_jwt` / `sfp_user_name` / `sfp_settings` (aligned with PR #67's `sfp_*` key migration).
+
+### Next task — Phase 2: Scout Tab (STOP and verify with user first)
+The user asked to verify Phase 1 before proceeding. Once approved, Phase 2 changes to `apps/web/public/app.html` are:
+1. Rebrand "FLIP or PASS?" headline to match current brand voice
+2. Animated loading logo (Scanning Sweep SVG) during AI scan
+3. Emoji audit — remove out-of-place emojis from Scout panel
+4. Multi-photo support for single item scan
+5. Fix onboarding flow prompt text
+6. Fix "Listing Tips" / "Check This" broken links in scan results
+7. Tab branding — update tab bar labels/icons
+8. Fix mobile desktop mode (viewport/zoom issues)
+
+### Remaining Flippd remnants in app.html (not yet fixed)
+- Line 4444: dead backend URL `flippd-backend.replit.app` (in a dead code comment)
+- `sfp_items_v1` STORAGE_KEY and IndexedDB name `flippd_photos` — `sfp_*` key migration done by PR #67; IndexedDB rename deferred (high-risk, zero user benefit)
+- DOM element IDs (`exportFlippdBackup`, `handleFlippdImport`) — defer
+
+---
+
+## Session: 2026-06-16 — Photo editor tools enhancement (PR #69)
+
+### What changed this session
+
+**`apps/web/public/app.html`** — commit `63a66af` on branch `claude/photo-editor-tools-enhancement-0apsti`:
+
+1. **Rotate + Square Crop tools** — new toolbar row after thumbnail strip with ↺ Left, ↻ Right, ⬛ Square buttons. `paRotate(deg)` swaps canvas dimensions and draws at ±90°; `paCropSquare()` extracts center square via `getImageData`. Both update `original` + `enhanced` in-place so filters continue to work on the transformed photo.
+
+2. **Remove BG button** — replaced non-functional "White background" checkbox with `🪄 Remove BG` button. `paRemoveBg()` calls the remove.bg API (`POST https://api.remove.bg/v1.0/removebg`); fills white background, draws bg-removed PNG result onto canvas. API key stored in `S.removebgKey` (new field in `DEFAULTS`), entered via new Settings → Photo Tools card, persisted in `fif_settings` localStorage.
+
+3. **Fullscreen popup with zoom** — `onclick="paOpenFullscreen()"` added to `#pa-canvas` (cursor: zoom-in). `paOpenFullscreen()` opens `#pa-fs-overlay` with the enhanced photo; scroll wheel zooms on desktop (wheel event), pinch-to-zoom on mobile (touchstart/touchmove). `paCloseFullscreen()` cleans up all event listeners.
+
+4. **Photo Boost (tier-gated)** — `✨ Boost` button in actions row calls `paPhotoBoost()`. Scout users with expired trial are redirected to upgrade (→ Stats → subscription tab). Hustle+ / active trial users get auto-levels (per-channel histogram stretch) + unsharp mask (sharpen convolution kernel) applied directly to the canvas.
+
+5. **Fix Apply to All Photos** — replaced racy `setTimeout(res, 80)` chain in `paApplyToAll()` with sequential `Promise` chain using new `onDone` callback parameter on `paApplyFilters()`. Each photo's filters now complete before the next photo starts.
+
+6. **Fix Save to Item — redirect** — `paSaveToItem()` now calls `paReset()` then `switchTab('inventory')` + `setTimeout(() => startEdit(targetId), 120)` after saving. User lands on the inventory edit screen showing the enhanced photos.
+
+7. **Fix Save to Item — no item selected** — `paSaveToItem()` calls `paShowSaveDialog()` when `paTargetItemId` is null. Dialog offers: "New Inventory Item" → `paSaveDialogNewItem()` navigates to add form with photos previewed in `inv-form-edit-photos`; "Existing Item" → `paSaveDialogExisting()` focuses category dropdown. `saveInvItem()` hooks into `window._paPreloadPhotos` after new item creation to save photos to IDB and open edit view.
+
+### Files changed
+- `apps/web/public/app.html` — modified (228 insertions, 23 deletions)
+
+### Commit / PR
+- Commit `63a66af` on branch `claude/photo-editor-tools-enhancement-0apsti`
+- PR #69 (draft, open) — Vercel building, Supabase skipped (no DB changes), Railway initializing
+
+### Decisions made (do not reverse)
+- `pa-whitebg` checkbox is permanently removed. The old "fill white" behavior is replaced by actual API-based background removal via remove.bg.
+- `removebgKey` is stored client-side in `fif_settings` localStorage (same as `ebayFee`, etc.) — it's a user-provided third-party key, not a server secret.
+- Photo Boost is pure canvas (auto-levels + sharpen kernel) — no external API, no new edge function needed.
+- `paApplyFilters` now accepts an optional `onDone` callback — all existing callers pass nothing and work unchanged.
+
+### Next task
+- Merge PR #69 once Vercel CI passes
+- Continue with Phase 3 Step 3 (Component Library redo) or Phase 5 (Web App Build) as previously planned
+
 ### Blockers
 None.
 
@@ -173,24 +267,6 @@ Commit `078d651` on branch `claude/cleanup-credentials-metadata-g99z9o` — PR #
 - CLAUDE.txt is gone. `CLAUDE.md` is the only authoritative instructions file.
 - `ScanForProfit_v5_24.html` is the canonical source-of-truth filename everywhere.
 
-### What is NOT fixed (deferred from this session)
-The following Flippd remnants were identified in the audit but intentionally NOT touched this session — fix separately:
-- 🔴 `apps/web/public/app.html` lines 6035–6036: `support@flippd.app` in forgot-password alert (user-facing)
-- 🔴 `README.md`: `support@flippd.com` and `flippd.com` link
-- 🔴 `apps/web/public/app.html` line 4444: dead backend URL `flippd-backend.replit.app`
-- 🟡 `package.json`: `"name": "flippd-backend"`, stale description and keywords
-- 🟡 `BACKEND_LIVE.md` and `APP_INTEGRATION.md`: stale Replit-era architecture docs
-- 🟠 localStorage keys (`flippd_items_v1`, `flippd_jwt`, etc.) — require data migration
-- 🟠 DOM element IDs and function names in `app.html` (`exportFlippdBackup`, `handleFlippdImport`, etc.)
-- `.env.example`: eBay client ID `Brittany-Flippd-PRD-67b75c3f4-fb4ff30c` comment
-
-### Next task
-Fix 🔴 critical user-facing Flippd remnants next: `support@flippd.app` in `app.html` and `README.md` email/link. Then decide whether to clean up `package.json` and archive `BACKEND_LIVE.md`/`APP_INTEGRATION.md`.
-
-### Blockers
-None.
-
----
 
 ## Session: 2026-06-16 — Repo hygiene: #6 #7 #8 #9 + web.yml
 

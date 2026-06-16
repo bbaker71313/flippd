@@ -117,6 +117,8 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'GET'  && path.endsWith('/ebay-callback'))   return await handleEbayCallback(req, supabase, jwtSecret);
     if (req.method === 'GET'  && path.endsWith('/ebay/status'))     return await handleEbayStatus(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/ebay/disconnect')) return await handleEbayDisconnect(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/reset-request'))  return await handleResetRequest(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/reset-confirm'))  return await handleResetConfirm(req, supabase, jwtSecret);
     return json({ error: 'Not found' }, 404);
   } catch (err) {
     console.error('auth error:', err);
@@ -383,4 +385,62 @@ async function handleEbayDisconnect(req: Request, supabase: ReturnType<typeof cr
   }).eq('id', userId);
 
   return json({ success: true });
+}
+
+async function handleResetRequest(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const body = await req.json().catch(() => ({}));
+  const { email } = body;
+  if (!email) return json({ error: 'Email is required' }, 400);
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, email, username')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  // Always return success to prevent email enumeration
+  if (!user) return json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+
+  const resetToken = await signJWT({ sub: user.id, purpose: 'password_reset' }, jwtSecret, 3600);
+  const frontendUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
+  const resetLink = `${frontendUrl}/app.html?reset=${resetToken}`;
+
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  if (resendKey) {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: Deno.env.get('RESEND_FROM_EMAIL') ?? 'ScanForProfit <hello@scanforprofit.com>',
+        to: [user.email],
+        subject: 'Reset your ScanForProfit password',
+        html: `<h2>Reset your password</h2><p>Hi ${user.username},</p><p>Click below to set a new password. This link expires in 1 hour.</p><p><a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Reset Password &rarr;</a></p><p>If you didn't request this, ignore this email — your password won't change.</p>`,
+      }),
+    }).catch(console.error);
+  }
+
+  return json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+}
+
+async function handleResetConfirm(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const body = await req.json().catch(() => ({}));
+  const { token, password } = body;
+  if (!token || !password) return json({ error: 'Token and password are required' }, 400);
+  if (password.length < 6) return json({ error: 'Password must be at least 6 characters' }, 400);
+
+  let payload: Record<string, unknown>;
+  try { payload = await verifyJWT(token, jwtSecret); }
+  catch { return json({ error: 'Reset link has expired or is invalid. Please request a new one.' }, 400); }
+
+  if (payload.purpose !== 'password_reset') return json({ error: 'Invalid reset token' }, 400);
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  const { error } = await supabase
+    .from('users')
+    .update({ password: passwordHash })
+    .eq('id', payload.sub);
+
+  if (error) return json({ error: 'Failed to update password. Please try again.' }, 500);
+
+  return json({ success: true, message: 'Password updated successfully. Please log in.' });
 }
