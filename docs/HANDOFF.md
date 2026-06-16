@@ -4,6 +4,59 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Trends tab redesign — 8 changes (PR #70)
+
+### What changed this session
+
+**`apps/web/public/app.html`** — all 8 Trends tab changes:
+
+1. **Change 1 + 8 (animated logo + emoji audit)** — Loading state brain emoji `🧠` replaced with animated inline SVG ScanMark (gold brackets, green bars that pulse with CSS SVG `<animate>`). Empty state `📈` + `🚀` replaced with static ScanMark SVG. Tab bar TRENDS `📈` replaced with SVG trend-line icon. Stale banner `⏰` replaced with SVG clock. All 6 card titles in `#growth-results` and the trending hot-tip `🔥` replaced with small inline SVG icons (bar-chart, hourglass, target crosshair, signal waves, lightning bolt, flame shape) — no new CSS classes, all inline.
+
+2. **Change 2 (Drop Price modal)** — `stale-action` badge for Drop Price actions is now clickable (`openDropPriceModal(sku, name)`). New `#drop-price-modal` shows current price + recommended −10% price. Accept updates `items[].sellPrice` locally + calls `saveItems()`. Hustle+ tiers (trial/hustle/stack/empire) see an "Also Sync to eBay" button (stub — shows "connect eBay in Settings" toast for now). Scout sees a manual reminder banner.
+
+3. **Change 3 (Filter Bundle)** — `stale_actions` are filtered with `.filter(i => !i.action.toLowerCase().includes('bundle'))` before rendering. Single-item bundle is not actionable.
+
+4. **Change 4 (Relist modal)** — `stale-action` badge for Relist actions is now clickable (`openRelistConfirm(sku, name)`). New `#relist-modal` confirms intent. On confirm: item status set to `'Unlisted'`, `saveItems()` called, switches to Inventory tab, opens edit form via `startEdit(item.id)` after 200ms delay.
+
+5. **Change 5 (Score card branding)** — `#growth-score-card` background changed from warm parchment `linear-gradient(135deg,#fdf5e4,#f5e8cc)` + undefined `--border-dark` → dark branded `linear-gradient(135deg,rgba(212,168,67,0.10) 0%,#131313 100%)` + `rgba(212,168,67,0.30)` border.
+
+6. **Change 6 (Stale item body clickable)** — Each `.stale-item` div has `onclick="goToStaleItemListing(sku)"` + `cursor:pointer`. Action badges use `event.stopPropagation()` to prevent double-firing. `goToStaleItemListing()` finds item by SKU, calls `switchTab('inventory')` + `startEdit(item.id)`.
+
+7. **Change 7 (Advisor moved up)** — `#growth-advice-section` HTML block moved from after market trends to directly after the score card. JS output (`growth-advice-content`) unchanged.
+
+8. **Change 8 (emoji audit)** — See Change 1 above. AI prompt template at line ~3695 (`"arrow":"📈 or 📉"`) intentionally untouched per "never rewrite AI prompts" rule. Hunt list fallback icon `🎯` in JS template literal left as-is (AI response content).
+
+### New functions added
+- `goToStaleItemListing(sku)` — navigate to stale item's edit form
+- `openDropPriceModal(sku, name)` / `closeDropPriceModal()` / `acceptDropPrice()` / `syncDropPriceToEbay()` — drop price flow
+- `openRelistConfirm(sku, name)` / `closeRelistModal()` / `confirmRelist()` — relist flow
+
+### New state vars added
+- `let _dpState = null` — tracks open drop price modal state
+- `let _relistState = null` — tracks open relist modal state
+
+### Files changed
+- `apps/web/public/app.html` — modified
+
+### Commit / PR
+Commit `fb8f7de` on branch `claude/trends-tab-redesign-l5f2wp` — PR #70 (draft, open)
+
+### Decisions made (do not reverse)
+- Animated ScanMark SVG is the canonical loading indicator for the Trends tab. Do not reintroduce the brain emoji.
+- Bundle stale actions are filtered out client-side. If AI returns Bundle it will be silently hidden.
+- Drop Price "eBay sync" is a stub (shows "connect eBay in Settings" toast). Real eBay Price Change API call deferred to when eBay OAuth is fully wired.
+- Score card warm parchment background is permanently retired — use dark branded gradient.
+
+### Next task
+- Merge PR #70 once Vercel CI passes
+- Optional: Replace hunt list fallback icon `🎯` with SVG (requires changing the JS template literal default, low priority)
+- Optional: Wire real eBay Price Change API call in `syncDropPriceToEbay()` once eBay OAuth is confirmed working
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-16 — Credentials, metadata, and localStorage cleanup (PR #67)
 
 ### What changed this session
