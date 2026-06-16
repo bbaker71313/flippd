@@ -4075,8 +4075,8 @@ let _ebaySyncDays = 90;
 
 function ebayConnect() {
   showToast('⏳ Redirecting to eBay...');
-  const clientId = 'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c';
-  const ruName   = 'https://flippd-backend.replit.app/ebay/oauth/callback';
+  const clientId = '';  // set EBAY_CLIENT_ID in Supabase secrets — see .env.example
+  const ruName   = '';  // set EBAY_RUNAME in Supabase secrets (your eBay RuName callback URL)
   const scopes   = [
     'https://api.ebay.com/oauth/api_scope',
     'https://api.ebay.com/oauth/api_scope/sell.inventory',
@@ -4441,7 +4441,7 @@ function updateStyle(val) {
 // SOURCING — VIEWS
 // ══════════════════════════════════════════════════
 let apiKey = localStorage.getItem('fif_api_key') || '';
-const API_BASE = 'https://flippd-backend.replit.app';
+const API_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy'; // replaced Replit backend
 const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
@@ -5781,8 +5781,8 @@ function updateDashGreeting() {
 function showForgotPassword() {
   const username = document.getElementById('auth-username').value.trim();
   const msg = username
-    ? `To reset your password, email support@flippd.app with your username: "${username}"`
-    : 'Email support@flippd.app with your username to reset your password.';
+    ? `To reset your password, email support@scanforprofit.com with your username: "${username}"`
+    : 'Email support@scanforprofit.com with your username to reset your password.';
   alert(msg);
 }
 
