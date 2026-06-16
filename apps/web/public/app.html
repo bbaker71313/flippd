@@ -2270,7 +2270,7 @@ body::before{
       <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="acceptDropPrice()">Accept Drop</button>
     </div>
     <div id="dp-ebay-wrap" style="display:none;margin-top:8px">
-      <button onclick="syncDropPriceToEbay()" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer">↗ Also Sync to eBay — connect eBay in Settings</button>
+      <button id="dp-ebay-btn" onclick="syncDropPriceToEbay()" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer">↗ Sync Price to eBay</button>
     </div>
   </div>
 </div>
@@ -3976,6 +3976,8 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   }
 }
 
+const HUNT_ICON_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--accent)"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
 function renderGrowthResults(r) {
   show('growth-results');
 
@@ -4034,7 +4036,7 @@ function renderGrowthResults(r) {
   // Hunt list
   const huntContent = (r.hunt_list||[]).map(h=>`
     <div class="hunt-item">
-      <div class="hunt-icon">${h.icon||'🎯'}</div>
+      <div class="hunt-icon">${h.icon||HUNT_ICON_SVG}</div>
       <div>
         <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
         <div class="hunt-why">${h.why}</div>
@@ -4110,8 +4112,32 @@ function acceptDropPrice() {
   showToast('Price updated to $' + newPrice.toFixed(2));
 }
 
-function syncDropPriceToEbay() {
-  showToast('Connect eBay in Settings to enable auto-sync');
+async function syncDropPriceToEbay() {
+  if (!_dpState) return;
+  const btn = document.getElementById('dp-ebay-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  try {
+    const res = await fetch(EBAY_BASE + '/price-change', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ sku: _dpState.sku, newPrice: _dpState.newPrice }),
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast('eBay price updated to $' + _dpState.newPrice.toFixed(2));
+      logActivity('↗', 'eBay price synced for "' + _dpState.name + '" → $' + _dpState.newPrice.toFixed(2));
+    } else if (res.status === 400 && data.error === 'eBay not connected') {
+      showToast('Connect eBay in Settings to enable auto-sync');
+    } else if (res.status === 404) {
+      showToast('No eBay listing found for this SKU — sync manually');
+    } else {
+      showToast('eBay sync failed: ' + (data.error || res.status));
+    }
+  } catch (e) {
+    showToast('eBay sync failed — check connection');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↗ Sync Price to eBay'; }
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -4526,7 +4552,7 @@ function renderDashboard() {
         </div>`:''}
         ${huntItems.slice(0,5).map(h=>`
           <div class="hunt-item">
-            <div class="hunt-icon">${h.icon||'🎯'}</div>
+            <div class="hunt-icon">${h.icon||HUNT_ICON_SVG}</div>
             <div>
               <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
               <div class="hunt-why">${h.why}</div>
@@ -4534,7 +4560,7 @@ function renderDashboard() {
           </div>`).join('')}
       </div>`
     : `<div class="card" style="border-style:dashed;text-align:center;padding:24px 16px">
-        <div style="font-size:28px;margin-bottom:8px">🎯</div>
+        <div style="margin-bottom:8px;display:flex;justify-content:center"><svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--accent)"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
         <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No hunt list yet</div>
         <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Run the Growth Agent in Trends to get AI-curated items to look for this week.</div>
         <button onclick="switchTab('growth')" style="background:var(--accent);color:#000;border:none;border-radius:4px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Go to Trends →</button>

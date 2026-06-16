@@ -84,10 +84,11 @@ Deno.serve(async (req: Request) => {
   const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
 
   try {
-    if (req.method === 'GET'  && path.endsWith('/authorize'))  return await handleAuthorize(req, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/callback'))   return await handleCallback(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/status'))     return await handleStatus(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/disconnect')) return await handleDisconnect(req, supabase, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/authorize'))    return await handleAuthorize(req, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/callback'))     return await handleCallback(req, supabase, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/status'))       return await handleStatus(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/disconnect'))   return await handleDisconnect(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/price-change')) return await handlePriceChange(req, supabase, jwtSecret);
     return json({ error: 'Not found' }, 404);
   } catch (err) {
     console.error('ebay-oauth error:', err);
@@ -209,4 +210,103 @@ async function handleDisconnect(req: Request, supabase: ReturnType<typeof create
   }).eq('id', userId);
 
   return json({ success: true });
+}
+
+async function getValidEbayToken(
+  userId: number,
+  supabase: ReturnType<typeof createClient>,
+): Promise<string | null> {
+  const { data: user } = await supabase
+    .from('users')
+    .select('ebay_access_token, ebay_refresh_token, ebay_token_expires_at')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (!user?.ebay_access_token) return null;
+
+  const expiresAt = user.ebay_token_expires_at ? new Date(user.ebay_token_expires_at) : new Date(0);
+  if (expiresAt > new Date(Date.now() + 60_000)) return user.ebay_access_token;
+
+  // Token expired — refresh it
+  const clientId = Deno.env.get('EBAY_CLIENT_ID');
+  const clientSecret = Deno.env.get('EBAY_CLIENT_SECRET');
+  if (!clientId || !clientSecret || !user.ebay_refresh_token) return null;
+
+  const refreshRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+    },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: user.ebay_refresh_token }),
+  });
+
+  if (!refreshRes.ok) return null;
+
+  const refreshData = await refreshRes.json();
+  const newExpires = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
+
+  await supabase.from('users').update({
+    ebay_access_token: refreshData.access_token,
+    ebay_token_expires_at: newExpires,
+  }).eq('id', userId);
+
+  return refreshData.access_token;
+}
+
+async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const userId = await getAuthedUserId(req, jwtSecret);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+
+  const body = await req.json().catch(() => ({}));
+  const { sku, newPrice } = body as { sku?: string; newPrice?: number };
+  if (!sku || typeof newPrice !== 'number' || newPrice <= 0) {
+    return json({ error: 'Missing or invalid sku / newPrice' }, 400);
+  }
+
+  const accessToken = await getValidEbayToken(userId, supabase);
+  if (!accessToken) return json({ error: 'eBay not connected' }, 400);
+
+  // Find offer by SKU
+  const offersRes = await fetch(
+    `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
+    { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } },
+  );
+
+  if (offersRes.status === 404) return json({ error: 'No eBay listing found for this SKU' }, 404);
+  if (!offersRes.ok) return json({ error: 'eBay API error: ' + offersRes.status }, 502);
+
+  const offersData = await offersRes.json();
+  const offer = offersData.offers?.[0];
+  if (!offer) return json({ error: 'No eBay listing found for this SKU' }, 404);
+
+  // Build update body — strip read-only fields
+  const { offerId, status, listing, ...writeableOffer } = offer;
+  const updateBody = {
+    ...writeableOffer,
+    pricingSummary: {
+      ...offer.pricingSummary,
+      price: {
+        value: newPrice.toFixed(2),
+        currency: offer.pricingSummary?.price?.currency ?? 'USD',
+      },
+    },
+  };
+
+  const updateRes = await fetch(
+    `https://api.ebay.com/sell/inventory/v1/offer/${offerId}`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateBody),
+    },
+  );
+
+  if (!updateRes.ok) {
+    const errText = await updateRes.text().catch(() => '');
+    console.error('eBay updateOffer failed:', updateRes.status, errText);
+    return json({ error: 'eBay price update failed' }, 502);
+  }
+
+  return json({ success: true, offerId, newPrice });
 }
