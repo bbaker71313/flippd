@@ -4,6 +4,77 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Repo hygiene: #6 #7 #8 #9 + web.yml
+
+### What changed this session
+
+**`supabase/functions/ebay-oauth/index.ts`** — created, committed, deployed via PR #65 (squash `c563109`):
+- Standalone Deno edge function. Routes match `app.html`'s `EBAY_BASE` calls: GET `/authorize`, GET `/callback`, GET `/status`, POST `/disconnect`.
+- Extracted from eBay handlers in `auth/index.ts` (ac9d053), which used different route names (`/ebay/connect`, `/ebay-callback`) and is now dead code for eBay. Do not remove auth eBay handlers until EBAY_RUNAME callback URL is confirmed to point at `ebay-oauth/callback`, not `auth/ebay-callback`.
+
+**`.github/workflows/web.yml`** — created (PR #65):
+- TypeScript CI for `apps/web` + `@sfp/shared`. Triggers on PRs/pushes touching those paths. Vercel handles deployments separately via its own GitHub integration.
+
+**`CLAUDE.md`** — updated (PR #65):
+- Added `stripe-checkout` and `ebay-oauth` to edge functions table.
+- Fixed `.github/workflows/` comment: was "web.yml (Vercel)" → "web.yml (TypeScript check)".
+
+**`docs/files/SCOPE_TEMPLATES.md`** — updated (PR #65):
+- `[BACKEND]` template: listed all 5 edge functions (was "these three only").
+- `[APP]` template: fixed stale source file reference `Flippd_v5_23.html` → `docs/ScanForProfit_v5_24.html`.
+
+**`docs/FEATURE_TRIAGE.md`** — updated directly on main (`e9eb1f0`):
+- Added Phase 4 Build Status table at top showing all 13 feature areas built.
+- Added `Last status update: 2026-06-16` line.
+- Documents 4 deferred features: eBay listing push API, backup/restore import, Watch stub, mobile CSV export.
+
+**Branch cleanup (#8)** — sandbox git proxy blocks remote branch deletion (HTTP 403 on receive-pack). Must be done from local terminal. Command:
+```bash
+git push origin --delete \
+  claude/admin-tier-management-X5Q2i claude/audit-run-errors-6RmCv \
+  claude/audit-scanforprofit-sites-jYmtu claude/brave-brahmagupta-ff7NM \
+  claude/build-failures-prod-dev-CtYxt claude/claude-md-gaps-g5awyr \
+  claude/confident-hamilton-frmya0 claude/dazzling-heisenberg-bsqpr6 \
+  claude/deploy-edge-functions-kHcBm claude/docs-clarity-issues-mtpr8k \
+  claude/ebay-connection-error-m20gfy claude/fervent-cray-wtiaqc \
+  claude/fix-claude-md-supabase-id-fzd5hd claude/fix-flippd-bugs-nRawD \
+  claude/gifted-clarke-uPkI6 claude/hopeful-mayer-dx9p8l \
+  claude/landing-page-404-error-42PSA claude/missing-edge-functions-workflows-l2dtjg \
+  claude/morning-session-7r6bx5 claude/new-session-YbaGj \
+  claude/new-session-YbaGj-security-fix claude/new-session-xpGlD \
+  claude/photo-enhancement-regression-ogdn1f claude/rebrand-flippd-scanforprofit-ye9oJ \
+  claude/remote-session-setup-MRbJ8 claude/scanforprofit-branding-colors-edf40x \
+  claude/scanforprofit-design-audit-5K3YG claude/scanforprofit-ui-seo-audit-9xn510 \
+  claude/serve-app-html claude/session-vw5pnp claude/update-css-tokens-Fm9lv \
+  claude/vibrant-thompson-kGeJA cloudflare/workers-autoconfig pr/phase-4-build \
+  railway/fix-deploy-3056c1 v0/scanforprofit-56a77671 \
+  vercel/install-vercel-speed-insights-qjw27a
+```
+
+### Files changed
+- `supabase/functions/ebay-oauth/index.ts` — created
+- `.github/workflows/web.yml` — created
+- `CLAUDE.md` — modified
+- `docs/files/SCOPE_TEMPLATES.md` — modified
+- `docs/FEATURE_TRIAGE.md` — modified
+
+### Commits
+- PR #65 squash → `c563109` (ebay-oauth, web.yml, CLAUDE.md, SCOPE_TEMPLATES.md)
+- `e9eb1f0` — FEATURE_TRIAGE.md Phase 4 status update (direct to main)
+
+### Decisions made (do not reverse)
+- `ebay-oauth` is a separate edge function from `auth`. Auth's eBay handlers are dead code — safe to remove only after confirming `EBAY_RUNAME` callback points at `ebay-oauth/callback`.
+- `web.yml` is TypeScript CI only — Vercel deployments are not managed via this workflow.
+- FEATURE_TRIAGE.md is now dated 2026-06-16. Update the "Last status update" line whenever a new major phase is completed.
+
+### Next task
+Phase 3 Step 3 (Component Library redo with frontend-design skill) or Phase 5 (Web App Build) — whichever the user prioritizes. Also: run the branch cleanup command above from local terminal to close out #8.
+
+### Blockers
+#8 (branch cleanup) requires local terminal — sandbox cannot delete remote branches.
+
+---
+
 ## Session: 2026-06-16 — Fix stale doc references (PR #64)
 
 ### What changed this session
