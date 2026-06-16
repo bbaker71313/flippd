@@ -530,13 +530,13 @@ body::before{
   font-family:'IBM Plex Mono',monospace;font-weight:800;
 }
 .status-Unlisted{background:rgba(90,80,60,0.3);color:#a89060;border:1px solid #4a4030}
-.status-Listed{background:rgba(0,150,80,0.15);color:#00c060;border:1px solid #005530}
+.status-Listed{background:var(--green-bg);color:var(--green);border:1px solid rgba(0,230,118,0.3)}
 .status-Sold{background:rgba(68,138,255,0.1);color:#448aff;border:1px solid #1a3a80}
 .profit-pos{color:var(--green);font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace}
 .profit-neg{color:var(--red);font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace}
 .sold-btn{
-  background:rgba(0,150,80,0.2);color:var(--green);
-  border:1px solid #005530;border-radius:3px;
+  background:var(--green-bg);color:var(--green);
+  border:1px solid rgba(0,230,118,0.3);border-radius:3px;
   padding:4px 10px;font-size:10px;font-family:'IBM Plex Mono',monospace;
   cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;
   font-weight:700;letter-spacing:0.06em;
@@ -983,11 +983,11 @@ body::before{
    (#e8fff2/#f0fff5/#fff0f0 → dark-theme-correct translucent tints).
    Also fixes same bug class as PR #46 Stats-tab fix.                     */
 .shelf-item.is-hot  { background: rgba(0,230,118,0.10); border-color: var(--green-border); }
-.shelf-item.is-buy  { background: var(--green-bg);      border-color: #005530; }
+.shelf-item.is-buy  { background: var(--green-bg);      border-color: rgba(0,230,118,0.3); }
 .shelf-item.is-pass { background: var(--red-bg);        border-color: #550000; }
 
 .shelf-item.is-hot  .s-badge { background: var(--green);  color: #000; }
-.shelf-item.is-buy  .s-badge { background: #228844;        color: #fff; }
+.shelf-item.is-buy  .s-badge { background: var(--green);   color: #000; }
 .shelf-item.is-pass .s-badge { background: var(--red);     color: #fff; }
 
 /* Buy button inside a shelf item */
@@ -1009,7 +1009,7 @@ body::before{
   text-transform: uppercase; font-family: 'IBM Plex Mono', monospace;
 }
 .shelf-section-hdr.is-hot  { color: var(--green-border); }
-.shelf-section-hdr.is-buy  { color: #228844; }
+.shelf-section-hdr.is-buy  { color: var(--green); }
 .shelf-section-hdr.is-pass { color: var(--red); }
 
 /* Shelf summary stat cards (HOT/BUY/PASS counts at top) */
@@ -1017,7 +1017,7 @@ body::before{
   font-size: var(--text-2xl); font-family: 'Syne', sans-serif; font-weight: 900;
 }
 .shelf-stat-num.is-hot  { color: var(--green-border); }
-.shelf-stat-num.is-buy  { color: #228844; }
+.shelf-stat-num.is-buy  { color: var(--green); }
 .shelf-stat-num.is-pass { color: var(--red); }
 
 /* ══ GROUP D — INVENTORY DETAIL / STATUS CARD STATES ════════════════════
@@ -1216,7 +1216,7 @@ body::before{
         <button onclick="setAuthMode('login')" style="margin-top:16px;background:none;border:1px solid var(--border);color:var(--accent);padding:9px 20px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Back to Log In</button>
       </div>
 
-      <div id="auth-error" style="display:none;background:#ffe6e6;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;padding:10px 12px;margin-bottom:10px;font-weight:600;line-height:1.5"></div>
+      <div id="auth-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;padding:10px 12px;margin-bottom:10px;font-weight:600;line-height:1.5"></div>
 
       <div id="auth-actions">
         <button id="auth-submit-btn" class="btn btn-green" onclick="submitAuth()" style="margin-bottom:10px;width:100%">Log In →</button>
@@ -1465,7 +1465,7 @@ body::before{
       <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="saveInvItem()">✓ Add to Inventory</button>
       <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="cancelInvForm()">Cancel</button>
     </div>
-    <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00bb66);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
+    <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00e676);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
       &#x1f680; Save + Write eBay Listing
     </button>
   </div>
@@ -1635,8 +1635,8 @@ body::before{
 
     <!-- Section: AI advice -->
     <div id="growth-advice-section" class="card" style="margin-bottom:14px;background:var(--green-bg);border-color:var(--green-border)">
-      <h3 class="card-title" style="color:#005522">💡 Your Business Advisor Says</h3>
-      <div id="growth-advice-content" style="font-size:13px;color:#005522;line-height:1.8;font-weight:500"></div>
+      <h3 class="card-title" style="color:var(--green)">💡 Your Business Advisor Says</h3>
+      <div id="growth-advice-content" style="font-size:13px;color:var(--text);line-height:1.8;font-weight:500"></div>
     </div>
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
@@ -1783,9 +1783,9 @@ body::before{
       <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="time" id="csv-reminder-time" aria-label="Reminder time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
-        <button onclick="saveCsvReminder()" style="background:#c47800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">Save</button>
+        <button onclick="saveCsvReminder()" style="background:var(--yellow);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">Save</button>
       </div>
-      <div id="csv-reminder-saved" style="font-size:11px;color:#c47800;margin-top:6px;font-family:'IBM Plex Mono',monospace"></div>
+      <div id="csv-reminder-saved" style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace"></div>
     </div>
   </div>
 
@@ -1858,8 +1858,8 @@ body::before{
   <!-- IMPORT PREVIEW -->
   <div id="import-preview" style="display:none">
     <div class="card" style="margin-bottom:12px;border-color:var(--green-border);background:var(--green-bg)">
-      <h3 class="card-title" style="color:#005522">✓ Ready to Import</h3>
-      <div id="import-summary" style="font-size:13px;color:#005522;font-weight:600;margin-bottom:10px"></div>
+      <h3 class="card-title" style="color:var(--green)">✓ Ready to Import</h3>
+      <div id="import-summary" style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:10px"></div>
       <div id="import-preview-list" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmImport()">✓ Import All</button>
@@ -1871,7 +1871,7 @@ body::before{
   <!-- IMPORT RESULT -->
   <div id="import-result" style="display:none">
     <div class="card" style="border-color:var(--green-border);background:var(--green-bg)">
-      <div id="import-result-content" style="font-size:13px;color:#005522;font-weight:600"></div>
+      <div id="import-result-content" style="font-size:13px;color:var(--text);font-weight:600"></div>
       <button class="btn btn-green" style="margin-top:12px;margin-bottom:0" onclick="document.getElementById('import-result').style.display='none';switchTab('inventory')">View Inventory →</button>
     </div>
   </div>
@@ -2158,7 +2158,7 @@ body::before{
       <div id="app-confirm-msg" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px">This action cannot be undone.</div>
       <div style="display:flex;gap:8px">
         <button id="app-confirm-cancel" class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="appConfirmRespond(false)">Cancel</button>
-        <button id="app-confirm-ok" class="btn" style="flex:1;margin-bottom:0;background:#dd0000;color:#fff;border-color:#dd0000" onclick="appConfirmRespond(true)">Delete</button>
+        <button id="app-confirm-ok" class="btn" style="flex:1;margin-bottom:0;background:var(--red);color:#fff;border-color:var(--red)" onclick="appConfirmRespond(true)">Delete</button>
       </div>
     </div>
   </div>
@@ -2838,7 +2838,7 @@ async function invFormDetectItem() {
     status.style.color = '#2D6B52';
   } catch(e) {
     status.textContent = '⚠️ Detection failed: ' + (e.message || 'Try again');
-    status.style.color = '#cc0000';
+    status.style.color = 'var(--red)';
   }
   btn.disabled = false; btn.textContent = '🤖 Detect Item from Photo';
 }
@@ -5373,7 +5373,7 @@ function showBuyConfirm(item, cost, fin, dec) {
   const conf = item.confidence || 0;
   document.getElementById('buy-conf-pct').textContent = conf + '%';
   document.getElementById('buy-conf-bar').style.width = conf + '%';
-  document.getElementById('buy-conf-bar').style.background = conf >= 70 ? 'var(--green)' : conf >= 40 ? '#c47800' : '#cc0000';
+  document.getElementById('buy-conf-bar').style.background = conf >= 70 ? 'var(--green)' : conf >= 40 ? 'var(--yellow)' : 'var(--red)';
   document.getElementById('buy-conf-reason').textContent = item.confidence_reason || '';
 
   // Fill editable fields
@@ -5653,7 +5653,7 @@ function renderScanHistory() {
             <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name||'Unknown item'}</div>
             <div style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px">${new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
           </div>
-          <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px;${s.dec==='HOT'?'background:#e8fff2;color:#006633':s.dec==='BUY'?'background:#d4e8e0;color:var(--green)':s.dec==='PASS'?'background:#fee;color:var(--red)':'background:var(--bg);color:var(--muted)'}">${s.dec||'—'}</span>
+          <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px;${s.dec==='HOT'?'background:var(--green-bg);color:var(--green)':s.dec==='BUY'?'background:var(--green-bg);color:var(--green)':s.dec==='PASS'?'background:var(--red-bg);color:var(--red)':'background:var(--bg);color:var(--muted)'}">${s.dec||'—'}</span>
         </div>`).join('')}
     </div>`;
 }
@@ -5689,7 +5689,7 @@ async function fetchTrendingKeywords() {
 function renderTrendingKeywords(data, el) {
   if (!el || !data) return;
   el.innerHTML = `
-    ${data.hot_tip ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px;font-size:12px;color:#005522;font-weight:600;margin-bottom:12px">🔥 ${data.hot_tip}</div>` : ''}
+    ${data.hot_tip ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:12px">🔥 ${data.hot_tip}</div>` : ''}
     <div style="font-size:10px;letter-spacing:0.15em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Top 10 eBay Searches Right Now</div>
     ${(data.keywords||[]).map(k=>`
       <div class="trend-keyword">
@@ -6161,7 +6161,7 @@ function showSourcingDrillDown() {
       <div><div style="font-size:13px;font-weight:700;color:var(--text)">${s.item||'Unknown item'}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${new Date(s.ts).toLocaleTimeString()}</div></div>
       <div style="text-align:right">
-        <span style="background:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-bg)':'#ffe6e6'};color:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
+        <span style="background:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-bg)':'var(--red-bg)'};color:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
         ${s.roi ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${s.roi}% ROI</div>` : ''}
       </div>
     </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted)">No scans yet today</div>';
@@ -6197,7 +6197,7 @@ function showPhotosDrillDown() {
         <div style="font-size:13px;color:var(--text);font-weight:600">\u2728 AI enhanced photos</div>
         <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--accent)">${withEnhanced.length}</div>
       </div>
-      <div style="background:${noPhotos.length>0?'#ffe6e6':'var(--card)'};border:1px solid ${noPhotos.length>0?'var(--red)':'var(--border)'};border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+      <div style="background:${noPhotos.length>0?'var(--red-bg)':'var(--card)'};border:1px solid ${noPhotos.length>0?'var(--red)':'var(--border)'};border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:13px;color:var(--text);font-weight:600">\u26a0\ufe0f Still need photos</div>
         <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:${noPhotos.length>0?'var(--red)':'var(--muted)'}">${noPhotos.length}</div>
       </div>
@@ -6252,19 +6252,19 @@ function updateTierBanner(user) {
     const daysLeft = Math.max(0, Math.ceil((new Date(user.trialEndsAt)-new Date())/(1000*60*60*24)));
     if (daysLeft > 0) {
       text.textContent = '\ud83c\udf89 Free Trial: ' + daysLeft + ' day' + (daysLeft===1?'':'s') + ' left of full access';
-      banner.style.background = daysLeft<=2?'#fff4d6':'var(--green-bg)';
-      banner.style.borderBottomColor = daysLeft<=2?'#c47800':'var(--green-border)';
+      banner.style.background = daysLeft<=2?'var(--yellow-bg)':'var(--green-bg)';
+      banner.style.borderBottomColor = daysLeft<=2?'var(--yellow)':'var(--green-border)';
       banner.style.display = 'flex';
     } else {
       text.textContent = '\u23f0 Trial ended \u2014 upgrade to keep premium features';
-      banner.style.background = '#fff4d6';
-      banner.style.borderBottomColor = '#c47800';
+      banner.style.background = 'var(--yellow-bg)';
+      banner.style.borderBottomColor = 'var(--yellow)';
       banner.style.display = 'flex';
     }
   } else if (tier === 'scout') {
     const used = (user&&user.scansThisMonth)||0;
     text.textContent = '\ud83d\udcca Free Plan: ' + used + '/25 scans used this month';
-    banner.style.background = used>=25?'#ffe6e6':'var(--green-bg)';
+    banner.style.background = used>=25?'var(--red-bg)':'var(--green-bg)';
     banner.style.borderBottomColor = used>=25?'var(--red)':'var(--green-border)';
     banner.style.display = 'flex';
   } else {
@@ -6292,11 +6292,11 @@ async function saveAndGenerateListing() {
 var _subInterval = 'month';
 
 var TIER_INFO = {
-  hustle: { name:'Hustle', month:19,  year:180,  color:'#00bb66', tagline:'For active resellers',
+  hustle: { name:'Hustle', month:19,  year:180,  color:'#00e676', tagline:'For active resellers',
     features:['Unlimited AI scans','500 inventory items','Full listing generator','Cross-listing prep','Photo enhancement','P&L dashboard'] },
   stack:  { name:'Stack',  month:49,  year:468,  color:'#6b3fa0', tagline:'For serious operators',
     features:['Everything in Hustle','Unlimited inventory','Live pricing intel','Growth agent','Bulk listing','Stale alerts'] },
-  empire: { name:'Empire', month:199, year:1908, color:'#c47800', tagline:'For teams & agencies',
+  empire: { name:'Empire', month:199, year:1908, color:'#f5a623', tagline:'For teams & agencies',
     features:['Everything in Stack','10 team seats','API access','Priority support'] }
 };
 
@@ -6671,10 +6671,10 @@ function showImportPreview(newItems, skippedCount, type) {
   listEl.innerHTML = newItems.slice(0,20).map(i => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(0,153,61,0.2);font-size:12px">
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;color:#005522;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</div>
+        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</div>
         <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">${i.sku} · ${i.category} · $${parseFloat(i.cost||0).toFixed(2)} cost</div>
       </div>
-      <span style="background:#005522;color:#fff;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px">${i.status.toUpperCase()}</span>
+      <span style="background:var(--green);color:#000;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px">${i.status.toUpperCase()}</span>
     </div>`).join('') + (newItems.length > 20 ? `<div style="font-size:11px;color:var(--green);padding:8px 0;font-family:'IBM Plex Mono',monospace">... and ${newItems.length - 20} more</div>` : '');
 }
 
