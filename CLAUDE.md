@@ -72,7 +72,7 @@ scanforprofit/
 
 │   │   ├── app/                   # Expo Router screens
 
-│   │   │   ├── (auth)/            # login.tsx, register.tsx
+│   │   │   ├── (auth)/            # _layout.tsx, login.tsx, register.tsx, verify.tsx
 
 │   │   │   ├── (onboarding)/      # _layout.tsx, how-it-works.tsx,
 
@@ -98,13 +98,23 @@ scanforprofit/
 
 │   │   └── eas.json
 
-│   ├── web/                       # Next.js 14 App Router (after mobile)
+│   ├── web/                       # Next.js 14 App Router
 
-│   │   ├── app/
+│   │   ├── public/                # LIVE static files served by Vercel
 
-│   │   │   ├── (dashboard)/       # auth-gated web app
+│   │   │   ├── index.html         # Marketing homepage — served at / via next.config.js rewrite
 
-│   │   │   └── page.tsx           # marketing homepage
+│   │   │   ├── app.html           # Web app — rebranded Flippd HTML; live at /app.html
+
+│   │   │   ├── privacy.html, terms.html
+
+│   │   │   └── robots.txt, favicon.png, apple-touch-icon.png
+
+│   │   ├── app/                   # Next.js App Router — IN PROGRESS, not yet live
+
+│   │   │   ├── (dashboard)/       # auth-gated web app (future)
+
+│   │   │   └── page.tsx           # placeholder — / is currently served by public/index.html
 
 │   │   └── lib/                   # supabase-server.ts, supabase-client.ts
 
@@ -142,7 +152,12 @@ scanforprofit/
 
 │   │   └── video-assets/
 
-│   ├── files/                 # Miscellaneous tracked assets
+│   ├── files/                 # Session artifacts and reference docs
+│   │   ├── CHATS.md           # Index of the 6 specialized Claude chat sessions
+│   │   ├── DECISIONS.md       # Locked product/tech decisions — do not relitigate
+│   │   ├── LAUNCH_CHECKLIST.md # Phase 6 launch checklist
+│   │   ├── SCOPE_TEMPLATES.md # Reusable scope/task templates
+│   │   └── product-marketing-context.md # Marketing positioning reference
 
 │   ├── HANDOFF.md             # Session context — update every session
 
@@ -184,7 +199,13 @@ Analytics: PostHog RN
 Errors: Sentry RN
 Payments: Stripe React Native
 Web
-Framework: Next.js 14 App Router
+ARCHITECTURE DECISION (locked): The React Native rebuild was abandoned. The old Flippd HTML
+was rebranded as ScanForProfit and is now the live web app at /app.html. The mobile app
+will be rebuilt using app.html as its source reference. The Next.js App Router components
+(apps/web/app/) are in-progress shells — not yet live. Do not treat page.tsx as the
+source of truth for any UI or business logic. Use apps/web/public/app.html instead.
+
+Framework: Next.js 14 App Router (shell only — / served by public/index.html via rewrite)
 Language: TypeScript (strict mode)
 Styling: Tailwind CSS + shadcn/ui
 Auth: @supabase/ssr (cookie-based)
