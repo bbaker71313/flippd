@@ -4,6 +4,60 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Minor doc conflict cleanup (audit)
+
+### What changed this session
+
+**`docs/files/DECISIONS.md`** — corrected stale source file reference:
+- Line 83: heading `Flippd_v5_23.html` → `ScanForProfit_v5_24.html`
+- Line 84: body reference `Flippd_v5_23.html` → `ScanForProfit_v5_24.html`
+
+**`docs/files/CHATS.md`** — corrected stale source file reference:
+- Line 28: `Flippd_v5_23.html` → `ScanForProfit_v5_24.html`
+
+**`docs/FEATURE_TRIAGE.md`** — corrected title:
+- Line 1: `Feature Triage — Flippd v5.23 → ScanForProfit RN` → `Feature Triage — ScanForProfit v5.24 → ScanForProfit RN`
+
+**`packages/shared/src/types/index.ts`** — removed Flippd brand from comments:
+- Line 1: `aligned to Flippd data model` → `// Core domain types for ScanForProfit`
+- Line 175: `port from Flippd F-24 / P-12` → `port from ScanForProfit_v5_24.html`
+
+**`packages/shared/src/utils/calcPnl.ts`** — corrected comment source reference:
+- Line 3: `Port from Flippd pnlCalc() L3028` → `Port from ScanForProfit_v5_24.html pnlCalc() L3028`
+
+**`CLAUDE.txt`** — deleted. Confirmed to be a stale 374-line duplicate of CLAUDE.md (611 lines). CLAUDE.md is the authoritative file.
+
+### Files changed
+- `docs/files/DECISIONS.md`
+- `docs/files/CHATS.md`
+- `docs/FEATURE_TRIAGE.md`
+- `packages/shared/src/types/index.ts`
+- `packages/shared/src/utils/calcPnl.ts`
+- `CLAUDE.txt` — deleted
+
+### Decisions made (do not reverse)
+- CLAUDE.txt is gone. `CLAUDE.md` is the only authoritative instructions file.
+- `ScanForProfit_v5_24.html` is the canonical source-of-truth filename everywhere.
+
+### What is NOT fixed (deferred from this session)
+The following Flippd remnants were identified in the audit but intentionally NOT touched this session — fix separately:
+- 🔴 `apps/web/public/app.html` lines 6035–6036: `support@flippd.app` in forgot-password alert (user-facing)
+- 🔴 `README.md`: `support@flippd.com` and `flippd.com` link
+- 🔴 `apps/web/public/app.html` line 4444: dead backend URL `flippd-backend.replit.app`
+- 🟡 `package.json`: `"name": "flippd-backend"`, stale description and keywords
+- 🟡 `BACKEND_LIVE.md` and `APP_INTEGRATION.md`: stale Replit-era architecture docs
+- 🟠 localStorage keys (`flippd_items_v1`, `flippd_jwt`, etc.) — require data migration
+- 🟠 DOM element IDs and function names in `app.html` (`exportFlippdBackup`, `handleFlippdImport`, etc.)
+- `.env.example`: eBay client ID `Brittany-Flippd-PRD-67b75c3f4-fb4ff30c` comment
+
+### Next task
+Fix 🔴 critical user-facing Flippd remnants next: `support@flippd.app` in `app.html` and `README.md` email/link. Then decide whether to clean up `package.json` and archive `BACKEND_LIVE.md`/`APP_INTEGRATION.md`.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-16 — Repo hygiene: #6 #7 #8 #9 + web.yml
 
 ### What changed this session

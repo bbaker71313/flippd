@@ -80,6 +80,6 @@ Add decisions here when something is locked. Reference CLAUDE.md for implementat
 **Decision:** First mobile distribution is Android via EAS Build + Google Play. iOS (App Store) comes after.
 **Why:** Google Play review process is faster and less restrictive for initial launch. Allows real-user testing before the more scrutinous App Store submission.
 
-### Source of truth for business logic is Flippd_v5_23.html
-**Decision:** All AI prompts, profit calculations, and business rules are ported from `Flippd_v5_23.html`. Never rewrite from scratch.
+### Source of truth for business logic is ScanForProfit_v5_24.html
+**Decision:** All AI prompts, profit calculations, and business rules are ported from `ScanForProfit_v5_24.html`. Never rewrite from scratch.
 **Why:** Those prompts and calculations have been tested in production. Rewriting introduces errors. Port verbatim.

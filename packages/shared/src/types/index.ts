@@ -1,4 +1,4 @@
-// Core domain types for ScanForProfit — aligned to Flippd data model
+// Core domain types for ScanForProfit
 
 export type UserTier = 'trial' | 'scout' | 'hustle' | 'stack' | 'empire'
 
@@ -172,7 +172,7 @@ export interface GrowthReport {
   item_count: number     // total items in inventory at generation time
 }
 
-// P&L types — port from Flippd F-24 / P-12
+// P&L types — port from ScanForProfit_v5_24.html
 export interface PnlSummary {
   totalRevenue: number        // sum of sold items sell_price
   totalCogs: number           // sum of sold items cost

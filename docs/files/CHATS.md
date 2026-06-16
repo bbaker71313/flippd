@@ -25,7 +25,7 @@ End every session following END_OF_CHAT_PROTOCOL.md.
 **Owns:** `apps/mobile/` — screens, components, navigation, camera, local state
 **Does not own:** Edge Functions, database schema, auth logic, payments
 **Key files:** `CLAUDE.md`, `HANDOFF.md`, `FEATURE_TRIAGE.md`, `BRAND_IDENTITY.md`, `PHASE_4_CHAT_SETUP.md`
-**Source of truth for logic:** `Flippd_v5_23.html` — port prompts and business rules verbatim
+**Source of truth for logic:** `ScanForProfit_v5_24.html` — port prompts and business rules verbatim
 **Stack:** React Native + Expo SDK 52 + Expo Router 4 + NativeWind 4
 **Rule:** NativeWind classes only — never `StyleSheet.create()`
 
