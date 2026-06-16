@@ -1,13 +1,13 @@
 # Feature Triage — Flippd v5.23 → ScanForProfit RN
 
-Source file: `Flippd_v5_23.html` (6,642 lines)
+Source file: `ScanForProfit_v5_24.html` (6,642 lines)
 Analysis date: 2026-05-24
 
 ---
 
 ## Section 1 — Full Feature Inventory
 
-Every distinct feature, exhaustive and ungrouped. Line numbers reference `Flippd_v5_23.html`.
+Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanForProfit_v5_24.html`.
 
 ---
 

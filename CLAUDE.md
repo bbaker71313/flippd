@@ -210,7 +210,7 @@ Language: TypeScript (strict mode)
 Styling: Tailwind CSS + shadcn/ui
 Auth: @supabase/ssr (cookie-based)
 Backend / Database
-Platform: Supabase (project: gymuhbscxmmcbqoovvud)
+Platform: Supabase (project: dqgfpchkheznvanfgsmx)
 Database: PostgreSQL 17
 Edge Functions: Deno / TypeScript (replacing Replit backend)
 Auth: Supabase Auth — email verification + username/password
@@ -243,7 +243,7 @@ Dead endpoints — never reference: /auth/request-link, /auth/verify-link
 
 
 🧱 Data Model
-All types defined in packages/shared/src/types/index.ts. All values from Supabase project gymuhbscxmmcbqoovvud.
+All types defined in packages/shared/src/types/index.ts. All values from Supabase project dqgfpchkheznvanfgsmx.
 Core Types
 type UserTier = 'trial' | 'scout' | 'hustle' | 'stack' | 'empire'
 
