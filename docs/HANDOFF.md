@@ -70,7 +70,7 @@ This file is the persistent session context. Update it at the end of every Claud
 - `CLAUDE.txt` — deleted
 
 ### Commit / PR
-Commit `078d651` on branch `claude/cleanup-credentials-metadata-g99z9o` — PR #67 (draft, open)
+PR #67 squash-merged → commit `d46ee3b` on `main`
 
 ### Decisions made (do not reverse)
 - localStorage key prefix is now `sfp_` everywhere. Do not reintroduce `flippd_` keys.
@@ -80,8 +80,7 @@ Commit `078d651` on branch `claude/cleanup-credentials-metadata-g99z9o` — PR #
 - `CLAUDE.txt` is permanently deleted — `CLAUDE.md` at repo root is the only authoritative copy.
 
 ### Next task
-- Merge PR #67 once Vercel CI completes
-- Phase 3 Step 3 (Component Library redo with frontend-design skill) or Phase 5 (Web App Build) — whichever the user prioritizes next
+Phase 3 Step 3 (Component Library redo with frontend-design skill) or Phase 5 (Web App Build) — whichever the user prioritizes next
 
 ---
 
