@@ -4277,7 +4277,7 @@ async function ebayConnect() {
   if (!isUnlocked()) { showToast('Log in to connect your eBay account'); return; }
   showToast('⏳ Redirecting to eBay...');
   try {
-    const res = await fetch(AUTH_BASE + '/ebay/connect', { headers: getApiHeaders() });
+    const res = await fetch(EBAY_BASE + '/authorize', { headers: getApiHeaders() });
     if (!res.ok) throw new Error('status ' + res.status);
     const data = await res.json();
     if (!data.authUrl) throw new Error('missing authUrl');
@@ -4291,7 +4291,7 @@ function ebayDisconnect() {
   // Call backend to revoke tokens, then update UI
   (async () => {
     try {
-      await fetch(AUTH_BASE + '/ebay/disconnect', {
+      await fetch(EBAY_BASE + '/disconnect', {
         method: 'POST',
         headers: getApiHeaders()
       });
@@ -4323,7 +4323,7 @@ async function checkEbayStatus() {
   }
   disp.textContent = 'Checking...';
   try {
-    const res = await fetch(AUTH_BASE + '/ebay/status', { headers: getApiHeaders() });
+    const res = await fetch(EBAY_BASE + '/status', { headers: getApiHeaders() });
     if (!res.ok) throw new Error('status ' + res.status);
     const data = await res.json();
     if (data.connected) {
@@ -4634,6 +4634,7 @@ function updateStyle(val) {
 // ══════════════════════════════════════════════════
 let apiKey = localStorage.getItem('fif_api_key') || '';
 const AUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
+const EBAY_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/ebay-oauth';
 const API_BASE  = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy';
 const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
