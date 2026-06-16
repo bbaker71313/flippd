@@ -39,7 +39,7 @@ This file is the persistent session context. Update it at the end of every Claud
 - `apps/web/public/app.html` — modified
 
 ### Commit / PR
-Commit `fb8f7de` on branch `claude/trends-tab-redesign-l5f2wp` — PR #70 (draft, open)
+Commit `fb8f7de` on branch `claude/trends-tab-redesign-l5f2wp` — PR #70 **MERGED** into `main` (`fc641df`)
 
 ### Decisions made (do not reverse)
 - Animated ScanMark SVG is the canonical loading indicator for the Trends tab. Do not reintroduce the brain emoji.
@@ -48,9 +48,10 @@ Commit `fb8f7de` on branch `claude/trends-tab-redesign-l5f2wp` — PR #70 (draft
 - Score card warm parchment background is permanently retired — use dark branded gradient.
 
 ### Next task
-- Merge PR #70 once Vercel CI passes
 - Optional: Replace hunt list fallback icon `🎯` with SVG (requires changing the JS template literal default, low priority)
 - Optional: Wire real eBay Price Change API call in `syncDropPriceToEbay()` once eBay OAuth is confirmed working
+- Phase 3 Step 3: Component Library redo with frontend-design skill (deferred)
+- Phase 5: Web App Build (not yet started)
 
 ---
 
