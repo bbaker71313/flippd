@@ -35,6 +35,9 @@ This file is the persistent session context. Update it at the end of every Claud
 - `CLAUDE.md` — modified
 - `docs/files/SCOPE_TEMPLATES.md` — modified
 
+### Commit / PR
+PR #65 merged to main — squash commit `c563109`
+
 ### Decisions made (do not reverse)
 - `ebay-oauth` is a **separate** edge function from `auth` — even though both have eBay handlers. The `auth` function's eBay routes (`/ebay/connect`, `/ebay-callback`) are now dead code; the app points to `functions/v1/ebay-oauth`. Do not remove them from `auth` without first confirming no live traffic routes there (e.g., if EBAY_RUNAME still points to the auth callback URL).
 - `web.yml` is for TypeScript CI only — Vercel handles deployments via its own GitHub integration, not this workflow.
