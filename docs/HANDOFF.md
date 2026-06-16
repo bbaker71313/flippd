@@ -264,10 +264,44 @@ Commit `078d651` on branch `claude/cleanup-credentials-metadata-g99z9o` — PR #
 - `packages/shared/src/utils/calcPnl.ts`
 - `CLAUDE.txt` — deleted
 
+**`.github/workflows/web.yml`** — fixed pnpm version conflict (commit `97513c5`):
+- Removed `version: 10` from `pnpm/action-setup@v4` step — conflicted with `pnpm@10.33.0` in `package.json`'s `packageManager` field. Action now reads version from `package.json` automatically.
+
+### Files changed
+- `docs/files/DECISIONS.md`
+- `docs/files/CHATS.md`
+- `docs/FEATURE_TRIAGE.md`
+- `packages/shared/src/types/index.ts`
+- `packages/shared/src/utils/calcPnl.ts`
+- `CLAUDE.txt` — deleted
+- `.github/workflows/web.yml` — workflow fix
+
+### Commits / PR
+- `ff94355` — doc cleanup (7 files)
+- `97513c5` — workflow fix (web.yml)
+- PR #66 **MERGED** into `main` (`5bad345`)
+
 ### Decisions made (do not reverse)
 - CLAUDE.txt is gone. `CLAUDE.md` is the only authoritative instructions file.
 - `ScanForProfit_v5_24.html` is the canonical source-of-truth filename everywhere.
 
+### What is NOT fixed (deferred)
+- 🔴 `apps/web/public/app.html` lines 6035–6036: `support@flippd.app` in forgot-password alert (user-facing)
+- 🔴 `README.md`: `support@flippd.com` and `flippd.com` link
+- 🔴 `apps/web/public/app.html` line 4444: dead backend URL `flippd-backend.replit.app`
+- 🟡 `package.json`: `"name": "flippd-backend"`, stale description and keywords
+- 🟡 `BACKEND_LIVE.md` / `APP_INTEGRATION.md`: stale Replit-era architecture docs (now moved to `docs/files/LEGACY_*`)
+- 🟠 localStorage keys (`flippd_items_v1`, `flippd_jwt`, etc.) — require data migration plan
+- 🟠 DOM element IDs and function names in `app.html`
+- `.env.example`: eBay client ID `Brittany-Flippd-PRD-67b75c3f4-fb4ff30c` comment
+
+### Next task
+Fix 🔴 critical user-facing Flippd remnants: `support@flippd.app` in `app.html` and `README.md` email/link. Then `package.json` metadata.
+
+### Blockers
+None.
+
+---
 
 ## Session: 2026-06-16 — Repo hygiene: #6 #7 #8 #9 + web.yml
 
