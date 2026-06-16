@@ -4,6 +4,39 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Hunt list SVG + eBay price-change API
+
+### What changed this session
+
+**`apps/web/public/app.html`**:
+- Added `HUNT_ICON_SVG` constant (crosshair SVG, gold `var(--accent)`) above `renderGrowthResults()`
+- Replaced `h.icon||'🎯'` with `h.icon||HUNT_ICON_SVG` in both render paths (renderGrowthResults + cached stats render)
+- Replaced empty-state `🎯` div with equivalent 36×36 SVG
+- `syncDropPriceToEbay()` is now async — calls `EBAY_BASE + '/price-change'`, shows success/not-connected/not-found/error toasts, disables button while pending
+- `#dp-ebay-btn` id added to eBay sync button; label simplified to "↗ Sync Price to eBay"
+
+**`supabase/functions/ebay-oauth/index.ts`**:
+- Added `getValidEbayToken()` helper — reads token from DB, refreshes via `refresh_token` grant if within 60s of expiry, stores new token
+- Added `POST /price-change` handler — validates sku + newPrice, gets valid token, GETs offer by SKU from eBay Inventory API, strips read-only fields (`offerId`, `status`, `listing`), PUTs updated price back, returns `{ success, offerId, newPrice }`
+
+### Files changed
+- `apps/web/public/app.html`
+- `supabase/functions/ebay-oauth/index.ts`
+
+### Commit
+`849341e` — direct to `main`
+
+### Decisions made (do not reverse)
+- `🎯` in Settings "Decision Thresholds" label and Stats legend are intentionally left — only hunt list fallback was in scope
+- eBay price change uses Inventory API `sell/inventory/v1/offer` (not Trading API) — requires item was listed via Inventory API. If not, returns 404 and user sees "No eBay listing found for this SKU — sync manually"
+- Token refresh uses `refresh_token` grant without `redirect_uri` (correct per eBay spec)
+
+### Next task
+- Phase 3 Step 3: Component Library redo with frontend-design skill (deferred)
+- Phase 5: Web App Build (not yet started)
+
+---
+
 ## Session: 2026-06-16 — Trends tab redesign — 8 changes (PR #70)
 
 ### What changed this session
@@ -44,14 +77,7 @@ Commit `fb8f7de` on branch `claude/trends-tab-redesign-l5f2wp` — PR #70 **MERG
 ### Decisions made (do not reverse)
 - Animated ScanMark SVG is the canonical loading indicator for the Trends tab. Do not reintroduce the brain emoji.
 - Bundle stale actions are filtered out client-side. If AI returns Bundle it will be silently hidden.
-- Drop Price "eBay sync" is a stub (shows "connect eBay in Settings" toast). Real eBay Price Change API call deferred to when eBay OAuth is fully wired.
 - Score card warm parchment background is permanently retired — use dark branded gradient.
-
-### Next task
-- Optional: Replace hunt list fallback icon `🎯` with SVG (requires changing the JS template literal default, low priority)
-- Optional: Wire real eBay Price Change API call in `syncDropPriceToEbay()` once eBay OAuth is confirmed working
-- Phase 3 Step 3: Component Library redo with frontend-design skill (deferred)
-- Phase 5: Web App Build (not yet started)
 
 ---
 
