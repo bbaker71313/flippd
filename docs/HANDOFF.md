@@ -4,6 +4,52 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — App-wide hex sweep on app.html
+
+### Context
+Continued from 2026-06-15(2) session. Executed the previously-deferred app-wide hex sweep on `apps/web/public/app.html` to eliminate all remaining retired old-palette hex codes.
+
+### What changed this session
+
+**`apps/web/public/app.html`** — commit `90d387b`:
+- `.status-Listed`: `rgba(0,150,80,0.15)` + `#00c060` + `#005530` → `var(--green-bg)` + `var(--green)` + `rgba(0,230,118,0.3)`
+- `.sold-btn`: `rgba(0,150,80,0.2)` + `#005530` border → `var(--green-bg)` + `rgba(0,230,118,0.3)`
+- `.shelf-item.is-buy` border: `#005530` → `rgba(0,230,118,0.3)`
+- `.shelf-item.is-buy .s-badge`: `#228844`/`#fff` → `var(--green)`/`#000`
+- `.shelf-section-hdr.is-buy` and `.shelf-stat-num.is-buy`: `#228844` → `var(--green)`
+- Auth error div bg: `#ffe6e6` → `var(--red-bg)`
+- AI listing gradient: `#00bb66` → `#00e676`
+- Growth Advisor title+content: `#005522` → `var(--green)` / `var(--text)` (was unreadable dark green on dark bg)
+- CSV reminder button: `#c47800`/`#fff` → `var(--yellow)`/`#000`; saved text: `#c47800` → `var(--yellow)`
+- Import preview title + summary + result: `#005522` → `var(--green)` / `var(--text)`
+- Delete confirm button: `#dd0000` → `var(--red)`
+- Confidence bar medium/low: `#c47800`/`#cc0000` → `var(--yellow)`/`var(--red)`
+- Scan history decision badges: `#e8fff2`/`#006633` (HOT), `#d4e8e0` (BUY), `#fee` (PASS) → all use `var(--green-bg)`/`var(--green)` or `var(--red-bg)`/`var(--red)`
+- Hot tip div text: `#005522` → `var(--green)`
+- Stats scan-history PASS badge bg: `#ffe6e6` → `var(--red-bg)`
+- Photo coverage warning bg: `#ffe6e6` → `var(--red-bg)`
+- Trial/Scout banners: `#fff4d6`/`#c47800` → `var(--yellow-bg)`/`var(--yellow)`, `#ffe6e6` → `var(--red-bg)`
+- TIER_INFO Hustle color: `#00bb66` → `#00e676`; Empire color: `#c47800` → `#f5a623`
+- Import item nickname: `#005522` → `var(--text)`; status badge: `#005522`/`#fff` → `var(--green)`/`#000`
+- Item detect error text: `#cc0000` → `var(--red)`
+
+**`index.html`** — no changes. All remaining old-palette hits were photo-tint gradients on `.inv-thumb`/`.scan-thumb` which are intentionally left per 2026-06-08(3) session decision.
+
+### PR
+- PR #58 open (draft): `claude/dazzling-heisenberg-bsqpr6` → `main`
+
+### Decisions made (do not reverse)
+- `index.html` photo-tint gradients (`#8b6a3e`, `#3a2410`, `#c47800` inside `linear-gradient` on `.inv-thumb`/`.scan-thumb`) are intentionally untouched — placeholder tints for photo fallbacks, not brand chrome.
+- Growth Advisor *body text* uses `var(--text)` (warm cream `#f0ead8`) rather than `var(--green)` — body copy on a green-bg card should be the standard readable text color, not also green.
+
+### Next task
+App-wide hex sweep is complete. Merge PR #58 after CI passes, then proceed to Phase 3 Step 3 (Component Library redo with frontend-design skill) or Phase 4 Build Mobile — whichever the user prioritizes.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-15(2) — Full rebrand to dark "Industrial Terminal" (docs + mobile + web + video)
 
 ### Context
