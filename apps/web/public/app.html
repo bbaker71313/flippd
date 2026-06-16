@@ -1160,7 +1160,7 @@ body::before{
   <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon">🔍</span>SCOUT</button>
   <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon">📦</span>INVENTORY</button>
   <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon">📸</span>PHOTOS</button>
-  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon">📈</span>TRENDS</button>
+  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>TRENDS</button>
   <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon">💰</span>STATS</button>
 </div>
 
@@ -1578,13 +1578,21 @@ body::before{
 
   <!-- Stale cache notice -->
   <div id="growth-stale-banner" style="display:none;background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--yellow);font-weight:600">
-    ⏰ Last updated over 24 hours ago — tap Refresh for today's insights
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:4px"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M6 3v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Last updated over 24 hours ago — tap Refresh for today's insights
   </div>
 
   <!-- Loading state -->
   <div id="growth-loading" style="display:none">
     <div class="card" style="text-align:center;padding:32px 20px">
-      <div style="font-size:32px;margin-bottom:12px">🧠</div>
+      <div style="display:inline-block;margin-bottom:12px">
+        <svg width="48" height="48" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 13 V3 H13" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          <path d="M19 29 H29 V19" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          <rect x="6" y="21" width="4" height="6" fill="#00e676"><animate attributeName="height" values="6;10;6" dur="1.2s" repeatCount="indefinite" begin="0s"/><animate attributeName="y" values="21;17;21" dur="1.2s" repeatCount="indefinite" begin="0s"/></rect>
+          <rect x="12" y="16" width="4" height="11" fill="#00e676"><animate attributeName="height" values="11;15;11" dur="1.2s" repeatCount="indefinite" begin="0.2s"/><animate attributeName="y" values="16;12;16" dur="1.2s" repeatCount="indefinite" begin="0.2s"/></rect>
+          <rect x="18" y="11" width="4" height="16" fill="#00e676"><animate attributeName="height" values="16;20;16" dur="1.2s" repeatCount="indefinite" begin="0.4s"/><animate attributeName="y" values="11;7;11" dur="1.2s" repeatCount="indefinite" begin="0.4s"/></rect>
+        </svg>
+      </div>
       <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:6px" id="growth-loading-msg">Analyzing your inventory...</div>
       <div style="font-size:12px;color:var(--muted);font-weight:500">Pulling live eBay trends + comparing your data</div>
       <div style="margin-top:16px;display:flex;justify-content:center">
@@ -1596,53 +1604,61 @@ body::before{
   <!-- Empty state -->
   <div id="growth-empty" style="display:none">
     <div class="card" style="text-align:center;padding:32px 20px">
-      <div style="font-size:40px;margin-bottom:12px">📈</div>
+      <div style="display:inline-block;margin-bottom:12px">
+        <svg width="56" height="56" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 13 V3 H13" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          <path d="M19 29 H29 V19" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          <rect x="6" y="21" width="4" height="6" fill="#00e676"/>
+          <rect x="12" y="16" width="4" height="11" fill="#00e676"/>
+          <rect x="18" y="11" width="4" height="16" fill="#00e676"/>
+        </svg>
+      </div>
       <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:8px">Your Business Brain</div>
       <div style="font-size:13px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:20px">Tap Refresh to get today's insights — what's selling, what's stale, and what to hunt for this week.</div>
-      <button onclick="runGrowthAgent()" class="btn btn-green" style="width:auto;padding:12px 28px">🚀 Run Market Trends</button>
+      <button onclick="runGrowthAgent()" class="btn btn-green" style="width:auto;padding:12px 28px">Run Market Trends</button>
     </div>
   </div>
 
   <!-- Results -->
   <div id="growth-results" style="display:none">
 
-    <!-- Score card -->
-    <div id="growth-score-card" class="card" style="background:linear-gradient(135deg,#fdf5e4,#f5e8cc);border:2px solid var(--border-dark);margin-bottom:14px"></div>
+    <!-- Score card (Change 5: dark branded bg replacing warm parchment) -->
+    <div id="growth-score-card" class="card" style="background:linear-gradient(135deg,rgba(212,168,67,0.10) 0%,#131313 100%);border:2px solid rgba(212,168,67,0.30);margin-bottom:14px"></div>
+
+    <!-- Section: AI advice — moved directly under score card (Change 7) -->
+    <div id="growth-advice-section" class="card" style="margin-bottom:14px;background:var(--green-bg);border-color:var(--green-border)">
+      <h3 class="card-title" style="color:var(--green)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M8 1L3 8h4L5 13l7-8H8L9 1z" fill="currentColor"/></svg>Your Business Advisor Says</h3>
+      <div id="growth-advice-content" style="font-size:13px;color:var(--text);line-height:1.8;font-weight:500"></div>
+    </div>
 
     <!-- Section: Top performers -->
     <div id="growth-top-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title">🏆 Top Performing Categories</h3>
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><rect x="2" y="10" width="3" height="3" fill="currentColor" opacity="0.6"/><rect x="5.5" y="6" width="3" height="7" fill="currentColor"/><rect x="9" y="8" width="3" height="5" fill="currentColor" opacity="0.6"/></svg>Top Performing Categories</h3>
       <div id="growth-top-content"></div>
     </div>
 
     <!-- Section: Stale items -->
     <div id="growth-stale-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title">⏳ Stale Items — Action Needed</h3>
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M3 1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 1.5L7 7L10 1.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 12.5L7 7L10 12.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Stale Items — Action Needed</h3>
       <div id="growth-stale-content"></div>
     </div>
 
     <!-- Section: Hunt list -->
     <div id="growth-hunt-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title">🎯 What to Hunt This Week</h3>
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>What to Hunt This Week</h3>
       <div id="growth-hunt-content"></div>
     </div>
 
     <!-- Section: Market trends -->
     <div id="growth-market-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title">📡 Live eBay Market Trends</h3>
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M1.5 12C3 9 5 7.5 7 7.5S11 9 12.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 10C4.5 8 5.5 7 7 7S9.5 8 10.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="4.5" r="1.2" fill="currentColor"/></svg>Live eBay Market Trends</h3>
       <div id="growth-market-content"></div>
-    </div>
-
-    <!-- Section: AI advice -->
-    <div id="growth-advice-section" class="card" style="margin-bottom:14px;background:var(--green-bg);border-color:var(--green-border)">
-      <h3 class="card-title" style="color:var(--green)">💡 Your Business Advisor Says</h3>
-      <div id="growth-advice-content" style="font-size:13px;color:var(--text);line-height:1.8;font-weight:500"></div>
     </div>
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
     <div class="card" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h3 class="card-title" style="margin-bottom:0">🔥 Trending on eBay Right Now</h3>
+        <h3 class="card-title" style="margin-bottom:0"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg>Trending on eBay Right Now</h3>
         <button onclick="fetchTrendingKeywords()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Refresh</button>
       </div>
       <div id="growth-trending"><div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:'IBM Plex Mono',monospace">Tap Refresh to load live trends →</div></div>
@@ -2160,6 +2176,49 @@ body::before{
         <button id="app-confirm-cancel" class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="appConfirmRespond(false)">Cancel</button>
         <button id="app-confirm-ok" class="btn" style="flex:1;margin-bottom:0;background:var(--red);color:#fff;border-color:var(--red)" onclick="appConfirmRespond(true)">Delete</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drop Price Modal -->
+<div class="modal-overlay" id="drop-price-modal" style="display:none">
+  <div class="modal-box" style="max-width:340px">
+    <div class="modal-title">Drop Listing Price</div>
+    <div id="dp-item-name" style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:16px"></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.08em">Current Price</span>
+        <span style="font-size:15px;font-weight:700;color:var(--soft);font-family:'Syne',sans-serif" id="dp-current-price"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.08em">Recommended (−10%)</span>
+        <span style="font-size:18px;font-weight:900;color:var(--green);font-family:'Syne',sans-serif" id="dp-new-price"></span>
+      </div>
+    </div>
+    <div id="dp-scout-notice" style="display:none;background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--yellow);font-weight:600;margin-bottom:12px;font-family:'IBM Plex Mono',monospace">
+      Remember to update your eBay listing manually after accepting.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="closeDropPriceModal()">Cancel</button>
+      <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="acceptDropPrice()">Accept Drop</button>
+    </div>
+    <div id="dp-ebay-wrap" style="display:none;margin-top:8px">
+      <button onclick="syncDropPriceToEbay()" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer">↗ Also Sync to eBay — connect eBay in Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Relist Confirm Modal -->
+<div class="modal-overlay" id="relist-modal" style="display:none">
+  <div class="modal-box" style="max-width:340px">
+    <div class="modal-title">Relist as New</div>
+    <div id="relist-item-name" style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:10px"></div>
+    <div style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:18px;font-family:'IBM Plex Mono',monospace">
+      This marks the current listing as Unlisted and opens it for editing so you can relist it fresh.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="closeRelistModal()">Cancel</button>
+      <button class="btn" style="flex:1;margin-bottom:0;background:var(--accent);color:#000;border-color:var(--accent)" onclick="confirmRelist()">Relist as New</button>
     </div>
   </div>
 </div>
@@ -3695,18 +3754,31 @@ function renderGrowthResults(r) {
     </div>`).join('');
   document.getElementById('growth-top-content').innerHTML = topContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sales data yet — keep listing!</div>';
 
-  // Stale items
-  const staleContent = (r.stale_actions||[]).length ? (r.stale_actions||[]).map(i=>`
-    <div class="stale-item">
+  // Stale items — filter Bundle (single-item bundle makes no sense), add click actions
+  const staleFiltered = (r.stale_actions||[]).filter(i => !i.action.toLowerCase().includes('bundle'));
+  const staleContent = staleFiltered.length ? staleFiltered.map(i => {
+    const act = i.action.toLowerCase();
+    const isDropPrice = act.includes('drop') || (act.includes('price') && !act.includes('relist'));
+    const isRelist = act.includes('relist');
+    const skuSafe = (i.sku||'').replace(/'/g,"\\'");
+    const nameSafe = (i.name||'').replace(/'/g,"\\'");
+    const actionBadge = isDropPrice
+      ? `<span class="stale-action" style="cursor:pointer" onclick="event.stopPropagation();openDropPriceModal('${skuSafe}','${nameSafe}')" title="View recommended price drop">&#x2193; ${i.action}</span>`
+      : isRelist
+        ? `<span class="stale-action" style="cursor:pointer;background:rgba(212,168,67,0.12);border-color:var(--accent);color:var(--accent)" onclick="event.stopPropagation();openRelistConfirm('${skuSafe}','${nameSafe}')" title="Relist as new">&#x21BA; ${i.action}</span>`
+        : `<span class="stale-action">${i.action}</span>`;
+    return `
+    <div class="stale-item" style="cursor:pointer" onclick="goToStaleItemListing('${skuSafe}')" role="button" tabindex="0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <div class="stale-name">${i.name}</div>
           <div class="stale-meta">${i.sku||''} · Listed ${i.days} days</div>
           <div class="u-text-sm u-soft u-mt-1">${i.reason}</div>
         </div>
-        <span class="stale-action">${i.action}</span>
+        ${actionBadge}
       </div>
-    </div>`).join('') : '<div class="u-text-base u-pos" style="padding:var(--space-2) 0">✓ No stale listings — great turnover!</div>';
+    </div>`;
+  }).join('') : '<div class="u-text-base u-pos" style="padding:var(--space-2) 0">&#x2713; No stale listings — great turnover!</div>';
   document.getElementById('growth-stale-content').innerHTML = staleContent;
 
   // Hunt list
@@ -3733,6 +3805,97 @@ function renderGrowthResults(r) {
 
   // Advisor message
   document.getElementById('growth-advice-content').innerHTML = r.advisor_message || '';
+}
+
+// ══════════════════════════════════════════════════
+// STALE ITEM NAVIGATION (Change 6)
+// ══════════════════════════════════════════════════
+function goToStaleItemListing(sku) {
+  const item = items.find(i => i.sku === sku);
+  if (item) {
+    switchTab('inventory');
+    setTimeout(() => startEdit(item.id), 200);
+  } else {
+    switchTab('inventory');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// DROP PRICE MODAL (Change 2)
+// ══════════════════════════════════════════════════
+let _dpState = null;
+
+function openDropPriceModal(sku, name) {
+  const item = items.find(i => i.sku === sku);
+  const currentPrice = item ? parseFloat(item.sellPrice) || 0 : 0;
+  const newPrice = +(currentPrice * 0.9).toFixed(2);
+  _dpState = { sku, name, currentPrice, newPrice, itemId: item ? item.id : null };
+
+  document.getElementById('dp-item-name').textContent = name;
+  document.getElementById('dp-current-price').textContent = currentPrice > 0 ? '$' + currentPrice.toFixed(2) : '(not set)';
+  document.getElementById('dp-new-price').textContent = newPrice > 0 ? '$' + newPrice.toFixed(2) : '—';
+
+  const tier = (window._currentUser && window._currentUser.tier) || 'scout';
+  const isHustlePlus = ['hustle','stack','empire','trial'].includes(tier);
+  document.getElementById('dp-scout-notice').style.display = isHustlePlus ? 'none' : 'block';
+  document.getElementById('dp-ebay-wrap').style.display = isHustlePlus ? 'block' : 'none';
+
+  document.getElementById('drop-price-modal').style.display = 'flex';
+}
+
+function closeDropPriceModal() {
+  document.getElementById('drop-price-modal').style.display = 'none';
+  _dpState = null;
+}
+
+function acceptDropPrice() {
+  if (!_dpState) return;
+  const { name, newPrice, itemId } = _dpState;
+  if (itemId && newPrice > 0) {
+    items = items.map(i => i.id === itemId ? {...i, sellPrice: String(newPrice)} : i);
+    saveItems();
+    logActivity('$', 'Dropped price for "' + name + '" to $' + newPrice.toFixed(2));
+  }
+  closeDropPriceModal();
+  showToast('Price updated to $' + newPrice.toFixed(2));
+}
+
+function syncDropPriceToEbay() {
+  showToast('Connect eBay in Settings to enable auto-sync');
+}
+
+// ══════════════════════════════════════════════════
+// RELIST CONFIRM MODAL (Change 4)
+// ══════════════════════════════════════════════════
+let _relistState = null;
+
+function openRelistConfirm(sku, name) {
+  _relistState = { sku, name };
+  document.getElementById('relist-item-name').textContent = name;
+  document.getElementById('relist-modal').style.display = 'flex';
+}
+
+function closeRelistModal() {
+  document.getElementById('relist-modal').style.display = 'none';
+  _relistState = null;
+}
+
+function confirmRelist() {
+  if (!_relistState) return;
+  const { sku, name } = _relistState;
+  const item = items.find(i => i.sku === sku);
+  if (item) {
+    items = items.map(i => i.id === item.id ? {...i, status: 'Unlisted'} : i);
+    saveItems();
+    updateStaleBadge();
+    logActivity('↺', 'Relisting "' + name + '" as new');
+    closeRelistModal();
+    switchTab('inventory');
+    setTimeout(() => startEdit(item.id), 200);
+  } else {
+    closeRelistModal();
+    switchTab('inventory');
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -5698,7 +5861,7 @@ async function fetchTrendingKeywords() {
 function renderTrendingKeywords(data, el) {
   if (!el || !data) return;
   el.innerHTML = `
-    ${data.hot_tip ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:12px">🔥 ${data.hot_tip}</div>` : ''}
+    ${data.hot_tip ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:12px"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:4px"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg> ${data.hot_tip}</div>` : ''}
     <div style="font-size:10px;letter-spacing:0.15em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Top 10 eBay Searches Right Now</div>
     ${(data.keywords||[]).map(k=>`
       <div class="trend-keyword">
