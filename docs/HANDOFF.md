@@ -4,6 +4,45 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 (2) — Tier limit alignment + CLAUDE.md accuracy fixes
+
+### What changed this session
+
+**`packages/shared/src/constants/tiers.ts`** — aligned to `claude-proxy` enforcer (source of truth):
+- `trial`: scansPerMonth `10→null`, inventoryItems `20→null` (unlimited, 7-day window)
+- `scout`: inventoryItems `100→10`
+- `hustle`: scansPerMonth `300→null→250` (confirmed by user), inventoryItems `1000→500→250` (confirmed by user)
+- `stack`: scansPerMonth `1000→null`, inventoryItems `5000→null`
+- Feature description strings updated throughout
+
+**`supabase/functions/claude-proxy/index.ts`** — enforcer updated:
+- `ITEM_LIMITS.hustle`: `500→250`
+- `SCAN_LIMITS.hustle`: `null→250`
+- Deployed as **version 22** to project `dqgfpchkheznvanfgsmx` — live immediately
+
+**`CLAUDE.md`** (root) — three accuracy fixes:
+- Check #2: `10 files → 12 files`, list updated to include `PaywallModal.tsx` and `SettingsForm.tsx`
+- Phase 4 status: `⬜ Not started → ✅ Complete`
+- Phase 4 Progress table added (all 8 steps DONE)
+- Hustle tier table row: `Unlimited/500 → 250/250`
+
+**`docs/decisions/` and `docs/strategy/`** — created (were missing from repo)
+
+### PR
+- PR #60 merged: `claude/morning-session-7r6bx5` → `main`
+
+### Decisions made (do not reverse)
+- Hustle tier = **250 scans/month, 250 items** — confirmed by user 2026-06-16
+- This is enforced in `claude-proxy` SCAN_LIMITS + ITEM_LIMITS AND displayed in `tiers.ts` — both must stay in sync
+
+### Next task
+Phase 3 Step 3 — Component Library redo with frontend-design skill (`apps/mobile/components/ui/`), OR user-directed task.
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-16 — App-wide hex sweep on app.html
 
 ### Context
