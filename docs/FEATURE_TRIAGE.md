@@ -1,4 +1,4 @@
-# Feature Triage — ScanForProfit v5.24 → ScanForProfit RN
+# Feature Triage — ScanForProfit v5.24
 
 Source file: `ScanForProfit_v5_24.html` (6,642 lines)
 Analysis date: 2026-05-24

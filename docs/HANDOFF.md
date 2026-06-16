@@ -14,7 +14,7 @@ This file is the persistent session context. Update it at the end of every Claud
 3. **Removed** `<div id="scan-history">` (Today's Scans card) from the Scout panel HTML — `renderScanHistory()` JS function left in place (returns early when el is null, harmless).
 4. **Removed** "Change Access Code" button from the bottom of the settings panel.
 5. **Added** Account card to settings: username, email, plan tier — populated by `populateAccountUI()` called from `showSourcingSettings()`.
-6. **Added** Sign Out button in Account card — clears `flippd_jwt`, `flippd_user_name`, `fif_api_key` from localStorage, resets `currentUser`, redirects to login.
+6. **Added** Sign Out button in Account card — clears `sfp_jwt`, `sfp_user_name`, `sfp_settings` from localStorage (updated to `sfp_*` prefix when merging PR #67), resets `currentUser`, redirects to login.
 7. **Added** Reset Password button in Account card — calls `requestPasswordReset()` → `AUTH_BASE + '/reset-request'` using user's stored email.
 8. **Added** `src-view-reset` in-app password reset view — reached via email link `?reset=TOKEN`. `window.onload` detects token, shows reset form. `submitPasswordReset()` calls `AUTH_BASE + '/reset-confirm'`.
 9. **Fixed** `startCheckout()` — was calling `API_BASE + '/stripe/checkout'` (wrong path on claude-proxy); now calls dedicated `stripe-checkout` Edge Function via `STRIPE_BASE` constant.
@@ -33,12 +33,13 @@ This file is the persistent session context. Update it at the end of every Claud
 `2ec501d` — `feat: Settings tab audit — Phase 1 of 6`
 
 ### PR
-`bbaker71313/scanforprofit#68` — Draft. Vercel preview deployed ✅ (Ready). Supabase branching deploying 🔄. No review comments.
+`bbaker71313/scanforprofit#68` — merging into main (conflict with PR #67 + PR #69 resolved).
 
 ### Decisions made (do not reverse)
 - `startCheckout()` calls `stripe-checkout` function directly via its own URL — not routed through `claude-proxy`.
 - Password reset uses JWT-based tokens (self-expiring, no DB column) — no migration needed.
 - `scan-history` div removed from HTML; `renderScanHistory()` JS function left in place (safe — returns early on null el).
+- `signOut()` and `populateAccountUI()` use `sfp_jwt` / `sfp_user_name` / `sfp_settings` (aligned with PR #67's `sfp_*` key migration).
 
 ### Next task — Phase 2: Scout Tab (STOP and verify with user first)
 The user asked to verify Phase 1 before proceeding. Once approved, Phase 2 changes to `apps/web/public/app.html` are:
@@ -53,11 +54,131 @@ The user asked to verify Phase 1 before proceeding. Once approved, Phase 2 chang
 
 ### Remaining Flippd remnants in app.html (not yet fixed)
 - Line 4444: dead backend URL `flippd-backend.replit.app` (in a dead code comment)
-- localStorage keys (`flippd_jwt`, `flippd_items_v1`, etc.) — require data migration, defer
+- `sfp_items_v1` STORAGE_KEY and IndexedDB name `flippd_photos` — `sfp_*` key migration done by PR #67; IndexedDB rename deferred (high-risk, zero user benefit)
 - DOM element IDs (`exportFlippdBackup`, `handleFlippdImport`) — defer
+
+---
+
+## Session: 2026-06-16 — Photo editor tools enhancement (PR #69)
+
+### What changed this session
+
+**`apps/web/public/app.html`** — commit `63a66af` on branch `claude/photo-editor-tools-enhancement-0apsti`:
+
+1. **Rotate + Square Crop tools** — new toolbar row after thumbnail strip with ↺ Left, ↻ Right, ⬛ Square buttons. `paRotate(deg)` swaps canvas dimensions and draws at ±90°; `paCropSquare()` extracts center square via `getImageData`. Both update `original` + `enhanced` in-place so filters continue to work on the transformed photo.
+
+2. **Remove BG button** — replaced non-functional "White background" checkbox with `🪄 Remove BG` button. `paRemoveBg()` calls the remove.bg API (`POST https://api.remove.bg/v1.0/removebg`); fills white background, draws bg-removed PNG result onto canvas. API key stored in `S.removebgKey` (new field in `DEFAULTS`), entered via new Settings → Photo Tools card, persisted in `fif_settings` localStorage.
+
+3. **Fullscreen popup with zoom** — `onclick="paOpenFullscreen()"` added to `#pa-canvas` (cursor: zoom-in). `paOpenFullscreen()` opens `#pa-fs-overlay` with the enhanced photo; scroll wheel zooms on desktop (wheel event), pinch-to-zoom on mobile (touchstart/touchmove). `paCloseFullscreen()` cleans up all event listeners.
+
+4. **Photo Boost (tier-gated)** — `✨ Boost` button in actions row calls `paPhotoBoost()`. Scout users with expired trial are redirected to upgrade (→ Stats → subscription tab). Hustle+ / active trial users get auto-levels (per-channel histogram stretch) + unsharp mask (sharpen convolution kernel) applied directly to the canvas.
+
+5. **Fix Apply to All Photos** — replaced racy `setTimeout(res, 80)` chain in `paApplyToAll()` with sequential `Promise` chain using new `onDone` callback parameter on `paApplyFilters()`. Each photo's filters now complete before the next photo starts.
+
+6. **Fix Save to Item — redirect** — `paSaveToItem()` now calls `paReset()` then `switchTab('inventory')` + `setTimeout(() => startEdit(targetId), 120)` after saving. User lands on the inventory edit screen showing the enhanced photos.
+
+7. **Fix Save to Item — no item selected** — `paSaveToItem()` calls `paShowSaveDialog()` when `paTargetItemId` is null. Dialog offers: "New Inventory Item" → `paSaveDialogNewItem()` navigates to add form with photos previewed in `inv-form-edit-photos`; "Existing Item" → `paSaveDialogExisting()` focuses category dropdown. `saveInvItem()` hooks into `window._paPreloadPhotos` after new item creation to save photos to IDB and open edit view.
+
+### Files changed
+- `apps/web/public/app.html` — modified (228 insertions, 23 deletions)
+
+### Commit / PR
+- Commit `63a66af` on branch `claude/photo-editor-tools-enhancement-0apsti`
+- PR #69 (draft, open) — Vercel building, Supabase skipped (no DB changes), Railway initializing
+
+### Decisions made (do not reverse)
+- `pa-whitebg` checkbox is permanently removed. The old "fill white" behavior is replaced by actual API-based background removal via remove.bg.
+- `removebgKey` is stored client-side in `fif_settings` localStorage (same as `ebayFee`, etc.) — it's a user-provided third-party key, not a server secret.
+- Photo Boost is pure canvas (auto-levels + sharpen kernel) — no external API, no new edge function needed.
+- `paApplyFilters` now accepts an optional `onDone` callback — all existing callers pass nothing and work unchanged.
+
+### Next task
+- Merge PR #69 once Vercel CI passes
+- Continue with Phase 3 Step 3 (Component Library redo) or Phase 5 (Web App Build) as previously planned
 
 ### Blockers
 None.
+
+---
+
+## Session: 2026-06-16 — Credentials, metadata, and localStorage cleanup (PR #67)
+
+### What changed this session
+
+**`apps/web/public/app.html`** — multiple changes:
+- Forgot-password alert: `support@flippd.app` → `support@scanforprofit.com`
+- localStorage keys renamed `flippd_*` → `sfp_*` throughout:
+  - `flippd_jwt` → `sfp_jwt`
+  - `flippd_user_name` → `sfp_user_name`
+  - `flippd_seeded` → `sfp_seeded`
+  - `flippd_events` → `sfp_events`
+  - `flippd_items_v1` (STORAGE_KEY) → `sfp_items_v1`
+- Migration block added at top of STORAGE section (IIFE, runs at parse time): migrates old `flippd_*` and `ebayhq_*` keys to `sfp_*` for existing users before any code reads the keys — data is preserved
+- Removed `fif_api_key` write-backs (login no longer redundantly writes to the legacy key); cleanup block in `window.onload` still removes `fif_api_key` as a safety net for old sessions
+- IndexedDB name `flippd_photos` and sessionStorage key `flippd_preview_src` intentionally left unchanged — IndexedDB rename requires complex data migration; `flippd_preview_src` is dead-code cleanup (nothing writes it since v5.11)
+
+**`README.md`**:
+- Line 20: `[flippd.com](https://flippd.com)` → `[scanforprofit.com](https://scanforprofit.com)`
+- Line 64: `support@flippd.com` → `support@scanforprofit.com`
+
+**`package.json`**:
+- `"name"`: `"flippd-backend"` → `"scanforprofit"`
+- `"description"`: updated to ScanForProfit description
+- `"keywords"`: `"flippd"` → `"scanforprofit"`
+
+**`.env.example` line 33**: Redacted old eBay client ID `Brittany-Flippd-PRD-67b75c3f4-fb4ff30c` → placeholder `<your ScanForProfit eBay client ID from developer.ebay.com>`
+
+**`CLAUDE.md`**: Redacted same eBay client ID from edge functions rules section
+
+**`docs/ScanForProfit_v5_24.html`**:
+- Line 4078: eBay `clientId` → empty string with comment pointing to Supabase secrets
+- Line 4079: Replit `ruName` → empty string with comment pointing to Supabase secrets
+- Line 4444: `API_BASE` updated from Replit URL to Supabase function URL
+- Lines 5784-5785: `support@flippd.app` → `support@scanforprofit.com`
+
+**`docs/FEATURE_TRIAGE.md`**: Title updated: `Feature Triage — Flippd v5.23 → ScanForProfit RN` → `Feature Triage — ScanForProfit v5.24`
+
+**`docs/files/CHATS.md`**:
+- `[APP]` source of truth: `Flippd_v5_23.html` → `docs/ScanForProfit_v5_24.html`
+- `[BACKEND]` functions list: added `stripe-checkout`, `ebay-oauth`
+
+**`docs/files/DECISIONS.md`**:
+- Functions list: added `stripe-checkout`, `ebay-oauth`
+- Source of truth section: `Flippd_v5_23.html` → `docs/ScanForProfit_v5_24.html`
+
+**`BACKEND_LIVE.md`** → **`docs/files/LEGACY_BACKEND_LIVE.md`** (archived — described decommissioned Replit backend)
+
+**`APP_INTEGRATION.md`** → **`docs/files/LEGACY_APP_INTEGRATION.md`** (archived — referenced `flippd-backend.replit.app` as active)
+
+**`CLAUDE.txt`** — deleted (stale duplicate of `CLAUDE.md` with wrong source-file references)
+
+### Files changed
+- `apps/web/public/app.html` — modified
+- `README.md` — modified
+- `package.json` — modified
+- `.env.example` — modified
+- `CLAUDE.md` — modified
+- `docs/ScanForProfit_v5_24.html` — modified
+- `docs/FEATURE_TRIAGE.md` — modified
+- `docs/files/CHATS.md` — modified
+- `docs/files/DECISIONS.md` — modified
+- `BACKEND_LIVE.md` → `docs/files/LEGACY_BACKEND_LIVE.md` — renamed
+- `APP_INTEGRATION.md` → `docs/files/LEGACY_APP_INTEGRATION.md` — renamed
+- `CLAUDE.txt` — deleted
+
+### Commit / PR
+Commit `078d651` on branch `claude/cleanup-credentials-metadata-g99z9o` — PR #67 (draft, open)
+
+### Decisions made (do not reverse)
+- localStorage key prefix is now `sfp_` everywhere. Do not reintroduce `flippd_` keys.
+- `fif_api_key` is a dead legacy key — only remove it in cleanup paths, never write to it again.
+- IndexedDB name `flippd_photos` is intentionally kept as-is — renaming it requires migrating photo blobs which is high-risk for zero user-visible benefit.
+- `BACKEND_LIVE.md` and `APP_INTEGRATION.md` are permanently archived in `docs/files/LEGACY_*` — do not move them back to root.
+- `CLAUDE.txt` is permanently deleted — `CLAUDE.md` at repo root is the only authoritative copy.
+
+### Next task
+- Merge PR #67 once Vercel CI completes
+- Phase 3 Step 3 (Component Library redo with frontend-design skill) or Phase 5 (Web App Build) — whichever the user prioritizes next
 
 ---
 
