@@ -20,13 +20,14 @@ cat packages/shared/package.json | grep '"name"'
 
 # Expected: "name": "@sfp/shared"
 
-# 2. Confirm all 10 UI component files exist
+# 2. Confirm all 12 UI component files exist
 
 Get-ChildItem apps/mobile/components/ui/ | Select-Object Name
 
 # Expected: BottomSheet.tsx, Button.tsx, Card.tsx, EmptyState.tsx,
-#           index.ts, Input.tsx, ItemCard.tsx, ProfitBadge.tsx,
-#           ScanResult.tsx, TabBar.tsx (10 files total)
+#           index.ts, Input.tsx, ItemCard.tsx, PaywallModal.tsx,
+#           ProfitBadge.tsx, ScanResult.tsx, SettingsForm.tsx,
+#           TabBar.tsx (12 files total)
 
 # 3. Confirm git is initialized and has a clean working tree
 
@@ -228,8 +229,8 @@ scout
 25
 10
 hustle
-Unlimited
-500
+250
+250
 stack
 Unlimited
 Unlimited
@@ -494,7 +495,7 @@ Design
 🔄 Step 3 in progress
 04
 Build Mobile
-⬜ Not started
+✅ Complete
 05
 Build Web
 ⬜ Not started
@@ -524,3 +525,35 @@ Screen Flows → Figma (Claude.ai + Figma MCP)
 5
 Prototype → docs/prototype.html
 ⬜ Pending
+
+Phase 4 Progress
+Step
+Task
+Status
+1
+Auth flow (register, login, verify OTP)
+✅ Done
+2
+Scout tab (camera, AI scan, FLIP/PASS/HOT, Buy modal)
+✅ Done
+2.5
+Protected route guard (auth gate in root layout)
+✅ Done
+3
+Inventory tab (CRUD, photos, status lifecycle, tier gate)
+✅ Done
+4
+Listing tab (AI generator, CSV export, trending keywords)
+✅ Done
+5
+Trends tab (Growth Agent, hunt list, business score)
+✅ Done
+6
+Stats tab (P&L dashboard, expenses, Stripe paywall)
+✅ Done
+7
+Settings screen
+✅ Done
+8
+EAS build config + iOS privacy keys
+✅ Done (run build manually)
