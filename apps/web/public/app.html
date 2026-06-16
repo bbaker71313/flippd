@@ -1282,6 +1282,14 @@ body::before{
       <label class="radio-row" id="style-balanced"><input type="radio" name="style" value="balanced" checked onchange="updateStyle('balanced')"><div><strong>Balanced</strong> — Default, good mix</div></label>
       <label class="radio-row" id="style-aggressive"><input type="radio" name="style" value="aggressive" onchange="updateStyle('aggressive')"><div><strong>Aggressive</strong> — Wider net, more buys</div></label>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3 class="card-title">📸 Photo Tools</h3>
+      <div class="setting-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:6px">
+        <span class="setting-name">Remove.bg API Key</span>
+        <span class="setting-desc">Free at remove.bg — 50 credits/month on free plan</span>
+        <input type="password" class="f-input" id="pa-removebg-key" placeholder="Your remove.bg API key" style="width:100%;box-sizing:border-box;margin-top:4px" oninput="S.removebgKey=this.value">
+      </div>
+    </div>
     <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
     <div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
@@ -1519,6 +1527,12 @@ body::before{
     </div>
     <!-- Thumbnail strip -->
     <div id="pa-thumbs" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scrollbar-width:thin;margin-bottom:14px"></div>
+    <!-- Rotate / Crop toolbar -->
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button onclick="paRotate(-90)" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↺ Left</button>
+      <button onclick="paRotate(90)" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Right</button>
+      <button onclick="paCropSquare()" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">⬛ Square</button>
+    </div>
     <!-- Before / After -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
@@ -1527,7 +1541,7 @@ body::before{
       </div>
       <div>
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:700">Enhanced</div>
-        <canvas id="pa-canvas" style="width:100%;border-radius:8px;border:1px solid var(--green-border);display:block"></canvas>
+        <canvas id="pa-canvas" style="width:100%;border-radius:8px;border:1px solid var(--green-border);display:block;cursor:zoom-in" onclick="paOpenFullscreen()" title="Tap to view fullscreen"></canvas>
       </div>
     </div>
     <!-- Adjustments -->
@@ -1546,22 +1560,29 @@ body::before{
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Saturation</span><span id="pa-sat-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">10</span></div>
           <input type="range" class="slider" id="pa-saturation" min="-50" max="80" value="10" step="1" oninput="paApplyFilters()" style="width:100%">
         </div>
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
-          <input type="checkbox" id="pa-whitebg" onchange="paApplyFilters()" style="width:18px;height:18px;accent-color:var(--accent)"> White background
-        </label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="pa-removebg-btn" onclick="paRemoveBg()" style="padding:7px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600">🪄 Remove BG</button>
+          <span style="font-size:11px;color:var(--muted)">Needs remove.bg key in Settings</span>
+        </div>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
           <input type="checkbox" id="pa-apply-all" style="width:18px;height:18px;accent-color:var(--accent)"> Apply to all photos
         </label>
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="paDownloadAll()">⬇ Download All</button>
-      <button class="btn" style="flex:1;margin-bottom:0;background:#185FA5;color:#fff;border-color:#185FA5" onclick="paSaveToItem()">💾 Save to Item</button>
+      <button class="btn" style="flex:1;margin-bottom:0;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" onclick="paPhotoBoost()">✨ Boost</button>
+      <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="paDownloadAll()">⬇ Download</button>
+      <button class="btn" style="flex:1;margin-bottom:0;background:#185FA5;color:#fff;border-color:#185FA5" onclick="paSaveToItem()">💾 Save</button>
     </div>
     <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="paReset()">Start Over</button>
   </div>
 </div>
 
+<!-- Photo Fullscreen Overlay -->
+<div id="pa-fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:9100;align-items:center;justify-content:center" onclick="paCloseFullscreen(event)">
+  <img id="pa-fs-img" style="max-width:95vw;max-height:92vh;object-fit:contain;border-radius:4px;touch-action:none" alt="enhanced photo">
+  <button onclick="event.stopPropagation();paCloseFullscreen()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:16px;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Close</button>
+</div>
 
 
 <!-- ═══════════════════════════════════════ -->
@@ -3045,6 +3066,22 @@ function saveInvItem() {
     });
     invFormImgB64 = null;
     showToast('✓ Item added to inventory');
+    // If photos are pending from the photo editor, save them and open edit view
+    if (window._paPreloadPhotos && window._paPreloadPhotos.length) {
+      const newItem = items[items.length - 1];
+      if (newItem) {
+        const pending = window._paPreloadPhotos.slice(0, 4);
+        window._paPreloadPhotos = null;
+        savePhotosIDB(newItem.id, pending).then(() => {
+          items = items.map(i => i.id === newItem.id ? {...i, photos: pending} : i);
+          saveItems();
+          editingId = null;
+          switchTab('inventory');
+          setTimeout(() => startEdit(newItem.id), 120);
+        });
+        return;
+      }
+    }
   }
 
   editingId = null;
@@ -3233,20 +3270,18 @@ function paDeletePhoto(i) {
   paSelectPhoto(paActiveIdx);
 }
 
-function paApplyFilters() {
-  if (!paPhotos.length) return;
+function paApplyFilters(onDone) {
+  if (!paPhotos.length) { if (onDone) onDone(); return; }
   const canvas = document.getElementById('pa-canvas');
   const ctx = canvas.getContext('2d');
   const brightness = parseInt(document.getElementById('pa-brightness').value);
   const contrast = parseInt(document.getElementById('pa-contrast').value);
   const saturation = parseInt(document.getElementById('pa-saturation').value);
-  const whiteBg = document.getElementById('pa-whitebg').checked;
   document.getElementById('pa-bright-val').textContent = brightness;
   document.getElementById('pa-contrast-val').textContent = contrast;
   document.getElementById('pa-sat-val').textContent = saturation;
   const img = new Image();
   img.onload = () => {
-    if (whiteBg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
@@ -3267,18 +3302,24 @@ function paApplyFilters() {
     }
     ctx.putImageData(imageData, 0, 0);
     paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg', 0.92);
+    if (onDone) onDone();
   };
   img.src = paPhotos[paActiveIdx].original;
 }
 
 function paApplyToAll() {
   const origIdx = paActiveIdx;
-  const promises = paPhotos.map((_, i) => new Promise(res => {
-    paActiveIdx = i;
-    paSelectPhoto(i);
-    setTimeout(res, 80);
-  }));
-  return Promise.all(promises).then(() => { paActiveIdx = origIdx; paSelectPhoto(origIdx); });
+  function applyOne(i) {
+    return new Promise(res => {
+      paActiveIdx = i;
+      const p = paPhotos[i];
+      const canvas = document.getElementById('pa-canvas');
+      canvas.width = p.w; canvas.height = p.h;
+      paApplyFilters(res);
+    });
+  }
+  const seq = paPhotos.reduce((chain, _, i) => chain.then(() => applyOne(i)), Promise.resolve());
+  return seq.then(() => { paActiveIdx = origIdx; paSelectPhoto(origIdx); });
 }
 
 async function paDownloadAll() {
@@ -3294,7 +3335,7 @@ async function paDownloadAll() {
 }
 
 async function paSaveToItem() {
-  if (!paTargetItemId) { showToast('Select an inventory item first'); return; }
+  if (!paTargetItemId) { paShowSaveDialog(); return; }
   if (document.getElementById('pa-apply-all').checked) await paApplyToAll();
   const saved = paPhotos.map(p => p.enhanced || p.original);
   // Load existing photos from IDB, combine, cap at 4
@@ -3302,14 +3343,18 @@ async function paSaveToItem() {
   const combined = [...existing, ...saved].slice(0, 4);
   // Save combined photos to IDB
   await savePhotosIDB(paTargetItemId, combined);
-  // Update item in memory (without base64 — just mark has photos)
+  // Update item in memory
   items = items.map(i => {
     if (i.id !== paTargetItemId) return i;
     return {...i, photos: combined};
   });
-  saveItems(); // saves metadata only to localStorage, photos already in IDB
-  showToast(`\u2713 ${saved.length} photo${saved.length!==1?'s':''} saved to item`);
-  paLoadItem(paTargetItemId);
+  saveItems();
+  showToast(`✓ ${saved.length} photo${saved.length!==1?'s':''} saved to item`);
+  // Redirect to edit screen showing the updated photos
+  const targetId = paTargetItemId;
+  paReset();
+  switchTab('inventory');
+  setTimeout(() => startEdit(targetId), 120);
 }
 
 function paReset() {
@@ -3327,11 +3372,170 @@ function paReset() {
   document.getElementById('pa-brightness').value = 15;
   document.getElementById('pa-contrast').value = 20;
   document.getElementById('pa-saturation').value = 10;
-  document.getElementById('pa-whitebg').checked = false;
   document.getElementById('pa-apply-all').checked = false;
 }
 
+function paRotate(deg) {
+  if (!paPhotos.length) return;
+  const canvas = document.getElementById('pa-canvas');
+  const ctx = canvas.getContext('2d');
+  const src = paPhotos[paActiveIdx].enhanced || canvas.toDataURL('image/jpeg', 0.92);
+  const img = new Image();
+  img.onload = function() {
+    const w = canvas.width, h = canvas.height;
+    canvas.width = h; canvas.height = w;
+    paPhotos[paActiveIdx].w = h; paPhotos[paActiveIdx].h = w;
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(deg * Math.PI / 180);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    const result = canvas.toDataURL('image/jpeg', 0.92);
+    paPhotos[paActiveIdx].enhanced = result;
+    paPhotos[paActiveIdx].original = result;
+    paPhotos[paActiveIdx]._isBlobUrl = false;
+  };
+  img.src = src;
+}
 
+function paCropSquare() {
+  if (!paPhotos.length) return;
+  const canvas = document.getElementById('pa-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const size = Math.min(w, h);
+  const sx = Math.floor((w - size) / 2), sy = Math.floor((h - size) / 2);
+  const imageData = ctx.getImageData(sx, sy, size, size);
+  canvas.width = size; canvas.height = size;
+  ctx.putImageData(imageData, 0, 0);
+  paPhotos[paActiveIdx].w = size; paPhotos[paActiveIdx].h = size;
+  const result = canvas.toDataURL('image/jpeg', 0.92);
+  paPhotos[paActiveIdx].enhanced = result;
+  paPhotos[paActiveIdx].original = result;
+  paPhotos[paActiveIdx]._isBlobUrl = false;
+}
+
+async function paRemoveBg() {
+  const key = (S && S.removebgKey) ? S.removebgKey.trim() : '';
+  if (!key) { showToast('Add your remove.bg API key in Settings → Photo Tools to enable this'); return; }
+  if (!paPhotos.length) { showToast('No photo loaded'); return; }
+  const btn = document.getElementById('pa-removebg-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Removing...'; }
+  try {
+    const canvas = document.getElementById('pa-canvas');
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+    const fd = new FormData();
+    fd.append('image_file', blob, 'photo.jpg');
+    fd.append('size', 'auto');
+    const res = await fetch('https://api.remove.bg/v1.0/removebg', { method:'POST', headers:{'X-Api-Key':key}, body:fd });
+    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.errors?.[0]?.title||'API error '+res.status); }
+    const buf = await res.arrayBuffer();
+    const blobUrl = URL.createObjectURL(new Blob([buf],{type:'image/png'}));
+    const img2 = new Image();
+    img2.onload = function() {
+      const ctx2 = canvas.getContext('2d');
+      ctx2.fillStyle = '#ffffff'; ctx2.fillRect(0,0,canvas.width,canvas.height);
+      ctx2.drawImage(img2,0,0,canvas.width,canvas.height);
+      URL.revokeObjectURL(blobUrl);
+      const result = canvas.toDataURL('image/jpeg',0.92);
+      paPhotos[paActiveIdx].enhanced = result;
+      paPhotos[paActiveIdx].original = result;
+      paPhotos[paActiveIdx]._isBlobUrl = false;
+      showToast('✓ Background removed');
+    };
+    img2.src = blobUrl;
+  } catch(e) { showToast('❌ Remove BG failed: '+(e.message||'unknown error')); }
+  finally { if (btn) { btn.disabled=false; btn.textContent='🪄 Remove BG'; } }
+}
+
+function paPhotoBoost() {
+  const tier = (window._currentUser && window._currentUser.tier) || 'scout';
+  const trialEndsAt = window._currentUser && window._currentUser.trialEndsAt;
+  const trialActive = trialEndsAt && new Date(trialEndsAt) > new Date();
+  if (tier === 'scout' && !trialActive) {
+    showToast('✨ Photo Boost is a Hustle+ feature');
+    switchTab('dashboard');
+    setTimeout(() => statsSubTab('subscription'), 150);
+    return;
+  }
+  if (!paPhotos.length) return;
+  const canvas = document.getElementById('pa-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const src = ctx.getImageData(0,0,W,H);
+  // Auto-levels per channel
+  let rMn=255,rMx=0,gMn=255,gMx=0,bMn=255,bMx=0;
+  for (let k=0;k<src.data.length;k+=4){rMn=Math.min(rMn,src.data[k]);rMx=Math.max(rMx,src.data[k]);gMn=Math.min(gMn,src.data[k+1]);gMx=Math.max(gMx,src.data[k+1]);bMn=Math.min(bMn,src.data[k+2]);bMx=Math.max(bMx,src.data[k+2]);}
+  for (let k=0;k<src.data.length;k+=4){src.data[k]=rMx>rMn?Math.min(255,((src.data[k]-rMn)/(rMx-rMn))*255):src.data[k];src.data[k+1]=gMx>gMn?Math.min(255,((src.data[k+1]-gMn)/(gMx-gMn))*255):src.data[k+1];src.data[k+2]=bMx>bMn?Math.min(255,((src.data[k+2]-bMn)/(bMx-bMn))*255):src.data[k+2];}
+  ctx.putImageData(src,0,0);
+  // Unsharp mask (sharpen kernel)
+  const s2=ctx.getImageData(0,0,W,H), dst=ctx.createImageData(W,H);
+  const kern=[0,-1,0,-1,5,-1,0,-1,0];
+  for(let y=0;y<H;y++){for(let x=0;x<W;x++){let r=0,g=0,b=0;for(let ky=0;ky<3;ky++){for(let kx=0;kx<3;kx++){const px=Math.min(W-1,Math.max(0,x+kx-1)),py=Math.min(H-1,Math.max(0,y+ky-1)),idx=(py*W+px)*4,k2=kern[ky*3+kx];r+=s2.data[idx]*k2;g+=s2.data[idx+1]*k2;b+=s2.data[idx+2]*k2;}}const i=(y*W+x)*4;dst.data[i]=Math.max(0,Math.min(255,r));dst.data[i+1]=Math.max(0,Math.min(255,g));dst.data[i+2]=Math.max(0,Math.min(255,b));dst.data[i+3]=s2.data[i+3];}}
+  ctx.putImageData(dst,0,0);
+  paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg',0.92);
+  showToast('✨ Photo Boost applied');
+}
+
+let _fsPinchDist = 0, _fsScale = 1;
+function paOpenFullscreen() {
+  if (!paPhotos.length) return;
+  const canvas = document.getElementById('pa-canvas');
+  const overlay = document.getElementById('pa-fs-overlay');
+  const img = document.getElementById('pa-fs-img');
+  if (!overlay || !img) return;
+  img.src = paPhotos[paActiveIdx].enhanced || canvas.toDataURL('image/jpeg',0.92);
+  _fsScale = 1; img.style.transform = 'scale(1)'; img.style.transformOrigin = '50% 50%';
+  overlay.style.display = 'flex';
+  img._fsWheel = function(e) { e.preventDefault(); _fsScale=Math.max(0.5,Math.min(8,_fsScale-e.deltaY*0.001)); img.style.transform='scale('+_fsScale+')'; };
+  img._fsTouchStart = function(e) { if(e.touches.length===2) _fsPinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); };
+  img._fsTouchMove = function(e) { if(e.touches.length===2){e.preventDefault();const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);_fsScale=Math.max(0.5,Math.min(8,_fsScale*(d/_fsPinchDist)));img.style.transform='scale('+_fsScale+')';_fsPinchDist=d;} };
+  img.addEventListener('wheel',img._fsWheel,{passive:false});
+  img.addEventListener('touchstart',img._fsTouchStart,{passive:true});
+  img.addEventListener('touchmove',img._fsTouchMove,{passive:false});
+}
+function paCloseFullscreen(e) {
+  const overlay = document.getElementById('pa-fs-overlay');
+  const img = document.getElementById('pa-fs-img');
+  if (e && e.target === img) return;
+  if (img) { img.removeEventListener('wheel',img._fsWheel); img.removeEventListener('touchstart',img._fsTouchStart); img.removeEventListener('touchmove',img._fsTouchMove); }
+  if (overlay) overlay.style.display = 'none';
+}
+
+function paShowSaveDialog() {
+  if (document.getElementById('pa-save-dialog')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'pa-save-dialog';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  overlay.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:320px;width:100%;box-sizing:border-box"><div style="font-family:\'Syne\',sans-serif;font-size:17px;font-weight:900;color:var(--text);margin-bottom:6px">Save Photos To</div><div style="font-size:12px;color:var(--muted);margin-bottom:18px">Select where to attach these enhanced photos</div><button onclick="paSaveDialogNewItem()" style="width:100%;padding:12px;background:var(--green);color:#000;border:none;border-radius:8px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px">+ New Inventory Item</button><button onclick="paSaveDialogExisting()" style="width:100%;padding:12px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:8px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px">📦 Existing Item</button><button onclick="document.getElementById(\'pa-save-dialog\').remove()" style="width:100%;padding:8px;background:none;color:var(--muted);border:none;font-family:\'IBM Plex Mono\',monospace;font-size:12px;cursor:pointer">Cancel</button></div>';
+  document.body.appendChild(overlay);
+}
+function paSaveDialogNewItem() {
+  document.getElementById('pa-save-dialog')?.remove();
+  window._paPreloadPhotos = paPhotos.map(p => p.enhanced || p.original);
+  switchTab('inventory');
+  setTimeout(function() {
+    editingId = null; invFormImgB64 = null;
+    initFormSelects();
+    document.getElementById('form-title').textContent = 'Add New Item';
+    const prev = document.getElementById('inv-form-photo-preview');
+    const ep = document.getElementById('inv-form-edit-photos');
+    if (prev) prev.style.display = 'none';
+    if (ep && window._paPreloadPhotos && window._paPreloadPhotos.length) {
+      ep.style.display = 'block';
+      ep.innerHTML = '<div class="edit-photos-label">PHOTOS FROM EDITOR (' + window._paPreloadPhotos.length + ')</div><div class="edit-photo-grid">' + window._paPreloadPhotos.map(p=>'<div class="edit-photo-wrap"><img src="'+p+'"></div>').join('') + '</div>';
+    }
+    showInvView('add');
+    updateProfitPreview();
+    window.scrollTo(0,0);
+  }, 120);
+}
+function paSaveDialogExisting() {
+  document.getElementById('pa-save-dialog')?.remove();
+  window.scrollTo(0,0);
+  const catSel = document.getElementById('pa-cat-select');
+  if (catSel) { catSel.focus(); showToast('Select a category and item above, then tap Save'); }
+}
 
 // ══════════════════════════════════════════════════
 // P&L TRACKER
@@ -4275,7 +4479,7 @@ function fileToBase64NoDecodeAndThumb(file) {
 // ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
 // ══════════════════════════════════════════════════
-const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced'};
+const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:''};
 let S = loadSrcSettings();
 
 const _origShowSettings=window.showSourcingSettings;
@@ -4619,6 +4823,7 @@ function populateSettingsUI() {
   const set=(id,val)=>{const el=document.getElementById(id);if(el)el.value=val;};
   set('slider-min-profit',S.minProfit); set('slider-target-roi',S.targetRoi);
   set('slider-max-days',S.maxDays); set('slider-ebay-fee',S.ebayFee); set('slider-pkg-cost',S.pkgCost);
+  set('pa-removebg-key', S.removebgKey||'');
   updateSetting('min-profit',S.minProfit,'$',''); updateSetting('target-roi',S.targetRoi,'','%');
   updateSetting('max-days',S.maxDays,'',' days'); updateSetting('ebay-fee',S.ebayFee,'','%');
   updateSetting('pkg-cost',S.pkgCost,'$','');
