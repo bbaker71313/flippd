@@ -4,6 +4,87 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-16 — Credentials, metadata, and localStorage cleanup (PR #67)
+
+### What changed this session
+
+**`apps/web/public/app.html`** — multiple changes:
+- Forgot-password alert: `support@flippd.app` → `support@scanforprofit.com`
+- localStorage keys renamed `flippd_*` → `sfp_*` throughout:
+  - `flippd_jwt` → `sfp_jwt`
+  - `flippd_user_name` → `sfp_user_name`
+  - `flippd_seeded` → `sfp_seeded`
+  - `flippd_events` → `sfp_events`
+  - `flippd_items_v1` (STORAGE_KEY) → `sfp_items_v1`
+- Migration block added at top of STORAGE section (IIFE, runs at parse time): migrates old `flippd_*` and `ebayhq_*` keys to `sfp_*` for existing users before any code reads the keys — data is preserved
+- Removed `fif_api_key` write-backs (login no longer redundantly writes to the legacy key); cleanup block in `window.onload` still removes `fif_api_key` as a safety net for old sessions
+- IndexedDB name `flippd_photos` and sessionStorage key `flippd_preview_src` intentionally left unchanged — IndexedDB rename requires complex data migration; `flippd_preview_src` is dead-code cleanup (nothing writes it since v5.11)
+
+**`README.md`**:
+- Line 20: `[flippd.com](https://flippd.com)` → `[scanforprofit.com](https://scanforprofit.com)`
+- Line 64: `support@flippd.com` → `support@scanforprofit.com`
+
+**`package.json`**:
+- `"name"`: `"flippd-backend"` → `"scanforprofit"`
+- `"description"`: updated to ScanForProfit description
+- `"keywords"`: `"flippd"` → `"scanforprofit"`
+
+**`.env.example` line 33**: Redacted old eBay client ID `Brittany-Flippd-PRD-67b75c3f4-fb4ff30c` → placeholder `<your ScanForProfit eBay client ID from developer.ebay.com>`
+
+**`CLAUDE.md`**: Redacted same eBay client ID from edge functions rules section
+
+**`docs/ScanForProfit_v5_24.html`**:
+- Line 4078: eBay `clientId` → empty string with comment pointing to Supabase secrets
+- Line 4079: Replit `ruName` → empty string with comment pointing to Supabase secrets
+- Line 4444: `API_BASE` updated from Replit URL to Supabase function URL
+- Lines 5784-5785: `support@flippd.app` → `support@scanforprofit.com`
+
+**`docs/FEATURE_TRIAGE.md`**: Title updated: `Feature Triage — Flippd v5.23 → ScanForProfit RN` → `Feature Triage — ScanForProfit v5.24`
+
+**`docs/files/CHATS.md`**:
+- `[APP]` source of truth: `Flippd_v5_23.html` → `docs/ScanForProfit_v5_24.html`
+- `[BACKEND]` functions list: added `stripe-checkout`, `ebay-oauth`
+
+**`docs/files/DECISIONS.md`**:
+- Functions list: added `stripe-checkout`, `ebay-oauth`
+- Source of truth section: `Flippd_v5_23.html` → `docs/ScanForProfit_v5_24.html`
+
+**`BACKEND_LIVE.md`** → **`docs/files/LEGACY_BACKEND_LIVE.md`** (archived — described decommissioned Replit backend)
+
+**`APP_INTEGRATION.md`** → **`docs/files/LEGACY_APP_INTEGRATION.md`** (archived — referenced `flippd-backend.replit.app` as active)
+
+**`CLAUDE.txt`** — deleted (stale duplicate of `CLAUDE.md` with wrong source-file references)
+
+### Files changed
+- `apps/web/public/app.html` — modified
+- `README.md` — modified
+- `package.json` — modified
+- `.env.example` — modified
+- `CLAUDE.md` — modified
+- `docs/ScanForProfit_v5_24.html` — modified
+- `docs/FEATURE_TRIAGE.md` — modified
+- `docs/files/CHATS.md` — modified
+- `docs/files/DECISIONS.md` — modified
+- `BACKEND_LIVE.md` → `docs/files/LEGACY_BACKEND_LIVE.md` — renamed
+- `APP_INTEGRATION.md` → `docs/files/LEGACY_APP_INTEGRATION.md` — renamed
+- `CLAUDE.txt` — deleted
+
+### Commit / PR
+Commit `078d651` on branch `claude/cleanup-credentials-metadata-g99z9o` — PR #67 (draft, open)
+
+### Decisions made (do not reverse)
+- localStorage key prefix is now `sfp_` everywhere. Do not reintroduce `flippd_` keys.
+- `fif_api_key` is a dead legacy key — only remove it in cleanup paths, never write to it again.
+- IndexedDB name `flippd_photos` is intentionally kept as-is — renaming it requires migrating photo blobs which is high-risk for zero user-visible benefit.
+- `BACKEND_LIVE.md` and `APP_INTEGRATION.md` are permanently archived in `docs/files/LEGACY_*` — do not move them back to root.
+- `CLAUDE.txt` is permanently deleted — `CLAUDE.md` at repo root is the only authoritative copy.
+
+### Next task
+- Merge PR #67 once Vercel CI completes
+- Phase 3 Step 3 (Component Library redo with frontend-design skill) or Phase 5 (Web App Build) — whichever the user prioritizes next
+
+---
+
 ## Session: 2026-06-16 — Minor doc conflict cleanup (audit)
 
 ### What changed this session
