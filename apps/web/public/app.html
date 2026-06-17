@@ -1122,7 +1122,7 @@ body::before{
   <div class="header-right" style="display:flex;gap:6px;align-items:center">
     <button class="hdr-btn" onclick="toggleGlobalSearch()" title="Search">🔍</button>
     <button class="hdr-btn" onclick="toggleActivityFeed()" title="Activity">🕐</button>
-    <button class="hdr-btn" onclick="showSourcingSettings()" title="Settings">⚙️</button>
+    <button class="hdr-btn" onclick="showSourcingSettings()" title="Settings"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.93 2.93l1.41 1.41M11.66 11.66l1.41 1.41M2.93 13.07l1.41-1.41M11.66 4.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
   </div>
 </div>
 
@@ -1157,11 +1157,11 @@ body::before{
 
 <!-- TAB BAR -->
 <div class="tab-bar">
-  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon">🔍</span>SCOUT</button>
-  <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon">📦</span>INVENTORY</button>
-  <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon">📸</span>PHOTOS</button>
-  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>TRENDS</button>
-  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon">💰</span>STATS</button>
+  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>SCOUT</button>
+  <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>INVENTORY</button>
+  <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>PHOTOS</button>
+  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>PULSE</button>
+  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm3 0h2V2H5v8zm3 0h2V4h-2v6z" fill="currentColor" opacity="0.9"/></svg></span>P&amp;L</button>
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -1329,8 +1329,18 @@ body::before{
           <span id="acct-tier" style="color:var(--green);font-weight:700;text-transform:uppercase">—</span>
         </div>
       </div>
-      <button onclick="requestPasswordReset()" style="width:100%;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--surface);border:1.5px solid var(--border);color:var(--muted);border-radius:6px;padding:10px;cursor:pointer">🔑 Reset Password</button>
-      <button onclick="signOut()" style="width:100%;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--red-bg);border:1.5px solid var(--red);color:var(--red);border-radius:6px;padding:10px;cursor:pointer">↩ Sign Out</button>
+      <button onclick="requestPasswordReset()" style="width:100%;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--surface);border:1.5px solid var(--border);color:var(--muted);border-radius:6px;padding:10px;cursor:pointer">Reset Password</button>
+      <button onclick="signOut()" style="width:100%;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--red-bg);border:1.5px solid var(--red);color:var(--red);border-radius:6px;padding:10px;cursor:pointer">Sign Out</button>
+    </div>
+
+    <!-- UPGRADE PLAN (Change 18) -->
+    <div id="settings-upgrade-section" class="card" style="margin-top:12px;background:linear-gradient(135deg,rgba(0,230,118,0.08) 0%,var(--card) 100%);border-color:rgba(0,230,118,0.3)">
+      <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:6px">Your Plan</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div id="settings-tier-name" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--green)">Trial</div>
+        <div id="settings-tier-badge" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:var(--green);border:1px solid var(--green-border);padding:3px 8px;border-radius:4px">ACTIVE</div>
+      </div>
+      <button id="settings-upgrade-btn" onclick="switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.08em">UPGRADE PLAN →</button>
     </div>
   </div>
 
@@ -1377,8 +1387,8 @@ body::before{
       </div>
     </div>
     <div class="cam-grid">
-      <button class="cam-btn green" id="btn-camera" onclick="triggerImageInput('camera')"><span class="ci">📷</span>TAKE PHOTO</button>
-      <button class="cam-btn" onclick="triggerImageInput('gallery')"><span class="ci">🖼️</span>PHOTO LIBRARY</button>
+      <button class="cam-btn green" id="btn-camera" onclick="triggerImageInput('camera')"><span class="ci"><svg width="14" height="12" viewBox="0 0 14 12" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 3L5 1h4l1 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>TAKE PHOTO</button>
+      <button class="cam-btn" onclick="triggerImageInput('gallery')"><span class="ci"><svg width="14" height="12" viewBox="0 0 14 12" fill="none"><rect x="1" y="1.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 8.5l3-3 2.5 2.5 2.5-2.5 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>PHOTO LIBRARY</button>
     </div>
     <input class="file-input" id="input-camera" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="handleImage(event)">
     <input class="file-input" id="input-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="handleImage(event)">
@@ -1388,12 +1398,13 @@ body::before{
     <div class="or-divider" id="or-div"><div class="or-line"></div><span class="or-text">OR DESCRIBE IT</span><div class="or-line"></div></div>
     <textarea class="text-input" id="text-input" placeholder='e.g. "Xbox 360 with games" or any item...'></textarea>
     <div class="cost-row" id="cost-row">
-      <span class="cost-label">💵 Your cost</span>
+      <span class="cost-label">Your cost</span>
       <div style="display:flex;align-items:center"><span class="cost-dollar">$</span><input class="cost-input" id="cost-input" aria-label="Your cost" type="number" placeholder="0.00" min="0" step="0.25"></div>
     </div>
     <div id="error-box" class="error-box" style="display:none"></div>
-    <button class="btn btn-green" id="analyze-btn" onclick="analyze()">⚡ FLIP OR PASS?</button>
-    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">🔭 RANK THIS SHELF</button>
+    <button class="btn btn-green" id="analyze-btn" onclick="analyze()">FLIP OR PASS?</button>
+    <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-top:-8px;margin-bottom:12px" id="analyze-label">RUN THE NUMBERS</div>
+    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">RANK THIS SHELF</button>
     <div class="bottom-hint" id="hint-b-single">Identifies item · Pulls sold comps · Calculates profit after fees<br><span id="hint-fee-line">13% eBay fee · $1.25 packaging · Buyer pays shipping</span></div>
     <div class="bottom-hint" id="hint-b-shelf" style="display:none">Scans every visible item · Sorts by profit potential · Flags what to grab vs skip</div>
   </div>
@@ -1637,7 +1648,7 @@ body::before{
 <div class="tab-panel" id="panel-growth">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-top:4px;margin-bottom:4px">
     <div>
-      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Market Trends</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Pulse</div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px" id="growth-last-run"></div>
     </div>
     <button id="growth-refresh-btn" onclick="runGrowthAgent()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">↻ Refresh</button>
@@ -1706,7 +1717,7 @@ body::before{
 
     <!-- Section: Stale items -->
     <div id="growth-stale-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M3 1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 1.5L7 7L10 1.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 12.5L7 7L10 12.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Stale Items — Action Needed</h3>
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M3 1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 1.5L7 7L10 1.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 12.5L7 7L10 12.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Action Queue</h3>
       <div id="growth-stale-content"></div>
     </div>
 
@@ -1720,6 +1731,12 @@ body::before{
     <div id="growth-market-section" class="card" style="margin-bottom:14px">
       <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M1.5 12C3 9 5 7.5 7 7.5S11 9 12.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 10C4.5 8 5.5 7 7 7S9.5 8 10.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="4.5" r="1.2" fill="currentColor"/></svg>Live eBay Market Trends</h3>
       <div id="growth-market-content"></div>
+    </div>
+
+    <!-- SEASONAL SOURCING — static, month-based -->
+    <div class="card" style="margin-bottom:14px">
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M7 3v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Upcoming Seasonal Sourcing</h3>
+      <div id="seasonal-tips-content" style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace">Loading...</div>
     </div>
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
@@ -1960,22 +1977,25 @@ body::before{
   </div>
 </div>
 
-<!-- TAB: DASHBOARD -->
+<!-- TAB: DASHBOARD (P&L) -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-dashboard">
-  <div style="display:flex;gap:6px;margin-bottom:14px;padding-top:4px">
-    <button class="filter-btn active" id="stats-sub-dash" onclick="statsSubTab('dash')">📊 Overview</button>
-    <button class="filter-btn" id="stats-sub-pnl" onclick="statsSubTab('pnl')">💰 P&amp;L</button>
-    <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">💎 Plan</button>
+  <div style="margin-bottom:14px;padding-top:4px">
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">P&amp;L</div>
+    <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px">Your numbers, your business.</div>
   </div>
-  <div id="stats-view-dash">
+  <div style="display:flex;gap:6px;margin-bottom:14px">
+    <button class="filter-btn active" id="stats-sub-pnl" onclick="statsSubTab('pnl')">P&amp;L</button>
+    <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">Plan</button>
+  </div>
+  <div id="stats-view-dash" style="display:none">
     <div style="margin-bottom:14px">
       <div id="dash-greeting" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">Hey there 👋</div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px" id="dash-date"></div>
     </div>
     <div id="dash-content"></div>
   </div>
-  <div id="stats-view-pnl" style="display:none">
+  <div id="stats-view-pnl">
     <div id="spnl-sum" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
       <button class="filter-btn active" id="spnl-t-sales" onclick="sPnlTab('sales')">📊 Sales</button>
@@ -2636,7 +2656,7 @@ function switchTab(tab) {
   if (tab === 'pnl') { pnlRenderSummary(); pnlSetTab('sales'); }
   if (tab === 'csv') { renderCsvPreview(); loadCsvReminder(); }
   if (tab === 'import') { resetImportUI(); }
-  if (tab === 'dashboard') { renderDashboard(); statsSubTab('dash'); }
+  if (tab === 'dashboard') { statsSubTab('pnl'); }
   
   // Cleanup memory when leaving scout tab.
   // NOTE: do NOT remove flippd_preview_src here — Android camera launches a new
@@ -3817,7 +3837,39 @@ function saveGrowthCache(data) {
   localStorage.setItem(GROWTH_CACHE_KEY, JSON.stringify({data, ts: Date.now()}));
 }
 
+const SEASONAL_BY_MONTH = {
+  0:  [{category:'Winter Clothing',reason:'Post-holiday thrift stores restocked — coats sell on eBay through March',priority:'HIGH',monthsAhead:2},{category:'Holiday Decor',reason:'Last year\'s decor deeply discounted at thrift, resells next holiday season',priority:'MED',monthsAhead:10},{category:'Board Games',reason:'Indoor season — high demand, easy to ship, strong sell-through',priority:'HIGH',monthsAhead:1}],
+  1:  [{category:'Winter Clothing',reason:'Final clearance on coats and boots — buy cheap, hold for next fall',priority:'MED',monthsAhead:8},{category:'Valentine Gifts',reason:'Jewelry, decor, and novelty items spike in early February',priority:'HIGH',monthsAhead:0},{category:'Fitness Equipment',reason:'New Year resolution buyers still active — small equipment ships well',priority:'MED',monthsAhead:1}],
+  2:  [{category:'Spring Clothing',reason:'Buyers searching for lighter clothes now — denim, linen, sneakers',priority:'HIGH',monthsAhead:1},{category:'Garden Tools',reason:'Source cheap, season starting — sell in 4-6 weeks',priority:'MED',monthsAhead:1},{category:'Tax Season Items',reason:'Printers, office supplies — home office setup demand rises',priority:'MED',monthsAhead:0}],
+  3:  [{category:'Outdoor & Camping',reason:'Camping season starts — tents, gear, cookware move fast',priority:'HIGH',monthsAhead:1},{category:'Spring Clothing',reason:'Floral, pastel, light layers — peak sourcing window',priority:'HIGH',monthsAhead:0},{category:'Easter Decor',reason:'Short window — source early and list fast',priority:'MED',monthsAhead:0}],
+  4:  [{category:'Outdoor Power Tools',reason:'Lawn season underway — mowers, trimmers, blowers',priority:'HIGH',monthsAhead:0},{category:'Summer Clothing',reason:'Swimwear and shorts demand climbs — source from thrift now',priority:'HIGH',monthsAhead:1},{category:'Sports Equipment',reason:'Baseball, soccer, tennis — peak season, strong sell-through',priority:'MED',monthsAhead:0}],
+  5:  [{category:'Summer Clothing',reason:'Peak summer clothing demand — act now',priority:'HIGH',monthsAhead:0},{category:'Pool & Beach',reason:'Pool toys, beach gear, water toys — short hot window',priority:'HIGH',monthsAhead:0},{category:'Father\'s Day Gifts',reason:'Tools, electronics, golf — spike in mid-June',priority:'MED',monthsAhead:0}],
+  6:  [{category:'Back to School',reason:'Backpacks, supplies, dorm gear — source now for August rush',priority:'HIGH',monthsAhead:1},{category:'Summer Clothing Closeout',reason:'Buy deeply discounted — sell next summer or bundle',priority:'MED',monthsAhead:10},{category:'Vintage Toys',reason:'Summer nostalgia buying — steady demand, great margins',priority:'MED',monthsAhead:0}],
+  7:  [{category:'Back to School',reason:'Peak back-to-school buying window — supplies and clothes',priority:'HIGH',monthsAhead:0},{category:'Fall Clothing Preview',reason:'Light jackets, flannels starting to move — source now',priority:'MED',monthsAhead:1},{category:'Dorm Essentials',reason:'Bedding, desk lamps, small appliances — college move-in',priority:'HIGH',monthsAhead:0}],
+  8:  [{category:'Fall Clothing',reason:'Peak fall fashion season — flannels, boots, denim',priority:'HIGH',monthsAhead:0},{category:'Halloween Costumes',reason:'Source now — prices spike at retail in October',priority:'HIGH',monthsAhead:1},{category:'Electronics',reason:'Back to school + new product launches — electronics hot',priority:'MED',monthsAhead:0}],
+  9:  [{category:'Halloween Costumes',reason:'Peak demand this month — list everything fast',priority:'HIGH',monthsAhead:0},{category:'Fall Decor',reason:'Pumpkins, wreaths, harvest — thrift prices low, resale high',priority:'MED',monthsAhead:0},{category:'Winter Clothing Preview',reason:'Start sourcing coats and boots before holiday price spike',priority:'HIGH',monthsAhead:2}],
+  10: [{category:'Holiday Gifts',reason:'Most important sourcing month — electronics, toys, collectibles',priority:'HIGH',monthsAhead:0},{category:'Winter Clothing',reason:'Coats and boots peak — source aggressively now',priority:'HIGH',monthsAhead:0},{category:'Holiday Decor',reason:'Christmas and Hanukkah items selling — list fast',priority:'MED',monthsAhead:0}],
+  11: [{category:'Post-Holiday Clearance',reason:'Thrift stores flooded with donations after Christmas — deep value',priority:'HIGH',monthsAhead:2},{category:'Winter Sports Gear',reason:'Ski, snowboard, ice skates — peak season',priority:'HIGH',monthsAhead:0},{category:'Board Games',reason:'Holiday gifts being resold — source the ones in demand',priority:'MED',monthsAhead:0}]
+};
+
+function renderSeasonalTips() {
+  const el = document.getElementById('seasonal-tips-content');
+  if (!el) return;
+  const m = new Date().getMonth();
+  const tips = SEASONAL_BY_MONTH[m] || [];
+  if (!tips.length) { el.innerHTML = '<div style="color:var(--muted)">No tips for this month.</div>'; return; }
+  el.innerHTML = tips.map((t, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0${i < tips.length - 1 ? ';border-bottom:1px solid var(--border)' : ''}">
+      <div style="flex:1">
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px">${t.category}</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">${t.reason}</div>
+      </div>
+      <span style="margin-left:10px;flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.1em;padding:2px 6px;border-radius:3px;background:${t.priority==='HIGH'?'var(--green-bg)':'var(--yellow-bg)'};color:${t.priority==='HIGH'?'var(--green-border)':'var(--yellow)'}">${t.priority}</span>
+    </div>`).join('');
+}
+
 function initGrowthTab() {
+  renderSeasonalTips();
   const cache = loadGrowthCache();
   const lastRunEl = document.getElementById('growth-last-run');
   const staleEl = document.getElementById('growth-stale-banner');
@@ -4584,13 +4636,6 @@ function renderDashboard() {
        </div>` : '';
 
   document.getElementById('dash-content').innerHTML = `
-
-    <!-- TIMEFRAME TOGGLE -->
-    <div style="display:flex;gap:6px;margin-bottom:14px;justify-content:flex-end">
-      <button class="filter-btn${dashTimeframe==='week'?' active':''}" onclick="setDashTimeframe('week')">Week</button>
-      <button class="filter-btn${dashTimeframe==='month'?' active':''}" onclick="setDashTimeframe('month')">Month</button>
-      <button class="filter-btn${dashTimeframe==='year'?' active':''}" onclick="setDashTimeframe('year')">Year</button>
-    </div>
 
     <!-- ① 3-KPI STRIP -->
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -5489,13 +5534,13 @@ function demandClass(lv) {
 let lastSingleResult = null;
 
 function renderSingle({item,cost,fin,dec}) {
-  resetBtn('analyze-btn','⚡ FLIP OR PASS?','green');
+  resetBtn('analyze-btn','FLIP OR PASS?','green');
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const shipLine=S.shipping==='free'
     ?`<span class="dv u-neg">-$${fin.shipCost.toFixed(2)}</span>`
     :`<span class="dv u-pos" style="font-weight:800">Buyer Pays ✓</span>`;
-  const D_ICON={HOT:'🔥',BUY:'✅',PASS:'❌'};
+  const D_ICON={HOT:'[ HOT ]',BUY:'[ BUY ]',PASS:'[ PASS ]'};
   const D_LBL={HOT:'HIGH PRIORITY — BUY NOW',BUY:'BUY IT',PASS:'PASS ON THIS ONE'};
   const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${k} ↗</a>`).join('');
   const tips=(item.listing_tips||[]).map(t=>`<li class="tip-item"><span class="tip-arrow">→</span>${t}</li>`).join('');
@@ -5514,16 +5559,16 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${item.item_name}</div>${maxCostHint}</div>
       <div class="conf-pill">${item.confidence}%</div>
     </div>
-    <div class="source-badge">🤖 AI Estimated · Buyer pays shipping · Verify with real eBay data</div>
+    <div class="source-badge">[ AI ] Estimated · Buyer pays shipping · Verify with real eBay data</div>
 
     <!-- BUY / PASS / WATCH ACTIONS -->
     <div class="buy-action-bar">
       <div class="buy-action-title">What do you want to do?</div>
       <div class="buy-action-sub">Tap Buy to add this item to your inventory automatically.</div>
       <div class="buy-action-btns">
-        <button class="action-btn action-buy" onclick="buyItem()">🛒 BUY<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
-        <button class="action-btn action-watch" onclick="watchItem()">👀 WATCH<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Save for Later</span></button>
-        <button class="action-btn action-pass" onclick="goSrcBack()">❌ PASS<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Skip This One</span></button>
+        <button class="action-btn action-buy" onclick="buyItem()">BUY<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
+        <button class="action-btn action-watch" onclick="watchItem()">WATCH<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Save for Later</span></button>
+        <button class="action-btn action-pass" onclick="goSrcBack()">PASS<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Skip This One</span></button>
       </div>
     </div>
 
@@ -6554,6 +6599,16 @@ function populateAccountUI() {
   if (usernameEl) usernameEl.textContent = user.username || localStorage.getItem('sfp_user_name') || '—';
   if (emailEl) emailEl.textContent = user.email || '—';
   if (tierEl) tierEl.textContent = user.tier || 'scout';
+  // Sync upgrade section in Settings
+  var stierEl = document.getElementById('settings-tier-name');
+  var supgBtn = document.getElementById('settings-upgrade-btn');
+  if (stierEl) {
+    var tierName = (user.tier||'scout').charAt(0).toUpperCase()+(user.tier||'scout').slice(1);
+    stierEl.textContent = tierName;
+  }
+  if (supgBtn) {
+    supgBtn.style.display = (user.tier === 'empire') ? 'none' : 'block';
+  }
 }
 
 
@@ -7306,17 +7361,14 @@ function statsSubTab(sub) {
   var dash = document.getElementById('stats-view-dash');
   var pnl  = document.getElementById('stats-view-pnl');
   var subv = document.getElementById('stats-view-subscription');
-  var bdash = document.getElementById('stats-sub-dash');
   var bpnl  = document.getElementById('stats-sub-pnl');
   var bsub  = document.getElementById('stats-sub-subscription');
-  if(dash) dash.style.display = sub==='dash'?'block':'none';
+  if(dash) dash.style.display = 'none';
   if(pnl)  pnl.style.display  = sub==='pnl'?'block':'none';
   if(subv) subv.style.display = sub==='subscription'?'block':'none';
-  if(bdash) bdash.classList.toggle('active', sub==='dash');
   if(bpnl)  bpnl.classList.toggle('active', sub==='pnl');
   if(bsub)  bsub.classList.toggle('active', sub==='subscription');
   if(sub==='pnl') { sPnlRender(); sPnlTab('sales'); }
-  if(sub==='dash') renderDashboard();
   if(sub==='subscription') renderSubscriptionPanel();
 }
 
@@ -7452,5 +7504,101 @@ function sPnlMiles() {
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- ONBOARDING MODAL (first visit only)     -->
+<!-- ═══════════════════════════════════════ -->
+<div id="onboarding-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:420px;padding:32px 28px 28px;position:relative">
+    <!-- Step dots -->
+    <div style="display:flex;justify-content:center;gap:6px;margin-bottom:24px" id="ob-dots"></div>
+    <!-- Content -->
+    <div id="ob-headline" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2;margin-bottom:12px"></div>
+    <div id="ob-body" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:28px"></div>
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px" id="ob-btns">
+      <button id="ob-skip" onclick="obSkip()" style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:8px;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;letter-spacing:0.1em">SKIP</button>
+      <button id="ob-next" onclick="obNext()" style="flex:2;padding:12px;border:none;border-radius:8px;background:var(--green);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:0.08em"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var OB_KEY = 'sfp_onboarding_complete';
+  var OB_SCREENS = [
+    {
+      headline: 'Know before you buy.',
+      body: 'ScanForProfit shows you real eBay sold data before you spend a dollar at the thrift store. Real comps. Real math. Real decisions.'
+    },
+    {
+      headline: 'Point. Scan. Decide.',
+      body: 'Aim your camera at any item. AI identifies it, pulls sold comps, and gives you a FLIP or PASS in seconds.'
+    },
+    {
+      headline: 'Set your eBay fee once.',
+      body: 'Go to Settings and enter your actual eBay fee percentage. Every profit calculation uses your real numbers. Default is 13% — update it if yours differs.'
+    }
+  ];
+  var obStep = 0;
+
+  function obRender() {
+    var s = OB_SCREENS[obStep];
+    var isLast = obStep === OB_SCREENS.length - 1;
+    document.getElementById('ob-headline').textContent = s.headline;
+    document.getElementById('ob-body').textContent = s.body;
+    document.getElementById('ob-next').textContent = isLast ? 'GET STARTED' : 'NEXT →';
+    document.getElementById('ob-skip').style.display = isLast ? 'none' : 'flex';
+    var dots = document.getElementById('ob-dots');
+    dots.innerHTML = OB_SCREENS.map(function(_, i) {
+      return '<div style="width:' + (i===obStep?'20':'8') + 'px;height:8px;border-radius:4px;background:' + (i===obStep?'var(--green)':'var(--border)') + ';transition:width 0.2s"></div>';
+    }).join('');
+  }
+
+  window.obNext = function() {
+    if (obStep < OB_SCREENS.length - 1) {
+      obStep++;
+      obRender();
+    } else {
+      obFinish(true);
+    }
+  };
+
+  window.obSkip = function() { obFinish(false); };
+
+  function obFinish(completed) {
+    try { localStorage.setItem(OB_KEY, '1'); } catch(e) {}
+    var overlay = document.getElementById('onboarding-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function obMaybeShow() {
+    try {
+      if (localStorage.getItem(OB_KEY)) return;
+    } catch(e) { return; }
+    var overlay = document.getElementById('onboarding-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    obStep = 0;
+    obRender();
+  }
+
+  // Show after login, not on the login/setup screen
+  var _origSwitchTab = window.switchTab;
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window._currentUser !== 'undefined' && window._currentUser) {
+      obMaybeShow();
+    }
+  });
+  // Hook into auth success — show onboarding after first login
+  var _obCheckInterval = setInterval(function() {
+    if (window._currentUser) {
+      clearInterval(_obCheckInterval);
+      obMaybeShow();
+    }
+  }, 500);
+})();
+</script>
+
 </body>
 </html>
