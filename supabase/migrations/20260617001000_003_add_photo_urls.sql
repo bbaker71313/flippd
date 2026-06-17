@@ -1,0 +1,1 @@
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS photo_urls JSONB DEFAULT '[]';
