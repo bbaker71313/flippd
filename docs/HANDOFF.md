@@ -4,6 +4,49 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-17 (web) — Port SESSION_2_3_PROMPT changes to app.html
+
+### What changed this session
+
+**`apps/web/public/app.html`** — all applicable SESSION_2_3_PROMPT changes ported:
+
+- **Tab bar**: TRENDS→PULSE, STATS→P&L; all tab-bar emojis replaced with inline SVG icons
+- **P&L tab (was STATS)**: Removed "Overview" sub-tab button; P&L view is now the default when switching to this tab; added branded header "P&L / Your numbers, your business."; updated `statsSubTab()` and `switchTab()` to default to 'pnl'
+- **Timeframe toggles**: Removed Week/Month/Year toggle buttons from the dashboard JS template (Change 19)
+- **Pulse tab (was TRENDS)**: Header renamed "Market Trends"→"Pulse"; "Stale Items — Action Needed" section renamed "Action Queue" (Change 14)
+- **Scout tab — scan phrase**: "RUN THE NUMBERS" label added below analyze button; button stripped of ⚡ emoji (Change 1)
+- **Scout tab — emoji cleanup**: Camera buttons, cost row, analyze/shelf buttons, decision icons `D_ICON` (now `[ HOT ]`/`[ BUY ]`/`[ PASS ]`), AI badge, BUY/WATCH/PASS action buttons all cleaned of emojis (Change 3)
+- **Seasonal sourcing**: `SEASONAL_BY_MONTH` constant + `renderSeasonalTips()` function added; section renders in Pulse tab on `initGrowthTab()` (Change 17)
+- **Onboarding modal**: 3-screen web-native modal (centered, localStorage key `sfp_onboarding_complete`); fires after first login via `_currentUser` poll; matches mobile OnboardingSheet screens (Change 5)
+- **Upgrade section in Settings**: "Upgrade Plan" card added at bottom of Settings panel showing current tier, hides for Empire users; links to Plan sub-tab (Change 18)
+- **Settings panel emojis**: ⚙️ gear button → SVG, 🔑/↩ button labels cleaned
+
+### Files changed
+- `apps/web/public/app.html`
+
+### Commit
+- `d9aa39e` — feat(web): port SESSION_2_3_PROMPT changes to app.html (PR #78)
+
+### Decisions made (do not reverse)
+- Web app keeps its dark industrial theme (`#0a0a0a` bg) — brand refresh (Change 7) was NOT applied; that requires a full CSS overhaul and was deferred
+- Overview sub-tab removed from P&L/STATS tab but `stats-view-dash` div kept in DOM (JS references it safely)
+- Onboarding uses localStorage (no Supabase write) — consistent with mobile's expo-secure-store approach, no DB migration needed
+
+### What was NOT ported (deferred)
+- **Change 2** — Animated logo placeholder — web app has no shutter button equivalent; deferred
+- **Change 4** — Multi-photo scan — web uses `<input type="file">`; adding a photo strip requires significant JS refactor; deferred
+- **Change 7** — Full brand refresh — requires replacing the entire dark CSS theme; deferred to a dedicated session
+- **Change 8** — index.html mobile sizing — separate file, separate session
+- **Change 11/12** — Moving Stats content to Trends tab — web already has parallel content in both tabs; cleanup deferred
+- **Change 13** — Action queue items → navigate to inventory edit — web inventory edit is inline, not a separate screen; deferred
+
+### Next task
+- Merge PR #78 once Vercel preview passes review
+- Consider a dedicated web brand refresh session (Change 7) to apply the warm beige theme to app.html
+- EAS build / App Store submission prep
+
+---
+
 ## Session: 2026-06-17 (continued) — Changes 1, 4, 5, 10 from SESSION_2_3_PROMPT
 
 ### What changed this session
