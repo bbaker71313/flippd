@@ -12,7 +12,7 @@ export default function PricingSection() {
           </p>
         </div>
 
-        {/* Accuracy note — handles the #1 pre-price objection */}
+        {/* Accuracy note */}
         <div className="bg-sfp-surface border border-sfp-border rounded p-4 mb-6">
           <p className="font-mono text-sfp-textSecondary text-xs leading-relaxed">
             <span className="font-sans font-semibold text-sfp-textPrimary text-sm">On accuracy: </span>
@@ -22,8 +22,8 @@ export default function PricingSection() {
           </p>
         </div>
 
-        {/* Shelf scan callout — the upgrade driver */}
-        <div className="bg-sfp-header rounded p-5 mb-10 border-l-4 border-sfp-brand">
+        {/* Shelf scan callout — no side-stripe */}
+        <div className="bg-sfp-header rounded p-5 mb-10">
           <p className="font-sans font-bold text-sfp-background text-sm mb-1">
             The shelf scan.
           </p>
@@ -69,7 +69,7 @@ export default function PricingSection() {
               className="w-full py-3 font-sans font-bold text-sm rounded min-h-[44px] bg-sfp-brand text-sfp-textPrimary text-center hover:bg-sfp-brandDim active:scale-[0.97] flex items-center justify-center"
               style={{ transition: 'all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
             >
-              Get early access
+              Start with Hustle
             </a>
           </div>
 
@@ -102,7 +102,7 @@ export default function PricingSection() {
               className="w-full py-3 font-sans font-bold text-sm rounded min-h-[44px] border border-sfp-border text-sfp-textSecondary text-center hover:border-sfp-accent hover:text-sfp-accent active:scale-[0.97] flex items-center justify-center"
               style={{ transition: 'all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
             >
-              Get early access
+              Start for free
             </a>
           </div>
 
@@ -138,7 +138,7 @@ export default function PricingSection() {
               className="w-full py-3 font-sans font-bold text-sm rounded min-h-[44px] border border-sfp-border text-sfp-textSecondary text-center hover:border-sfp-accent hover:text-sfp-accent active:scale-[0.97] flex items-center justify-center"
               style={{ transition: 'all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
             >
-              Get early access
+              Start with Stack
             </a>
           </div>
         </div>

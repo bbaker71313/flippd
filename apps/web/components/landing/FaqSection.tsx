@@ -40,6 +40,7 @@ export default function FaqSection() {
             <div key={i} className="border-b border-sfp-border last:border-0">
               <button
                 onClick={() => setOpen(open === i ? null : i)}
+                aria-expanded={open === i}
                 className="w-full flex items-center justify-between py-5 text-left min-h-[44px] gap-4"
               >
                 <span className="font-sans font-semibold text-sfp-textPrimary text-sm">

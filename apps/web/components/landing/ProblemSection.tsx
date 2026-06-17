@@ -20,7 +20,7 @@ export default function ProblemSection() {
           in the corner isn't going anywhere.
         </p>
 
-        <div className="border-l-2 border-sfp-border pl-5 mb-10">
+        <div className="bg-sfp-surface rounded p-5 mb-10">
           <p className="font-mono text-sfp-textMuted text-xs uppercase tracking-widest mb-3">
             Sound familiar?
           </p>
@@ -32,7 +32,7 @@ export default function ProblemSection() {
         </div>
 
         <div className="space-y-4 mb-12">
-          <div className="bg-sfp-surface rounded-r border-l-4 border-sfp-warning px-5 py-4">
+          <div className="bg-amber-50 rounded px-5 py-4">
             <p className="font-sans font-semibold text-sfp-textPrimary text-sm mb-1">
               At the estate sale
             </p>
@@ -41,7 +41,7 @@ export default function ProblemSection() {
               walks to the cashier. You find out later it sold on eBay for $65.
             </p>
           </div>
-          <div className="bg-sfp-surface rounded-r border-l-4 border-sfp-border px-5 py-4">
+          <div className="bg-sfp-surface rounded px-5 py-4">
             <p className="font-sans font-semibold text-sfp-textPrimary text-sm mb-1">
               Back at home
             </p>
@@ -50,7 +50,7 @@ export default function ProblemSection() {
               stuff is buried under the bad buys.
             </p>
           </div>
-          <div className="bg-sfp-surface rounded-r border-l-4 border-sfp-border px-5 py-4">
+          <div className="bg-sfp-surface rounded px-5 py-4">
             <p className="font-sans font-semibold text-sfp-textPrimary text-sm mb-1">
               End of the month
             </p>

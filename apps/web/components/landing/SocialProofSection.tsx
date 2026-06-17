@@ -24,7 +24,7 @@ export default function SocialProofSection() {
         {testimonials.length > 0 && (
           <div className="space-y-8 mb-12">
             {testimonials.map((t) => (
-              <div key={t.handle} className="border-l-4 border-sfp-brand pl-5">
+              <div key={t.handle} className="pl-5 py-4 bg-sfp-surface rounded">
                 <p className="font-mono text-sfp-background text-sm leading-relaxed mb-3">
                   &ldquo;{t.quote}&rdquo;
                 </p>
