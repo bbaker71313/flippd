@@ -7,9 +7,29 @@ const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo'
 
+async function sendWaitlistWelcome(email: string): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY
+  if (!resendKey) return
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://scanforprofit.com'
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: process.env.RESEND_FROM_EMAIL ?? 'ScanForProfit <hello@scanforprofit.com>',
+      to: [email],
+      subject: "You're on the list — ScanForProfit early access",
+      html: `<h2>You're on the list!</h2>
+<p>Thanks for signing up for ScanForProfit early access. We'll email you the moment your spot opens up.</p>
+<p>In the meantime, the app is already live — you can start scanning today:</p>
+<p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Try ScanForProfit Now &rarr;</a></p>
+<p style="color:#888;font-size:12px;">Questions? Reply to this email — we read every one.</p>`,
+    }),
+  })
+}
+
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json()
+    const { email, source } = await req.json()
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
@@ -19,14 +39,13 @@ export async function POST(req: Request) {
 
     const { error } = await supabase
       .from('waitlist')
-      .insert({ email, created_at: new Date().toISOString() })
+      .insert({ email, source: source ?? 'landing-page', created_at: new Date().toISOString() })
 
-    // Unique constraint violation = already on list = treat as success
-    if (error && error.code === '23505') {
-      return NextResponse.json({ ok: true })
-    }
+    // Unique constraint — already on list, still send response as success
+    if (error && error.code !== '23505') throw error
 
-    if (error) throw error
+    // Fire welcome email (non-blocking — don't fail the response if it errors)
+    sendWaitlistWelcome(email).catch(console.error)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

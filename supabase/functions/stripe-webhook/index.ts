@@ -37,6 +37,22 @@ async function verifyStripeSignature(payload: string, sigHeader: string, secret:
   return expectedHex === sig;
 }
 
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const resendKey = Deno.env.get('RESEND_API_KEY');
+  if (!resendKey) return;
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: Deno.env.get('RESEND_FROM_EMAIL') ?? 'ScanForProfit <hello@scanforprofit.com>',
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  if (!res.ok) console.error('Resend error:', await res.text());
+}
+
 // Stripe Price ID → tier mapping (from HANDOFF.md)
 const PRICE_TIER: Record<string, string> = {
   'price_1Tb4hLId3kJSEdqMH7SYN3a8': 'hustle',  // Hustle monthly
@@ -110,6 +126,20 @@ Deno.serve(async (req: Request) => {
             subscription_status: 'active',
             subscription_period_end: periodEnd,
           }).eq('id', user.id);
+
+          const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+          const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
+          const emailTo = customerEmail ?? lookupValue;
+          if (emailTo) {
+            sendEmail(
+              emailTo,
+              `You're now on ${tierLabel} — welcome to the upgrade`,
+              `<h2>You're on ${tierLabel}! 🎉</h2>
+<p>Your account has been upgraded. Everything is ready — no setup needed.</p>
+<p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Open ScanForProfit &rarr;</a></p>
+<p style="color:#888;font-size:12px;">Questions? Reply to this email.</p>`,
+            ).catch(console.error);
+          }
         }
         break;
       }
@@ -150,6 +180,21 @@ Deno.serve(async (req: Request) => {
         await supabase.from('users').update({
           subscription_status: 'past_due',
         }).eq('stripe_customer_id', customerId);
+
+        const { data: failedUser } = await supabase
+          .from('users').select('email, username').eq('stripe_customer_id', customerId).maybeSingle();
+        if (failedUser?.email) {
+          const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
+          sendEmail(
+            failedUser.email,
+            'Payment failed — update your billing info',
+            `<h2>We couldn't process your payment</h2>
+<p>Hi ${failedUser.username ?? 'there'},</p>
+<p>Your last payment failed. To keep your subscription active, please update your billing information.</p>
+<p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Update Billing &rarr;</a></p>
+<p style="color:#888;font-size:12px;">If you think this is a mistake, reply to this email and we'll sort it out.</p>`,
+          ).catch(console.error);
+        }
         break;
       }
 

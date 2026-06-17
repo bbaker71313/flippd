@@ -77,22 +77,47 @@ async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number 
   }
 }
 
-async function sendVerificationEmail(to: string, token: string): Promise<void> {
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   const resendKey = Deno.env.get('RESEND_API_KEY');
   if (!resendKey) { console.warn('RESEND_API_KEY not set — skipping email'); return; }
-  const appUrl = Deno.env.get('APP_URL') ?? 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
-  const verifyLink = `${appUrl}/verify?token=${token}`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: Deno.env.get('RESEND_FROM_EMAIL') ?? 'ScanForProfit <hello@scanforprofit.com>',
       to: [to],
-      subject: 'Verify your ScanForProfit account',
-      html: `<h2>Welcome to ScanForProfit!</h2><p>Click below to verify your email.</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#22c55e;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Verify My Account &rarr;</a></p><p>This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
+      subject,
+      html,
     }),
   });
   if (!res.ok) console.error('Resend error:', await res.text());
+}
+
+async function sendVerificationEmail(to: string, token: string): Promise<void> {
+  const appUrl = Deno.env.get('APP_URL') ?? 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
+  const verifyLink = `${appUrl}/verify?token=${token}`;
+  await sendEmail(
+    to,
+    'Verify your ScanForProfit account',
+    `<h2>Welcome to ScanForProfit!</h2><p>Click below to verify your email.</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Verify My Account &rarr;</a></p><p>This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
+  );
+}
+
+async function sendWelcomeEmail(to: string, username: string): Promise<void> {
+  const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
+  await sendEmail(
+    to,
+    'You\'re in — start scanning for profit',
+    `<h2>Your account is verified, ${username}!</h2>
+<p>You're on a 7-day free trial with unlimited scans. Here's what to do first:</p>
+<ol>
+  <li>Open the app and tap <strong>Scout</strong></li>
+  <li>Point your camera at any item at a thrift store or garage sale</li>
+  <li>Get an instant BUY / HOT / PASS decision with real profit math</li>
+</ol>
+<p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Start Scanning &rarr;</a></p>
+<p style="color:#888;font-size:12px;">Questions? Reply to this email — we read every one.</p>`,
+  );
 }
 
 Deno.serve(async (req: Request) => {
@@ -192,9 +217,15 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
   if (user.is_verified) return Response.redirect(`${frontendUrl}?verified=already`, 302);
   if (new Date(user.verification_token_expires) < new Date()) return Response.redirect(`${frontendUrl}?error=token_expired`, 302);
 
-  await supabase.from('users')
+  const { data: verifiedUser } = await supabase.from('users')
     .update({ is_verified: true, verification_token: null, verification_token_expires: null })
-    .eq('id', user.id);
+    .eq('id', user.id)
+    .select('email, username')
+    .maybeSingle();
+
+  if (verifiedUser) {
+    sendWelcomeEmail(verifiedUser.email, verifiedUser.username).catch(console.error);
+  }
 
   return Response.redirect(`${frontendUrl}?verified=true`, 302);
 }
@@ -217,6 +248,8 @@ async function handleLogin(req: Request, supabase: ReturnType<typeof createClien
   if (!match) return json({ error: 'Incorrect username or password' }, 401);
 
   if (!user.is_verified) return json({ error: 'email_not_verified', message: 'Please verify your email before logging in. Check your inbox.' }, 403);
+
+  await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
 
   const token = await signJWT({ sub: user.id, username: user.username, email: user.email }, jwtSecret);
 
