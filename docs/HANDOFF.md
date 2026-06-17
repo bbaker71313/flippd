@@ -4,6 +4,80 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-17 — Replace n8n with Supabase edge functions (PR #77, merged)
+
+### What changed this session
+
+**n8n fully decommissioned.** All 6 workflows replaced. You can cancel the n8n subscription now.
+
+**`supabase/functions/auth/index.ts`**:
+- Refactored `sendVerificationEmail` into a generic `sendEmail` helper + `sendWelcomeEmail` function
+- `handleVerify`: after marking user verified, fires `sendWelcomeEmail` (replaces n8n "New User Welcome" workflow `iB0bhOJ2Y2gREciM`)
+- `handleLogin`: sets `last_login_at = now()` on every successful login (needed for churn detection)
+
+**`supabase/functions/stripe-webhook/index.ts`**:
+- Added `sendEmail` helper (Resend)
+- `checkout.session.completed`: sends upgrade confirmation email after tier upgrade (replaces n8n "Subscription Upgraded" workflow `sfE5SR7rXpv4kmam`)
+- `invoice.payment_failed`: looks up user email + sends payment-failed email (replaces n8n "Failed Payment Retry" workflow `glabRTVbtj9nush7`)
+
+**`supabase/functions/cron/index.ts`** (NEW):
+- Handles day-14 and day-30 churn re-engagement emails to inactive scout/trial users
+- Secured with `CRON_SECRET` header (`x-cron-secret`)
+- Replaces n8n "Churn Re-engagement" workflow `bKDLS85aZX4fWt8l`
+- **Must be scheduled daily** — see setup steps below
+
+**`supabase/migrations/20260617000001_trial_expiry_and_last_login.sql`** (NEW):
+- Adds `last_login_at` column to `users` table
+- Enables pg_cron extension
+- Schedules `sfp-trial-expiry` cron job: nightly 2am UTC, downgrades `tier = 'trial'` users past `trial_ends_at` to `scout` (replaces n8n "Trial Expiry Downgrade" workflow `3WcbuzehAgWqWsmT`)
+
+**`apps/web/app/api/waitlist/route.ts`**:
+- Now sends Resend welcome email after inserting waitlist row (replaces n8n "Early Access Capture" workflow `mYoprIglOdv2b7nb`)
+- Passes `source` field through from request body
+
+**`apps/web/components/landing/EmailCapture.tsx`**:
+- Removed `NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL` — now POSTs to `/api/waitlist` directly
+
+### PR
+PR #77 — merged to main at `65934fd`
+
+### n8n workflows replaced (all 5 — cancel subscription)
+| Workflow ID | Was | Replaced by |
+|---|---|---|
+| `mYoprIglOdv2b7nb` | Early Access Capture | `/api/waitlist` route |
+| `iB0bhOJ2Y2gREciM` | New User Welcome | `auth` `handleVerify` |
+| `3WcbuzehAgWqWsmT` | Trial Expiry Downgrade | pg_cron SQL job |
+| `sfE5SR7rXpv4kmam` | Subscription Upgraded | `stripe-webhook` `checkout.session.completed` |
+| `glabRTVbtj9nush7` | Failed Payment Retry | `stripe-webhook` `invoice.payment_failed` |
+| `bKDLS85aZX4fWt8l` | Churn Re-engagement | `cron` edge function |
+
+### Required manual steps (not yet done — do these after merge)
+1. **Supabase secrets** — add: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `CRON_SECRET`
+2. **Vercel env vars** — add: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
+3. **Apply migration** — `20260617000001_trial_expiry_and_last_login.sql` (adds `last_login_at` + pg_cron job)
+4. **Deploy `cron` edge function** — Supabase Dashboard → Edge Functions → Deploy
+5. **Schedule cron** — Supabase Dashboard → Edge Functions → `cron` → Schedule → daily
+
+### Decisions made (do not reverse)
+- n8n is fully decommissioned — do not re-introduce it for any workflow
+- `last_login_at` is set on every successful login in `auth/handleLogin`
+- Churn window logic: day-14 email targets `last_login_at` in the 14–15 day window; day-30 targets 30–31 day window — prevents duplicate sends when cron runs daily
+- `CRON_SECRET` header (`x-cron-secret`) gates the cron function — set as Supabase secret
+
+### TypeScript status
+- `packages/shared`: 0 errors ✅
+- `apps/web`: pre-existing module-resolution errors only (missing `node_modules` in sandbox) — not caused by this session
+
+### Next task
+1. Complete the 5 manual setup steps above
+2. Cancel n8n subscription
+3. Resume prior deferred work: Change 1 (scan phrase decision) and Change 10 (Trends tab rename) from SESSION_2_3_PROMPT
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-17 — Scout Overhaul + Tab Restructure (SESSION_2_3_PROMPT)
 
 ### What changed this session
