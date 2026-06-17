@@ -530,6 +530,13 @@ eBay Developer Portal: https://developer.ebay.com/develop/apis
 
 
 🚀 Current Build Status
+
+ARCHITECTURE NOTE (2026-06-17): The React Native mobile app built in Phase 04 was
+scrapped — the output was unusable. The live product is apps/web/public/app.html
+(rebranded Flippd HTML, live at scanforprofit.com/app.html). This is the source of
+truth for all business logic. The mobile app will be rebuilt using app.html as reference.
+See docs/playbook.html for the full master playbook and current task status.
+
 Phase
 Name
 Status
@@ -541,13 +548,13 @@ Brand & Architecture
 ✅ Complete
 03
 Design
-🔄 Step 3 in progress
+🔄 In progress (brand/tokens done; mobile components unused)
 04
-Build Mobile
-✅ Complete
+Build Web App (app.html)
+✅ Live on Vercel — 5 Edge Functions active, RLS on all tables
 05
-Build Web
-⬜ Not started
+Build Mobile App
+⬜ Not started — will be rebuilt from app.html reference
 06
 Launch
 ⬜ Not started
@@ -555,57 +562,34 @@ Launch
 Monetize / Marketing / Scale
 ⬜ Not started
 
-Phase 3 Progress
-Step
-Task
+Web App Status (apps/web/public/app.html — the live product)
+Feature
 Status
-1
-Brand Identity → docs/BRAND_IDENTITY.md
-✅ Done
-2
-Design System → packages/shared/src/constants/theme.ts
-✅ Done
-3
-Component Library → apps/mobile/components/ui/
-🔄 Redo with frontend-design skill
-4
-Screen Flows → Figma (Claude.ai + Figma MCP)
-⬜ Pending
-5
-Prototype → docs/prototype.html
-⬜ Pending
-
-Phase 4 Progress
-Step
-Task
-Status
-1
-Auth flow (register, login, verify OTP)
-✅ Done
-2
-Scout tab (camera, AI scan, FLIP/PASS/HOT, Buy modal)
-✅ Done
-2.5
-Protected route guard (auth gate in root layout)
-✅ Done
-3
-Inventory tab (CRUD, photos, status lifecycle, tier gate)
-✅ Done
-4
-Listing tab (AI generator, CSV export, trending keywords)
-✅ Done
-5
-Trends tab (Growth Agent, hunt list, business score)
-✅ Done
-6
-Stats tab (P&L dashboard, expenses, Stripe paywall)
-✅ Done
-7
-Onboarding flow (how-it-works, identity, permission, result, upgrade)
-✅ Done
-8
-Settings screen
-✅ Done
-9
-EAS build config + iOS privacy keys
-✅ Done (run build manually)
+Auth (register, login, verify, password reset)
+✅ Live (Edge Function: auth)
+AI scan via claude-proxy Edge Function
+✅ Live (17 scan_log rows confirmed)
+Inventory CRUD
+✅ Live (Supabase: inventory table)
+Listing generator
+✅ Live
+Trends / Growth Agent
+✅ Live (Pulse tab)
+P&L / Stats
+✅ Live
+Settings (fee, tax, mileage — all configurable)
+✅ Live
+eBay OAuth Edge Function
+✅ Active (ebay-oauth deployed)
+Landing page (index.html)
+✅ Live on Vercel
+Waitlist capture
+✅ Live (1 row confirmed in waitlist table)
+Stripe upgrade flow end-to-end
+⬜ Not yet verified
+PostHog events confirmed
+⬜ Not yet verified
+Sentry zero-error audit
+⬜ Not yet verified
+eBay Developer sandbox credentials connected
+⬜ Not yet done (0 rows in ebay_connections)
