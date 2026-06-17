@@ -284,6 +284,9 @@ export default function ScoutScreen() {
           >
             <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: COLORS.background, backgroundColor: COLORS.textPrimary }} />
           </TouchableOpacity>
+          <Text style={{ fontFamily: TYPOGRAPHY.mono.fontFamily, fontSize: 11, color: COLORS.textMuted, letterSpacing: 2, marginTop: SPACING.sm }}>
+            RUN THE NUMBERS
+          </Text>
         </View>
       )}
 

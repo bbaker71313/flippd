@@ -54,7 +54,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trends"
         options={{
-          title: "Trends",
+          title: "Pulse",
           tabBarIcon: () => null,
         }}
       />
