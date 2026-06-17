@@ -4,7 +4,7 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
-## Session: 2026-06-17 (web) — Port SESSION_2_3_PROMPT changes to app.html
+## Session: 2026-06-17 (web app sync) — Port SESSION_2_3_PROMPT to app.html — MERGED PR #78
 
 ### What changed this session
 
@@ -40,10 +40,18 @@ This file is the persistent session context. Update it at the end of every Claud
 - **Change 11/12** — Moving Stats content to Trends tab — web already has parallel content in both tabs; cleanup deferred
 - **Change 13** — Action queue items → navigate to inventory edit — web inventory edit is inline, not a separate screen; deferred
 
+### Commits / PRs
+- `d9aa39e` — feat(web): port SESSION_2_3_PROMPT changes to app.html
+- `0bd70b7` — docs: update HANDOFF.md
+- PR #78 merged to main → squash commit `ad6ba9c`
+
+### TypeScript check
+Clean — 0 errors (only pre-existing env-level errors from missing @types/react remain, unrelated to this session).
+
 ### Next task
-- Merge PR #78 once Vercel preview passes review
-- Consider a dedicated web brand refresh session (Change 7) to apply the warm beige theme to app.html
-- EAS build / App Store submission prep
+- All SESSION_2_3_PROMPT changes are now live on both mobile (PRs #72, #73) and web (PR #78)
+- Next priority: check `docs/FEATURE_TRIAGE.md` for Phase 5 (web app) work, OR begin EAS build / App Store submission prep
+- Deferred: web brand refresh (Change 7) — full dark→warm CSS overhaul, needs a dedicated session
 
 ---
 
