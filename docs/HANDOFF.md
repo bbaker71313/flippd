@@ -4,6 +4,59 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-17 (continued) — Changes 1, 4, 5, 10 from SESSION_2_3_PROMPT
+
+### What changed this session
+
+**`apps/mobile/app/(tabs)/scout.tsx`** (Changes 1 + 4 + 5):
+- Change 1: "RUN THE NUMBERS" label added below shutter button (IBM Plex Mono, 11px, letterSpacing 2)
+- Change 4: Single-item mode now accumulates up to 4 photos before analyzing. Photo strip shows thumbnails with × remove badges and a dashed +slot. Counter shows "X/4 PHOTOS". ANALYZE button sends all photos via `{ type: 'single_scan', images: string[] }`. Shelf mode unchanged (single shot → immediate analyze).
+- Change 5: `shouldShowOnboarding()` called on mount via `useEffect`; shows `OnboardingSheet` on first launch
+
+**`apps/mobile/components/ui/OnboardingSheet.tsx`** (Change 5 — new file):
+- 3-screen bottom-sheet Modal: "Know before you buy." / "Point. Scan. Decide." / "Set your eBay fee once."
+- Step dots, SKIP + NEXT + GET STARTED buttons
+- `expo-secure-store` key `sfp_onboarding_complete` — shows once per install
+- PostHog events: `onboarding_started`, `onboarding_skipped`, `onboarding_completed`
+
+**`apps/mobile/components/ui/index.ts`**:
+- Added `export * from './OnboardingSheet'`
+
+**`apps/mobile/app/(tabs)/_layout.tsx`** (Change 10):
+- Trends tab `title` changed from `"Trends"` to `"Pulse"`
+
+**`supabase/functions/claude-proxy/index.ts`** (Change 4):
+- `callAnthropic` now takes `images: string[]` instead of single `imageBase64`
+- Sends all images as content blocks; text prompt adapts ("Analyze these N photos of the same item from different angles.")
+- `handleSingleScan` and `handleShelfScan` updated to `images: string[]`
+- Router normalizes legacy `imageBase64` → `[imageBase64]` for backwards compat
+- Multipart form data handler populates both `imageBase64` and `images`
+
+### Files changed
+- `apps/mobile/app/(tabs)/scout.tsx`
+- `apps/mobile/app/(tabs)/_layout.tsx`
+- `apps/mobile/components/ui/OnboardingSheet.tsx` (new)
+- `apps/mobile/components/ui/index.ts`
+- `supabase/functions/claude-proxy/index.ts`
+
+### Commits
+- `7697ea2` — scan phrase + Trends→Pulse rename (PR #73)
+- `869531c` — multi-photo scan + onboarding sheet (PR #73)
+- Both PRs (#72 and #73) merged to `main`
+
+### Status of all 20 SESSION_2_3_PROMPT changes
+All 20 changes COMPLETE and merged to main.
+
+### Decisions made (do not reverse)
+- Multi-photo scan is single-mode only — shelf mode always uses single shot
+- `expo-secure-store` used for onboarding flag (no new dependency needed)
+- `callAnthropic` is backwards-compatible — `imageBase64` still accepted via normalization
+
+### Next task
+All SESSION_2_3_PROMPT changes done. Next session should pick up from FEATURE_TRIAGE.md for next priority features, or address any EAS build / App Store submission tasks.
+
+---
+
 ## Session: 2026-06-17 — Scout Overhaul + Tab Restructure (SESSION_2_3_PROMPT)
 
 ### What changed this session
