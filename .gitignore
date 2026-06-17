@@ -55,3 +55,6 @@ coverage/
 
 # Remotion render output (final renders are copied to docs/marketing/video-assets/)
 apps/video/out/
+
+# Claude Code session data
+.claude/
