@@ -54,6 +54,30 @@ function ScoutPreview({ settings, onUpgrade }: { settings: UserSettings; onUpgra
   )
 }
 
+// Change 18: Upgrade Plan section — shown for all non-empire tiers except scout
+// (scout sees ScoutPreview which already has an upgrade CTA)
+const TIER_NEXT: Record<string, string> = {
+  trial:  'hustle',
+  hustle: 'stack',
+  stack:  'empire',
+}
+
+function UpgradeSection({ tier, onUpgrade }: { tier: string; onUpgrade: () => void }) {
+  const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1)
+  return (
+    <View style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.textMuted, marginBottom: 2 }}>CURRENT PLAN</Text>
+        <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, fontWeight: '600', color: COLORS.textPrimary }}>{tierLabel}</Text>
+      </View>
+      <TouchableOpacity onPress={onUpgrade}
+        style={{ backgroundColor: COLORS.brand, borderRadius: RADIUS.md, paddingVertical: SPACING.xs, paddingHorizontal: SPACING.md }}>
+        <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.elevated }}>UPGRADE</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
 function settingsToInput(s: UserSettings): SettingsInput {
   return {
     ebayFee:       s.ebayFee,
@@ -172,6 +196,9 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <View style={{ flex: 1, paddingHorizontal: SPACING.xl }}>
+          {tier !== 'empire' && (
+            <UpgradeSection tier={tier} onUpgrade={() => setPaywallVisible(true)} />
+          )}
           <SettingsForm
             initialValues={saved ? settingsToInput(saved) : DEFAULT_SETTINGS_INPUT}
             onSave={(input) => void handleSave(input)}
