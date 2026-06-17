@@ -127,8 +127,15 @@ function getDecision(roi: number, confidence: number, s: Settings): 'BUY' | 'HOT
 }
 
 async function callAnthropic(
-  key: string, system: string, imageBase64: string, maxTokens = 1024,
+  key: string, system: string, images: string[], maxTokens = 1024,
 ): Promise<string> {
+  const imageBlocks = images.map(data => ({
+    type: 'image' as const,
+    source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data },
+  }));
+  const textPrompt = images.length > 1
+    ? `Analyze these ${images.length} photos of the same item from different angles.`
+    : 'Analyze this image.';
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -142,10 +149,7 @@ async function callAnthropic(
       system,
       messages: [{
         role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: 'Analyze this image.' },
-        ],
+        content: [...imageBlocks, { type: 'text', text: textPrompt }],
       }],
     }),
   });
@@ -199,9 +203,9 @@ async function handleSingleScan(
   anthropicKey: string,
   userId: number,
   settings: Settings,
-  imageBase64: string,
+  images: string[],
 ) {
-  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), imageBase64);
+  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), images);
   let ai: Record<string, unknown>;
   try { ai = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
@@ -236,9 +240,9 @@ async function handleShelfScan(
   anthropicKey: string,
   userId: number,
   settings: Settings,
-  imageBase64: string,
+  images: string[],
 ) {
-  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), imageBase64, 2048);
+  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), images, 2048);
   let aiItems: Record<string, unknown>[];
   try { aiItems = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
@@ -1149,10 +1153,12 @@ Deno.serve(async (req: Request) => {
     try {
       const form = await req.formData();
       const imageFile = form.get('image') as File | null;
+      const b64 = imageFile ? ab2b64(await imageFile.arrayBuffer()) : '';
       body = {
         type: form.get('type') as string,
         hint: form.get('hint') as string | null,
-        imageBase64: imageFile ? ab2b64(await imageFile.arrayBuffer()) : '',
+        imageBase64: b64,
+        images: b64 ? [b64] : [],
       };
     } catch {
       return json({ error: 'Invalid form data' }, 400);
@@ -1212,11 +1218,17 @@ Deno.serve(async (req: Request) => {
   try {
     if (body.type === 'single_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+      const imgs = Array.isArray(body.images) ? (body.images as string[])
+        : body.imageBase64 ? [body.imageBase64 as string] : [];
+      if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
+      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs));
     }
     if (body.type === 'shelf_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+      const imgs = Array.isArray(body.images) ? (body.images as string[])
+        : body.imageBase64 ? [body.imageBase64 as string] : [];
+      if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
+      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs));
     }
     if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));

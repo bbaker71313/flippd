@@ -1,12 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, TextInput,
-  ActivityIndicator, ScrollView, Alert, Pressable, Animated,
+  ActivityIndicator, ScrollView, Alert, Pressable, Animated, Image,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@sfp/shared';
 import { ScanResult } from '../../components/ui/ScanResult';
+import { OnboardingSheet, shouldShowOnboarding } from '../../components/ui/OnboardingSheet';
 import { takePicture } from '../../lib/camera';
 import { supabase } from '../../lib/supabase';
 
@@ -86,6 +87,8 @@ export default function ScoutScreen() {
   const [singleResult, setSingleResult] = useState<SingleResult | null>(null);
   const [shelfResults, setShelfResults] = useState<ShelfItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
 
   // Change 2: Animated logo pulse — 2s loop, opacity 0.7→1.0→0.7, brand green
   const logoOpacity = useRef(new Animated.Value(0.7)).current;
@@ -100,6 +103,11 @@ export default function ScoutScreen() {
     return () => pulse.stop();
   }, []);
 
+  // Change 5: show onboarding sheet once on first launch
+  useEffect(() => {
+    shouldShowOnboarding().then(show => { if (show) setOnboardingVisible(true); }).catch(() => {});
+  }, []);
+
   // Buy modal state
   const [buyVisible, setBuyVisible] = useState(false);
   const [buyCost, setBuyCost] = useState('');
@@ -110,6 +118,7 @@ export default function ScoutScreen() {
     setSingleResult(null);
     setShelfResults([]);
     setErrorMsg(null);
+    setPhotos([]);
     setStatus('idle');
   }, []);
 
@@ -143,7 +152,6 @@ export default function ScoutScreen() {
 
   async function handleCapture() {
     if (status !== 'idle') return;
-    setStatus('analyzing');
     setErrorMsg(null);
 
     let imageBase64: string;
@@ -155,16 +163,39 @@ export default function ScoutScreen() {
       return;
     }
 
+    if (mode === 'single') {
+      // Change 4: accumulate up to 4 photos before analyzing
+      setPhotos((prev: string[]) => [...prev, imageBase64].slice(0, 4));
+      return;
+    }
+
+    // Shelf mode: single shot → immediate analyze
+    setStatus('analyzing');
     try {
-      if (mode === 'single') {
-        const result = await callProxy({ type: 'single_scan', imageBase64 }) as unknown as SingleResult;
-        setSingleResult(result);
-        setStatus('result_single');
+      const result = await callProxy({ type: 'shelf_scan', images: [imageBase64] }) as { items: ShelfItem[] };
+      setShelfResults(result.items ?? []);
+      setStatus('result_shelf');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Scan failed. Try again.';
+      if (msg.startsWith('LIMIT_REACHED:')) {
+        Alert.alert('Scan Limit Reached', msg.slice(14) + '\n\nUpgrade to Hustle for unlimited scans.', [
+          { text: 'Not now', style: 'cancel', onPress: reset },
+          { text: 'Upgrade', onPress: reset },
+        ]);
       } else {
-        const result = await callProxy({ type: 'shelf_scan', imageBase64 }) as { items: ShelfItem[] };
-        setShelfResults(result.items ?? []);
-        setStatus('result_shelf');
+        setErrorMsg(msg);
       }
+      setStatus('error');
+    }
+  }
+
+  async function handleAnalyze() {
+    if (photos.length === 0 || status !== 'idle') return;
+    setStatus('analyzing');
+    try {
+      const result = await callProxy({ type: 'single_scan', images: photos }) as unknown as SingleResult;
+      setSingleResult(result);
+      setStatus('result_single');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Scan failed. Try again.';
       if (msg.startsWith('LIMIT_REACHED:')) {
@@ -275,15 +306,48 @@ export default function ScoutScreen() {
         </View>
       </SafeAreaView>
 
-      {/* Bottom capture button */}
+      {/* Bottom capture button + photo strip */}
       {status === 'idle' && (
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 48, alignItems: 'center' }} pointerEvents="box-none">
+          {/* Change 4: photo strip for single mode */}
+          {mode === 'single' && photos.length > 0 && (
+            <View style={{ flexDirection: 'row', marginBottom: SPACING.md, paddingHorizontal: SPACING.md }}>
+              {photos.map((uri: string, i: number) => (
+                <View key={i} style={{ marginHorizontal: 4 }}>
+                  <Image source={{ uri: `data:image/jpeg;base64,${uri}` }} style={{ width: 52, height: 52, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border }} />
+                  <TouchableOpacity
+                    onPress={() => setPhotos((prev: string[]) => prev.filter((_: string, idx: number) => idx !== i))}
+                    style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.lossText, alignItems: 'center', justifyContent: 'center' }}
+                    hitSlop={8}
+                  >
+                    <Text style={{ color: COLORS.elevated, fontSize: 10, fontWeight: '700', lineHeight: 12 }}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {photos.length < 4 && (
+                <View style={{ width: 52, height: 52, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 }}>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 20, lineHeight: 24 }}>+</Text>
+                </View>
+              )}
+            </View>
+          )}
           <TouchableOpacity
             onPress={handleCapture}
             style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.textPrimary, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 }}
           >
             <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: COLORS.background, backgroundColor: COLORS.textPrimary }} />
           </TouchableOpacity>
+          <Text style={{ fontFamily: TYPOGRAPHY.mono.fontFamily, fontSize: 11, color: COLORS.textMuted, letterSpacing: 2, marginTop: SPACING.sm }}>
+            {mode === 'single' && photos.length > 0 ? `${photos.length}/4 PHOTOS` : 'RUN THE NUMBERS'}
+          </Text>
+          {mode === 'single' && photos.length > 0 && (
+            <TouchableOpacity
+              onPress={() => void handleAnalyze()}
+              style={{ marginTop: SPACING.md, backgroundColor: COLORS.profit, borderRadius: RADIUS.md, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm }}
+            >
+              <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '700', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.inverse }}>ANALYZE</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -372,6 +436,9 @@ export default function ScoutScreen() {
           </View>
         </View>
       )}
+
+      {/* Change 5: First-time onboarding */}
+      <OnboardingSheet visible={onboardingVisible} onDone={() => setOnboardingVisible(false)} />
 
       {/* Buy modal */}
       <Modal visible={buyVisible} transparent animationType="slide" onRequestClose={() => setBuyVisible(false)}>
