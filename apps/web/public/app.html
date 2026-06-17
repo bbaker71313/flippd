@@ -2936,49 +2936,47 @@ function invFormClearPhoto() {
 
 async function invFormDetectItem() {
   if (!invFormImgFile) return;
-  if (!isUnlocked()) { showToast('⚠️ Access code required'); return; }
+  if (!isUnlocked()) { showToast('Access code required'); return; }
   const btn = document.getElementById('inv-form-detect-btn');
   const status = document.getElementById('inv-form-detect-status');
-  btn.disabled = true; btn.textContent = '🤖 Detecting...';
+  btn.disabled = true; btn.textContent = 'Detecting...';
   status.textContent = 'Analyzing photo...';
   try {
-    // v5.17: multipart/form-data — browser streams the raw file, no base64
-    // string allocated on the phone. Backend resizes server-side.
-    const fd = new FormData();
-    fd.append('image', invFormImgFile, invFormImgFile.name || 'photo.jpg');
-    fd.append('system', '');
+    // Compress image client-side: max 1200px, JPEG 0.85
+    const compressed = await compressImageForDetect(invFormImgFile, 1200, 0.85);
     const detectPrompt = 'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}';
-    // No `text` field — already inside messages, Anthropic rejects extras
-    fd.append('max_tokens', '400');
-    fd.append('model', 'claude-sonnet-4-6');
-    fd.append('messages', JSON.stringify([{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '' } },
-        { type: 'text', text: detectPrompt }
-      ]
-    }]));
-    // Strip Content-Type — browser sets it with boundary
-    const baseHeaders = getApiHeaders();
-    const headers = {};
-    for (const k in baseHeaders) {
-      if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let res;
+    try {
+      res = await fetch(API_BASE + '/v1/messages', {
+        method: 'POST',
+        headers: getApiHeaders(),
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 400,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: compressed } },
+              { type: 'text', text: detectPrompt }
+            ]
+          }]
+        })
+      });
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const res = await fetch(API_BASE + '/v1/messages-with-image', {
-      method: 'POST',
-      headers: headers,
-      body: fd,
-    });
+    if (res.status === 546) throw new Error('Camera resource limit reached — try a smaller photo or enter manually');
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`API Error ${res.status}: ${errText.substring(0, 100)}`);
+      throw new Error('API Error ' + res.status + ': ' + errText.substring(0, 100));
     }
     const d = await res.json();
     if (d.error) throw new Error(d.error.message);
     const raw = d.content?.find(b=>b.type==='text')?.text || '';
     const detected = JSON.parse(raw.replace(/```json|```/g,'').trim());
-
-    // Auto-fill the form fields
     document.getElementById('f-nickname').value = detected.name || '';
     if (detected.category && CATEGORIES.includes(detected.category)) {
       document.getElementById('f-category').value = detected.category;
@@ -2987,14 +2985,43 @@ async function invFormDetectItem() {
     if (detected.estimated_value) document.getElementById('f-price').value = detected.estimated_value.toFixed(2);
     if (detected.notes) document.getElementById('f-notes').value = detected.notes;
     updateProfitPreview();
-
-    status.textContent = `✓ Detected: ${detected.name} — review and confirm below`;
+    status.textContent = 'Detected: ' + detected.name + ' — review and confirm below';
     status.style.color = '#2D6B52';
   } catch(e) {
-    status.textContent = '⚠️ Detection failed: ' + (e.message || 'Try again');
+    if (e.name === 'AbortError') {
+      showToast('Detection timed out — try again or enter manually');
+      status.textContent = 'Detection timed out — enter manually';
+    } else {
+      status.textContent = 'Detection failed: ' + (e.message || 'Try again');
+    }
     status.style.color = 'var(--red)';
   }
-  btn.disabled = false; btn.textContent = '🤖 Detect Item from Photo';
+  btn.disabled = false; btn.textContent = 'Detect Item from Photo';
+}
+
+async function compressImageForDetect(file, maxPx, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        let w = img.width, h = img.height;
+        if (w > maxPx || h > maxPx) {
+          if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl.split(',')[1]); // return base64 only
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function openAddForm(prefill) {
