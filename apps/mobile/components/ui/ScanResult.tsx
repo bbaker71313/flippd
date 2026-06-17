@@ -11,6 +11,8 @@ export interface ScanResultProps {
   confidence: number  // 0–100
   roi: number
   reasoning: string
+  listingTips?: string[]
+  riskFlags?: string[]
   onBuy: () => void
   onPass: () => void
 }
@@ -101,6 +103,8 @@ export function ScanResult({
   confidence,
   roi,
   reasoning,
+  listingTips,
+  riskFlags,
   onBuy,
   onPass,
 }: ScanResultProps) {
@@ -358,12 +362,40 @@ export function ScanResult({
           {reasoning}
         </Text>
 
+        {/* ── LISTING TIPS — was: missing; now: populated from AI response */}
+        {listingTips && listingTips.length > 0 && (
+          <View style={{ marginBottom: SPACING.lg }}>
+            <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.textMuted, letterSpacing: labelLetterSpacing, marginBottom: SPACING.xs }}>
+              LISTING TIPS
+            </Text>
+            {listingTips.map((tip, i) => (
+              <Text key={i} style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textSecondary, marginBottom: 4 }}>
+                · {tip}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        {/* ── CHECK THIS (risk flags) — was: missing; now: populated from AI response */}
+        {riskFlags && riskFlags.length > 0 && (
+          <View style={{ marginBottom: SPACING.lg, backgroundColor: COLORS.loss + '18', borderRadius: RADIUS.sm, padding: SPACING.sm }}>
+            <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.lossText, letterSpacing: labelLetterSpacing, marginBottom: SPACING.xs }}>
+              CHECK THIS
+            </Text>
+            {riskFlags.map((flag, i) => (
+              <Text key={i} style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.lossText, marginBottom: 4 }}>
+                · {flag}
+              </Text>
+            ))}
+          </View>
+        )}
+
         {/* ── ACTION BUTTONS ── */}
         <View className="flex-row gap-3">
           <Pressable
             onPress={onPass}
             className="flex-1 items-center justify-center"
-            style={({ pressed }) => ({
+            style={({ pressed }: { pressed: boolean }) => ({
               height:          SPACING.xxl,
               borderRadius:    RADIUS.md,
               borderWidth:     1.5,
@@ -386,7 +418,7 @@ export function ScanResult({
           <Pressable
             onPress={onBuy}
             className="flex-1 items-center justify-center"
-            style={({ pressed }) => ({
+            style={({ pressed }: { pressed: boolean }) => ({
               height:          SPACING.xxl,
               borderRadius:    RADIUS.md,
               backgroundColor: pressed

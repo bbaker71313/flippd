@@ -59,10 +59,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="pnl"
+        options={{
+          title: "P&L",
+          tabBarIcon: () => null,
+        }}
+      />
+      {/* Stats tab hidden — content migrated to pnl.tsx (Change 9) */}
+      <Tabs.Screen
         name="stats"
         options={{
+          href: null,
           title: "Stats",
-          tabBarIcon: () => null,
         }}
       />
       {/* Settings is not a visible tab — navigate to it via router.push('/(tabs)/settings') */}

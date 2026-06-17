@@ -1,20 +1,111 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
-  ActivityIndicator, RefreshControl, ScrollView,
+  ActivityIndicator, Pressable, RefreshControl, ScrollView,
   Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
+import { usePostHog } from 'posthog-react-native'
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@sfp/shared'
-import type { GrowthReport, UserTier } from '@sfp/shared'
+import type { GrowthReport } from '@sfp/shared'
 import { fetchGrowthReport, type GrowthReportResult } from '../../lib/growth'
 import { fetchInventory } from '../../lib/inventory'
+
+interface SeasonalTip {
+  category: string
+  reason: string
+  priority: 'HIGH' | 'MED'
+  monthsAhead: number
+}
+
+// Static seed data keyed by month index (0=Jan). Rotate based on current month.
+const SEASONAL_BY_MONTH: Record<number, SeasonalTip[]> = {
+  0: [ // Jan
+    { category: 'Winter Coats', reason: 'Post-holiday clearance — buy low, sell next Oct', priority: 'HIGH', monthsAhead: 9 },
+    { category: 'Electronics', reason: 'Gift returns hit thrift stores in January', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Exercise Equipment', reason: 'New Year demand through February', priority: 'MED', monthsAhead: 0 },
+    { category: 'Holiday Décor', reason: 'Buy at clearance for next December', priority: 'MED', monthsAhead: 11 },
+  ],
+  1: [ // Feb
+    { category: 'Valentine Gifts', reason: 'Jewelry and small gifts moving fast', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Winter Outerwear', reason: 'Clearance pricing — source for next season', priority: 'MED', monthsAhead: 8 },
+    { category: 'Board Games', reason: 'Cold-weather demand still strong', priority: 'MED', monthsAhead: 0 },
+    { category: 'Fitness Gear', reason: 'New Year resolution buyers still active', priority: 'MED', monthsAhead: 0 },
+  ],
+  2: [ // Mar
+    { category: 'Spring Clothing', reason: 'Demand picks up as weather warms', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Gardening Tools', reason: 'Source now before spring rush', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Kids Toys', reason: 'Spring break buying season starts', priority: 'MED', monthsAhead: 0 },
+    { category: 'Vintage Electronics', reason: 'Year-round strong category', priority: 'MED', monthsAhead: 0 },
+  ],
+  3: [ // Apr
+    { category: 'Outdoor Furniture', reason: 'Buyers prepping for summer — source early', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Spring/Summer Clothing', reason: 'Peak sourcing window open now', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Sports Equipment', reason: 'Youth sports season driving demand', priority: 'MED', monthsAhead: 0 },
+    { category: 'Power Tools', reason: 'Home improvement season beginning', priority: 'MED', monthsAhead: 0 },
+  ],
+  4: [ // May
+    { category: 'Camping Gear', reason: 'Memorial Day weekend kicks off camping season', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Graduation Gifts', reason: 'Electronics, bags, and accessories moving', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Back-to-School Prep', reason: 'Source now — demand peaks in August', priority: 'MED', monthsAhead: 3 },
+    { category: 'Summer Clothing', reason: 'Peak demand window open', priority: 'MED', monthsAhead: 0 },
+  ],
+  5: [ // Jun
+    { category: 'Back-to-School Supplies', reason: 'Source now — demand peaks in August', priority: 'HIGH', monthsAhead: 2 },
+    { category: 'Electronics & Gaming', reason: 'Summer demand and gift-giving strong', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Outdoor & Camping', reason: 'Peak summer sourcing window', priority: 'MED', monthsAhead: 0 },
+    { category: 'Sports Equipment', reason: 'Summer leagues driving equipment demand', priority: 'MED', monthsAhead: 0 },
+    { category: 'Vintage Clothing', reason: 'Summer fashion buying at its peak', priority: 'MED', monthsAhead: 0 },
+  ],
+  6: [ // Jul
+    { category: 'Back-to-School', reason: 'August rush approaching — source now', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Fall Clothing', reason: 'Source at summer clearance for Sept', priority: 'HIGH', monthsAhead: 2 },
+    { category: 'Dorm/College Items', reason: 'College move-in demand peaks in August', priority: 'MED', monthsAhead: 1 },
+    { category: 'Sports Cards & Collectibles', reason: 'Summer collector activity strong', priority: 'MED', monthsAhead: 0 },
+  ],
+  7: [ // Aug
+    { category: 'Fall / Winter Coats', reason: 'Source at end-of-summer clearance for Oct–Nov', priority: 'HIGH', monthsAhead: 2 },
+    { category: 'Halloween Costumes', reason: 'Source now — demand spikes in October', priority: 'HIGH', monthsAhead: 2 },
+    { category: 'School Electronics', reason: 'Back-to-school buyers active all month', priority: 'MED', monthsAhead: 0 },
+    { category: 'Board Games & Toys', reason: 'Holiday sourcing begins for serious sellers', priority: 'MED', monthsAhead: 3 },
+  ],
+  8: [ // Sep
+    { category: 'Halloween Items', reason: 'October demand window opens soon', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Fall Décor', reason: 'Buyers prepping homes for the season', priority: 'HIGH', monthsAhead: 0 },
+    { category: 'Holiday Toys', reason: 'Source now before Black Friday scarcity', priority: 'MED', monthsAhead: 2 },
+    { category: 'Cold-Weather Gear', reason: 'Jackets, boots, flannels trending up', priority: 'MED', monthsAhead: 0 },
+  ],
+  9: [ // Oct
+    { category: 'Holiday Gifts (Electronics)', reason: 'Source now — November demand surges', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Toys & Games', reason: 'Christmas buying window opening', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Winter Outerwear', reason: 'Peak demand for coats starting', priority: 'MED', monthsAhead: 0 },
+    { category: 'Vintage / Collectibles', reason: 'Gift buyers active through December', priority: 'MED', monthsAhead: 0 },
+  ],
+  10: [ // Nov
+    { category: 'Post-Black Friday Electronics', reason: 'Returns and deals appear at thrift stores in Dec', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Holiday Décor', reason: 'Last buying window before Christmas', priority: 'MED', monthsAhead: 0 },
+    { category: 'Winter Clothing', reason: 'Cold weather buying at peak', priority: 'MED', monthsAhead: 0 },
+    { category: 'Toys & Kids Gifts', reason: 'December demand window still open', priority: 'HIGH', monthsAhead: 0 },
+  ],
+  11: [ // Dec
+    { category: 'Post-Christmas Electronics', reason: 'Gift returns hit stores in January — position now', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Winter Coats', reason: 'Source at clearance for next winter', priority: 'MED', monthsAhead: 9 },
+    { category: 'New Year Fitness', reason: 'January demand surge for exercise gear', priority: 'HIGH', monthsAhead: 1 },
+    { category: 'Holiday Décor', reason: 'Deep clearance now — sell next December', priority: 'MED', monthsAhead: 12 },
+  ],
+}
+
+function getSeasonalTips(): SeasonalTip[] {
+  const month = new Date().getMonth()
+  return SEASONAL_BY_MONTH[month] ?? SEASONAL_BY_MONTH[5]
+}
 
 type ScreenState = 'loading' | 'empty' | 'generating' | 'ready' | 'error'
 
 const ACTION_COLORS: Record<string, { bg: string; text: string }> = {
-  relist:     { bg: '#dbeafe', text: '#1d4ed8' },
-  drop_price: { bg: '#fef9c3', text: '#854d0e' },
-  bundle:     { bg: '#f3e8ff', text: '#7e22ce' },
+  relist:     { bg: COLORS.profit + '22', text: COLORS.profitText },
+  drop_price: { bg: COLORS.accent + '22', text: COLORS.accent },
+  bundle:     { bg: COLORS.brand + '22', text: COLORS.brandDim },
   donate:     { bg: COLORS.border, text: COLORS.textMuted },
 }
 
@@ -49,12 +140,16 @@ function GateOverlay({ onUpgrade }: { onUpgrade: () => void }) {
 
 
 export default function TrendsScreen() {
-  const [state, setState]         = useState<ScreenState>('loading')
-  const [result, setResult]       = useState<GrowthReportResult | null>(null)
-  const [tier, setTier]           = useState<string>('trial')
-  const [error, setError]         = useState<string | null>(null)
+  const [state, setState]           = useState<ScreenState>('loading')
+  const [result, setResult]         = useState<GrowthReportResult | null>(null)
+  const [tier, setTier]             = useState<string>('trial')
+  const [error, setError]           = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [toast, setToast]         = useState<string | null>(null)
+  const [toast, setToast]           = useState<string | null>(null)
+  const [dismissedSkus, setDismissedSkus] = useState<string[]>([])
+
+  const router  = useRouter()
+  const posthog = usePostHog()
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -135,7 +230,10 @@ export default function TrendsScreen() {
   if (state === 'empty') {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl }}>
-        <Text style={{ fontSize: 48, marginBottom: SPACING.lg }}>🔭</Text>
+        {/* was: 🔭 now: text label */}
+        <Text style={{ fontFamily: TYPOGRAPHY.mono.fontFamily, fontSize: TYPOGRAPHY.mono.fontSize, color: COLORS.textMuted, letterSpacing: 4, marginBottom: SPACING.lg }}>
+          [ NO DATA ]
+        </Text>
         <Text style={{ fontFamily: TYPOGRAPHY.h2.fontFamily, fontSize: TYPOGRAPHY.h2.fontSize, fontWeight: TYPOGRAPHY.h2.fontWeight, color: COLORS.textPrimary, textAlign: 'center', marginBottom: SPACING.sm }}>
           Scout some items first
         </Text>
@@ -230,31 +328,60 @@ export default function TrendsScreen() {
         )}
 
 
-        {/* ── 3. Stale actions (gated for Scout) ──────────────────────────── */}
+        {/* ── 3. Action Queue (gated for Scout) ───────────────────────────── */}
+        {/* Change 14: was "Items that need attention" */}
         {report && report.stale_actions.length > 0 && (
           <>
-            <SectionHeader title="Items that need attention" />
+            <SectionHeader title="Action Queue" />
             {isScout ? (
               <GateOverlay onUpgrade={() => {}} />
             ) : (
               <View style={{ gap: SPACING.sm }}>
-                {report.stale_actions.map((item, i) => {
-                  const ac = ACTION_COLORS[item.action] ?? ACTION_COLORS.relist
-                  return (
-                    <View key={i} style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'flex-start' }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, fontWeight: '600', color: COLORS.textPrimary }} numberOfLines={1}>{item.nickname}</Text>
-                        <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted }}>{item.days_listed} days unlisted</Text>
-                        <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize - 1, color: COLORS.textSecondary, marginTop: 4 }}>{item.suggestion}</Text>
-                      </View>
-                      <View style={{ backgroundColor: ac.bg, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 3, marginLeft: SPACING.sm, flexShrink: 0 }}>
-                        <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, fontWeight: '600', color: ac.text }}>
-                          {item.action.replace('_', ' ').toUpperCase()}
-                        </Text>
-                      </View>
-                    </View>
-                  )
-                })}
+                {report.stale_actions
+                  .filter(item => !dismissedSkus.includes(item.sku))
+                  .map((item, i) => {
+                    const ac = ACTION_COLORS[item.action] ?? ACTION_COLORS.relist
+                    return (
+                      <Pressable
+                        key={item.sku + i}
+                        onPress={() => {
+                          posthog?.capture('action_queue_item_tapped', { action_type: item.action })
+                          router.push({ pathname: '/(tabs)/inventory', params: { editSku: item.sku } } as never)
+                        }}
+                        style={({ pressed }: { pressed: boolean }) => ({
+                          backgroundColor: pressed ? COLORS.surface + 'cc' : COLORS.surface,
+                          borderRadius: RADIUS.md,
+                          padding: SPACING.md,
+                          borderWidth: 1,
+                          borderColor: COLORS.border,
+                          flexDirection: 'row',
+                          alignItems: 'flex-start',
+                        })}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, fontWeight: '600', color: COLORS.textPrimary }} numberOfLines={1}>{item.nickname}</Text>
+                          <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted }}>{item.days_listed} days unlisted</Text>
+                          <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize - 1, color: COLORS.textSecondary, marginTop: 4 }}>{item.suggestion}</Text>
+                        </View>
+                        <View style={{ backgroundColor: ac.bg, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 3, marginLeft: SPACING.sm, flexShrink: 0 }}>
+                          <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, fontWeight: '600', color: ac.text }}>
+                            {item.action.replace('_', ' ').toUpperCase()}
+                          </Text>
+                        </View>
+                        {/* Dismiss button */}
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() => {
+                            posthog?.capture('action_queue_item_dismissed', { action_type: item.action })
+                            setDismissedSkus((prev: string[]) => [...prev, item.sku])
+                          }}
+                          style={{ paddingLeft: SPACING.sm, paddingTop: 2 }}
+                        >
+                          <Text style={{ fontFamily: TYPOGRAPHY.mono.fontFamily, fontSize: 16, color: COLORS.textMuted }}>×</Text>
+                        </Pressable>
+                      </Pressable>
+                    )
+                  })}
               </View>
             )}
           </>
@@ -326,7 +453,37 @@ export default function TrendsScreen() {
           </>
         )}
 
-        {/* ── 7. Footer ────────────────────────────────────────────────────── */}
+        {/* ── 7. Upcoming Seasonal Sourcing (Change 17) ───────────────────── */}
+        {(() => {
+          const tips = getSeasonalTips()
+          return (
+            <>
+              <SectionHeader title="Source now" />
+              <View style={{ gap: SPACING.sm }}>
+                {tips.map((tip, i) => (
+                  <View key={i} style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, fontWeight: '600', color: COLORS.textPrimary }}>{tip.category}</Text>
+                      <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize - 1, color: COLORS.textSecondary, marginTop: 2 }}>{tip.reason}</Text>
+                      {tip.monthsAhead > 0 && (
+                        <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted, marginTop: 2 }}>
+                          {tip.monthsAhead === 1 ? '1 month ahead' : `${tip.monthsAhead} months ahead`}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ backgroundColor: tip.priority === 'HIGH' ? COLORS.brand + '22' : COLORS.border, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 3, marginLeft: SPACING.sm }}>
+                      <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, fontWeight: '600', color: tip.priority === 'HIGH' ? COLORS.brandDim : COLORS.textMuted }}>
+                        {tip.priority}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )
+        })()}
+
+        {/* ── 8. Footer ────────────────────────────────────────────────────── */}
         <View style={{ marginTop: SPACING.xl, alignItems: 'center', gap: SPACING.sm }}>
           {dateStr && (
             <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted }}>

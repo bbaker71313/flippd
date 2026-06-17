@@ -4,6 +4,84 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-17 — Scout Overhaul + Tab Restructure (SESSION_2_3_PROMPT)
+
+### What changed this session
+
+**`apps/mobile/app/(tabs)/pnl.tsx`** (NEW FILE — Change 9/15/16/19/20):
+- Created full P&L tab replacing Stats tab as visible nav item
+- Header: "P&L" (Syne 700 28px) + subtitle "Your numbers, your business." (IBM Plex Mono 13px)
+- Always fetches `fetchStatsSummary('all')` — no period selector (Change 19)
+- Net profit shown as full line-item breakdown: Revenue, COGS, fees, packaging, shipping, expenses, mileage
+- Inventory snapshot: LISTED + UNLISTED only — no SOLD KPI card (Change 15)
+- Tax reserve: informational callout using `summary.taxReserve`, never hardcoded
+- Expense log (Scout-gated) and mileage tracker preserved from stats.tsx
+- Add expense modal preserved from stats.tsx
+- No Overview card, no "Hey There" header (Change 20)
+
+**`apps/mobile/app/(tabs)/_layout.tsx`** (Change 9):
+- Added `pnl` tab with `title: "P&L"` as visible 5th tab
+- Moved `stats` tab to hidden (`href: null`) — file preserved, removed from tab bar
+
+**`apps/mobile/app/(tabs)/trends.tsx`** (Changes 3/13/14/17):
+- Change 3: Replaced 🔭 emoji in empty state with `[ NO DATA ]` text label
+- Change 13: Action queue items are now tappable `Pressable` rows — navigates to `/(tabs)/inventory?editSku=` with PostHog `action_queue_item_tapped` event; `×` button dismisses items (PostHog `action_queue_item_dismissed`); dismissed items filtered from view via `dismissedSkus` state
+- Change 14: SectionHeader title changed from "Items that need attention" → "Action Queue"
+- Change 17: Added seasonal sourcing section before footer using `getSeasonalTips()` and `SEASONAL_BY_MONTH` (12-month static seed)
+- Fixed `ACTION_COLORS` to dark-bg-compatible COLORS token values
+- Fixed `TS7031`: added `{ pressed: boolean }` type to Pressable style callback
+
+**`apps/mobile/app/(tabs)/settings.tsx`** (Change 18):
+- Added `TIER_NEXT` constant and `UpgradeSection` component (shows CURRENT PLAN label + UPGRADE button)
+- Non-scout non-empire users see `UpgradeSection` above `SettingsForm`
+
+**`apps/mobile/components/ui/ScanResult.tsx`** (Change 6 + TS fix):
+- Added `listingTips?: string[]` and `riskFlags?: string[]` props with rendered sections (LISTING TIPS, CHECK THIS)
+- Fixed `TS7031`: added `{ pressed: boolean }` type to both Pressable style callbacks
+
+**`apps/mobile/app/(tabs)/scout.tsx`** (TypeScript fixes):
+- `RADIUS.xl` → `RADIUS.lg` (replace_all — no `xl` key on RADIUS type)
+- `ShelfItemRow` prop `onBuy` changed from `(item: ShelfItem) => void` to `() => void` (callers always use closures)
+- Map params typed explicitly: `(item: ShelfItem, i: number)`
+
+### Pending decisions (AWAITING USER INPUT — do not implement without answer)
+1. **Change 1 — Scan phrase**: Options proposed: "Scan to Decide", "Profit or Pass", "Read the Market", "Run the Numbers", "Worth the Flip"
+2. **Change 10 — Trends tab rename**: Options proposed: "Signals", "Intel", "Pulse", "Radar", "Edge"
+
+### Deferred (NOT done this session)
+- **Change 4**: Multi-photo AI scan UI (photo strip up to 4 images + claude-proxy image array support)
+- **Change 5**: First-time onboarding 3-screen bottom-sheet with AsyncStorage flag + PostHog events
+
+### Pre-existing TypeScript errors (NOT caused by this session — requires env fix)
+- `TS2307 Cannot find module 'react'/'expo-router'/etc.` — missing `@types/react`, `@types/node`
+- `TS17004 Cannot use JSX` — missing `--jsx` flag configuration
+- `TS2591 Cannot find name 'process'` — missing `@types/node`
+- `TS2322 key prop` — React key prop not recognized without `@types/react` (same in `how-it-works.tsx`, `identity.tsx`)
+
+### Files changed
+- `apps/mobile/app/(tabs)/pnl.tsx` (new)
+- `apps/mobile/app/(tabs)/_layout.tsx`
+- `apps/mobile/app/(tabs)/trends.tsx`
+- `apps/mobile/app/(tabs)/settings.tsx`
+- `apps/mobile/app/(tabs)/scout.tsx`
+- `apps/mobile/components/ui/ScanResult.tsx`
+- `docs/SESSION_2_3_PROMPT.md` (added to repo for reference)
+
+### Commit
+`[see below after push]` — branch `claude/new-session-je44s6`
+
+### Decisions made (do not reverse)
+- Stats tab hidden (not deleted) — `pnl.tsx` is the new visible 5th tab
+- No period filter on P&L screen — always shows "all time"
+- ACTION_COLORS use COLORS token-based dark-bg values (not raw light hex)
+
+### Next task
+1. Get user decisions on Change 1 (scan phrase) and Change 10 (Trends rename)
+2. Implement Change 4 (multi-photo scan) after user approves
+3. Implement Change 5 (onboarding bottom-sheet) after user approves
+
+---
+
 ## Session: 2026-06-16 — Hunt list SVG + eBay price-change API
 
 ### What changed this session
