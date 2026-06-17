@@ -13,7 +13,7 @@ export default function EmailCapture() {
     if (!trimmed || !trimmed.includes('@')) return;
     setState('loading');
     try {
-      const res = await fetch(process.env.NEXT_PUBLIC_N8N_EARLY_ACCESS_WEBHOOK_URL!, {
+      const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed, source: 'landing-page-hero' }),
