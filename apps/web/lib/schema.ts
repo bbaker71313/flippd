@@ -1,8 +1,10 @@
 export const softwareAppSchema = {
   '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
+  '@type': ['SoftwareApplication', 'MobileApplication'],
   name: 'ScanForProfit',
+  url: 'https://www.scanforprofit.com',
   applicationCategory: 'BusinessApplication',
+  applicationSubCategory: 'FinanceApplication',
   operatingSystem: 'Android, iOS',
   description:
     'AI-powered thrift store scanner for eBay resellers. Point your camera, get BUY/PASS/HOT decisions in 8 seconds with real profit math.',
@@ -31,42 +33,42 @@ export const faqSchema = {
   mainEntity: [
     {
       '@type': 'Question',
-      name: 'How accurate are the profit estimates?',
+      name: 'What if the scan gets the price wrong?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: "ScanForProfit pulls from real eBay sold listings — not asking prices. You see the comps. You make the call.",
+        text: "ScanForProfit pulls from recent eBay sold listings — the same data professional resellers use. It can't predict the future, but it gives you a data-backed number in 8 seconds instead of a guess in 5 minutes. You still make the call.",
       },
     },
     {
       '@type': 'Question',
-      name: 'Does this work for all categories?',
+      name: "I already have eBay's app. Why pay for this?",
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Electronics, clothing, home goods, collectibles, books, sports equipment, toys. If it sells on eBay, it works.',
+        text: "eBay's app searches for you. ScanForProfit decides for you. It calculates profit after fees, ranks items by margin, writes your listing copy, and tracks what you actually made. Those are four things eBay's app doesn't do.",
       },
     },
     {
       '@type': 'Question',
-      name: "What if I'm not tech-savvy?",
+      name: 'Does it work for the random stuff I find — not just electronics?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Point. Tap. Done. If you can take a photo with your phone, you can use ScanForProfit.',
+        text: 'Yes. ScanForProfit is built for the long tail of reselling: housewares, tools, vintage items, clothing, toys, collectibles. If it has a sold history on eBay, you get a number. If it does not, you get a signal that the market is thin.',
       },
     },
     {
       '@type': 'Question',
-      name: 'Can I export my data?',
+      name: "I'm not technical. How hard is this to set up?",
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. CSV export anytime. Stack tier includes API access. Your inventory is yours.',
+        text: "Download the app. Tap the scan button. Point your camera. That's it. If you can use eBay's app, you can use ScanForProfit.",
       },
     },
     {
       '@type': 'Question',
-      name: 'What happens after my trial?',
+      name: 'If I cancel, do I lose my inventory history?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'You drop to Scout tier automatically — 25 scans/month, 10 items, free forever. No charge, no card required.',
+        text: 'No. You can export your full inventory at any time — before or after cancelling. Your data is yours.',
       },
     },
   ],

@@ -6,25 +6,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: 'https://www.scanforprofit.com',
-      lastModified: new Date(),
+      lastModified: '2026-06-03',
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
       url: 'https://www.scanforprofit.com/roadmap',
-      lastModified: new Date(),
+      lastModified: '2026-06-03',
       changeFrequency: 'weekly',
       priority: 0.6,
     },
     {
       url: 'https://www.scanforprofit.com/privacy',
-      lastModified: new Date(),
+      lastModified: '2026-06-03',
       changeFrequency: 'monthly',
       priority: 0.3,
     },
     {
       url: 'https://www.scanforprofit.com/terms',
-      lastModified: new Date(),
+      lastModified: '2026-06-03',
       changeFrequency: 'monthly',
       priority: 0.3,
     },
