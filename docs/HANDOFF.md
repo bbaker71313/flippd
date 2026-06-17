@@ -4,6 +4,102 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-17 (web) — Port SESSION_2_3_PROMPT changes to app.html
+
+### What changed this session
+
+**`apps/web/public/app.html`** — all applicable SESSION_2_3_PROMPT changes ported:
+
+- **Tab bar**: TRENDS→PULSE, STATS→P&L; all tab-bar emojis replaced with inline SVG icons
+- **P&L tab (was STATS)**: Removed "Overview" sub-tab button; P&L view is now the default when switching to this tab; added branded header "P&L / Your numbers, your business."; updated `statsSubTab()` and `switchTab()` to default to 'pnl'
+- **Timeframe toggles**: Removed Week/Month/Year toggle buttons from the dashboard JS template (Change 19)
+- **Pulse tab (was TRENDS)**: Header renamed "Market Trends"→"Pulse"; "Stale Items — Action Needed" section renamed "Action Queue" (Change 14)
+- **Scout tab — scan phrase**: "RUN THE NUMBERS" label added below analyze button; button stripped of ⚡ emoji (Change 1)
+- **Scout tab — emoji cleanup**: Camera buttons, cost row, analyze/shelf buttons, decision icons `D_ICON` (now `[ HOT ]`/`[ BUY ]`/`[ PASS ]`), AI badge, BUY/WATCH/PASS action buttons all cleaned of emojis (Change 3)
+- **Seasonal sourcing**: `SEASONAL_BY_MONTH` constant + `renderSeasonalTips()` function added; section renders in Pulse tab on `initGrowthTab()` (Change 17)
+- **Onboarding modal**: 3-screen web-native modal (centered, localStorage key `sfp_onboarding_complete`); fires after first login via `_currentUser` poll; matches mobile OnboardingSheet screens (Change 5)
+- **Upgrade section in Settings**: "Upgrade Plan" card added at bottom of Settings panel showing current tier, hides for Empire users; links to Plan sub-tab (Change 18)
+- **Settings panel emojis**: ⚙️ gear button → SVG, 🔑/↩ button labels cleaned
+
+### Files changed
+- `apps/web/public/app.html`
+
+### Commit
+- `d9aa39e` — feat(web): port SESSION_2_3_PROMPT changes to app.html (PR #78)
+
+### Decisions made (do not reverse)
+- Web app keeps its dark industrial theme (`#0a0a0a` bg) — brand refresh (Change 7) was NOT applied; that requires a full CSS overhaul and was deferred
+- Overview sub-tab removed from P&L/STATS tab but `stats-view-dash` div kept in DOM (JS references it safely)
+- Onboarding uses localStorage (no Supabase write) — consistent with mobile's expo-secure-store approach, no DB migration needed
+
+### What was NOT ported (deferred)
+- **Change 2** — Animated logo placeholder — web app has no shutter button equivalent; deferred
+- **Change 4** — Multi-photo scan — web uses `<input type="file">`; adding a photo strip requires significant JS refactor; deferred
+- **Change 7** — Full brand refresh — requires replacing the entire dark CSS theme; deferred to a dedicated session
+- **Change 8** — index.html mobile sizing — separate file, separate session
+- **Change 11/12** — Moving Stats content to Trends tab — web already has parallel content in both tabs; cleanup deferred
+- **Change 13** — Action queue items → navigate to inventory edit — web inventory edit is inline, not a separate screen; deferred
+
+### Next task
+- Merge PR #78 once Vercel preview passes review
+- Consider a dedicated web brand refresh session (Change 7) to apply the warm beige theme to app.html
+- EAS build / App Store submission prep
+
+---
+
+## Session: 2026-06-17 (continued) — Changes 1, 4, 5, 10 from SESSION_2_3_PROMPT
+
+### What changed this session
+
+**`apps/mobile/app/(tabs)/scout.tsx`** (Changes 1 + 4 + 5):
+- Change 1: "RUN THE NUMBERS" label added below shutter button (IBM Plex Mono, 11px, letterSpacing 2)
+- Change 4: Single-item mode now accumulates up to 4 photos before analyzing. Photo strip shows thumbnails with × remove badges and a dashed +slot. Counter shows "X/4 PHOTOS". ANALYZE button sends all photos via `{ type: 'single_scan', images: string[] }`. Shelf mode unchanged (single shot → immediate analyze).
+- Change 5: `shouldShowOnboarding()` called on mount via `useEffect`; shows `OnboardingSheet` on first launch
+
+**`apps/mobile/components/ui/OnboardingSheet.tsx`** (Change 5 — new file):
+- 3-screen bottom-sheet Modal: "Know before you buy." / "Point. Scan. Decide." / "Set your eBay fee once."
+- Step dots, SKIP + NEXT + GET STARTED buttons
+- `expo-secure-store` key `sfp_onboarding_complete` — shows once per install
+- PostHog events: `onboarding_started`, `onboarding_skipped`, `onboarding_completed`
+
+**`apps/mobile/components/ui/index.ts`**:
+- Added `export * from './OnboardingSheet'`
+
+**`apps/mobile/app/(tabs)/_layout.tsx`** (Change 10):
+- Trends tab `title` changed from `"Trends"` to `"Pulse"`
+
+**`supabase/functions/claude-proxy/index.ts`** (Change 4):
+- `callAnthropic` now takes `images: string[]` instead of single `imageBase64`
+- Sends all images as content blocks; text prompt adapts ("Analyze these N photos of the same item from different angles.")
+- `handleSingleScan` and `handleShelfScan` updated to `images: string[]`
+- Router normalizes legacy `imageBase64` → `[imageBase64]` for backwards compat
+- Multipart form data handler populates both `imageBase64` and `images`
+
+### Files changed
+- `apps/mobile/app/(tabs)/scout.tsx`
+- `apps/mobile/app/(tabs)/_layout.tsx`
+- `apps/mobile/components/ui/OnboardingSheet.tsx` (new)
+- `apps/mobile/components/ui/index.ts`
+- `supabase/functions/claude-proxy/index.ts`
+
+### Commits
+- `7697ea2` — scan phrase + Trends→Pulse rename (PR #73)
+- `869531c` — multi-photo scan + onboarding sheet (PR #73)
+- Both PRs (#72 and #73) merged to `main`
+
+### Status of all 20 SESSION_2_3_PROMPT changes
+All 20 changes COMPLETE and merged to main.
+
+### Decisions made (do not reverse)
+- Multi-photo scan is single-mode only — shelf mode always uses single shot
+- `expo-secure-store` used for onboarding flag (no new dependency needed)
+- `callAnthropic` is backwards-compatible — `imageBase64` still accepted via normalization
+
+### Next task
+All SESSION_2_3_PROMPT changes done. Next session should pick up from FEATURE_TRIAGE.md for next priority features, or address any EAS build / App Store submission tasks.
+
+---
+
 ## Session: 2026-06-17 — Scout Overhaul + Tab Restructure (SESSION_2_3_PROMPT)
 
 ### What changed this session
