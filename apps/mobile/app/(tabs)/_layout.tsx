@@ -1,21 +1,26 @@
 import { Tabs } from "expo-router";
 import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
 
-// ui-ux-pro-max §9: bottom nav max 5 items, icon + label, active state highlighted
-// ui-ux-pro-max §2: touch targets ≥44pt
-// ui-ux-pro-max §9: safe area compliance handled by expo-router Tabs
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+function tabIcon(name: IoniconName, focusedName: IoniconName) {
+  return ({ color, focused }: { color: string; focused: boolean }) => (
+    <Ionicons name={focused ? focusedName : name} size={22} color={color} />
+  );
+}
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.tabActive,
-        tabBarInactiveTintColor: colors.tabInactive,
+        tabBarActiveTintColor: "#10b981",
+        tabBarInactiveTintColor: "#78716c",
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: "#1c1917",
+          borderTopColor: "#292524",
           height: Platform.OS === "ios" ? 88 : 64,
           paddingBottom: Platform.OS === "ios" ? 28 : 8,
           paddingTop: 8,
@@ -31,41 +36,37 @@ export default function TabLayout() {
         name="scout"
         options={{
           title: "Scout",
-          tabBarIcon: ({ color, size }) => (
-            // Icon placeholder — replace with @expo/vector-icons or react-native-vector-icons
-            null
-          ),
+          tabBarIcon: tabIcon("scan-outline", "scan"),
         }}
       />
       <Tabs.Screen
         name="inventory"
         options={{
           title: "Inventory",
-          tabBarIcon: () => null,
+          tabBarIcon: tabIcon("cube-outline", "cube"),
         }}
       />
       <Tabs.Screen
         name="listing"
         options={{
           title: "Listing",
-          tabBarIcon: () => null,
+          tabBarIcon: tabIcon("pricetag-outline", "pricetag"),
         }}
       />
       <Tabs.Screen
         name="trends"
         options={{
           title: "Trends",
-          tabBarIcon: () => null,
+          tabBarIcon: tabIcon("trending-up-outline", "trending-up"),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: "Stats",
-          tabBarIcon: () => null,
+          tabBarIcon: tabIcon("bar-chart-outline", "bar-chart"),
         }}
       />
-      {/* Settings is not a visible tab — navigate to it via router.push('/(tabs)/settings') */}
       <Tabs.Screen
         name="settings"
         options={{

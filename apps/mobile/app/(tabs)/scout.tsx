@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, TextInput,
-  ActivityIndicator, ScrollView, Alert, Pressable,
+  ActivityIndicator, ScrollView, Alert, Pressable, Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -64,8 +64,10 @@ function ShelfItemRow({ item, onBuy }: { item: ShelfItem; onBuy: (item: ShelfIte
         <Text className="text-stone-400 text-xs">{item.roi.toFixed(0)}% ROI</Text>
         {item.decision !== 'PASS' && (
           <TouchableOpacity
-            className="mt-1 bg-emerald-500 rounded-lg px-3 py-1"
+            className="mt-1 bg-emerald-500 rounded-lg px-3 py-2.5"
             onPress={() => onBuy(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Buy ${item.itemName}`}
           >
             <Text className="text-white font-semibold text-xs">Buy It</Text>
           </TouchableOpacity>
@@ -178,8 +180,8 @@ export default function ScoutScreen() {
   async function handleConfirmBuy() {
     if (!pendingBuy) return;
     const cost = parseFloat(buyCost);
-    if (isNaN(cost) || cost < 0) {
-      Alert.alert('Enter your cost', 'How much did you pay for this item?');
+    if (isNaN(cost) || cost <= 0) {
+      Alert.alert('Enter your cost', 'How much did you pay for this item? Enter a price greater than $0.');
       return;
     }
     setBuyLoading(true);
@@ -242,6 +244,9 @@ export default function ScoutScreen() {
                 key={m}
                 className={`px-5 py-2 rounded-lg ${mode === m ? 'bg-emerald-500' : ''}`}
                 onPress={() => { if (status === 'idle') setMode(m); }}
+                accessibilityRole="button"
+                accessibilityLabel={m === 'single' ? 'Single item scan mode' : 'Shelf scan mode — scan a whole shelf at once'}
+                accessibilityState={{ selected: mode === m }}
               >
                 <Text className={`text-xs font-semibold tracking-wider ${mode === m ? 'text-white' : 'text-stone-400'}`}>
                   {m === 'single' ? 'SINGLE ITEM' : 'SHELF SCAN'}
@@ -252,13 +257,19 @@ export default function ScoutScreen() {
         </View>
       </SafeAreaView>
 
-      {/* Bottom capture button */}
+      {/* Bottom capture button — pb-20 on Android clears the 64px tab bar */}
       {status === 'idle' && (
-        <View className="absolute bottom-0 left-0 right-0 pb-12 items-center" pointerEvents="box-none">
+        <View
+          className="absolute bottom-0 left-0 right-0 items-center"
+          style={{ paddingBottom: Platform.OS === 'ios' ? 48 : 80 }}
+          pointerEvents="box-none"
+        >
           <TouchableOpacity
             onPress={handleCapture}
             className="w-20 h-20 rounded-full bg-white items-center justify-center"
             style={{ shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 }}
+            accessibilityLabel="Capture photo to scan item"
+            accessibilityRole="button"
           >
             <View className="w-16 h-16 rounded-full border-4 border-stone-800 bg-white" />
           </TouchableOpacity>
@@ -278,7 +289,7 @@ export default function ScoutScreen() {
 
       {/* Error overlay */}
       {status === 'error' && errorMsg && (
-        <View className="absolute bottom-0 left-0 right-0 pb-12 px-4">
+        <View className="absolute bottom-0 left-0 right-0 px-4" style={{ paddingBottom: Platform.OS === 'ios' ? 48 : 80 }}>
           <View className="bg-red-950 border border-red-700 rounded-xl p-4 mb-4">
             <Text className="text-red-400 font-semibold mb-1">Scan failed</Text>
             <Text className="text-red-300 text-sm">{errorMsg}</Text>
@@ -291,7 +302,7 @@ export default function ScoutScreen() {
 
       {/* Single result card */}
       {status === 'result_single' && singleResult && (
-        <View className="absolute bottom-0 left-0 right-0 px-4 pb-8">
+        <View className="absolute bottom-0 left-0 right-0 px-4" style={{ paddingBottom: Platform.OS === 'ios' ? 32 : 72 }}>
           <ScanResult
             decision={singleResult.decision}
             itemName={singleResult.itemName as string}
@@ -357,15 +368,19 @@ export default function ScoutScreen() {
             <Text className="text-stone-400 text-sm mb-6" numberOfLines={1}>{pendingBuy?.itemName}</Text>
 
             <Text className="text-stone-300 text-xs font-medium mb-2 uppercase tracking-wider">Your Cost</Text>
-            <TextInput
-              className="bg-stone-800 text-white rounded-xl px-4 py-4 text-2xl font-bold mb-6"
-              placeholder="0.00"
-              placeholderTextColor="#64748b"
-              keyboardType="decimal-pad"
-              value={buyCost}
-              onChangeText={setBuyCost}
-              autoFocus
-            />
+            <View className="flex-row items-center bg-stone-800 rounded-xl px-4 mb-6">
+              <Text className="text-stone-400 text-2xl font-bold mr-1">$</Text>
+              <TextInput
+                className="flex-1 text-white py-4 text-2xl font-bold"
+                placeholder="0.00"
+                placeholderTextColor="#64748b"
+                keyboardType="decimal-pad"
+                value={buyCost}
+                onChangeText={setBuyCost}
+                autoFocus
+                accessibilityLabel="Item cost in dollars"
+              />
+            </View>
 
             <View className="flex-row gap-3">
               <TouchableOpacity
