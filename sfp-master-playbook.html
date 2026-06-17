@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScanForProfit — Master Playbook v4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--surface:#161616;--elevated:#1e1e1e;
+  --header-bg:#000000;--border:#2a2a2a;--border-bright:#3a3a3a;
+  --green:#00e676;--gold:#d4a843;--gold-dim:#8a6c28;
+  --red:#ff4444;--amber:#f5a623;--blue:#2a7ae2;--purple:#6b3fa0;
+  --text:#f0ead8;--text2:#c8bfb0;--text-muted:#8a8070;
+  --font-head:'Syne',sans-serif;--font-mono:'IBM Plex Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-head);min-height:100vh}
+
+/* HEADER */
+.hdr{position:sticky;top:0;z-index:100;background:var(--header-bg);border-bottom:1px solid var(--border);padding:0 20px}
+.hdr-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:12px;height:52px}
+.logo-mark{flex-shrink:0}
+.logo-text{font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.12em;color:var(--text)}
+.logo-text span{font-weight:400}
+.hdr-sub{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+
+/* TABS */
+.tabs-wrap{position:sticky;top:52px;z-index:90;background:var(--header-bg);border-bottom:1px solid var(--border)}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none;max-width:1400px;margin:0 auto;padding:0 20px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:12px 16px;font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;position:relative;user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.tab .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-left:5px;opacity:0;vertical-align:middle}
+.tab.done .dot{opacity:1}
+.tab.nocredit-tab{color:var(--green);opacity:.7}
+.tab.nocredit-tab.active{opacity:1}
+
+/* PROGRESS */
+.progress-bar-wrap{background:var(--header-bg);border-bottom:1px solid var(--border);padding:8px 20px}
+.progress-bar-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.progress-label{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);white-space:nowrap}
+.progress-track{flex:1;height:4px;background:var(--border-bright);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s ease}
+.progress-pct{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);white-space:nowrap;min-width:36px;text-align:right}
+
+/* FILTER BAR */
+.filter-wrap{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px}
+.filter-inner{max-width:1400px;margin:0 auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filter-label{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-right:4px}
+.filter-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--border-bright);background:transparent;color:var(--text-muted);font-family:var(--font-mono);font-size:11px;cursor:pointer;transition:all .15s}
+.filter-btn:hover{border-color:var(--text-muted);color:var(--text)}
+.filter-btn.active{background:var(--green);border-color:var(--green);color:#000;font-weight:500}
+.filter-btn.nc-btn.active{background:var(--green);color:#000}
+
+/* MAIN CONTENT */
+.main{max-width:1400px;margin:0 auto;padding:24px 20px 80px}
+
+/* PHASE HEADER */
+.phase-hdr{margin-bottom:20px}
+.phase-name{font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px}
+.phase-desc{font-family:var(--font-mono);font-size:12px;color:var(--text-muted);line-height:1.5}
+
+/* SECTION */
+.section{margin-bottom:28px}
+.section-hdr{display:flex;align-items:center;gap:10px;padding:8px 14px;border-left:3px solid;background:var(--surface);border-radius:0 6px 6px 0;margin-bottom:6px}
+.section-hdr-label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.section-count{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-left:auto}
+
+/* TASK ROW */
+.task{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px;cursor:pointer;transition:background .1s,border-color .1s;user-select:none}
+.task:hover{background:var(--elevated);border-color:var(--border-bright)}
+.task.checked{opacity:.55}
+.task.checked .task-label{text-decoration:line-through;color:var(--text-muted)}
+.task-check{flex-shrink:0;width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border-bright);display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .15s}
+.task.checked .task-check{background:var(--green);border-color:var(--green)}
+.task-check svg{display:none}
+.task.checked .task-check svg{display:block}
+.task-body{flex:1;min-width:0}
+.task-label{font-size:13px;line-height:1.5;color:var(--text);margin-bottom:4px}
+.task-badges{display:flex;flex-wrap:wrap;gap:4px}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.03em;white-space:nowrap}
+.badge-owner-you{background:#3a2410;color:#fff}
+.badge-owner-cc{background:#00993d;color:#fff}
+.badge-owner-cai{background:#6b3fa0;color:#fff}
+.badge-owner-cowork{background:#2a7ae2;color:#fff}
+.badge-owner-youcowork{background:#8B6A3E;color:#fff}
+.badge-owner-n8n{background:#e84393;color:#fff}
+.badge-skill{background:#1a2e28;color:#7de8c8}
+.badge-mcp{background:#2e2510;color:#f5a623}
+.badge-tool{background:#1a1f2e;color:#7ab8ff}
+.badge-nocredit{background:#1a2e1a;color:#00e676}
+.badge-dep{background:#2a1a2e;color:#cc88ff}
+
+/* EMPTY STATE */
+.empty-filter{padding:40px 20px;text-align:center;font-family:var(--font-mono);font-size:13px;color:var(--text-muted)}
+
+/* HIDDEN */
+.task.hidden{display:none}
+.section.hidden{display:none}
+.phase-view{display:none}
+.phase-view.active{display:block}
+
+/* SCROLLBAR STYLE */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px}
+
+@media(max-width:600px){
+  .hdr-sub{display:none}
+  .main{padding:16px 12px 60px}
+  .task-label{font-size:12px}
+  .badge{font-size:9px}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="logo-mark">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" width="28" height="28">
+        <path d="M3 13 V3 H13" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+        <path d="M19 29 H29 V19" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/>
+        <rect x="6" y="21" width="4" height="6" fill="#00e676"/>
+        <rect x="12" y="16" width="4" height="11" fill="#00e676"/>
+        <rect x="18" y="11" width="4" height="16" fill="#00e676"/>
+      </svg>
+    </div>
+    <div class="logo-text">SCAN<span>FORPROFIT</span></div>
+    <div class="hdr-sub">Master Playbook v4 &middot; All tasks start unchecked</div>
+  </div>
+</header>
+
+<div class="tabs-wrap">
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar-inner">
+    <span class="progress-label" id="progress-label">0 / 0 tasks done</span>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <span class="progress-pct" id="progress-pct">0%</span>
+  </div>
+</div>
+
+<div class="filter-wrap">
+  <div class="filter-inner">
+    <span class="filter-label">FILTER:</span>
+    <button class="filter-btn active" data-filter="all">ALL</button>
+    <button class="filter-btn" data-filter="you">YOU</button>
+    <button class="filter-btn" data-filter="claude-code">Claude Code</button>
+    <button class="filter-btn" data-filter="claude-ai">Claude.ai</button>
+    <button class="filter-btn" data-filter="cowork">Cowork</button>
+    <button class="filter-btn nc-btn" data-filter="no-credit">No Credits Needed</button>
+  </div>
+</div>
+
+<main class="main" id="main"></main>
+
+<script>
+const STORAGE_KEY = 'sfp_playbook_v4';
+
+// ── PHASE DATA ─────────────────────────────────────────────────────────────
+const PHASES = [
+{
+  key:'master', tab:'MASTER', name:'Master View',
+  desc:'Critical blockers, ready-to-run prompts, and cross-phase priorities',
+  sections:[
+    { key:'t1', label:'TIER 1 — CRITICAL BLOCKERS', color:'#ff4444', tasks:[
+      {id:'m_t1_1',label:'Audit web app (scanforprofit.com/app.html) — verify all features work end-to-end',owner:'YOU',dep:'',tools:['TOOL: Chrome DevTools','TOOL: Supabase Dashboard']},
+      {id:'m_t1_2',label:'Deploy landing page (scanforprofit.com) to Vercel',owner:'YOU',dep:'',tools:['MCP: Vercel']},
+      {id:'m_t1_3',label:'Configure claude-proxy Supabase Edge Function with ANTHROPIC_API_KEY',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'m_t1_4',label:'eBay Developer Account — register at developer.ebay.com',owner:'YOU',dep:'',tools:['TOOL: eBay Dev Portal','NO-CREDIT']},
+      {id:'m_t1_5',label:'Google Search Console — verify scanforprofit.com',owner:'YOU',dep:'',tools:['TOOL: Google Search Console','NO-CREDIT']},
+      {id:'m_t1_6',label:'Supabase RLS policies — audit + configure for production',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'m_t1_7',label:'Estimate Claude API cost per scan (target < $0.10)',owner:'YOU',dep:'',tools:['MCP: Supabase','TOOL: Anthropic Console']},
+    ]},
+    { key:'t2', label:'TIER 2 — REVENUE & GROWTH', color:'#f5a623', tasks:[
+      {id:'m_t2_1',label:'Directory submissions — Tier 1 (11 dirs, launch day)',owner:'YOU',dep:'',tools:['SKILL: directory-submissions','NO-CREDIT']},
+      {id:'m_t2_2',label:'Directory submissions — Tier 2 (14 dirs, week 1)',owner:'YOU',dep:'',tools:['SKILL: directory-submissions','NO-CREDIT']},
+      {id:'m_t2_3',label:'Directory submissions — Tier 3 (16 dirs, weeks 1–3)',owner:'YOU',dep:'',tools:['SKILL: directory-submissions','SKILL: ai-seo','NO-CREDIT']},
+      {id:'m_t2_4',label:'Create remaining social accounts (TikTok, IG, FB Page, Reddit, YouTube) — Twitter/X already done',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'m_t2_5',label:'Google Play Store listing copy (ASO)',owner:'Cowork',dep:'',tools:['SKILL: aso-audit','SKILL: copywriting']},
+      {id:'m_t2_6',label:'First 5 ad hooks written',owner:'Cowork',dep:'',tools:['SKILL: ad-creative','SKILL: marketing-psychology']},
+      {id:'m_t2_7',label:'Claude Code web app audit + bug fix sprint',owner:'Claude Code',dep:'',tools:['MCP: Supabase','MCP: Sentry']},
+    ]},
+    { key:'prompts', label:'PROMPTS READY TO EXECUTE', color:'#2a7ae2', tasks:[
+      {id:'m_p_1',label:'Web app audit prompt → paste into Claude Code',owner:'Claude Code',dep:'',tools:['MCP: Supabase','MCP: Sentry']},
+      {id:'m_p_2',label:'Landing page build prompt → paste into Claude Code',owner:'Claude Code',dep:'',tools:['MCP: Vercel','SKILL: page-cro','SKILL: copywriting']},
+      {id:'m_p_3',label:'Directory submission playbook → paste into Cowork',owner:'Cowork',dep:'',tools:['SKILL: directory-submissions']},
+      {id:'m_p_4',label:'Phase 4 (Web) build prompt → write before starting',owner:'Claude Code',dep:'',tools:['MCP: Supabase','MCP: Vercel']},
+    ]},
+  ]
+},
+{
+  key:'accounts', tab:'ACCOUNTS', name:'Accounts & Credentials',
+  desc:'Every account, credential, and service that ScanForProfit depends on. Keep all secrets in .env — never in code.',
+  sections:[
+    { key:'inf', label:'INFRASTRUCTURE', color:'#00e676', tasks:[
+      {id:'acc_inf_1',label:'Supabase — project dqgfpchkheznvanfgsmx',owner:'YOU',dep:'Tables: users, inventory, scan_log, settings, pnl_expenses, growth_cache',tools:['MCP: Supabase']},
+      {id:'acc_inf_2',label:'Vercel — deploy scanforprofit.com + auto-deploy on push to main',owner:'YOU',dep:'',tools:['MCP: Vercel']},
+      {id:'acc_inf_3',label:'GitHub — repo: github.com/bbaker71313/scanforprofit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_inf_4',label:'Cloudflare — DNS for scanforprofit.com',owner:'YOU',dep:'',tools:['MCP: Cloudflare Developer Platform','NO-CREDIT']},
+      {id:'acc_inf_5',label:'EAS Build — project ID: cc487254-9654-4930-ac52-37ffba835a20',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'pay', label:'PAYMENTS & EMAIL', color:'#f5a623', tasks:[
+      {id:'acc_pay_1',label:'Stripe — tiers: SFP Scout/Hustle/Stack/Empire, 3 webhook destinations live',owner:'YOU',dep:'',tools:['MCP: Stripe']},
+      {id:'acc_pay_2',label:'Resend — transactional email, RESEND_API_KEY in Supabase secrets',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_pay_3',label:'n8n Cloud — scanforprofit.app.n8n.cloud, 5 workflows live',owner:'YOU',dep:'',tools:['MCP: n8n']},
+    ]},
+    { key:'ai', label:'AI & ANALYTICS', color:'#6b3fa0', tasks:[
+      {id:'acc_ai_1',label:'Anthropic — ANTHROPIC_API_KEY in Supabase secrets (never in .env client)',owner:'YOU',dep:'',tools:['TOOL: Anthropic Console']},
+      {id:'acc_ai_2',label:'PostHog — events: scan_completed, item_added, listing_generated, tab_viewed',owner:'YOU',dep:'',tools:['MCP: PostHog']},
+      {id:'acc_ai_3',label:'Sentry — error tracking for web + mobile',owner:'YOU',dep:'',tools:['MCP: Sentry']},
+    ]},
+    { key:'ebay', label:'EBAY & MARKETPLACE', color:'#2a7ae2', tasks:[
+      {id:'acc_ebay_1',label:'eBay Developer Account — register at developer.ebay.com',owner:'YOU',dep:'Required for Listing tab eBay API',tools:['NO-CREDIT']},
+      {id:'acc_ebay_2',label:'eBay sandbox credentials — client ID + secret for testing',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_ebay_3',label:'EBAY_CLIENT_ID stored in Supabase secrets (not .env)',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'soc', label:'SOCIAL & MARKETING', color:'#ff4444', tasks:[
+      {id:'acc_soc_1',label:'Twitter/X — @scanforprofit ✓ DONE',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_2',label:'TikTok — create @scanforprofit account',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_3',label:'Instagram — create @scanforprofit account',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_4',label:'Facebook Page — ScanForProfit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_5',label:'Reddit — u/scanforprofit or modding r/ScanForProfit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_6',label:'YouTube — ScanForProfit channel',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_7',label:'BLOTATO — connect all social accounts for scheduling',owner:'YOU',dep:'',tools:['MCP: BLOTATO']},
+      {id:'acc_soc_8',label:'Google Search Console — verify scanforprofit.com',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_soc_9',label:'Google Analytics / GA4 (optional, PostHog is primary)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'sup', label:'SUPPORT & COMMUNITY', color:'#8B6A3E', tasks:[
+      {id:'acc_sup_1',label:'support@scanforprofit.com inbox — set up email',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'acc_sup_2',label:'Notion — project management hub',owner:'YOU',dep:'',tools:['MCP: Notion','NO-CREDIT']},
+      {id:'acc_sup_3',label:'Apple Developer Account ($99/year) — needed for iOS App Store',owner:'YOU',dep:'Required for Phase 5 iOS',tools:['NO-CREDIT']},
+      {id:'acc_sup_4',label:'Google Play Console — needed for Android launch',owner:'YOU',dep:'Required for Phase 6',tools:['NO-CREDIT']},
+    ]},
+  ]
+},
+{
+  key:'p01', tab:'P01', name:'Phase 01 — Validate',
+  desc:'Market research, persona definition, MVP build and real-world testing — foundation for everything',
+  sections:[
+    { key:'mr', label:'MARKET RESEARCH', color:'#00e676', tasks:[
+      {id:'p01_mr_1',label:'Research reseller communities: Reddit r/Flipping, TikTok, Facebook reseller groups',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_mr_2',label:'Identify top 3 reseller personas (Weekend Flipper, Full-Time, Thrift Specialist)',owner:'YOU',dep:'',tools:['SKILL: customer-research','NO-CREDIT']},
+      {id:'p01_mr_3',label:'Validate core problem: manual eBay price research wastes time at the shelf',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_mr_4',label:'Map competitor landscape (Flipper Tools, ThriftMagic, manual research, spreadsheets)',owner:'YOU',dep:'',tools:['SKILL: competitor-profiling','NO-CREDIT']},
+      {id:'p01_mr_5',label:'Document all persona pain points → product-marketing-context.md',owner:'YOU',dep:'',tools:['SKILL: product-marketing-context','NO-CREDIT']},
+    ]},
+    { key:'mvp', label:'MVP BUILD', color:'#2a7ae2', tasks:[
+      {id:'p01_mvp_1',label:'Build Flippd single-file HTML/JS MVP (Flippd_v5_23.html)',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_mvp_2',label:'Implement AI sourcing scan (BUY/PASS/HOT decisions)',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_mvp_3',label:'Implement basic inventory tracking',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_mvp_4',label:'Implement P&L calculator (cost, fees, profit, ROI)',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_mvp_5',label:'Rebrand Flippd → ScanForProfit (Flippd_v5_23.html → app.html on scanforprofit.com)',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'val', label:'VALIDATION', color:'#6b3fa0', tasks:[
+      {id:'p01_val_1',label:'Test MVP at real thrift stores (Goodwill, estate sales)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_val_2',label:'Confirm resellers will pay for AI sourcing decisions',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_val_3',label:'Confirm 47-second scan time is acceptable at shelf',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p01_val_4',label:'ICP confirmed: solo eBay reseller, sourcing from thrift/garage/estate',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+  ]
+},
+{
+  key:'p02', tab:'P02', name:'Phase 02 — Brand & Architecture',
+  desc:'Rename, brand, scaffold monorepo, set up full tech stack',
+  sections:[
+    { key:'br', label:'BRAND', color:'#6b3fa0', tasks:[
+      {id:'p02_br_1',label:'Register scanforprofit.com (Cloudflare)',owner:'YOU',dep:'',tools:['MCP: Cloudflare Developer Platform','NO-CREDIT']},
+      {id:'p02_br_2',label:'Rename GitHub repo: flippd → scanforprofit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p02_br_3',label:'Update Stripe product names → SFP Scout/Hustle/Stack/Empire',owner:'YOU',dep:'',tools:['MCP: Stripe','NO-CREDIT']},
+      {id:'p02_br_4',label:'Create docs/BRAND_IDENTITY.md',owner:'YOU',dep:'',tools:['SKILL: brand-guidelines','NO-CREDIT']},
+      {id:'p02_br_5',label:'Update product-marketing-context.md for ScanForProfit',owner:'YOU',dep:'',tools:['SKILL: product-marketing-context','NO-CREDIT']},
+    ]},
+    { key:'arch', label:'ARCHITECTURE', color:'#2a7ae2', tasks:[
+      {id:'p02_arch_1',label:'Scaffold monorepo (pnpm 11 workspaces + Turborepo)',owner:'Claude Code',dep:'',tools:['MCP: Supabase','MCP: Vercel']},
+      {id:'p02_arch_2',label:'Initialize EAS (project: cc487254-9654-4930-ac52-37ffba835a20)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p02_arch_3',label:'Apply Supabase migrations 001 + 002 (project: dqgfpchkheznvanfgsmx)',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p02_arch_4',label:'Create docs/FEATURE_TRIAGE.md (56 features, all AI prompts verbatim)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p02_arch_5',label:'Create packages/shared/src/types/index.ts — all TypeScript types',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p02_arch_6',label:'Create packages/shared/src/utils/calcProfit.ts — port from Flippd verbatim',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p02_arch_7',label:'Create packages/shared/src/constants/theme.ts — design tokens',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+    ]},
+    { key:'pay2', label:'PAYMENTS & AUTOMATION', color:'#f5a623', tasks:[
+      {id:'p02_pay_1',label:'Configure 3 Stripe webhook destinations (subscription.created, subscription.updated, invoice.payment_failed)',owner:'YOU',dep:'',tools:['MCP: Stripe']},
+      {id:'p02_pay_2',label:'n8n: New User Welcome workflow (ID: iB0bhOJ2Y2gREciM)',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p02_pay_3',label:'n8n: Trial Expiry Downgrade workflow (ID: 3WcbuzehAgWqWsmT)',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p02_pay_4',label:'n8n: Subscription Upgraded workflow (ID: sfE5SR7rXpv4kmam)',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p02_pay_5',label:'n8n: Failed Payment Retry workflow (ID: glabRTVbtj9nush7)',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p02_pay_6',label:'n8n: Churn Re-engagement workflow (ID: bKDLS85aZX4fWt8l)',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p02_pay_7',label:'Verify all 5 n8n workflows fire correctly end-to-end',owner:'YOU',dep:'',tools:['MCP: n8n','MCP: Stripe']},
+    ]},
+  ]
+},
+{
+  key:'p03', tab:'P03', name:'Phase 03 — Design',
+  desc:'Brand identity, design system, web UI architecture, component library, Figma screen flows',
+  sections:[
+    { key:'ds', label:'DESIGN SYSTEM', color:'#00e676', tasks:[
+      {id:'p03_ds_1',label:'Brand Identity documented in docs/BRAND_IDENTITY.md (colors, fonts, spacing, forbidden words)',owner:'YOU',dep:'',tools:['SKILL: brand-guidelines','SKILL: canvas-design']},
+      {id:'p03_ds_2',label:'Design tokens in packages/shared/src/constants/theme.ts',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_ds_3',label:'Audit existing web app (app.html) against BRAND_IDENTITY.md — flag all deviations',owner:'Claude Code',dep:'',tools:['SKILL: impeccable']},
+      {id:'p03_ds_4',label:'Apply brand corrections to app.html',owner:'Claude Code',dep:'',tools:['SKILL: impeccable','SKILL: frontend-design']},
+    ]},
+    { key:'comp', label:'WEB COMPONENT LIBRARY', color:'#2a7ae2', tasks:[
+      {id:'p03_comp_1',label:'Audit existing HTML/JS components in app.html — inventory what exists',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p03_comp_2',label:'Scout scan result card (BUY/HOT/PASS hero component) — verify matches BRAND_IDENTITY.md',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_comp_3',label:'Inventory list and item cards — verify styling',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_comp_4',label:'Listing generator UI — verify renders correctly',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_comp_5',label:'Stats/P&L dashboard UI — verify all KPI cards',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_comp_6',label:'Growth Agent (Trends tab) card UI — verify JSON rendering',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_comp_7',label:'Auth screens (login, register, verify) — verify flow works end-to-end',owner:'YOU',dep:'',tools:['SKILL: signup-flow-cro']},
+      {id:'p03_comp_8',label:'Settings panel — verify all configurable values save to Supabase',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'fig', label:'SCREEN FLOWS & FIGMA', color:'#6b3fa0', tasks:[
+      {id:'p03_fig_1',label:'Figma screen flows for all 5 tabs (27 frames created) — verify completeness',owner:'Claude.ai',dep:'',tools:['MCP: Figma','SKILL: figma:figma-generate-design']},
+      {id:'p03_fig_2',label:'Web layout adaptation — verify screens work at 1200px max-width desktop',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p03_fig_3',label:'Mobile-responsive check for web app (used on phone browser too)',owner:'YOU',dep:'',tools:['SKILL: impeccable']},
+    ]},
+  ]
+},
+{
+  key:'p04', tab:'P04 (WEB)', name:'Phase 04 — Build Web App',
+  desc:'Complete and harden the web app (scanforprofit.com/app.html). This ships first. Mobile is Phase 05.',
+  sections:[
+    { key:'pre', label:'PRE-PHASE CHECKLIST', color:'#ff4444', tasks:[
+      {id:'p04_pre_1',label:'Phase 3 design complete + web app brand audit done',owner:'YOU',dep:'Hard dependency',tools:[]},
+      {id:'p04_pre_2',label:'claude-proxy Supabase Edge Function live and returning scan results',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_pre_3',label:'Supabase RLS policies audited and configured',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_pre_4',label:'eBay Developer sandbox credentials obtained',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'aud', label:'WEB APP AUDIT', color:'#00e676', tasks:[
+      {id:'p04_aud_1',label:'Full end-to-end flow test: register → verify email → login → scan → save',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_2',label:'Scout tab: single item scan returns valid JSON and renders BUY/HOT/PASS card',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_3',label:'Scout tab: shelf scan mode processes photo and ranks all visible items',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_4',label:'Scout tab: cost input + profit calculation uses settings.ebayFee (never hardcoded)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_5',label:'Scout tab: scan saves to scan_log table in Supabase',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_6',label:'Inventory tab: add/edit/delete items via Supabase CRUD',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_7',label:'Inventory tab: status lifecycle (Unlisted → Listed → Sold) works correctly',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_8',label:'Inventory tab: photo upload → Supabase Storage (compress before upload, max 1MB)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_9',label:'Listing tab: AI generates eBay title (80 char max) + description + condition note',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_10',label:'Listing tab: manual edit mode allows tweaking AI output before saving',owner:'YOU',dep:'',tools:[]},
+      {id:'p04_aud_11',label:'Listing tab: CSV export generates correct format for all listed items',owner:'YOU',dep:'',tools:[]},
+      {id:'p04_aud_12',label:'Trends tab: Growth Agent returns JSON with all required fields (business_score, top_categories, stale_actions, hunt_list, market_trends, advisor_message)',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_13',label:'Trends tab: 24hr cache from growth_cache Supabase table',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_14',label:'Stats tab: KPI cards (Revenue, COGS, Net Profit, ROI%, sell-through rate) all calculate correctly',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_15',label:'Stats tab: expense logging (pnl_expenses table) works',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_16',label:'Stats tab: mileage tracker uses configurable IRS rate (never hardcode 0.67)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_17',label:'Stats tab: tax reserve uses configurable taxReservePct (never hardcode 0.25)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_aud_18',label:'Settings: all default values (ebayFee, pkgCost, minProfit, etc.) save to Supabase settings table',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'hard', label:'WEB APP HARDENING', color:'#2a7ae2', tasks:[
+      {id:'p04_hard_1',label:'Deploy app.html to Vercel under scanforprofit.com/app',owner:'YOU',dep:'',tools:['MCP: Vercel']},
+      {id:'p04_hard_2',label:'All Supabase secrets confirmed set: ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY, EBAY_CLIENT_ID',owner:'YOU',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_hard_3',label:'Error states: API timeout, network error, auth expired — all show user-friendly messages',owner:'Claude Code',dep:'',tools:['MCP: Sentry']},
+      {id:'p04_hard_4',label:'Loading states on all async operations (no blank screens while waiting)',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p04_hard_5',label:'Stripe upgrade flow: free → Hustle tested end-to-end (test card 4242 4242 4242 4242)',owner:'YOU',dep:'',tools:['MCP: Stripe']},
+      {id:'p04_hard_6',label:'Trial expiry: 7-day trial → Scout downgrade via n8n workflow — test fire',owner:'YOU',dep:'',tools:['MCP: n8n','MCP: Stripe']},
+      {id:'p04_hard_7',label:'PostHog events confirmed: scan_completed, item_added, listing_generated, tab_viewed, upgrade_clicked',owner:'Claude Code',dep:'',tools:['MCP: PostHog']},
+      {id:'p04_hard_8',label:'Sentry configured — no unhandled errors on first-time user flow',owner:'Claude Code',dep:'',tools:['MCP: Sentry']},
+      {id:'p04_hard_9',label:'CORS locked to scanforprofit.com domain only',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_hard_10',label:'Rate limiting on auth endpoint',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'lp', label:'LANDING PAGE', color:'#f5a623', tasks:[
+      {id:'p04_lp_1',label:'Build scanforprofit.com landing page (separate from /app)',owner:'Claude Code',dep:'',tools:['SKILL: page-cro','SKILL: copywriting','SKILL: frontend-design','MCP: Vercel']},
+      {id:'p04_lp_2',label:'No fake metrics, no fake testimonials (placeholder slots for real ones)',owner:'Claude Code',dep:'',tools:['SKILL: copy-editing']},
+      {id:'p04_lp_3',label:'Email waitlist capture → Supabase waitlist table (409 = already registered, treat as success)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_lp_4',label:'Landing page SEO: meta tags, title, description, Open Graph',owner:'Claude Code',dep:'',tools:['SKILL: seo-audit','SKILL: schema-markup']},
+      {id:'p04_lp_5',label:'Mobile responsive (resellers will arrive on phones)',owner:'Claude Code',dep:'',tools:['SKILL: impeccable']},
+      {id:'p04_lp_6',label:'Pricing section with correct tier names and prices',owner:'Claude Code',dep:'',tools:['SKILL: copywriting']},
+    ]},
+    { key:'ebay4', label:'EBAY API INTEGRATION', color:'#8B6A3E', tasks:[
+      {id:'p04_ebay_1',label:'eBay OAuth token management + auto-refresh via Supabase Edge Function',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_ebay_2',label:'Pull sold comps: GET /buy/browse/v1/item_summary/search (live pricing for Scout)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_ebay_3',label:'Sync live eBay listings: GET /sell/inventory/v1/inventory_item',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_ebay_4',label:'Auto-publish to eBay: POST /sell/inventory/v1/inventory_item (one-click from Listing tab)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p04_ebay_5',label:'Pull sold orders: GET /sell/fulfillment/v1/order → auto-mark items Sold in inventory',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+    ]},
+  ]
+},
+{
+  key:'p05', tab:'P05 (MOBILE)', name:'Phase 05 — Build Mobile App',
+  desc:'React Native + Expo app built AFTER web app ships. Port business logic from app.html — never rewrite it.',
+  sections:[
+    { key:'pre5', label:'PRE-PHASE CHECKLIST', color:'#ff4444', tasks:[
+      {id:'p05_pre_1',label:'Web app (Phase 04) complete and running in production',owner:'YOU',dep:'Hard dependency',tools:[]},
+      {id:'p05_pre_2',label:'All business logic verified correct in web app (profit math, AI prompts)',owner:'YOU',dep:'Port these exactly',tools:[]},
+      {id:'p05_pre_3',label:'EAS CLI installed and authenticated',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p05_pre_4',label:'Expo Go installed on at least one test device',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p05_pre_5',label:'Apple Developer Account ($99/yr) set up',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p05_pre_6',label:'Google Play Console account set up',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'nav5', label:'APP SHELL + NAVIGATION', color:'#2a7ae2', tasks:[
+      {id:'p05_nav_1',label:'Initialize Expo Router 4 file-based routing (apps/mobile/app/(tabs)/)',owner:'Claude Code',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:react-native-architecture']},
+      {id:'p05_nav_2',label:'Create 5 tab screens: scout.tsx, inventory.tsx, listing.tsx, trends.tsx, stats.tsx',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p05_nav_3',label:'Bottom tab bar with icons — matches BRAND_IDENTITY.md exactly',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p05_nav_4',label:'NativeWind 4 configured (Tailwind for RN — no StyleSheet.create ever)',owner:'Claude Code',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:mobile-developer']},
+      {id:'p05_nav_5',label:'Design tokens from packages/shared/src/constants/theme.ts applied',owner:'Claude Code',dep:'',tools:['NO-CREDIT']},
+      {id:'p05_nav_6',label:'Test navigation on iOS + Android device',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'auth5', label:'AUTH FLOW', color:'#00e676', tasks:[
+      {id:'p05_auth_1',label:'Email verification + password auth (NOT magic link — removed v3.0.0)',owner:'Claude Code',dep:'',tools:['MCP: Supabase','SKILL: signup-flow-cro']},
+      {id:'p05_auth_2',label:'expo-secure-store for JWT token persistence (90-day sessions)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_auth_3',label:'Onboarding screens — under 90 seconds from install to inside app',owner:'Claude Code',dep:'',tools:['SKILL: onboarding-cro']},
+    ]},
+    { key:'scout5', label:'SCOUT TAB', color:'#00e676', tasks:[
+      {id:'p05_scout_1',label:'expo-camera capture → base64 → Supabase Edge Function (claude-proxy) → BUY/HOT/PASS',owner:'Claude Code',dep:'',tools:['MCP: Supabase','SKILL: antigravity-bundle-aas-mobile-app-builder:mobile-developer']},
+      {id:'p05_scout_2',label:'Port Scout AI prompt VERBATIM from FEATURE_TRIAGE.md (getSingleSys)',owner:'Claude Code',dep:'Do NOT rewrite the prompt',tools:[]},
+      {id:'p05_scout_3',label:'Port Shelf scan prompt VERBATIM from FEATURE_TRIAGE.md (getShelfSys)',owner:'Claude Code',dep:'Do NOT rewrite the prompt',tools:[]},
+      {id:'p05_scout_4',label:'ScanResult hero component: BUY=green, PASS=red, HOT=gold — profit number = largest element',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p05_scout_5',label:'Haptic feedback on BUY/PASS/HOT decisions',owner:'Claude Code',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:mobile-developer']},
+      {id:'p05_scout_6',label:'Save scan to scan_log Supabase table',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_scout_7',label:'Display last 10 scans in Scout history',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_scout_8',label:'Real-world test: 50 items at thrift store (90%+ success rate target)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'inv5', label:'INVENTORY TAB', color:'#6b3fa0', tasks:[
+      {id:'p05_inv_1',label:'Inventory list (FlatList + ItemCard) — virtualized for performance',owner:'Claude Code',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:react-native-architecture']},
+      {id:'p05_inv_2',label:'Add/edit/delete item form (nickname, category, condition, cost, sell_price, status)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_inv_3',label:'Status filter: Unlisted / Listed / Sold',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_inv_4',label:'Category filter + search by nickname or SKU',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_inv_5',label:'Multi-photo attachment → Supabase Storage (compress to max 1MB before upload)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'list5', label:'LISTING TAB', color:'#f5a623', tasks:[
+      {id:'p05_list_1',label:'Port Listing Generator prompt VERBATIM from FEATURE_TRIAGE.md (generateListingWithAI)',owner:'Claude Code',dep:'Do NOT rewrite the prompt',tools:[]},
+      {id:'p05_list_2',label:'80-char eBay title + 250-400 word description + condition note',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_list_3',label:'Manual edit mode (user can tweak AI output before saving)',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p05_list_4',label:'Copy to clipboard for manual eBay paste',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p05_list_5',label:'Link listing to inventory item → mark as Listed when saved',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_list_6',label:'21 eBay category IDs — port from FEATURE_TRIAGE.md exactly',owner:'Claude Code',dep:'Do NOT guess or change IDs',tools:[]},
+    ]},
+    { key:'trends5', label:'TRENDS TAB', color:'#ff4444', tasks:[
+      {id:'p05_trends_1',label:'Port Growth Agent prompt VERBATIM from FEATURE_TRIAGE.md (runGrowthAgent)',owner:'Claude Code',dep:'Do NOT rewrite the prompt',tools:[]},
+      {id:'p05_trends_2',label:'All 6 Growth Agent card sections: business_score, top_categories, stale_actions, hunt_list, market_trends, advisor_message',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_trends_3',label:'24hr cache from growth_cache Supabase table',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_trends_4',label:'Stale listing detection (Listed + dateAcquired > 30 days)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'stats5', label:'STATS TAB', color:'#8B6A3E', tasks:[
+      {id:'p05_stats_1',label:'KPI cards: Revenue, COGS, Net Profit, ROI%, Sell-Through Rate',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_stats_2',label:'Category breakdown chart',owner:'Claude Code',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:mobile-developer']},
+      {id:'p05_stats_3',label:'Expense logging (pnl_expenses table)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_stats_4',label:'Mileage tracker — configurable IRS rate (never hardcode 0.67)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_stats_5',label:'Tax reserve callout — configurable (never hardcode 0.25)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p05_stats_6',label:'Stripe paywall gate: Scout = 25 scans / 10 items. Hustle+ = unlimited',owner:'Claude Code',dep:'',tools:['MCP: Stripe','SKILL: paywall-upgrade-cro']},
+    ]},
+    { key:'test5', label:'TESTING & POLISH', color:'#2a7ae2', tasks:[
+      {id:'p05_test_1',label:'End-to-end: Scout → Inventory → Listing → Sold → Stats (no errors)',owner:'YOU',dep:'',tools:['SKILL: webapp-testing']},
+      {id:'p05_test_2',label:'Offline mode: graceful degradation when no internet',owner:'YOU',dep:'',tools:[]},
+      {id:'p05_test_3',label:'Loading states on all async ops (skeleton screens, no blank screens)',owner:'Claude Code',dep:'',tools:['SKILL: frontend-design']},
+      {id:'p05_test_4',label:'Error states: API timeout, auth error, network error — all shown to user',owner:'Claude Code',dep:'',tools:['MCP: Sentry']},
+      {id:'p05_test_5',label:'Pull-to-refresh on all list views',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p05_test_6',label:'EAS development APK: eas build --platform android --profile development',owner:'YOU',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:expo-deployment']},
+      {id:'p05_test_7',label:'PostHog + Sentry wired for mobile (PostHog RN + Sentry RN)',owner:'Claude Code',dep:'',tools:['MCP: PostHog','MCP: Sentry']},
+    ]},
+  ]
+},
+{
+  key:'p06', tab:'P06', name:'Phase 06 — Launch',
+  desc:'Google Play Store, Product Hunt, directory blitz, first 100 users',
+  sections:[
+    { key:'play6', label:'GOOGLE PLAY LAUNCH', color:'#00e676', tasks:[
+      {id:'p06_play_1',label:'EAS production build: eas build --platform android --profile production',owner:'YOU',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:expo-deployment']},
+      {id:'p06_play_2',label:'Google Play Console: upload AAB to Internal Testing track',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_play_3',label:'Beta test with 20 testers (r/Flipping, TikTok followers) — 2 weeks minimum',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_play_4',label:'Fix all beta bugs, tune AI prompts based on feedback',owner:'Claude Code',dep:'',tools:['MCP: Sentry','MCP: PostHog']},
+      {id:'p06_play_5',label:'Promote Internal Testing → Production track',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_play_6',label:'Google Play Store listing copy (ASO-optimized)',owner:'Cowork',dep:'',tools:['SKILL: aso-audit','SKILL: copywriting']},
+      {id:'p06_play_7',label:'Screenshots uploaded: Scout tab, shelf scan result, Stats tab',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_play_8',label:'Set pricing: Free trial 7 days → Scout free → Hustle $19/mo',owner:'YOU',dep:'',tools:['MCP: Stripe','NO-CREDIT']},
+    ]},
+    { key:'ann6', label:'LAUNCH ANNOUNCEMENT', color:'#ff4444', tasks:[
+      {id:'p06_ann_1',label:'Product Hunt launch (Tue–Thu for max exposure)',owner:'YOU+Cowork',dep:'',tools:['SKILL: launch-strategy','NO-CREDIT']},
+      {id:'p06_ann_2',label:'Hacker News Show HN post',owner:'YOU',dep:'',tools:['SKILL: copywriting','NO-CREDIT']},
+      {id:'p06_ann_3',label:'Reddit r/Flipping + r/eBay launch post',owner:'YOU',dep:'',tools:['SKILL: community-marketing','NO-CREDIT']},
+      {id:'p06_ann_4',label:'TikTok launch video: scan at Goodwill, show BUY decision live',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_ann_5',label:'Instagram Reels version of launch video',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_ann_6',label:'All 41 directories submitted',owner:'YOU+Cowork',dep:'',tools:['SKILL: directory-submissions']},
+      {id:'p06_ann_7',label:'Email announcement to waitlist (n8n New User Welcome fires)',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p06_ann_8',label:'BLOTATO: 30-day social calendar scheduled and ready',owner:'YOU+Cowork',dep:'',tools:['MCP: BLOTATO','SKILL: social-content']},
+    ]},
+    { key:'ios6', label:'IOS LAUNCH', color:'#8B6A3E', tasks:[
+      {id:'p06_ios_1',label:'Apple Developer Account set up ($99/year)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p06_ios_2',label:'EAS iOS profile configuration',owner:'Claude Code',dep:'',tools:['SKILL: antigravity-bundle-aas-mobile-app-builder:expo-cicd-workflows']},
+      {id:'p06_ios_3',label:'ASO copy for App Store (different character limits than Play Store)',owner:'Cowork',dep:'',tools:['SKILL: aso-audit']},
+      {id:'p06_ios_4',label:'App Store submission (2–7 day review)',owner:'YOU',dep:'After Google Play stable',tools:['NO-CREDIT']},
+    ]},
+  ]
+},
+{
+  key:'p07', tab:'P07', name:'Phase 07 — Monetize',
+  desc:'Trial → paid conversion, paywall optimization, churn prevention, pricing validation',
+  sections:[
+    { key:'conv7', label:'TRIAL → PAID CONVERSION', color:'#00e676', tasks:[
+      {id:'p07_conv_1',label:'Optimize upgrade modal (3 variants, test with PostHog)',owner:'YOU+Cowork',dep:'',tools:['SKILL: paywall-upgrade-cro','SKILL: marketing-psychology','MCP: PostHog']},
+      {id:'p07_conv_2',label:'Scout scan limit paywall: upgrade prompt fires at scan #25',owner:'Claude Code',dep:'',tools:['MCP: Stripe','SKILL: paywall-upgrade-cro']},
+      {id:'p07_conv_3',label:'Inventory limit paywall: upgrade prompt fires at item #10',owner:'Claude Code',dep:'',tools:['MCP: Stripe','SKILL: paywall-upgrade-cro']},
+      {id:'p07_conv_4',label:'Trial expiry notification sequence: Day 5, Day 6, Day 7',owner:'Cowork',dep:'',tools:['MCP: n8n','SKILL: email-sequence']},
+      {id:'p07_conv_5',label:'Annual pricing anchor: display $180/yr first (save $48 vs monthly)',owner:'Claude Code',dep:'',tools:['SKILL: marketing-psychology']},
+    ]},
+    { key:'price7', label:'PRICING VALIDATION', color:'#f5a623', tasks:[
+      {id:'p07_price_1',label:'Van Westendorp pricing survey with 50+ resellers',owner:'YOU',dep:'',tools:['SKILL: pricing-strategy','NO-CREDIT']},
+      {id:'p07_price_2',label:'Validate $19/mo Hustle vs $29/mo ceiling',owner:'YOU',dep:'',tools:['SKILL: pricing-strategy','NO-CREDIT']},
+      {id:'p07_price_3',label:'A/B test: monthly-first vs annual-first on pricing page',owner:'YOU+Cowork',dep:'',tools:['SKILL: ab-test-setup','MCP: PostHog']},
+      {id:'p07_price_4',label:'Update Stripe prices only after validation data (not assumption)',owner:'YOU',dep:'',tools:['MCP: Stripe']},
+    ]},
+    { key:'ret7', label:'RETENTION + CHURN', color:'#ff4444', tasks:[
+      {id:'p07_ret_1',label:'Build cancellation flow (exit survey + save offer)',owner:'Claude Code',dep:'',tools:['SKILL: churn-prevention','MCP: Stripe']},
+      {id:'p07_ret_2',label:'Verify: Failed payment recovery n8n sequence fires correctly',owner:'YOU',dep:'',tools:['MCP: n8n','MCP: Stripe']},
+      {id:'p07_ret_3',label:'Verify: Churn re-engagement n8n sequence fires correctly',owner:'YOU',dep:'',tools:['MCP: n8n']},
+      {id:'p07_ret_4',label:'Track MRR, churn rate, LTV in Stripe dashboard weekly',owner:'YOU',dep:'',tools:['MCP: Stripe','NO-CREDIT']},
+      {id:'p07_ret_5',label:'Referral program: "Give 1 month free, get 1 month free" — in-app unique link',owner:'Claude Code',dep:'',tools:['SKILL: referral-program','MCP: Stripe']},
+    ]},
+  ]
+},
+{
+  key:'p08', tab:'P08', name:'Phase 08 — Marketing',
+  desc:'Content engine, SEO, paid acquisition, creator partnerships — mostly automated',
+  sections:[
+    { key:'seo8', label:'ORGANIC + SEO', color:'#00e676', tasks:[
+      {id:'p08_seo_1',label:'SEO audit: fix meta tags + schema markup on landing page',owner:'Claude Code',dep:'',tools:['SKILL: seo-audit','SKILL: schema-markup','SKILL: ai-seo']},
+      {id:'p08_seo_2',label:'FAQ schema + SoftwareApplication schema on landing page',owner:'Claude Code',dep:'',tools:['SKILL: schema-markup']},
+      {id:'p08_seo_3',label:'Write 3 competitor alternative pages (vs manual research, vs spreadsheets, vs Flipper Tools)',owner:'Cowork',dep:'',tools:['SKILL: competitor-alternatives','SKILL: competitor-profiling']},
+      {id:'p08_seo_4',label:'Programmatic SEO: 200+ pages ("how to price [item] on eBay", "is [item] worth reselling")',owner:'Claude Code',dep:'',tools:['SKILL: programmatic-seo']},
+      {id:'p08_seo_5',label:'AI SEO: optimize landing page for ChatGPT/Perplexity/Claude citations',owner:'Cowork',dep:'',tools:['SKILL: ai-seo']},
+      {id:'p08_seo_6',label:'Start blog: 1 post/week (sourcing guides, reseller tips, profit reveals)',owner:'Cowork',dep:'',tools:['SKILL: content-strategy','SKILL: content-research-writer']},
+    ]},
+    { key:'soc8', label:'SOCIAL MEDIA', color:'#6b3fa0', tasks:[
+      {id:'p08_soc_1',label:'30-day social content calendar (TikTok + Instagram primary)',owner:'Cowork',dep:'',tools:['SKILL: social-content','SKILL: twitter-algorithm-optimizer','MCP: BLOTATO']},
+      {id:'p08_soc_2',label:'Post 3x/week TikTok: shelf scan videos, profit reveals, before/after',owner:'YOU',dep:'',tools:['MCP: BLOTATO','NO-CREDIT']},
+      {id:'p08_soc_3',label:'Engage in r/Flipping weekly (value-add only, not promo)',owner:'YOU',dep:'',tools:['SKILL: community-marketing','NO-CREDIT']},
+      {id:'p08_soc_4',label:'Identify 5 reseller creators (100K–500K on TikTok/YouTube)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p08_soc_5',label:'Creator outreach: offer free Stack tier for honest review',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'wkly8', label:'WEEKLY MARKETING ENGINE', color:'#f5a623', tasks:[
+      {id:'p08_wkly_1',label:'Monday: batch 10 social posts + 1 SEO article + 1 newsletter → BLOTATO schedules',owner:'YOU+Cowork',dep:'',tools:['SKILL: social-content','SKILL: content-strategy','MCP: BLOTATO']},
+      {id:'p08_wkly_2',label:'Wednesday: community engagement — r/Flipping, r/eBay, FB groups',owner:'YOU',dep:'',tools:['SKILL: community-marketing','NO-CREDIT']},
+      {id:'p08_wkly_3',label:'Friday: review paid ads ROAS + generate 5 new creative variants',owner:'YOU+Cowork',dep:'',tools:['SKILL: competitive-ads-extractor','SKILL: ad-creative','SKILL: paid-ads']},
+    ]},
+    { key:'ads8', label:'PAID ADS', color:'#ff4444', tasks:[
+      {id:'p08_ads_1',label:'$500 Meta test budget: reseller interests + Mercari/eBay seller audiences',owner:'YOU',dep:'',tools:['SKILL: paid-ads','SKILL: ad-creative']},
+      {id:'p08_ads_2',label:'5 ad creative variants (problem-focused hooks)',owner:'Cowork',dep:'',tools:['SKILL: ad-creative','SKILL: marketing-psychology']},
+      {id:'p08_ads_3',label:'$300 Google Ads test: "eBay reseller app", "thrift store sourcing tool"',owner:'YOU',dep:'',tools:['SKILL: paid-ads']},
+      {id:'p08_ads_4',label:'Track CAC vs LTV: stop ads if CAC > $30 (Hustle LTV ~$228 at 12mo)',owner:'YOU',dep:'',tools:['MCP: PostHog','MCP: Stripe','NO-CREDIT']},
+    ]},
+    { key:'email8', label:'EMAIL', color:'#2a7ae2', tasks:[
+      {id:'p08_email_1',label:'Onboarding sequence: Days 1, 3, 7 post-signup (n8n + Resend)',owner:'Cowork',dep:'',tools:['SKILL: email-sequence','MCP: n8n']},
+      {id:'p08_email_2',label:'Weekly sourcing tips newsletter (Resend + React Email)',owner:'Cowork',dep:'',tools:['SKILL: email-sequence','MCP: n8n']},
+      {id:'p08_email_3',label:'Re-engagement sequence: Day 14, Day 30 for inactive free users',owner:'Cowork',dep:'',tools:['SKILL: email-sequence','MCP: n8n']},
+      {id:'p08_email_4',label:'Testimonial collection email (30 days post-signup to active users)',owner:'Cowork',dep:'',tools:['SKILL: cold-email']},
+    ]},
+  ]
+},
+{
+  key:'p09', tab:'P09', name:'Phase 09 — Scale & CRM',
+  desc:'$1K → $10K MRR — team features, integrations, CRM, infrastructure hardening',
+  sections:[
+    { key:'team9', label:'TEAM FEATURES (EMPIRE TIER)', color:'#6b3fa0', tasks:[
+      {id:'p09_team_1',label:'Multi-seat architecture: 10 users share one inventory (Supabase RLS by organization_id)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p09_team_2',label:'Team analytics dashboard: per-user performance stats',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p09_team_3',label:'Role-based access: admin vs member',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p09_team_4',label:'Shared hunt list across team members',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'int9', label:'INTEGRATIONS', color:'#2a7ae2', tasks:[
+      {id:'p09_int_1',label:'Poshmark formatter (500 char limit, casual tone, no eBay refs)',owner:'Claude Code',dep:'Adapter pattern — PlatformFormatter interface',tools:[]},
+      {id:'p09_int_2',label:'Mercari formatter (1000 char, condition-focused)',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p09_int_3',label:'Facebook Marketplace formatter (short, local buyer tone)',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p09_int_4',label:'Bulk CSV export: inventory + P&L',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p09_int_5',label:'QuickBooks / Wave integration for P&L export (Stack + Empire)',owner:'Claude Code',dep:'',tools:[]},
+      {id:'p09_int_6',label:'ScanForProfit public API (Stack tier+)',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+    ]},
+    { key:'crm9', label:'CRM & SUPPORT', color:'#f5a623', tasks:[
+      {id:'p09_crm_1',label:'CRM migration at 500 users: Notion → Attio or HubSpot',owner:'YOU',dep:'',tools:['SKILL: revops','NO-CREDIT']},
+      {id:'p09_crm_2',label:'User health score (weekly cron: login freq + scans + listings + AI usage)',owner:'Claude Code',dep:'',tools:['MCP: Supabase','MCP: n8n']},
+      {id:'p09_crm_3',label:'Support AI: Claude claude-sonnet-4-6 system-prompted with SFP docs, handles 80% tickets',owner:'Claude Code',dep:'',tools:['MCP: Supabase']},
+      {id:'p09_crm_4',label:'Custom MCP server: query SFP user data + trending categories from Claude.ai',owner:'Claude Code',dep:'',tools:['SKILL: mcp-builder']},
+      {id:'p09_crm_5',label:'G2 + Capterra reviews: collect from 20 verified users',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'p09_crm_6',label:'Build knowledge base / FAQ (top 20 support questions)',owner:'Cowork',dep:'',tools:['SKILL: content-strategy']},
+      {id:'p09_crm_7',label:'NPS survey at 30 days post-signup (target NPS > 40)',owner:'YOU',dep:'',tools:['MCP: PostHog','NO-CREDIT']},
+      {id:'p09_crm_8',label:'Empire tier sales push at $5K MRR: one-pager + pitch deck for reselling businesses',owner:'YOU+Cowork',dep:'',tools:['SKILL: sales-enablement','SKILL: cold-email']},
+    ]},
+  ]
+},
+{
+  key:'nocredit', tab:'NO CREDITS ★', name:'No Credits? Work This List',
+  desc:'Tasks you can do right now with zero Claude credits — build the business while credits reset',
+  sections:[
+    { key:'nca', label:'ACCOUNT SETUP', color:'#00e676', tasks:[
+      {id:'nc_acc_1',label:'eBay Developer Account — register at developer.ebay.com',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_2',label:'Apple Developer Account — register at developer.apple.com ($99/yr)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_3',label:'Google Play Console — register at play.google.com/console ($25 one-time)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_4',label:'Google Search Console — verify scanforprofit.com',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_5',label:'Twitter/X — @scanforprofit ✓ DONE',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_6',label:'TikTok — @scanforprofit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_7',label:'Instagram — @scanforprofit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_8',label:'Facebook Page — ScanForProfit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_9',label:'YouTube — ScanForProfit channel',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_10',label:'Reddit — create u/scanforprofit',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_11',label:'support@scanforprofit.com inbox',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_acc_12',label:'Product Hunt — create account + draft listing (publish on launch day)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'nctest', label:'REAL-WORLD TESTING', color:'#2a7ae2', tasks:[
+      {id:'nc_test_1',label:'Use app.html at a real thrift store — test 20+ items',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_test_2',label:'Document any bugs or wrong decisions in a notes app',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_test_3',label:'Film yourself scanning at Goodwill — raw footage for TikTok launch video',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_test_4',label:'Show app to 3–5 reseller friends and note their reactions',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_test_5',label:'Test the app on your phone browser (mobile responsiveness check)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'ncres', label:'RESEARCH & LEARNING', color:'#6b3fa0', tasks:[
+      {id:'nc_res_1',label:'Read Anthropic prompt engineering guide: docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_2',label:'Research available Claude MCP servers: github.com/anthropics/anthropic-tools',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_3',label:'Search GitHub for "reseller app" and "ebay sourcing" repos for inspiration',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_4',label:'Read Expo Router docs: expo.github.io/router/docs',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_5',label:'Read NativeWind v4 docs: nativewind.dev/v4/overview',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_6',label:'Read Supabase Edge Functions docs',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_7',label:'Find Claude Code skills repos: search GitHub for "claude skills" + "anthropic skills"',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_8',label:'Explore Figma community for reseller / inventory app design templates',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_9',label:'Read r/Flipping top posts (weekly) — stay close to the customer',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_res_10',label:'Watch 5 TikTok reseller videos — study hooks and content style',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'nccomm', label:'COMMUNITY BUILDING', color:'#f5a623', tasks:[
+      {id:'nc_comm_1',label:'Engage in r/Flipping (value-add comments, no spam)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_comm_2',label:'Engage in r/eBay (value-add comments)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_comm_3',label:'Join Facebook reseller groups and be helpful',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_comm_4',label:'DM 3–5 reseller TikTokers about partnership',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_comm_5',label:'Post a sourcing tip on Twitter/X (@scanforprofit)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_comm_6',label:'Write down the top 3 complaints you hear from resellers this week',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'ncadmin', label:'BUSINESS ADMIN', color:'#ff4444', tasks:[
+      {id:'nc_admin_1',label:'Review Stripe dashboard — confirm all 3 webhooks firing correctly',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_2',label:'Review n8n workflows — confirm all 5 active and not erroring',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_3',label:'Review Supabase dashboard — check for any RLS policy errors',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_4',label:'Review PostHog — are events coming in from real usage?',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_5',label:'Review Sentry — any unhandled errors to report to Claude Code?',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_6',label:'Check Resend dashboard — any email delivery failures?',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_7',label:'Review Vercel deploy logs — any build failures?',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_8',label:'Update HANDOFF.md with everything discovered today',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_admin_9',label:'Write down 3 specific bugs or UX problems to give Claude Code next session',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+    { key:'ncdir', label:'DIRECTORY SUBMISSIONS (DO NOW)', color:'#8B6A3E', tasks:[
+      {id:'nc_dir_1',label:'Submit to ProductHunt (launch day)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_2',label:'Submit to BetaList',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_3',label:'Submit to AlternativeTo',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_4',label:'Submit to SaaSHub',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_5',label:'Submit to Futurepedia',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_6',label:'Submit to TAAFT (There\'s An AI For That)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_7',label:'Submit to AiToolDirectory',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_8',label:'Submit to Hacker News Show HN',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_9',label:'Submit to Indie Hackers',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_10',label:'Submit to AppSumo (after launch)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_11',label:'Submit to G2 (after 10+ reviews)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+      {id:'nc_dir_12',label:'Submit to Capterra (after 10+ reviews)',owner:'YOU',dep:'',tools:['NO-CREDIT']},
+    ]},
+  ]
+},
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let checked = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+let activePhase = 'master';
+let activeFilter = 'all';
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...checked]));
+}
+
+// ── BADGE RENDERING ────────────────────────────────────────────────────────
+function ownerBadge(owner) {
+  const map = {
+    'Claude Code': ['badge-owner-cc','Claude Code'],
+    'Claude.ai':   ['badge-owner-cai','Claude.ai'],
+    'YOU+Cowork':  ['badge-owner-youcowork','YOU+Cowork'],
+    'Cowork':      ['badge-owner-cowork','Cowork'],
+    'YOU':         ['badge-owner-you','YOU'],
+    'n8n':         ['badge-owner-n8n','n8n'],
+  };
+  for (const [k,v] of Object.entries(map)) {
+    if (owner === k) return `<span class="badge ${v[0]}">${v[1]}</span>`;
+  }
+  return `<span class="badge badge-owner-you">${owner}</span>`;
+}
+
+function toolBadge(t) {
+  if (t === 'NO-CREDIT') return `<span class="badge badge-nocredit">NO CREDIT</span>`;
+  if (t.startsWith('SKILL: ')) return `<span class="badge badge-skill">SKILL: ${t.slice(7)}</span>`;
+  if (t.startsWith('MCP: '))   return `<span class="badge badge-mcp">MCP: ${t.slice(5)}</span>`;
+  if (t.startsWith('TOOL: '))  return `<span class="badge badge-tool">TOOL: ${t.slice(6)}</span>`;
+  return `<span class="badge badge-tool">${t}</span>`;
+}
+
+function depBadge(dep) {
+  if (!dep) return '';
+  const short = dep.length > 32 ? dep.slice(0,32)+'…' : dep;
+  return `<span class="badge badge-dep" title="${dep}">DEP: ${short}</span>`;
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function renderTabs() {
+  const el = document.getElementById('tabs');
+  el.innerHTML = PHASES.map(p => {
+    const allTasks = p.sections.flatMap(s => s.tasks);
+    const done = allTasks.filter(t => checked.has(t.id)).length;
+    const isDone = allTasks.length > 0 && done === allTasks.length;
+    const isNc = p.key === 'nocredit';
+    return `<div class="tab ${p.key===activePhase?'active':''} ${isDone?'done':''} ${isNc?'nocredit-tab':''}" data-key="${p.key}">
+      ${p.tab}<span class="dot"></span>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => { activePhase = t.dataset.key; render(); scrollTabIntoView(t); });
+  });
+}
+
+function scrollTabIntoView(el) {
+  el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+
+function filterTask(task) {
+  if (activeFilter === 'all') return true;
+  if (activeFilter === 'you') return task.owner.includes('YOU');
+  if (activeFilter === 'claude-code') return task.owner === 'Claude Code';
+  if (activeFilter === 'claude-ai') return task.owner === 'Claude.ai';
+  if (activeFilter === 'cowork') return task.owner.includes('Cowork');
+  if (activeFilter === 'no-credit') return task.tools.includes('NO-CREDIT');
+  return true;
+}
+
+function renderProgress(phase) {
+  const allTasks = phase.sections.flatMap(s => s.tasks);
+  const total = allTasks.length;
+  const done = allTasks.filter(t => checked.has(t.id)).length;
+  const pct = total === 0 ? 0 : Math.round(done/total*100);
+  document.getElementById('progress-label').textContent = `${done} / ${total} tasks done`;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
+
+function renderPhase(phase) {
+  let anyVisible = false;
+  const html = phase.sections.map(sec => {
+    const visibleTasks = sec.tasks.filter(filterTask);
+    if (visibleTasks.length === 0) return '';
+    anyVisible = true;
+    const tasks = visibleTasks.map(task => {
+      const isChecked = checked.has(task.id);
+      const badges = [ownerBadge(task.owner), ...task.tools.map(toolBadge), depBadge(task.dep)].join('');
+      return `<div class="task ${isChecked?'checked':''}" data-id="${task.id}">
+        <div class="task-check">
+          <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+            <path d="M1 4.5L4 7.5L10 1" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="task-body">
+          <div class="task-label">${task.label}</div>
+          <div class="task-badges">${badges}</div>
+        </div>
+      </div>`;
+    }).join('');
+    const totalInSec = sec.tasks.length;
+    const doneInSec = sec.tasks.filter(t => checked.has(t.id)).length;
+    return `<div class="section" data-sec="${sec.key}">
+      <div class="section-hdr" style="border-left-color:${sec.color}">
+        <span class="section-hdr-label" style="color:${sec.color}">${sec.label}</span>
+        <span class="section-count">${doneInSec}/${totalInSec}</span>
+      </div>
+      ${tasks}
+    </div>`;
+  }).join('');
+
+  return `<div class="phase-hdr">
+    <div class="phase-name">${phase.name}</div>
+    <div class="phase-desc">${phase.desc}</div>
+  </div>
+  ${anyVisible ? html : '<div class="empty-filter">No tasks match this filter in this phase.</div>'}`;
+}
+
+function render() {
+  const phase = PHASES.find(p => p.key === activePhase);
+  renderTabs();
+  renderProgress(phase);
+  document.getElementById('main').innerHTML = renderPhase(phase);
+  // bind task clicks
+  document.querySelectorAll('.task').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      if (checked.has(id)) checked.delete(id); else checked.add(id);
+      save();
+      render();
+    });
+  });
+}
+
+// ── FILTER BAR ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeFilter = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b===btn));
+    render();
+  });
+});
+
+// ── KEYBOARD SHORTCUTS ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Escape') {
+    activeFilter = 'all';
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter==='all'));
+    render();
+  }
+  const n = parseInt(e.key);
+  if (n >= 1 && n <= 9) {
+    const idx = n - 1;
+    if (PHASES[idx]) {
+      activePhase = PHASES[idx].key;
+      render();
+      document.querySelector('.tabs').querySelectorAll('.tab')[idx]?.scrollIntoView({behavior:'smooth',inline:'center'});
+    }
+  }
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
