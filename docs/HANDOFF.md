@@ -4,6 +4,69 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — AI Slop Audit Fixes (branch: claude/sharp-cray-wdiiy8) — PR #81 MERGED
+
+### What changed this session
+
+All 14 of 16 audit items from `ai_slop_audit_findings.md` fixed and merged to `main` via PR #81.
+
+**`apps/web/public/app.html`** — surgical fixes only:
+- **Item 1** — Line 2 comment: `<!-- FLIPPD v5.24 - Q13: ... -->` → `<!-- ScanForProfit app.html -->`
+- **Item 2** — IndexedDB renamed: `flippd_photos` → `sfp_photos`; `openRelistConfirm` call sites updated to pass `sku`/`nickname`; dead first definition removed
+- **Item 3** — Watch button (line 5948) removed entirely
+- **Item 4** — Mileage rate de-hardcoded: `const rate = S.mileageRate ?? 0.67;` (two call sites)
+- **Item 6** — Tax reserve de-hardcoded: `const taxReserve = netProfit > 0 ? netProfit * (S.taxReservePct ?? 0.25) : 0;`
+- **Item 7** — Duplicate `@keyframes fadeUp` removed (kept line 772 version)
+- **Item 8** — Duplicate `@keyframes rowIn` one-liner removed (kept multi-line version)
+- **Item 9** — "Early Access" badge removed from login card
+- **Item 10** — P&L HTML closing tag order fixed (`<h3>` closed before `</div>`)
+- **Item 11** — FAB background: `#00cc66` → `var(--green)`
+- **Items 13+14** — localStorage constants updated: `PNL_KEY='sfp_expenses_v1'`, `GROWTH_CACHE_KEY='sfp_growth_cache'`, `ACT_KEY='sfp_activity_log'`, `CSV_EXPORTED_KEY='sfp_csv_exported_ids'`
+- **Item 15** — `fef_scan_log` → `sfp_scan_log` (replace_all); `fef_trending` / `fef_last_csv_export` / `fef_csv_reminder` reads updated with `sfp_` primary + `fef_` fallback; writes use `sfp_`
+- **Item 16** — One-time migration block added in `window.onload` migrating all 8 `fef_*` keys to `sfp_*` on first load
+- **Growth Agent prompt** — `score_color` corrected back to canonical: `"#00bb66 or #c47800 or #dd0000"` (a prior session had incorrectly changed these to `#00e676` variants)
+- Quota error handler updated: `fef_growth_cache` → `sfp_growth_cache`
+
+**`apps/web/public/index.html`**:
+- Entire PostHog script block removed (hardcoded API key `phc_z7sM2x...` eliminated)
+- `posthog.capture` call removed from `trackEvent()`
+- Fabricated testimonial `"The shelf scan is insane..." — @flippin_marcus` removed
+
+**`CLAUDE.md`** — Mobile Tab Structure table updated to match live app labels (SCOUT / INVENTORY / PHOTOS / TRENDS / DASH)
+
+### Items BLOCKED (require files from user)
+- **Item 5** — `og-image.png` needed at `apps/web/public/og-image.png` (1200×630). `index.html` meta tag references it but it returns 404.
+- **Item 12** — Nav logo-mark placeholder needs Concentric Crosshair SVG from `Brand_Asset_Suite_v2.html` — file not provided.
+
+### Files changed
+- `apps/web/public/app.html`
+- `apps/web/public/index.html`
+- `CLAUDE.md`
+- `docs/HANDOFF.md` (this file)
+
+### Commit / PR
+- Commit `810a58b` on branch `claude/sharp-cray-wdiiy8`
+- PR #81 — **MERGED** to `main`
+
+### Decisions made (do not reverse)
+- Growth Agent `score_color` canonical values are `"#00bb66 or #c47800 or #dd0000"` — matches `FEATURE_TRIAGE.md`. Do not change to `#00e676` variants.
+- IndexedDB is now `sfp_photos` — do not revert to `flippd_photos`
+- All `fef_*` localStorage keys are retired. Reads use `sfp_*` with `fef_*` fallback. Writes always use `sfp_*`.
+- PostHog API key must never be hardcoded in public HTML.
+- Watch button is permanently removed from the Trends tab action panel.
+
+### Next task
+1. Provide `og-image.png` (1200×630) → place at `apps/web/public/og-image.png` (Item 5)
+2. Provide `Brand_Asset_Suite_v2.html` → extract Concentric Crosshair SVG for nav logo-mark (Item 12)
+3. Deploy `export-reminder` Edge Function: `supabase functions deploy export-reminder --project-ref dqgfpchkheznvanfgsmx`
+4. Resolve Change 22 BLOCKER from SESSION_6: eBay Sync must read from `ebay_connections` table (not `settings`)
+
+### Blockers
+- Item 5: og-image.png not provided by user
+- Item 12: Brand_Asset_Suite_v2.html not provided by user
+
+---
+
 ## Session: 2026-06-18 — SESSION_6 Inventory Tab changes (branch: claude/new-session-0637zg)
 
 ### What changed this session
