@@ -38,9 +38,6 @@ Only one file changed: `apps/web/public/og-image.png` (new binary, 1200×630 PNG
 - `apps/web/public/og-image.png` — new (1200×630 PNG)
 - `docs/HANDOFF.md` — this file
 
-### Commit
-- TBD (see below)
-
 ### Next task
 1. Merge PR for this branch into main.
 2. Verify Vercel deploy picks up og-image.png and `<meta property="og:image">` is set in index.html/app.html.
@@ -50,6 +47,97 @@ Only one file changed: `apps/web/public/og-image.png` (new binary, 1200×630 PNG
 ### Blockers
 - None introduced this session.
 - Change 22 (eBay Sync schema mismatch) remains deferred from SESSION_6 — `ebay_connections` table must be used, not `settings`.
+
+---
+
+## Session: 2026-06-18 — Tech Debt (branch: claude/new-session-na4jxe)
+
+### What changed this session
+
+**All primary work in `apps/web/public/app.html`, `CLAUDE.md`, `docs/FEATURE_TRIAGE.md`, `supabase/migrations/`.**
+
+**Task 1 — Hardcoded taxReservePct and mileageRate — DONE**
+- Added `taxReservePct: 0.25, mileageRate: 0.67` to DEFAULTS in app.html
+- Fixed `sPnlRender()` line ~7912: `net * 0.25` → `net * S.taxReservePct` (was hardcoded, no S reference)
+- Removed `?? 0.25` fallback from `pnlCalc()` taxReserve line (~4067) — DEFAULTS now owns the default
+- Removed `?? 0.67` fallback from `pnlLogMileage()` (~6481) and `sPnlMiles()` (~7980) — same reason
+- Added "Tax & Mileage" card to settings panel UI with number inputs for both fields
+- Updated `populateSettingsUI()` to populate/display these fields
+- Created DB migration: `supabase/migrations/20260618000000_006_add_tax_mileage_settings.sql` — adds `tax_reserve_pct` and `mileage_rate` columns to `settings` table (applied to `dqgfpchkheznvanfgsmx`)
+- Shared types `UserSettings` already had these fields — no change needed
+- **Verify:** `grep -n "0\.25\|0\.67" apps/web/public/app.html` — zero matches in business logic paths; DEFAULTS values only
+
+**Task 2 — localStorage key migration (fef_ → sfp_) — DONE**
+- Removed `?? localStorage.getItem('fef_trending')` fallback (~line 4262)
+- Removed `?? localStorage.getItem('fef_last_csv_export')` fallback (~line 6668)
+- Removed `?? localStorage.getItem('fef_csv_reminder')` fallback (~line 6779)
+- Migration block at lines ~7441-7447 already existed and handles all fef_ → sfp_ renames for existing users
+- `fef_expenses_v1` is IN the migration block (added by a prior session) — migration handles it; no separate read-fallback was needed
+- `flippd_photos` IndexedDB rename permanently deferred (high-risk, zero user benefit)
+- **Verify:** `grep -n "fef_" apps/web/public/app.html` — only the migration block (5 lines, all correct)
+
+**Task 3 — Fix P&L broken HTML — DONE**
+- Line ~4219: `<div class="card"><h3 class="card-title">Expenses by Type</div>...content...</h3>` → correct nesting: `<h3>...</h3>...content...</div>`
+
+**Task 4 — Duplicate CSS keyframes — NO-OP**
+- `@keyframes fadeUp` and `@keyframes rowIn` each had only one definition — no duplicates to remove
+
+**Task 5 — HOT animation duplicate — DONE**
+- Removed `@keyframes hotPulse { ... }` and `.decision-banner.is-hot { animation: hotPulse 1.8s ... }` that was overwriting `hotGlow`
+- `hotGlow` at line 391 is now the only animation for `.is-hot`
+
+**Task 6 — z-index scanline over modals — DONE (partial from Session 7)**
+- `body::before` z-index was already set to `0` (hardcoded) by Session 7
+- This session updated the CSS variable: `--z-scanline: 9000` → `--z-scanline: 0`
+- Both the variable and the element now consistently use 0 (below `--z-modal: 600`)
+
+**Task 7 — CLAUDE.md tab names — DONE**
+- Tab table updated: TRENDS → PULSE (tab-pulse), DASH → P&L (tab-pnl)
+- Added Tab ID column to table for clarity
+- Updated "Things Claude Commonly Gets Wrong" tab list to match
+
+**Task 8 — FEATURE_TRIAGE.md Growth Agent — DONE**
+- F-27 entry updated: added "Status: ✅ Implemented (inline)" note
+- P-05 entry updated: added "Status: ✅ Implemented (inline)" note
+- Both flag app.html at ~line 4342 as canonical prompt location
+
+**Task 9 — Dead code removed — DONE**
+- Removed `sessionStorage.removeItem('flippd_preview_src')` from `clearImage()` — dead since v5.11
+- Removed 5-line comment block + `sessionStorage.removeItem('flippd_preview_src')` from `window.onload` — dead since v5.12
+- `flippd-backend.replit.app` comment: already removed in a prior session — no-op
+- Remaining 1 occurrence of `flippd_preview_src` in app.html is the "do NOT remove in tab-switch" documentation comment — kept intentionally
+
+**Task 10 — tiers.ts Hustle limits — NO-OP**
+- tiers.ts already shows Hustle: `scansPerMonth: 250, inventoryItems: 250` matching CLAUDE.md exactly
+
+### Files changed
+- `apps/web/public/app.html` — Tasks 1, 2, 3, 5, 6, 9
+- `CLAUDE.md` — Task 7
+- `docs/FEATURE_TRIAGE.md` — Task 8
+- `supabase/migrations/20260618000000_006_add_tax_mileage_settings.sql` — new file (Task 1)
+- `docs/HANDOFF.md` — this file
+
+### SESSION START check anomaly
+- Check 2 found 13 UI component files (expected 12) — `OnboardingSheet.tsx` is present but not in the CLAUDE.md expected list. Added in a prior session (see SESSION_2_3_PROMPT session). Not a blocker.
+
+### Decisions made (do not reverse)
+- `fef_expenses_v1` was already migrated to `sfp_expenses_v1` by the migration block added in the PR#67 session — no special read-fallback needed
+- `taxReservePct` and `mileageRate` are now in DEFAULTS — S will always have them after `loadSrcSettings()`; no `??` fallbacks needed in calculations
+- CLAUDE.md tab names: PULSE and P&L are canonical (not TRENDS and DASH)
+
+### Items permanently deferred (do not add back to active blockers)
+- IndexedDB rename (`flippd_photos`): permanently deferred — high-risk, zero user benefit
+- `exportFlippdBackup`, `handleFlippdImport` DOM ID cleanup: deferred
+
+### Next task
+1. Apply DB migration to Supabase (done via MCP this session — `006_add_tax_mileage_settings`)
+2. Merge PR #82 (SESSION_7 deferred audit fixes — PR exists, pending merge)
+3. Verify Stripe upgrade flow end-to-end (currently "not yet verified" in build status)
+4. Resolve Change 22 BLOCKER from SESSION_6: eBay Sync reads from wrong table (`settings` vs `ebay_connections`)
+
+### Blockers
+- Change 22 (eBay Sync): settings table has no OAuth columns; tokens are in `ebay_connections` — requires schema-aware fix
+- export-reminder Edge Function: file exists locally but not deployed to Supabase (requires `supabase functions deploy export-reminder --project-ref dqgfpchkheznvanfgsmx`)
 
 ---
 
