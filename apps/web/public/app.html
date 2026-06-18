@@ -1439,9 +1439,7 @@ body::before{
       <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">📥 Import</button>
     </div>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
-    <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="🔍 Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Status</div>
-    <div id="inv-status-cards" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px"></div>
+    <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
     <div id="inv-cat-cards" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
@@ -2705,11 +2703,15 @@ function profitStr(cost, price) { return calcProfit(cost,price).toFixed(2); }
 // ══════════════════════════════════════════════════
 // INVENTORY — HOME PAGE
 // ══════════════════════════════════════════════════
+// Change 20/23 audit: Sold items excluded from all totals except the Sold stat card.
+// Category counts, Est.Profit, and active inventory count all filter status !== 'Sold'.
+let _invActiveFilter = 'all'; // tracks which stat card is highlighted
+
 function renderInventoryHome() {
-  const total = items.length;
-  if (total === 0) {
+  // Change 20: exclude Sold from active inventory total
+  const activeItems = items.filter(i => i.status !== 'Sold');
+  if (items.length === 0) {
     document.getElementById('inv-home-stats').innerHTML = '';
-    document.getElementById('inv-status-cards').innerHTML = '';
     document.getElementById('inv-cat-cards').innerHTML = `
       <div class="empty-state-dashed">
         <div class="empty-icon">📦</div>
@@ -2719,27 +2721,40 @@ function renderInventoryHome() {
       </div>`;
     return;
   }
-  const listed = items.filter(i=>i.status==='Listed').length;
-  const sold = items.filter(i=>i.status==='Sold').length;
-  const unlisted = items.filter(i=>i.status==='Unlisted').length;
-  const estProfit = items.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
+  const unlistedCount = items.filter(i=>i.status==='Unlisted').length;
+  const listedCount = items.filter(i=>i.status==='Listed').length;
+  const soldCount = items.filter(i=>i.status==='Sold').length;
+  // Est.Profit: Unlisted + Listed only (not Sold) — uses user settings, never hardcoded
+  const ebayFee = S.ebayFee || 13;
+  const pkgCost = S.pkgCost || 1.25;
+  const estProfit = items
+    .filter(i => i.status === 'Unlisted' || i.status === 'Listed')
+    .reduce((sum, i) => {
+      const cost = parseFloat(i.cost) || 0;
+      const price = parseFloat(i.sellPrice) || 0;
+      const fee = price * (ebayFee / 100);
+      return sum + (price - cost - fee - pkgCost);
+    }, 0);
 
+  const activeFilter = _invActiveFilter;
+  const cardStyle = (key) => activeFilter === key
+    ? 'cursor:pointer;border-color:var(--green)'
+    : 'cursor:pointer';
+
+  // Change 10: 4 stat cards replace old Total+status row — Unlisted/Listed/Sold clickable, Est.Profit display only
   document.getElementById('inv-home-stats').innerHTML = `
-    <div class="inv-stat-card"><div class="inv-stat-num">${total}</div><div class="inv-stat-label">Total</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num">${listed}</div><div class="inv-stat-label">Listed</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num">${sold}</div><div class="inv-stat-label">Sold</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num u-pos">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
+    <div class="inv-stat-card" onclick="invStatFilter('Unlisted')" role="button" tabindex="0" style="${cardStyle('Unlisted')}">
+      <div class="inv-stat-num">${unlistedCount}</div><div class="inv-stat-label">Unlisted</div></div>
+    <div class="inv-stat-card" onclick="invStatFilter('Listed')" role="button" tabindex="0" style="${cardStyle('Listed')}">
+      <div class="inv-stat-num">${listedCount}</div><div class="inv-stat-label">Listed</div></div>
+    <div class="inv-stat-card" onclick="invStatFilter('Sold')" role="button" tabindex="0" style="${cardStyle('Sold')}">
+      <div class="inv-stat-num">${soldCount}</div><div class="inv-stat-label">Sold</div></div>
+    <div class="inv-stat-card" style="cursor:default">
+      <div class="inv-stat-num u-pos">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
 
-  document.getElementById('inv-status-cards').innerHTML = ['Unlisted','Listed','Sold'].map(s => {
-    const count = items.filter(i=>i.status===s).length;
-    return `<div class="inv-status-card is-${s.toLowerCase()}" onclick="openFilteredList('status','${s}')" role="button" tabindex="0">
-      <div class="inv-status-num">${count}</div>
-      <div class="inv-status-lbl">${s}</div>
-    </div>`;
-  }).join('');
-
+  // Change 20: category cards exclude Sold items from counts and profit
   document.getElementById('inv-cat-cards').innerHTML = CATEGORIES.map(cat => {
-    const ci = items.filter(i=>i.category===cat);
+    const ci = items.filter(i => i.category === cat && i.status !== 'Sold');
     if (!ci.length) return '';
     const profit = ci.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
     const listedC = ci.filter(i=>i.status==='Listed').length;
@@ -2828,6 +2843,18 @@ function invHomeSearch(q) {
 function renderInventory() { showInvView('home'); }
 function setCatFilter(c) { openFilteredList('category', c); }
 function setStatusFilter(s) { openFilteredList('status', s); }
+
+// Change 10: stat card click — toggle filter; click active card deactivates
+function invStatFilter(status) {
+  if (_invActiveFilter === status) {
+    _invActiveFilter = 'all';
+    renderInventoryHome();
+  } else {
+    _invActiveFilter = status;
+    renderInventoryHome();
+    openFilteredList('status', status);
+  }
+}
 
 // ── DETAIL VIEW ──
 function showDetail(id) {
