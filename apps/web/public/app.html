@@ -6003,24 +6003,18 @@ function galleryScroll(id, total) {
 }
 
 // ══════════════════════════════════════════════════
-// STALE BADGE on inventory tab
+// STALE BADGE — removed (Change 8)
+// Was: counting Listed items older than maxDays and showing as a "9+" bubble
+// on the inventory tab icon. Removed because the count had no visible label
+// or explanation, confusing users. Stale items are surfaced in the Pulse tab
+// Action Queue instead.
 // ══════════════════════════════════════════════════
 function updateStaleBadge() {
-  const now = Date.now();
-  const staleCount = items.filter(i => {
-    if (i.status !== 'Listed') return false;
-    return (now - new Date(i.createdAt||i.dateAcquired).getTime()) / 86400000 > S.maxDays;
-  }).length;
+  // Badge removed — stale item count is now surfaced in Pulse tab Action Queue
   const btn = document.getElementById('tab-inventory');
   if (!btn) return;
   const existing = btn.querySelector('.stale-badge');
   if (existing) existing.remove();
-  if (staleCount > 0) {
-    const badge = document.createElement('span');
-    badge.className = 'stale-badge';
-    badge.textContent = staleCount > 9 ? '9+' : staleCount;
-    btn.appendChild(badge);
-  }
 }
 
 // ══════════════════════════════════════════════════
