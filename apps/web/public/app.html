@@ -1473,10 +1473,11 @@ body::before{
         <button class="cam-btn" onclick="document.getElementById('inv-form-gallery').click()">GALLERY</button>
       </div>
       <input class="file-input" id="inv-form-cam" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="invFormHandlePhoto(event)">
-      <input class="file-input" id="inv-form-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="invFormHandlePhoto(event)">
+      <!-- Change 21: multiple file selection for gallery -->
+      <input class="file-input" id="inv-form-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" multiple onchange="invFormHandlePhoto(event)">
       <button class="btn btn-green" id="inv-form-detect-btn" onclick="invFormDetectItem()" style="display:none;margin-top:10px;margin-bottom:0">Detect Item from Photo</button>
       <div id="inv-form-detect-status" style="font-size:12px;color:var(--muted);margin-top:8px;font-family:'IBM Plex Mono',monospace"></div>
-      <!-- existing photos shown during edit -->
+      <!-- Change 21: multi-photo gallery (photo_urls + photos) shown during edit -->
       <div id="inv-form-edit-photos" style="display:none;margin-top:10px"></div>
     </div>
 
@@ -3022,8 +3023,30 @@ let invFormImgType = 'image/jpeg';
 let invFormImgFile = null; // v5.17: raw File for multipart upload
 
 function invFormHandlePhoto(e) {
-  const file = e.target.files[0]; if (!file) return;
-  showToast('📷 Photo attached...');
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  e.target.value = '';
+  // Change 21: in edit mode with multiple files, add all to photo gallery directly
+  if (editingId && files.length > 1) {
+    showToast('Processing ' + files.length + ' photos...');
+    Promise.all(files.map(f => new Promise(resolve => {
+      const blobUrl = URL.createObjectURL(f);
+      resolve(blobUrl);
+    }))).then(urls => {
+      items = items.map(i => {
+        if (i.id !== editingId) return i;
+        const photos = [...(i.photos||[]), ...urls].slice(0, 12);
+        return {...i, photos, image_url: photos[0]||null};
+      });
+      saveItems();
+      const item = items.find(i => i.id === editingId);
+      if (item) invRenderPhotoGallery(item);
+      showToast(urls.length + ' photos added');
+    });
+    return;
+  }
+  const file = files[0];
+  showToast('Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
     if (invFormImgFile && invFormImgFile._blobUrl) {
       try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
@@ -3038,11 +3061,21 @@ function invFormHandlePhoto(e) {
     document.getElementById('inv-form-photo-preview').style.display = 'block';
     document.getElementById('inv-form-detect-btn').style.display = 'block';
     document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
+    // Change 21: in edit mode, also add to gallery immediately
+    if (editingId) {
+      items = items.map(i => {
+        if (i.id !== editingId) return i;
+        const photos = [...(i.photos||[]), blobUrl].slice(0, 12);
+        return {...i, photos, image_url: photos[0]||null};
+      });
+      saveItems();
+      const item = items.find(i => i.id === editingId);
+      if (item) invRenderPhotoGallery(item);
+    }
   }).catch(function(err) {
-    showToast('❌ ' + (err.message || 'Could not load photo'));
+    showToast('Could not load photo: ' + (err.message || 'unknown error'));
     console.error('invFormHandlePhoto failed:', err);
   });
-  e.target.value = '';
 }
 
 function invFormClearPhoto() {
@@ -3195,22 +3228,37 @@ function startEdit(id) {
   document.getElementById('inv-form-photo-preview').style.display = 'none';
   document.getElementById('inv-form-detect-btn').style.display = 'none';
   document.getElementById('inv-form-detect-status').textContent = '';
-  // Show existing item photos below the camera buttons
-  const editPhotosEl = document.getElementById('inv-form-edit-photos');
-  if (editPhotosEl) {
-    if (item.photos && item.photos.length) {
-      editPhotosEl.style.display = 'block';
-      editPhotosEl.innerHTML = `<div class="edit-photos-label">EXISTING PHOTOS — tap ✕ to remove</div>`
-        + `<div class="edit-photo-grid">`
-        + item.photos.map((p,i)=>`<div class="edit-photo-wrap"><img src="${p}"><button class="edit-photo-del" onclick="editRemovePhoto(${id},${i})">✕</button></div>`).join('')
-        + `</div>`;
-    } else {
-      editPhotosEl.style.display = 'none';
-    }
-  }
+  // Change 21: multi-photo gallery — show photos from both photo_urls and photos arrays
+  invRenderPhotoGallery(item);
   updateProfitPreview();
   showInvView('add');
   window.scrollTo(0, 0);
+}
+
+// Change 21: render all photos from photo_urls + photos in a gallery strip
+function invRenderPhotoGallery(item) {
+  const el = document.getElementById('inv-form-edit-photos');
+  if (!el) return;
+  const urls = (item.photo_urls || []).filter(Boolean);
+  const localPhotos = (item.photos || []).filter(Boolean);
+  const allPhotos = [
+    ...urls.map(u => ({ src: u, source: 'url' })),
+    ...localPhotos.map((p, i) => ({ src: p, source: 'local', idx: i }))
+  ];
+  if (!allPhotos.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<div class="edit-photos-label">PHOTOS (${allPhotos.length}) — tap ✕ to remove</div>`
+    + `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">`
+    + allPhotos.map((photo, i) => {
+        const removeCall = photo.source === 'url'
+          ? `editRemovePhotoUrl(${item.id},'${photo.src}')`
+          : `editRemovePhoto(${item.id},${photo.idx})`;
+        return `<div style="position:relative;flex-shrink:0">
+          <img src="${photo.src}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+          <button onclick="${removeCall}" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;cursor:pointer;padding:0">✕</button>
+        </div>`;
+      }).join('')
+    + `</div>`;
 }
 
 function editRemovePhoto(itemId, photoIdx) {
@@ -3221,7 +3269,20 @@ function editRemovePhoto(itemId, photoIdx) {
     return {...i, photos, image_url: photos[0]||null};
   });
   saveItems();
-  startEdit(itemId); // re-render edit form
+  const item = items.find(i => i.id === itemId);
+  if (item) invRenderPhotoGallery(item);
+  showToast('Photo removed');
+}
+
+function editRemovePhotoUrl(itemId, url) {
+  items = items.map(i => {
+    if (i.id !== itemId) return i;
+    const photo_urls = (i.photo_urls || []).filter(u => u !== url);
+    return {...i, photo_urls};
+  });
+  saveItems();
+  const item = items.find(i => i.id === itemId);
+  if (item) invRenderPhotoGallery(item);
   showToast('Photo removed');
 }
 
