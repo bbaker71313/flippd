@@ -1,10 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -57,14 +54,7 @@ async function verifyJWT(token: string, secret: string): Promise<Record<string, 
   return data;
 }
 
-const EBAY_SCOPES = [
-  'https://api.ebay.com/oauth/api_scope',
-  'https://api.ebay.com/oauth/api_scope/sell.inventory',
-  'https://api.ebay.com/oauth/api_scope/sell.account',
-  'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-  'https://api.ebay.com/oauth/api_scope/sell.finances',
-  'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly',
-].join(' ');
+const EBAY_SCOPES = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment https://api.ebay.com/oauth/api_scope/sell.finances https://api.ebay.com/oauth/api_scope/commerce.identity.readonly';
 
 async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
   const authHeader = req.headers.get('Authorization');
@@ -144,6 +134,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'POST' && path.endsWith('/ebay/disconnect')) return await handleEbayDisconnect(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/reset-request'))  return await handleResetRequest(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/reset-confirm'))  return await handleResetConfirm(req, supabase, jwtSecret);
+    if (req.method === 'PATCH' && path.endsWith('/settings'))      return await handleSaveSettings(req, supabase, jwtSecret);
     return json({ error: 'Not found' }, 404);
   } catch (err) {
     console.error('auth error:', err);
@@ -285,6 +276,12 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
   const scanLimits: Record<string, number | null> = { trial: null, scout: 25, hustle: null, stack: null, empire: null };
   const inventoryLimits: Record<string, number | null> = { trial: null, scout: 10, hustle: 500, stack: null, empire: null };
 
+  const { data: settings } = await supabase
+    .from('settings')
+    .select('export_reminder_enabled, export_reminder_time')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
   return json({
     id: user.id,
     name: user.name,
@@ -300,7 +297,31 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
       status: user.subscription_status,
       periodEnd: user.subscription_period_end,
     } : null,
+    exportReminderEnabled: settings?.export_reminder_enabled ?? false,
+    exportReminderTime: (settings?.export_reminder_time as string | null)?.slice(0, 5) ?? '09:00',
   });
+}
+
+async function handleSaveSettings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const userId = await getAuthedUserId(req, jwtSecret);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+
+  const body = await req.json().catch(() => ({}));
+  const update: Record<string, unknown> = { user_id: userId };
+
+  if (typeof body.exportReminderEnabled === 'boolean') update.export_reminder_enabled = body.exportReminderEnabled;
+  if (typeof body.exportReminderTime === 'string' && /^\d{2}:\d{2}$/.test(body.exportReminderTime)) {
+    update.export_reminder_time = body.exportReminderTime;
+  }
+
+  if (Object.keys(update).length <= 1) return json({ error: 'No valid fields' }, 400);
+
+  const { error } = await supabase
+    .from('settings')
+    .upsert(update, { onConflict: 'user_id' });
+
+  if (error) return json({ error: error.message }, 500);
+  return json({ ok: true });
 }
 
 async function handleEbayConnect(req: Request, jwtSecret: string) {

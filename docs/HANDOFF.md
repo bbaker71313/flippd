@@ -4,6 +4,129 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18b — Wire pg_cron trigger for export-reminder (branch: claude/ebay-sync-schema-dhbhir)
+
+### What changed this session
+
+- **Migration** `20260618000001_007_export_reminder_cron.sql` — applied to DB:
+  - Enabled `pg_cron` extension
+  - Added `export_reminder_enabled` (boolean, default false) and `export_reminder_time` (time, default 09:00) to `settings` table
+  - Created `public.send_export_reminders()` SECURITY DEFINER function — queries users with `Ready to Export` items whose reminder hour matches current UTC hour, fires `net.http_post` to the `export-reminder` Edge Function for each
+  - Scheduled cron job `export-reminders-hourly` at `0 * * * *` (confirmed active, jobid=1)
+- **`supabase/functions/auth/index.ts`** — deployed as v29:
+  - Added `PATCH /auth/settings` → `handleSaveSettings` — upserts `export_reminder_enabled` and `export_reminder_time` to `settings` table for the authed user
+  - Updated `handleMe` to join `settings` table and include `exportReminderEnabled` and `exportReminderTime` in the `/me` response
+- **`apps/web/public/app.html`**:
+  - `saveSettings()` now fires a `PATCH /auth/settings` call (fire-and-forget) when the user is logged in, persisting reminder prefs to DB
+  - `loadUserInfo()` now reads `exportReminderEnabled` and `exportReminderTime` from the `/me` response and hydrates `S` + localStorage on login
+
+### End-to-end flow
+1. User toggles "Export Reminder" on/off or changes the time in Settings → `saveSettings()` → `PATCH /auth/settings` → stored in `settings.export_reminder_enabled/time`
+2. pg_cron fires every hour at :00 UTC → `send_export_reminders()` → queries for users matching that UTC hour with `Ready to Export` items → `net.http_post` to `export-reminder` Edge Function per user
+3. `export-reminder` queries inventory, looks up email, sends via Resend
+
+### Remaining prerequisite
+- `RESEND_API_KEY` must be set in Supabase Dashboard → Settings → Edge Functions → Secrets for emails to actually send
+
+### Next task
+Verify Stripe upgrade flow end-to-end (still marked "not yet verified" in CLAUDE.md build status)
+
+---
+
+## Session: 2026-06-18 — Deploy export-reminder Edge Function (branch: claude/ebay-sync-schema-dhbhir)
+
+### What changed this session
+
+**export-reminder Edge Function — DEPLOYED**
+
+Deployed `supabase/functions/export-reminder/index.ts` to Supabase project `dqgfpchkheznvanfgsmx` as `export-reminder` v1 (function id: `bc1f68c3-2814-422d-abb5-dd0d72790c3a`). This was a long-standing deferred task from SESSION_6.
+
+The function:
+- Accepts `POST { userId }` (no JWT verification — caller is n8n/cron, not a user browser)
+- Queries `inventory` for items with `status = 'Ready to Export'`
+- Looks up user email from `users` table
+- Sends a Resend email listing the items with a link to `scanforprofit.com/app.html`
+- Returns `{ sent: true/false, count, reason }`
+
+**Prerequisites before emails will send:**
+- `RESEND_API_KEY` must be set in Supabase project secrets (Dashboard → Settings → Edge Functions → Secrets)
+- A cron trigger (n8n or Supabase pg_cron) must call `POST https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/export-reminder` with `{ userId }` at each user's preferred time
+
+### Files changed
+- `docs/HANDOFF.md` — this file
+
+### Decisions made (do not reverse)
+- `verify_jwt: false` — this function is invoked by cron/n8n, not a user browser session. The `userId` body param is used server-side only — no RLS bypass risk since the service role key is used.
+- Cron scheduling is out of scope for this session — function is the prerequisite. Wiring deferred.
+
+### Next task
+1. Set `RESEND_API_KEY` in Supabase secrets if not already set.
+2. Wire n8n or pg_cron to call `export-reminder` per user's preferred time (`S.exportReminderTime` from localStorage) — requires storing that preference in the DB to be cron-accessible.
+3. Connect eBay developer sandbox credential and run end-to-end sync test (0 users have `ebay_access_token` set).
+4. Verify Stripe upgrade flow end-to-end.
+
+### Blockers
+- None from this session.
+
+---
+
+## Session: 2026-06-18 — eBay Sync Schema Fix (branch: claude/ebay-sync-schema-dhbhir)
+
+### What changed this session
+
+**Change 22 BLOCKER resolved — eBay Sync schema mismatch.**
+
+The HANDOFF from SESSION_6 described this blocker incorrectly. It claimed tokens were in an `ebay_connections` table — but that table does not exist. Tokens were correctly in the `users` table all along (added by migration `005_add_ebay_oauth_columns.sql`). The `ebay-oauth/index.ts` function's `getValidEbayToken()` already read from `users` correctly.
+
+The actual bugs were:
+
+1. **Wrong base URL in `app.html`** (line 5288): `ebayPullListings()` called `API_BASE + '/ebay/pull-listings'` (the `claude-proxy` function), which has no such route. Fixed to `EBAY_BASE + '/pull-listings'`.
+
+2. **Missing endpoint in `ebay-oauth/index.ts`**: No `/pull-listings` handler existed. Added `handlePullListings()` which:
+   - Authenticates user via JWT
+   - Gets valid eBay token via existing `getValidEbayToken()` (reads from `users` table)
+   - Fetches sku→title map from `GET /sell/inventory/v1/inventory_item?limit=200`
+   - Fetches active/draft offers from `GET /sell/inventory/v1/offer?limit=200` and upserts to `inventory` table (dedup by `ebay_item_id` then `sku`)
+   - Fetches sold orders from `GET /sell/fulfillment/v1/order?filter=creationdate:[since..]` and marks matching inventory items as `Sold`
+   - Returns `{ active, drafted, sold }` counts
+   - Added route: `POST /pull-listings`
+
+3. **Deployed** `ebay-oauth` v21 to Supabase project `dqgfpchkheznvanfgsmx`.
+
+### Files changed
+- `apps/web/public/app.html` — fixed URL at line 5288
+- `supabase/functions/ebay-oauth/index.ts` — added `handlePullListings()` + route
+- `docs/HANDOFF.md` — this file
+
+### Commit / PR
+- `4a3f25b` — fix(ebay): add /pull-listings endpoint and fix wrong base URL
+- PR #86 — merged to main ✅
+
+### CI results
+- TypeScript Check: ✅
+- Vercel Preview: ✅
+- Supabase Preview: ✅
+- Railway: ✅
+
+### Decisions made (do not reverse)
+- There is no `ebay_connections` table. eBay OAuth tokens live in `users` table columns: `ebay_access_token`, `ebay_refresh_token`, `ebay_token_expires_at`, `ebay_username` (added by migration 005). Do not create an `ebay_connections` table.
+- `handlePullListings` deduplicates by `ebay_item_id` first, then by `sku`. New items get `created_from: 'ebay_sync'`.
+- The `days` parameter (from the sync panel's 30/60/90 day selector) gates the order fetch window only — offers are always fetched without date filter (eBay Inventory API doesn't support date filtering on offers).
+
+### Change 22 status
+**RESOLVED** — no longer a blocker.
+
+### Next task
+1. Connect a real eBay developer sandbox credential and run an end-to-end sync test (currently 0 rows in `ebay_connections` per CLAUDE.md — now means 0 rows with `ebay_access_token` set in `users` table).
+2. Verify Stripe upgrade flow end-to-end (still "not yet verified" in build status).
+3. Verify Vercel deploy has `<meta property="og:image">` set in index.html/app.html (from SESSION_8).
+
+### Blockers
+- None from this session.
+- export-reminder Edge Function still not deployed to Supabase (from SESSION_6 — requires `supabase functions deploy export-reminder --project-ref dqgfpchkheznvanfgsmx`).
+
+---
+
 ## Session: 2026-06-18 — SESSION_8 Ship-Blockers (branch: claude/new-session-s9v08a)
 
 ### What changed this session
