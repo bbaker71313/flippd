@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FLIPPD v5.24 - Q13: expense desc field unified, Packaging Materials removed; SW kill switch added -->
+<!-- ScanForProfit app.html -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -363,7 +363,6 @@ body::before{
 
 /* ══ RESULTS ══ */
 .results-wrap{animation:fadeUp 0.25s ease forwards}
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 .back-btn{
   background:transparent;border:1px solid var(--border);
@@ -771,7 +770,6 @@ body::before{
 
 /* ══ ANIMATIONS ══ */
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes rowIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
 .stale-item,.hunt-item,.trend-item{animation:rowIn 0.2s ease both}
 
 
@@ -1147,7 +1145,7 @@ body::before{
 </div>
 
 <!-- FLOATING QUICK-ADD -->
-<button id="fab-add" onclick="fabQuickAdd()" style="position:fixed;bottom:24px;right:20px;width:52px;height:52px;border-radius:50%;background:#00cc66;color:#fff;border:none;font-size:24px;cursor:pointer;z-index:150;box-shadow:0 4px 16px rgba(0,180,80,0.45);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent" title="Quick Add Item">＋</button>
+<button id="fab-add" onclick="fabQuickAdd()" style="position:fixed;bottom:24px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:24px;cursor:pointer;z-index:150;box-shadow:0 4px 16px rgba(0,180,80,0.45);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent" title="Quick Add Item">＋</button>
 
 
 <!-- TRIAL / TIER BANNER (sticky, shows for trial + scout users) -->
@@ -1174,7 +1172,6 @@ body::before{
   <div id="src-view-setup">
     <div style="height:18px"></div>
     <div class="setup-card">
-      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--accent);text-transform:uppercase;margin-bottom:10px">Early Access</div>
       <div style="font-family:'Syne',sans-serif;font-size:clamp(22px,6vw,28px);font-weight:900;line-height:1.1;color:var(--text);margin-bottom:10px">Stop leaving<br>money on the floor.</div>
       <p class="setup-sub" style="margin-bottom:16px">ScanForProfit tells you in seconds whether to flip or pass — with real profit math after fees. Scan a single item or a whole shelf.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
@@ -2421,7 +2418,7 @@ var _photoDB = null;
 function openPhotoDB() {
   return new Promise(function(resolve, reject) {
     if (_photoDB) return resolve(_photoDB);
-    var req = indexedDB.open('flippd_photos', 1);
+    var req = indexedDB.open('sfp_photos', 1);
     req.onupgradeneeded = function(e) {
       e.target.result.createObjectStore('photos', { keyPath: 'key' });
     };
@@ -2561,7 +2558,7 @@ function saveItems() {
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       try {
-        localStorage.removeItem('fef_growth_cache');
+        localStorage.removeItem('sfp_growth_cache');
         localStorage.removeItem('sfp_events');
         localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
       } catch(e2) {
@@ -2863,7 +2860,7 @@ function renderFilteredList() {
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
-            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm(${item.id})">Relist</button>` : ''}
+            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
           </div>
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
@@ -2914,13 +2911,6 @@ function markAsListed(id) {
   showToast('Item marked as Listed');
 }
 
-// Change 12: Relist sold item
-function openRelistConfirm(id) {
-  const item = items.find(i => i.id === id);
-  if (!item) return;
-  if (!confirm('Relist "' + item.nickname + '"? This creates a new Unlisted item with the same details.')) return;
-  relistItem(id);
-}
 
 function relistItem(id) {
   const item = items.find(i => i.id === id);
@@ -2982,7 +2972,7 @@ function showSoldDetail(id) {
         <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>
       </div>
     </div>
-    <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistConfirm(${item.id})">Relist This Item</button>`;
+    <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistConfirm('${item.sku}','${item.nickname}')">Relist This Item</button>`;
   document.body.appendChild(overlay);
 }
 
@@ -4018,7 +4008,7 @@ function paSaveDialogExisting() {
 // ══════════════════════════════════════════════════
 // P&L TRACKER
 // ══════════════════════════════════════════════════
-const PNL_KEY = 'fef_expenses_v1';
+const PNL_KEY = 'sfp_expenses_v1';
 let pnlExpenses = [];
 
 function pnlLoad() {
@@ -4051,7 +4041,7 @@ function pnlCalc() {
   const expenses = pnlExpenses.filter(e => e.category !== 'sale');
   const totalExpenses = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
   const netProfit = grossProfit - totalExpenses;
-  const taxReserve = netProfit > 0 ? netProfit * 0.25 : 0;
+  const taxReserve = netProfit > 0 ? netProfit * (S.taxReservePct ?? 0.25) : 0;
   return { sold, totalRevenue, totalCOGS, totalFees, totalPkg, totalShip, grossProfit, totalExpenses, netProfit, taxReserve };
 }
 
@@ -4190,14 +4180,14 @@ function pnlRenderReport() {
         <div class="pnl-row"><span style="color:var(--green);font-weight:700">After-Tax Estimate</span><span style="color:var(--green);font-weight:700">$${(c.netProfit-c.taxReserve).toFixed(2)}</span></div>
       </div>
     </div>
-    ${catBreakdown ? `<div class="card" style="margin-bottom:12px"><h3 class="card-title">By Category</div>${catBreakdown}</h3>` : ''}
+    ${catBreakdown ? `<div class="card" style="margin-bottom:12px"><h3 class="card-title">By Category</h3>${catBreakdown}</div>` : ''}
     ${Object.keys(expByCat).length ? `<div class="card"><h3 class="card-title">Expenses by Type</div>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</h3>` : ''}`;
 }
 
 // ══════════════════════════════════════════════════
 // GROWTH AGENT
 // ══════════════════════════════════════════════════
-const GROWTH_CACHE_KEY = 'fef_growth_cache';
+const GROWTH_CACHE_KEY = 'sfp_growth_cache';
 const GROWTH_STALE_HOURS = 24;
 
 function loadGrowthCache() {
@@ -4246,7 +4236,7 @@ function initGrowthTab() {
 
   // Load cached trending if available
   try {
-    const tc = JSON.parse(localStorage.getItem('fef_trending')||'null');
+    const tc = JSON.parse(localStorage.getItem('sfp_trending') ?? localStorage.getItem('fef_trending') ?? 'null');
     const trendEl = document.getElementById('growth-trending');
     if (tc && trendEl && (Date.now()-tc.ts) < 3600000*6) {
       renderTrendingKeywords(tc.data, trendEl);
@@ -4352,7 +4342,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
 {
   "business_score": number (0-100),
   "score_label": "Strong/Growing/Steady/Needs Attention",
-  "score_color": "#00e676 or #f5a623 or #ff3333",
+  "score_color": "#00bb66 or #c47800 or #dd0000",
   "score_summary": "one sentence on overall business health using their actual numbers",
   "top_categories": [
     {"name":"string","profit":"$X","insight":"one sentence specific to their data","bar_pct":number}
@@ -5835,8 +5825,8 @@ async function analyze() {
       const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0);
       logScan(dec, r.roi, cost, false);
       try {
-        const scanLog=JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
-        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('fef_scan_log',JSON.stringify(scanLog));}
+        const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
+        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
       } catch(_){}
       renderSingle({item,cost,fin,dec});
       renderScanHistory();
@@ -5850,8 +5840,8 @@ async function analyze() {
       const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate);
       logScan(dec, fin.roi, cost, false);
       try {
-        const scanLog=JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
-        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('fef_scan_log',JSON.stringify(scanLog));}
+        const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
+        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
       } catch(_){}
       renderSingle({item,cost,fin,dec});
       renderScanHistory();
@@ -5952,7 +5942,6 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="buy-action-sub">Tap Buy to add this item to your inventory automatically.</div>
       <div class="buy-action-btns">
         <button class="action-btn action-buy" onclick="buyItem()">BUY<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
-        <button class="action-btn action-watch" onclick="watchItem()">WATCH<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Save for Later</span></button>
         <button class="action-btn action-pass" onclick="goSrcBack()">PASS<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Skip This One</span></button>
       </div>
     </div>
@@ -6026,11 +6015,11 @@ function mapToInvCategory(aiCat) {
 
 function logScan(dec, roi, cost, bought) {
   // Instructions now always visible
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
   log.push({ ts: Date.now(), dec, roi: roi||0, cost: cost||0, bought: !!bought });
   // Keep last 500 scans
   if (log.length > 500) log.splice(0, log.length - 500);
-  localStorage.setItem('fef_scan_log', JSON.stringify(log));
+  localStorage.setItem('sfp_scan_log', JSON.stringify(log));
 }
 
 function buyItem() {
@@ -6038,11 +6027,11 @@ function buyItem() {
   try {
     const {item, cost, fin, dec} = lastSingleResult;
     // Log scan name for history
-    const scanLog = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+    const scanLog = JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
     if (scanLog.length && !scanLog[0].name) {
       scanLog[0].name = item.item_name;
       scanLog[0].potentialProfit = fin.profit;
-      localStorage.setItem('fef_scan_log', JSON.stringify(scanLog));
+      localStorage.setItem('sfp_scan_log', JSON.stringify(scanLog));
     }
     showBuyConfirm(item, cost, fin, dec);
   } catch(e) {
@@ -6155,7 +6144,7 @@ function goSrcBack() { clearImage(); showSrcView('input'); }
 // ══════════════════════════════════════════════════
 // ACTIVITY FEED
 // ══════════════════════════════════════════════════
-const ACT_KEY = 'fef_activity_log';
+const ACT_KEY = 'sfp_activity_log';
 
 function logActivity(icon, text) {
   try {
@@ -6466,7 +6455,7 @@ function pnlRenderMonthly() {
 function pnlLogMileage() {
   const miles = parseFloat(document.getElementById('pnl-miles-input').value)||0;
   if (!miles) return;
-  const rate = 0.67; // 2024 IRS rate per mile
+  const rate = S.mileageRate ?? 0.67;
   const cost = miles * rate;
   pnlExpenses.unshift({id:Date.now(), desc:`Mileage: ${miles} miles @ $${rate}/mi`, amount:cost, category:'Gas & Travel', date:new Date().toISOString().split('T')[0]});
   pnlSave();
@@ -6511,7 +6500,7 @@ function renderScanHistory() {
   const el = document.getElementById('scan-history');
   if (!el) return;
   const today = new Date().toDateString();
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
   if (log.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:20px 16px;color:var(--muted);font-size:12px;line-height:1.6">Your scan history will appear here.<br>Scan an item above to get started.</div>';
     return;
@@ -6557,7 +6546,7 @@ async function fetchTrendingKeywords() {
     }
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
-    localStorage.setItem('fef_trending', JSON.stringify({data, ts:Date.now()}));
+    localStorage.setItem('sfp_trending', JSON.stringify({data, ts:Date.now()}));
     renderTrendingKeywords(data, el);
   } catch(e) {
     console.error('Trending keywords error:', e);
@@ -6587,7 +6576,7 @@ function renderTrendingKeywords(data, el) {
 // CSV EXPORT
 // ══════════════════════════════════════════════════
 let csvWindowHours = 168;
-const CSV_EXPORTED_KEY = 'fef_csv_exported_ids';
+const CSV_EXPORTED_KEY = 'sfp_csv_exported_ids';
 // Change 2: per-user export queue persisted in localStorage
 let _csvExportQueue = new Set();
 function _csvQueueKey() {
@@ -6653,7 +6642,7 @@ function renderCsvPreview() {
   if (!countEl) return;
   _csvQueueLoad(); // Change 2: load persisted queue
   const candidates = getCsvCandidates();
-  const lastExport = localStorage.getItem('fef_last_csv_export');
+  const lastExport = localStorage.getItem('sfp_last_csv_export') ?? localStorage.getItem('fef_last_csv_export');
   countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} available`;
   lastEl.textContent  = lastExport ? 'Last export: ' + lastExport : 'No exports yet';
   if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
@@ -6750,7 +6739,7 @@ function generateAndDownloadCSV() {
   // Change 2: clear exported items from the queue
   candidates.forEach(i => _csvExportQueue.delete(String(i.id)));
   _csvQueueSave();
-  localStorage.setItem('fef_last_csv_export', new Date().toLocaleString());
+  localStorage.setItem('sfp_last_csv_export', new Date().toLocaleString());
   showToast(`Exported ${candidates.length} item${candidates.length!==1?'s':''}`);
   renderCsvPreview();
   renderInventory();
@@ -6758,13 +6747,13 @@ function generateAndDownloadCSV() {
 
 function saveCsvReminder() {
   const t = document.getElementById('csv-reminder-time').value;
-  localStorage.setItem('fef_csv_reminder', t);
+  localStorage.setItem('sfp_csv_reminder', t);
   const el = document.getElementById('csv-reminder-saved');
   if (el) el.textContent = `✓ Reminder set for ${t} daily — open app at that time to export.`;
 }
 
 function loadCsvReminder() {
-  const t   = localStorage.getItem('fef_csv_reminder');
+  const t   = localStorage.getItem('sfp_csv_reminder') ?? localStorage.getItem('fef_csv_reminder');
   const el  = document.getElementById('csv-reminder-time');
   const msg = document.getElementById('csv-reminder-saved');
   if (t && el)  el.value = t;
@@ -7149,7 +7138,7 @@ function showKpiDrillDown(type) {
 
 function showSourcingDrillDown() {
   const today = new Date().toDateString();
-  const log = JSON.parse(localStorage.getItem('fef_scan_log')||'[]');
+  const log = JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
   const scans = log.filter(s=>new Date(s.ts).toDateString()===today);
   const rows = scans.length ? scans.map(s=>`
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
@@ -7409,6 +7398,21 @@ window.onload = () => {
     localStorage.removeItem('fif_api_key');
     localStorage.removeItem('sfp_jwt');
     apiKey = '';
+  }
+
+  // Migrate fef_ keys to sfp_ (one-time, guarded)
+  if (!localStorage.getItem('sfp_migrated_from_fef')) {
+    const fefMigrations = [
+      ['fef_expenses_v1','sfp_expenses_v1'],['fef_growth_cache','sfp_growth_cache'],
+      ['fef_trending','sfp_trending'],['fef_scan_log','sfp_scan_log'],
+      ['fef_activity_log','sfp_activity_log'],['fef_csv_exported_ids','sfp_csv_exported_ids'],
+      ['fef_last_csv_export','sfp_last_csv_export'],['fef_csv_reminder','sfp_csv_reminder']
+    ];
+    fefMigrations.forEach(([old, nw]) => {
+      const v = localStorage.getItem(old);
+      if (v !== null) { if (!localStorage.getItem(nw)) localStorage.setItem(nw, v); localStorage.removeItem(old); }
+    });
+    localStorage.setItem('sfp_migrated_from_fef', '1');
   }
 
   // Load local data immediately (instant — no waiting for server)
@@ -7803,7 +7807,7 @@ function exportFlippdBackup() {
     description: e.desc||e.description||'', miles: e.miles||''
   }));
 
-  const scanLog = (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })();
+  const scanLog = (() => { try { return JSON.parse(localStorage.getItem('sfp_scan_log')||'[]'); } catch { return []; } })();
   const scanHeaders = ['id','created_at','item_description','decision','estimated_profit','estimated_sell','cost','category','confidence'];
   const scanRows = scanLog.map(e => ({
     id: e.id||'', created_at: e.createdAt||e.created_at||'', item_description: e.item_description||e.itemDescription||'',
@@ -7950,7 +7954,7 @@ function sPnlAddExp() {
 function sPnlMiles() {
   var miles = parseFloat(document.getElementById('spnl-miles').value)||0;
   if(miles<=0){showToast('Enter miles driven');return;}
-  var amt = parseFloat((miles*0.67).toFixed(2));
+  var amt = parseFloat((miles*(S.mileageRate ?? 0.67)).toFixed(2));
   pnlExpenses.push({id:Date.now(),desc:miles+' miles driven',amount:amt,category:'Gas & Travel',date:new Date().toISOString().split('T')[0]});
   pnlSave();
   document.getElementById('spnl-miles').value='';
