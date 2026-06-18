@@ -4,6 +4,75 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — UI Copy & Design Quality Pass (branch: claude/new-session-qnjxmw)
+
+### What changed this session
+
+All work in `apps/web/public/index.html` and `apps/web/public/app.html`. Surgical copy/design pass against the ScanForProfit UI Fix Prompt (Karpathy-Mode), covering all 7 phases.
+
+**index.html changes:**
+- Hero h1: removed 3 `<br />` tags; added `text-wrap: balance` to `.hero h1`
+- Added `text-wrap: balance` to all `h2` elements globally
+- Added `@media (prefers-reduced-motion: reduce)` block at end of `<style>`
+- `body { font-size: 16px }` to `font-size: 1rem`
+- Removed `//` prefix from all 8 section eyebrow labels
+- Removed `01`/`02`/`03` numeric prefix spans from pain point items
+- Removed Scout pricing "Forever" sub-label (kept "FREE")
+- Replaced `⌁` bullet chars with `·` (middle dot) in hero trust line
+- Copy rewrites: "Walk out with profit." to "Point. Scan. Decide.", footer tagline to "Real comps. Real fees. Real decisions.", final CTA h2 to "See the profit before you pick it up.", FAQ answer to "Point your camera. Done."
+- Deleted `<p class="agitate-transition">` sentence ("There's a better way...")
+- Removed redundant "Free to start · No credit card · Cancel anytime" from pricing section
+- All em dashes replaced throughout (titles, FAQ, guarantee cards, JS strings, meta tags, title tag)
+
+**app.html changes:**
+- Title em dash to colon
+- `font-size: 16px` to `1rem`
+- Tab bar: SCOUT to Scout, INVENTORY to Inventory, PHOTOS to Photos, PULSE to Pulse (P&L unchanged)
+- Setup card headline: "Stop leaving money on the floor." to "Flip or pass. You'll know in 8 seconds."
+- Setup sub: em dash to comma
+- Removed `⚡ Start here` div above scan flow
+- Analyze button: "FLIP OR PASS?" to "FLIP OR PASS" (question mark removed)
+- Labels: "RUN THE NUMBERS" to "Run the Numbers", "RANK THIS SHELF" to "Rank This Shelf"
+- JS resetBtn calls updated to match new label text (3 occurrences)
+- Email verify heading: removed 📬 emoji, "Check your email!" to "Check your inbox"
+- Settings headings: emoji removed from 🎯/💸/🧠/📸 section headers; text labels kept; added `border-left` accent + `font-weight:600`
+- `dash-greeting` inner text: "Hey there 👋" to empty string (element kept for JS)
+- Confirm modal: "Are you sure?" to "Delete this item?"; "This action cannot be undone." to "This cannot be undone."
+- JS fallback for confirm title updated to match
+- Upgrade button: `background:var(--green)` to `background:var(--accent);color:#000` (gold, visually distinct)
+- Extensive em dash sweep across all rendered UI copy, JS toast/error strings, status messages, select options, and template literal HTML strings
+
+### Files changed
+- `apps/web/public/index.html`
+- `apps/web/public/app.html`
+- `docs/HANDOFF.md` (this file)
+
+### Commit
+- `67716a5` on branch `claude/new-session-qnjxmw`
+- PR #85 merged to main
+
+### CI results
+- Vercel: Ready (preview deployed successfully)
+- Railway: Success
+- Supabase: No-op (no supabase/ changes, expected)
+
+### Decisions made (do not reverse)
+- JS placeholder `—` values (`${item.sku||'—'}` etc.) intentionally left unchanged — runtime JS-replaced placeholders, not literal rendered em dashes
+- Scan flow tab icons (`⚡`, `🔭` inside `<span class="tab-icon">`) left unchanged — functional differentiators per Phase 6 no-op instruction
+- CSS comments and code-comment em dashes left unchanged — not visible UI copy
+- Settings section headings now use `border-left: 3px solid var(--accent)` + `font-weight: 600` to compensate for emoji removal
+
+### Next task
+1. Stripe upgrade flow end-to-end verification (currently "not yet verified" in build status)
+2. PostHog events audit (currently "not yet verified")
+3. Sentry zero-error audit (currently "not yet verified")
+4. eBay Developer sandbox credentials (0 rows in ebay_connections)
+
+### Blockers
+- Change 22 (eBay Sync schema mismatch) remains deferred from SESSION_6
+
+---
+
 ## Session: 2026-06-18 — SESSION_8 Ship-Blockers (branch: claude/new-session-s9v08a)
 
 ### What changed this session
