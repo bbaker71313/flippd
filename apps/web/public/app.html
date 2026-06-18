@@ -7100,7 +7100,7 @@ async function startCheckout(tier, interval) {
   try {
     var res = await fetch(STRIPE_BASE, {
       method: 'POST', headers: getApiHeaders(),
-      body: JSON.stringify({ tier: tier, interval: interval })
+      body: JSON.stringify({ tier: tier, interval: interval, userId: window._currentUser?.id, returnUrl: window.location.origin + '/app.html' })
     });
     var data = await res.json();
     if(data.url) window.location.href = data.url;
