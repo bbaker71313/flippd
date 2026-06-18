@@ -7098,7 +7098,7 @@ async function startCheckout(tier, interval) {
 
 async function openCustomerPortal() {
   try {
-    var res = await fetch(API_BASE + '/stripe/portal', {method:'POST', headers:getApiHeaders()});
+    var res = await fetch(STRIPE_BASE + '/portal', {method:'POST', headers:getApiHeaders()});
     var data = await res.json();
     if(data.url) window.location.href = data.url;
     else showToast('Portal error: ' + (data.error||'Unknown'));
