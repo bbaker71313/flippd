@@ -4,6 +4,63 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — eBay Sync Schema Fix (branch: claude/ebay-sync-schema-dhbhir)
+
+### What changed this session
+
+**Change 22 BLOCKER resolved — eBay Sync schema mismatch.**
+
+The HANDOFF from SESSION_6 described this blocker incorrectly. It claimed tokens were in an `ebay_connections` table — but that table does not exist. Tokens were correctly in the `users` table all along (added by migration `005_add_ebay_oauth_columns.sql`). The `ebay-oauth/index.ts` function's `getValidEbayToken()` already read from `users` correctly.
+
+The actual bugs were:
+
+1. **Wrong base URL in `app.html`** (line 5288): `ebayPullListings()` called `API_BASE + '/ebay/pull-listings'` (the `claude-proxy` function), which has no such route. Fixed to `EBAY_BASE + '/pull-listings'`.
+
+2. **Missing endpoint in `ebay-oauth/index.ts`**: No `/pull-listings` handler existed. Added `handlePullListings()` which:
+   - Authenticates user via JWT
+   - Gets valid eBay token via existing `getValidEbayToken()` (reads from `users` table)
+   - Fetches sku→title map from `GET /sell/inventory/v1/inventory_item?limit=200`
+   - Fetches active/draft offers from `GET /sell/inventory/v1/offer?limit=200` and upserts to `inventory` table (dedup by `ebay_item_id` then `sku`)
+   - Fetches sold orders from `GET /sell/fulfillment/v1/order?filter=creationdate:[since..]` and marks matching inventory items as `Sold`
+   - Returns `{ active, drafted, sold }` counts
+   - Added route: `POST /pull-listings`
+
+3. **Deployed** `ebay-oauth` v21 to Supabase project `dqgfpchkheznvanfgsmx`.
+
+### Files changed
+- `apps/web/public/app.html` — fixed URL at line 5288
+- `supabase/functions/ebay-oauth/index.ts` — added `handlePullListings()` + route
+- `docs/HANDOFF.md` — this file
+
+### Commit / PR
+- `4a3f25b` — fix(ebay): add /pull-listings endpoint and fix wrong base URL
+- PR #86 — merged to main ✅
+
+### CI results
+- TypeScript Check: ✅
+- Vercel Preview: ✅
+- Supabase Preview: ✅
+- Railway: ✅
+
+### Decisions made (do not reverse)
+- There is no `ebay_connections` table. eBay OAuth tokens live in `users` table columns: `ebay_access_token`, `ebay_refresh_token`, `ebay_token_expires_at`, `ebay_username` (added by migration 005). Do not create an `ebay_connections` table.
+- `handlePullListings` deduplicates by `ebay_item_id` first, then by `sku`. New items get `created_from: 'ebay_sync'`.
+- The `days` parameter (from the sync panel's 30/60/90 day selector) gates the order fetch window only — offers are always fetched without date filter (eBay Inventory API doesn't support date filtering on offers).
+
+### Change 22 status
+**RESOLVED** — no longer a blocker.
+
+### Next task
+1. Connect a real eBay developer sandbox credential and run an end-to-end sync test (currently 0 rows in `ebay_connections` per CLAUDE.md — now means 0 rows with `ebay_access_token` set in `users` table).
+2. Verify Stripe upgrade flow end-to-end (still "not yet verified" in build status).
+3. Verify Vercel deploy has `<meta property="og:image">` set in index.html/app.html (from SESSION_8).
+
+### Blockers
+- None from this session.
+- export-reminder Edge Function still not deployed to Supabase (from SESSION_6 — requires `supabase functions deploy export-reminder --project-ref dqgfpchkheznvanfgsmx`).
+
+---
+
 ## Session: 2026-06-18 — SESSION_8 Ship-Blockers (branch: claude/new-session-s9v08a)
 
 ### What changed this session
