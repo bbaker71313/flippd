@@ -5493,6 +5493,13 @@ function updateFeeHint() {
 function saveSettings() {
   localStorage.setItem('fif_settings', JSON.stringify(S));
   S = loadSrcSettings();
+  if (apiKey) {
+    fetch(AUTH_BASE + '/settings', {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exportReminderEnabled: S.exportReminderEnabled, exportReminderTime: S.exportReminderTime })
+    }).catch(() => {});
+  }
   updateFeeHint(); updateStaleBadge(); showSrcView('input'); showToast('✓ Settings saved');
 }
 function resetSettings() { S={...DEFAULTS}; localStorage.removeItem('fif_settings'); populateSettingsUI(); }
@@ -7078,6 +7085,11 @@ async function loadUserInfo() {
     const user = await res.json();
     currentUser = user;
     window._currentUser = user;
+    if (typeof user.exportReminderEnabled === 'boolean') {
+      S.exportReminderEnabled = user.exportReminderEnabled;
+      S.exportReminderTime = user.exportReminderTime || S.exportReminderTime;
+      localStorage.setItem('fif_settings', JSON.stringify(S));
+    }
     if (user.name) {
       localStorage.setItem('sfp_user_name', user.name);
       updateDashGreeting();

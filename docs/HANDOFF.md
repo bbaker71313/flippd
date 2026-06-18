@@ -4,6 +4,35 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18b — Wire pg_cron trigger for export-reminder (branch: claude/ebay-sync-schema-dhbhir)
+
+### What changed this session
+
+- **Migration** `20260618000001_007_export_reminder_cron.sql` — applied to DB:
+  - Enabled `pg_cron` extension
+  - Added `export_reminder_enabled` (boolean, default false) and `export_reminder_time` (time, default 09:00) to `settings` table
+  - Created `public.send_export_reminders()` SECURITY DEFINER function — queries users with `Ready to Export` items whose reminder hour matches current UTC hour, fires `net.http_post` to the `export-reminder` Edge Function for each
+  - Scheduled cron job `export-reminders-hourly` at `0 * * * *` (confirmed active, jobid=1)
+- **`supabase/functions/auth/index.ts`** — deployed as v29:
+  - Added `PATCH /auth/settings` → `handleSaveSettings` — upserts `export_reminder_enabled` and `export_reminder_time` to `settings` table for the authed user
+  - Updated `handleMe` to join `settings` table and include `exportReminderEnabled` and `exportReminderTime` in the `/me` response
+- **`apps/web/public/app.html`**:
+  - `saveSettings()` now fires a `PATCH /auth/settings` call (fire-and-forget) when the user is logged in, persisting reminder prefs to DB
+  - `loadUserInfo()` now reads `exportReminderEnabled` and `exportReminderTime` from the `/me` response and hydrates `S` + localStorage on login
+
+### End-to-end flow
+1. User toggles "Export Reminder" on/off or changes the time in Settings → `saveSettings()` → `PATCH /auth/settings` → stored in `settings.export_reminder_enabled/time`
+2. pg_cron fires every hour at :00 UTC → `send_export_reminders()` → queries for users matching that UTC hour with `Ready to Export` items → `net.http_post` to `export-reminder` Edge Function per user
+3. `export-reminder` queries inventory, looks up email, sends via Resend
+
+### Remaining prerequisite
+- `RESEND_API_KEY` must be set in Supabase Dashboard → Settings → Edge Functions → Secrets for emails to actually send
+
+### Next task
+Verify Stripe upgrade flow end-to-end (still marked "not yet verified" in CLAUDE.md build status)
+
+---
+
 ## Session: 2026-06-18 — Deploy export-reminder Edge Function (branch: claude/ebay-sync-schema-dhbhir)
 
 ### What changed this session
