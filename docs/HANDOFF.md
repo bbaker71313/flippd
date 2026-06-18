@@ -4,7 +4,95 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — SESSION_6 Inventory Tab changes (branch: claude/new-session-0637zg)
+
+### What changed this session
+
+All work is in `apps/web/public/app.html` unless noted. Committed separately per the spec.
+
+**Change 1** (`e6cc715`) — Fix API Error 546 in `invFormDetectItem()`: Canvas image compression (max 1200px, JPEG 0.85), 15s AbortController timeout, explicit status 546 error message.
+
+**Change 8** (`52789a7`) — Remove unexplained 9+ stale badge from inventory tab icon. Badge update code removed from `updateStaleBadge()`.
+
+**Changes 10, 20, 23** (`845a1e0`) — Restructure stat cards: Unlisted / Listed / Sold / Est. Profit. Sold items excluded from cost/value totals (cost-of-goods-only for active inventory). `inv-stat-num` now shows only active inventory value.
+
+**Changes 14, 13, 17, 12, 19** (`f2cd1fb`) — Photo thumbnails on item cards, sold detail view, button visibility rules (`Listed` → relist/enhance, `Unlisted` → enhance, `Sold` → view detail only), relist to Unlisted, photo enhance button.
+
+**Change 15** (`41510f5`) — `confirmSold()` rewrite: writes sale event to `pnlExpenses` with `category:'sale'` sentinel for audit trail. `pnlCalc()` and `pnlRenderExpenses()` filter out sale entries to avoid double-counting. Sale records shown as green rows in P&L expense log.
+
+**Change 21** (`68f5bfa`) — Multi-photo gallery: `invRenderPhotoGallery()` merges `photo_urls` (Supabase storage URLs) + `photos` (local blobs) for display during edit. Each photo has a remove button. `invFormHandlePhoto()` handles multiple files in edit mode.
+
+**Changes 7, 11** (`10b363d`) — Back buttons on export/import panels; emoji audit removing emojis from nav buttons, card titles, camera buttons, detect button, mode-tab icons.
+
+**Change 9** (`6f1140b`) — eBay draft CSV import: RFC 4180 parser (`parseCsvRows()`), eBay format detection (5 `#INFO` header rows), column mapping (Custom label→SKU, Title→nickname, Price→sellPrice, Description→notes). Duplicate SKU check added to both eBay and standard import paths.
+
+**Changes 2, 3** (`5e2e04e`) — Per-user export queue (`sfp_export_queue_{userId}` localStorage), persisted across sessions. Each item in CSV export panel now has a checkbox. "Select All Unlisted (N)" button. `generateAndDownloadCSV()` exports only checked items (with fallback to all). Queue cleared after export.
+
+**Change 5** (`fa92e62`) — Replace `exportFlippdBackup()` JSON download with JSZip CSV ZIP. Added JSZip CDN to `<head>`. ZIP contains `inventory.csv`, `expenses.csv`, `scan_history.csv`. UI label updated to "Full CSV backup (ZIP)".
+
+**Change 4** (`7236d64`) — Rotate/crop tools in Add Photos flow. ↺ Rotate button uses Canvas API to rotate 90° CW, updates `invFormImgFile` and preview. ✂ Crop button shows a fixed-overlay crop UI with 4 corner drag handles. `invFormCropApply()` uses object-fit:contain math to map crop rect to natural image coordinates.
+
+**Change 6** (`973c385`) — `supabase/functions/export-reminder/index.ts` created: POST handler, queries `inventory` for `status='Ready to Export'`, looks up user email, sends Resend email. Settings UI: "Export Reminder" card added to settings panel with toggle + time picker, stored in `S.exportReminderEnabled` / `S.exportReminderTime` in `sfp_settings`.
+
+**Change 22** — BLOCKED (documented below).
+
+### BLOCKER — Change 22 (eBay Sync)
+
+```
+BLOCKER — Change 22 (eBay Sync): settings table does not have ebay_oauth_token / ebay_refresh_token columns.
+eBay OAuth tokens are stored in the ebay_connections table (access_token, refresh_token, expires_at).
+The eBay Sync Edge Function must read from ebay_connections, not settings.
+This is a prerequisite schema mismatch — defer to next session.
+```
+
+### Files changed
+- `apps/web/public/app.html` (primary — all inventory tab changes)
+- `supabase/functions/export-reminder/index.ts` (new)
+- `docs/HANDOFF.md` (this file)
+
+### Commits (all on branch `claude/new-session-0637zg`)
+- `e6cc715` — Change 1
+- `52789a7` — Change 8
+- `845a1e0` — Changes 10/20/23
+- `f2cd1fb` — Changes 14/13/17/12/19
+- `41510f5` — Change 15
+- `68f5bfa` — Change 21
+- `10b363d` — Changes 7/11
+- `6f1140b` — Change 9
+- `5e2e04e` — Changes 2/3
+- `fa92e62` — Change 5
+- `7236d64` — Change 4
+- `973c385` — Change 6
+
+### Decisions made (do not reverse)
+- `pnlExpenses` sale entries (`category:'sale'`) are excluded from P&L calculations — they're audit records only, not double-counted
+- Photo gallery merges `photo_urls` (JSONB array in DB) + `photos` (local blobs via IDB) into a single display row
+- JSZip CDN (`cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1`) is now loaded in `<head>` of app.html
+- `exportReminderEnabled` and `exportReminderTime` are stored in `sfp_settings` localStorage alongside all other settings
+- Export reminder Edge Function uses `RESEND_API_KEY` secret — must be set in Supabase Dashboard before the function can send emails
+
+### What is NOT done (deferred)
+- Change 22 — eBay Sync: BLOCKED (see above)
+- export-reminder Edge Function deployment — file exists locally but not yet deployed to Supabase (requires `supabase functions deploy export-reminder` from CLI)
+- Scheduling the daily reminder — the Edge Function is a fire-and-forget POST; a cron job (n8n or Supabase pg_cron) is needed to call it at the user's preferred time. Not implemented — deferred.
+
+### Next task
+1. Push all commits on `claude/new-session-0637zg` and open PR
+2. Deploy `export-reminder` Edge Function: `supabase functions deploy export-reminder --project-ref dqgfpchkheznvanfgsmx`
+3. Resolve Change 22 BLOCKER: update the eBay Sync feature to read from `ebay_connections` table instead of `settings`
+4. Set up n8n or pg_cron to schedule daily export-reminder calls per user preferences
+
+### Blockers
+- Change 22: eBay Sync schema mismatch — `settings` table has no OAuth token columns; tokens are in `ebay_connections`
+- export-reminder deployment: requires Supabase CLI access
+
+---
+
 ## Session: 2026-06-17 (web app sync) — Port SESSION_2_3_PROMPT to app.html — MERGED PR #78
+
+---
+
+## Session: 2026-06-17 (web) — Port SESSION_2_3_PROMPT changes to app.html
 
 ### What changed this session
 

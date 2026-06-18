@@ -1108,6 +1108,7 @@ body::before{
 }
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -1305,6 +1306,23 @@ body::before{
         <input type="password" class="f-input" id="pa-removebg-key" placeholder="Your remove.bg API key" style="width:100%;box-sizing:border-box;margin-top:4px" oninput="S.removebgKey=this.value">
       </div>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3 class="card-title">Export Reminder</h3>
+      <div class="setting-row" style="border-bottom:1px solid var(--border)">
+        <div>
+          <span class="setting-name">Daily export reminder</span>
+          <span class="setting-desc">Email when you have items ready to export</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="setting-reminder-enabled" style="width:16px;height:16px;cursor:pointer" onchange="S.exportReminderEnabled=this.checked">
+          <span style="font-size:12px;color:var(--soft);font-family:'IBM Plex Mono',monospace">On</span>
+        </label>
+      </div>
+      <div class="setting-row" style="border-bottom:none">
+        <span class="setting-name">Reminder time</span>
+        <input type="time" id="setting-reminder-time" value="09:00" style="background:var(--input);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px" onchange="S.exportReminderTime=this.value">
+      </div>
+    </div>
     <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
     <div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
@@ -1435,13 +1453,11 @@ body::before{
       <button onclick="showInvView('add')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">⬇ Export CSV</button>
-      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">📥 Import</button>
+      <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">Export CSV</button>
+      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">Import</button>
     </div>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
-    <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="🔍 Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Status</div>
-    <div id="inv-status-cards" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px"></div>
+    <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
     <div id="inv-cat-cards" style="display:flex;flex-direction:column;gap:8px"></div>
   </div>
@@ -1465,20 +1481,38 @@ body::before{
 
     <!-- PHOTO + AI DETECT SECTION -->
     <div class="card" style="margin-bottom:14px">
-      <h3 class="card-title">📷 Photo — AI will detect item automatically</h3>
+      <h3 class="card-title">Photo — AI will detect item automatically</h3>
       <div id="inv-form-photo-preview" style="display:none;margin-bottom:10px">
         <img id="inv-form-photo-img" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:block">
-        <button onclick="invFormClearPhoto()" style="margin-top:6px;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Clear photo</button>
+        <div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap">
+          <button onclick="invFormRotatePhoto()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">↺ Rotate</button>
+          <button onclick="invFormCropStart()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">✂ Crop</button>
+          <button onclick="invFormClearPhoto()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Clear</button>
+        </div>
+      </div>
+      <!-- Change 4: crop overlay — positioned fixed over image via invFormCropStart() -->
+      <div id="inv-form-crop-overlay" style="display:none;position:fixed;z-index:1000;overflow:hidden;background:rgba(0,0,0,0.45);user-select:none">
+        <div id="inv-form-crop-box" style="position:absolute;border:2px solid var(--accent);box-sizing:border-box">
+          <div data-corner="nw" style="position:absolute;width:16px;height:16px;background:var(--accent);top:-8px;left:-8px;cursor:nw-resize;z-index:2"></div>
+          <div data-corner="ne" style="position:absolute;width:16px;height:16px;background:var(--accent);top:-8px;right:-8px;cursor:ne-resize;z-index:2"></div>
+          <div data-corner="sw" style="position:absolute;width:16px;height:16px;background:var(--accent);bottom:-8px;left:-8px;cursor:sw-resize;z-index:2"></div>
+          <div data-corner="se" style="position:absolute;width:16px;height:16px;background:var(--accent);bottom:-8px;right:-8px;cursor:se-resize;z-index:2"></div>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:3;white-space:nowrap">
+          <button onclick="invFormCropApply()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:7px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Apply Crop</button>
+          <button onclick="invFormCropCancel()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:6px;padding:7px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">Cancel</button>
+        </div>
       </div>
       <div class="cam-grid" id="inv-form-photo-btns">
-        <button class="cam-btn green" onclick="document.getElementById('inv-form-cam').click()"><span class="ci">📷</span>CAMERA</button>
-        <button class="cam-btn" onclick="document.getElementById('inv-form-gallery').click()"><span class="ci">🖼️</span>GALLERY</button>
+        <button class="cam-btn green" onclick="document.getElementById('inv-form-cam').click()">CAMERA</button>
+        <button class="cam-btn" onclick="document.getElementById('inv-form-gallery').click()">GALLERY</button>
       </div>
       <input class="file-input" id="inv-form-cam" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="invFormHandlePhoto(event)">
-      <input class="file-input" id="inv-form-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="invFormHandlePhoto(event)">
-      <button class="btn btn-green" id="inv-form-detect-btn" onclick="invFormDetectItem()" style="display:none;margin-top:10px;margin-bottom:0">🤖 Detect Item from Photo</button>
+      <!-- Change 21: multiple file selection for gallery -->
+      <input class="file-input" id="inv-form-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" multiple onchange="invFormHandlePhoto(event)">
+      <button class="btn btn-green" id="inv-form-detect-btn" onclick="invFormDetectItem()" style="display:none;margin-top:10px;margin-bottom:0">Detect Item from Photo</button>
       <div id="inv-form-detect-status" style="font-size:12px;color:var(--muted);margin-top:8px;font-family:'IBM Plex Mono',monospace"></div>
-      <!-- existing photos shown during edit -->
+      <!-- Change 21: multi-photo gallery (photo_urls + photos) shown during edit -->
       <div id="inv-form-edit-photos" style="display:none;margin-top:10px"></div>
     </div>
 
@@ -1554,7 +1588,7 @@ body::before{
 
   <!-- Link to inventory item (optional) -->
   <div class="card" style="margin-bottom:12px">
-    <h3 class="card-title">📦 Attach to inventory item <span style="color:var(--muted);font-weight:500">(optional)</span></h3>
+    <h3 class="card-title">Attach to inventory item <span style="color:var(--muted);font-weight:500">(optional)</span></h3>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select class="f-select" id="pa-cat-select" onchange="paFilterByCategory(this.value)">
         <option value="">— Select category —</option>
@@ -1569,8 +1603,8 @@ body::before{
   <!-- Upload -->
   <div id="pa-upload-area">
     <div class="cam-grid">
-      <button class="cam-btn green" onclick="document.getElementById('pa-cam').click()"><span class="ci">📷</span>TAKE PHOTO</button>
-      <button class="cam-btn" onclick="document.getElementById('pa-gallery').click()"><span class="ci">🖼️</span>GALLERY (multi)</button>
+      <button class="cam-btn green" onclick="document.getElementById('pa-cam').click()">TAKE PHOTO</button>
+      <button class="cam-btn" onclick="document.getElementById('pa-gallery').click()">GALLERY (multi)</button>
     </div>
     <input class="file-input" id="pa-cam" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="paHandlePhotos(event)">
     <input class="file-input" id="pa-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" multiple onchange="paHandlePhotos(event)">
@@ -1840,6 +1874,8 @@ body::before{
 <!-- TAB: CSV EXPORT -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-csv">
+  <!-- Change 7: Back button to return to inventory -->
+  <button class="back-btn" onclick="switchTab('inventory')" style="margin-bottom:12px">← Back</button>
   <div style="padding-top:4px;margin-bottom:16px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Export</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">eBay CSV export · Full ScanForProfit backup</div>
@@ -1848,21 +1884,19 @@ body::before{
   <!-- FORMAT SELECTOR -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
     <div class="mode-tab active-green" id="csv-tab-ebay" onclick="setCsvExportMode('ebay')" role="button" tabindex="0" style="cursor:pointer">
-      <span class="tab-icon">📋</span>
       <div style="font-size:12px;font-weight:700">eBay CSV</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Draft listings template</div>
     </div>
     <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" role="button" tabindex="0" style="cursor:pointer">
-      <span class="tab-icon">💾</span>
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
-      <div style="font-size:10px;margin-top:2px;opacity:0.8">Full JSON export</div>
+      <div style="font-size:10px;margin-top:2px;opacity:0.8">Full CSV backup (ZIP)</div>
     </div>
   </div>
 
   <!-- EBAY CSV MODE -->
   <div id="csv-mode-ebay">
     <div class="card" style="margin-bottom:12px">
-      <h3 class="card-title">⏱ Export Window</h3>
+      <h3 class="card-title">Export Window</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
         <button class="csv-win-btn" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
@@ -1873,13 +1907,13 @@ body::before{
       <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <h3 class="card-title">📋 Items Ready to Export</h3>
+      <h3 class="card-title">Items Ready to Export</h3>
       <div id="csv-items-list"></div>
     </div>
-    <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">⬇ Download CSV for eBay</button>
+    <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">Download CSV for eBay</button>
     <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.7;font-weight:500">After downloading: eBay Seller Hub → Reports → Upload → select your CSV file</p>
     <div class="card" style="margin-top:10px;background:var(--yellow-bg);border-color:#e8b840">
-      <h3 class="card-title" style="color:var(--yellow)">⏰ Daily Reminder</h3>
+      <h3 class="card-title" style="color:var(--yellow)">Daily Reminder</h3>
       <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="time" id="csv-reminder-time" aria-label="Reminder time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
@@ -1892,9 +1926,9 @@ body::before{
   <!-- FLIPPD BACKUP MODE -->
   <div id="csv-mode-backup" style="display:none">
     <div class="card" style="margin-bottom:12px">
-      <h3 class="card-title">💾 Export Full Backup</h3>
+      <h3 class="card-title">Export Full Backup</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
-      <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:0">⬇ Download Full Backup</button>
+      <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:0">Download Full Backup</button>
     </div>
   </div>
 
@@ -1904,6 +1938,8 @@ body::before{
 <!-- TAB: IMPORT -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-import">
+  <!-- Change 7: Back button to return to inventory -->
+  <button class="back-btn" onclick="switchTab('inventory')" style="margin-bottom:12px">← Back</button>
   <div style="padding-top:4px;margin-bottom:16px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Import Inventory</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Restore from ScanForProfit backup · Import from spreadsheet</div>
@@ -1912,12 +1948,10 @@ body::before{
   <!-- FORMAT SELECTOR -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
     <div class="mode-tab active-green" id="import-tab-flippd" onclick="setImportMode('flippd')" role="button" tabindex="0" style="cursor:pointer">
-      <span class="tab-icon">🔄</span>
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Restore your data</div>
     </div>
     <div class="mode-tab" id="import-tab-manual" onclick="setImportMode('manual')" role="button" tabindex="0" style="cursor:pointer">
-      <span class="tab-icon">📊</span>
       <div style="font-size:12px;font-weight:700">Spreadsheet CSV</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Import from Excel/Sheets</div>
     </div>
@@ -1926,10 +1960,10 @@ body::before{
   <!-- FLIPPD BACKUP MODE -->
   <div id="import-mode-flippd">
     <div class="card" style="margin-bottom:12px">
-      <h3 class="card-title">🔄 Restore from ScanForProfit Backup</h3>
+      <h3 class="card-title">Restore from ScanForProfit Backup</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:14px">Upload a ScanForProfit JSON backup file to restore your inventory. New items will be added. Items with matching SKUs will be skipped to prevent duplicates.</p>
       <div id="import-flippd-dropzone" onclick="document.getElementById('import-flippd-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
-        <div style="font-size:32px;margin-bottom:8px">📁</div>
+        <div style="font-size:32px;margin-bottom:8px">↑</div>
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose file</div>
         <div style="font-size:11px;color:var(--muted)">ScanForProfit-backup-*.json</div>
       </div>
@@ -1940,16 +1974,15 @@ body::before{
   <!-- SPREADSHEET CSV MODE -->
   <div id="import-mode-manual" style="display:none">
     <div class="card" style="margin-bottom:12px">
-      <h3 class="card-title">📊 Import from Spreadsheet</h3>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a CSV with your inventory. Required: <strong>nickname</strong> and <strong>cost</strong>. Optional: category, condition, status, sellPrice, platform, notes, dateAcquired.</p>
+      <h3 class="card-title">Import from Spreadsheet</h3>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV or an eBay draft listings CSV. Duplicate SKUs are skipped automatically.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.8;word-break:break-all">
         nickname,cost,category,condition,status,sellPrice<br>
         "Xbox 360",8.00,Electronics,Good,Unlisted,45.00
       </div>
       <div id="import-csv-dropzone" onclick="document.getElementById('import-csv-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose CSV</div>
-        <div style="font-size:11px;color:var(--muted)">Any .csv file</div>
+        <div style="font-size:11px;color:var(--muted)">Spreadsheet CSV or eBay draft listings CSV</div>
       </div>
       <input type="file" id="import-csv-file" accept=".csv" style="display:none" onchange="handleCsvImport(event)">
     </div>
@@ -2705,11 +2738,15 @@ function profitStr(cost, price) { return calcProfit(cost,price).toFixed(2); }
 // ══════════════════════════════════════════════════
 // INVENTORY — HOME PAGE
 // ══════════════════════════════════════════════════
+// Change 20/23 audit: Sold items excluded from all totals except the Sold stat card.
+// Category counts, Est.Profit, and active inventory count all filter status !== 'Sold'.
+let _invActiveFilter = 'all'; // tracks which stat card is highlighted
+
 function renderInventoryHome() {
-  const total = items.length;
-  if (total === 0) {
+  // Change 20: exclude Sold from active inventory total
+  const activeItems = items.filter(i => i.status !== 'Sold');
+  if (items.length === 0) {
     document.getElementById('inv-home-stats').innerHTML = '';
-    document.getElementById('inv-status-cards').innerHTML = '';
     document.getElementById('inv-cat-cards').innerHTML = `
       <div class="empty-state-dashed">
         <div class="empty-icon">📦</div>
@@ -2719,27 +2756,40 @@ function renderInventoryHome() {
       </div>`;
     return;
   }
-  const listed = items.filter(i=>i.status==='Listed').length;
-  const sold = items.filter(i=>i.status==='Sold').length;
-  const unlisted = items.filter(i=>i.status==='Unlisted').length;
-  const estProfit = items.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
+  const unlistedCount = items.filter(i=>i.status==='Unlisted').length;
+  const listedCount = items.filter(i=>i.status==='Listed').length;
+  const soldCount = items.filter(i=>i.status==='Sold').length;
+  // Est.Profit: Unlisted + Listed only (not Sold) — uses user settings, never hardcoded
+  const ebayFee = S.ebayFee || 13;
+  const pkgCost = S.pkgCost || 1.25;
+  const estProfit = items
+    .filter(i => i.status === 'Unlisted' || i.status === 'Listed')
+    .reduce((sum, i) => {
+      const cost = parseFloat(i.cost) || 0;
+      const price = parseFloat(i.sellPrice) || 0;
+      const fee = price * (ebayFee / 100);
+      return sum + (price - cost - fee - pkgCost);
+    }, 0);
 
+  const activeFilter = _invActiveFilter;
+  const cardStyle = (key) => activeFilter === key
+    ? 'cursor:pointer;border-color:var(--green)'
+    : 'cursor:pointer';
+
+  // Change 10: 4 stat cards replace old Total+status row — Unlisted/Listed/Sold clickable, Est.Profit display only
   document.getElementById('inv-home-stats').innerHTML = `
-    <div class="inv-stat-card"><div class="inv-stat-num">${total}</div><div class="inv-stat-label">Total</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num">${listed}</div><div class="inv-stat-label">Listed</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num">${sold}</div><div class="inv-stat-label">Sold</div></div>
-    <div class="inv-stat-card"><div class="inv-stat-num u-pos">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
+    <div class="inv-stat-card" onclick="invStatFilter('Unlisted')" role="button" tabindex="0" style="${cardStyle('Unlisted')}">
+      <div class="inv-stat-num">${unlistedCount}</div><div class="inv-stat-label">Unlisted</div></div>
+    <div class="inv-stat-card" onclick="invStatFilter('Listed')" role="button" tabindex="0" style="${cardStyle('Listed')}">
+      <div class="inv-stat-num">${listedCount}</div><div class="inv-stat-label">Listed</div></div>
+    <div class="inv-stat-card" onclick="invStatFilter('Sold')" role="button" tabindex="0" style="${cardStyle('Sold')}">
+      <div class="inv-stat-num">${soldCount}</div><div class="inv-stat-label">Sold</div></div>
+    <div class="inv-stat-card" style="cursor:default">
+      <div class="inv-stat-num u-pos">$${estProfit.toFixed(0)}</div><div class="inv-stat-label">Est.Profit</div></div>`;
 
-  document.getElementById('inv-status-cards').innerHTML = ['Unlisted','Listed','Sold'].map(s => {
-    const count = items.filter(i=>i.status===s).length;
-    return `<div class="inv-status-card is-${s.toLowerCase()}" onclick="openFilteredList('status','${s}')" role="button" tabindex="0">
-      <div class="inv-status-num">${count}</div>
-      <div class="inv-status-lbl">${s}</div>
-    </div>`;
-  }).join('');
-
+  // Change 20: category cards exclude Sold items from counts and profit
   document.getElementById('inv-cat-cards').innerHTML = CATEGORIES.map(cat => {
-    const ci = items.filter(i=>i.category===cat);
+    const ci = items.filter(i => i.category === cat && i.status !== 'Sold');
     if (!ci.length) return '';
     const profit = ci.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
     const listedC = ci.filter(i=>i.status==='Listed').length;
@@ -2784,13 +2834,22 @@ function renderFilteredList() {
     return;
   }
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
-    const thumb = item.photos && item.photos[0];
+    // Change 14: photo thumbnail from photo_urls or photos array; SVG placeholder if none
+    const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
     const hasListing = item.listing ? true : false;
+    const isSold = item.status === 'Sold';
+    const isListed = item.status === 'Listed';
+    const isUnlisted = item.status === 'Unlisted';
+    // Change 13: Sold items open read-only detail view, others open edit
+    const cardClick = isSold ? `showSoldDetail(${item.id})` : `startEdit(${item.id})`;
+    const thumbClick = isSold ? `showSoldDetail(${item.id})` : `startEdit(${item.id})`;
     return `<div class="item-card">
       <div style="display:flex;align-items:flex-start;gap:var(--space-2)">
-        ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="" onclick="startEdit(${item.id})" role="button" tabindex="0" style="cursor:pointer">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;cursor:pointer" onclick="startEdit(${item.id})" role="button" tabindex="0">${CAT_ICONS[item.category]||'📦'}</div>`}
+        ${thumbUrl
+          ? `<img class="item-thumb" src="${thumbUrl}" alt="" loading="lazy" onclick="${thumbClick}" role="button" tabindex="0" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer">`
+          : `<div class="item-thumb" style="width:48px;height:48px;background:var(--bg);display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;cursor:pointer;border:1px solid var(--border)" onclick="${thumbClick}" role="button" tabindex="0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h4"/></svg></div>`}
         <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="startEdit(${item.id})" role="button" tabindex="0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="${cardClick}" role="button" tabindex="0">
             <div style="flex:1;min-width:0">
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick">${item.nickname}</div>
@@ -2798,11 +2857,15 @@ function renderFilteredList() {
             <span class="status-badge status-${item.status}" style="flex-shrink:0;margin-left:var(--space-1)">${item.status}</span>
           </div>
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
-            <span class="u-text-sm u-muted">🏷️ $${item.sellPrice||'0'}</span>
-            ${!hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
-            ${item.status!=='Sold' ? `<button class="sold-btn" onclick="openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
+            ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
+            ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
+            ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
+            ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
+            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm(${item.id})">Relist</button>` : ''}
           </div>
-          ${hasListing ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
+          ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
             <div id="listing-detail-${item.id}" style="display:none;margin-top:var(--space-2);font-size:var(--text-xs);line-height:1.5">
               <div style="margin-bottom:var(--space-1)"><strong>Title:</strong> <span class="u-muted">${item.listing.title}</span></div>
@@ -2828,6 +2891,100 @@ function invHomeSearch(q) {
 function renderInventory() { showInvView('home'); }
 function setCatFilter(c) { openFilteredList('category', c); }
 function setStatusFilter(s) { openFilteredList('status', s); }
+
+// Change 10: stat card click — toggle filter; click active card deactivates
+function invStatFilter(status) {
+  if (_invActiveFilter === status) {
+    _invActiveFilter = 'all';
+    renderInventoryHome();
+  } else {
+    _invActiveFilter = status;
+    renderInventoryHome();
+    openFilteredList('status', status);
+  }
+}
+
+// ── ITEM ACTION FUNCTIONS ──
+
+// Change 17: Mark Unlisted → Listed
+function markAsListed(id) {
+  items = items.map(i => i.id === id ? {...i, status: 'Listed', listed_at: new Date().toISOString()} : i);
+  saveItems();
+  renderFilteredList();
+  showToast('Item marked as Listed');
+}
+
+// Change 12: Relist sold item
+function openRelistConfirm(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm('Relist "' + item.nickname + '"? This creates a new Unlisted item with the same details.')) return;
+  relistItem(id);
+}
+
+function relistItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const newItem = {...item,
+    id: Date.now(),
+    status: 'Unlisted',
+    dateAcquired: new Date().toISOString().split('T')[0],
+    createdAt: new Date().toISOString(),
+  };
+  delete newItem.soldPrice; delete newItem.sold_price;
+  delete newItem.soldDate; delete newItem.sold_date;
+  items.push(newItem);
+  saveItems();
+  renderInventoryHome();
+  showToast('Item relisted and added to Unlisted');
+}
+
+// Change 13: Read-only detail view for Sold items
+function showSoldDetail(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const Sv = getSettings ? getSettings() : S;
+  const soldPrice = parseFloat(item.soldPrice || item.sold_price || 0);
+  const cost = parseFloat(item.cost) || 0;
+  const ebayFeeAmt = soldPrice * ((Sv.ebayFee || 13) / 100);
+  const pkgAmt = Sv.pkgCost || 1.25;
+  const shipAmt = (Sv.shipping === 'seller') ? (Sv.shipCost || 6) : 0;
+  const netProfit = soldPrice - cost - ebayFeeAmt - pkgAmt - shipAmt;
+  const roi = cost > 0 ? ((netProfit / cost) * 100).toFixed(0) : 'N/A';
+  const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
+  const overlay = document.createElement('div');
+  overlay.id = 'sold-detail-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;padding:16px;box-sizing:border-box';
+  overlay.innerHTML = `
+    <button class="back-btn" onclick="document.getElementById('sold-detail-overlay').remove()">← Back</button>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin:12px 0 4px">${item.nickname}</div>
+    <span class="status-badge status-Sold">Sold</span>
+    ${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--border);margin:12px 0;display:block">` : ''}
+    <div class="card" style="margin:12px 0">
+      <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">LISTING DATA</div>
+      <div style="font-size:13px;line-height:2;color:var(--text)">
+        <b>SKU:</b> ${item.sku||'—'}<br>
+        <b>Category:</b> ${item.category||'—'}<br>
+        <b>Condition:</b> ${item.condition||'—'}<br>
+        ${item.notes ? `<b>Notes:</b> ${item.notes}` : ''}
+      </div>
+    </div>
+    <div class="card" style="margin:12px 0">
+      <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">PROFIT BREAKDOWN</div>
+      <div style="font-size:13px;line-height:2.2;color:var(--text)">
+        <div style="display:flex;justify-content:space-between"><span>Sale price</span><span>$${soldPrice.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Cost paid</span><span>−$${cost.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>eBay fee (${Sv.ebayFee||13}%)</span><span>−$${ebayFeeAmt.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Packaging</span><span>−$${pkgAmt.toFixed(2)}</span></div>
+        ${shipAmt > 0 ? `<div style="display:flex;justify-content:space-between"><span>Shipping</span><span>−$${shipAmt.toFixed(2)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;font-weight:700">
+          <span>Net Profit</span><span class="${netProfit >= 0 ? 'u-pos' : 'u-neg'}">$${netProfit.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>
+      </div>
+    </div>
+    <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistConfirm(${item.id})">Relist This Item</button>`;
+  document.body.appendChild(overlay);
+}
 
 // ── DETAIL VIEW ──
 function showDetail(id) {
@@ -2899,9 +3056,127 @@ let invFormImgB64 = null;
 let invFormImgType = 'image/jpeg';
 let invFormImgFile = null; // v5.17: raw File for multipart upload
 
+// Change 4: rotate/crop helpers
+function invFormRotatePhoto() {
+  const imgEl = document.getElementById('inv-form-photo-img');
+  if (!imgEl.src || !invFormImgFile) return;
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width  = img.naturalHeight;
+    canvas.height = img.naturalWidth;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
+      const newUrl = URL.createObjectURL(blob);
+      imgEl.src = newUrl;
+      invFormImgFile = new File([blob], invFormImgFile.name || 'photo.jpg', { type: 'image/jpeg' });
+      try { Object.defineProperty(invFormImgFile, '_blobUrl', { value: newUrl, configurable: true }); } catch(_) {}
+    }, 'image/jpeg', 0.9);
+  };
+  img.src = imgEl.src;
+}
+
+let _cropData = null;
+function invFormCropStart() {
+  const imgEl = document.getElementById('inv-form-photo-img');
+  if (!imgEl.src || !invFormImgFile) return;
+  const r = imgEl.getBoundingClientRect();
+  const overlay = document.getElementById('inv-form-crop-overlay');
+  overlay.style.cssText = `display:block;position:fixed;top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px;z-index:1000;overflow:hidden;user-select:none;background:rgba(0,0,0,0.45)`;
+  const box = document.getElementById('inv-form-crop-box');
+  const mx = r.width * 0.12, my = r.height * 0.12;
+  Object.assign(box.style, { left: mx+'px', top: my+'px', width: (r.width-mx*2)+'px', height: (r.height-my*2)+'px' });
+  _cropData = { imgEl, r };
+  overlay.onmousedown = function(e) {
+    const corner = e.target.dataset && e.target.dataset.corner;
+    if (!corner) return;
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const bl = box.offsetLeft, bt = box.offsetTop, bw = box.offsetWidth, bh = box.offsetHeight;
+    function mv(me) {
+      const dx = me.clientX - sx, dy = me.clientY - sy;
+      let l=bl, t=bt, w=bw, h=bh;
+      if (corner.includes('e')) w = Math.max(40, bw + dx);
+      if (corner.includes('s')) h = Math.max(40, bh + dy);
+      if (corner.includes('w')) { l = Math.min(bl+dx, bl+bw-40); w = Math.max(40, bw-dx); }
+      if (corner.includes('n')) { t = Math.min(bt+dy, bt+bh-40); h = Math.max(40, bh-dy); }
+      l = Math.max(0, Math.min(l, r.width-w));
+      t = Math.max(0, Math.min(t, r.height-h));
+      box.style.left=l+'px'; box.style.top=t+'px'; box.style.width=w+'px'; box.style.height=h+'px';
+    }
+    function up() { document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }
+    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+  };
+}
+function invFormCropCancel() {
+  const ov = document.getElementById('inv-form-crop-overlay');
+  if (ov) ov.style.display = 'none';
+  _cropData = null;
+}
+function invFormCropApply() {
+  if (!_cropData) return;
+  const { imgEl, r } = _cropData;
+  const box = document.getElementById('inv-form-crop-box');
+  const bx = box.offsetLeft, by = box.offsetTop, bw = box.offsetWidth, bh = box.offsetHeight;
+  const img = new Image();
+  img.onload = function() {
+    // Map displayed crop rect → natural image coords (accounting for object-fit:contain letterboxing)
+    const natW = img.naturalWidth, natH = img.naturalHeight;
+    const scale = Math.min(r.width/natW, r.height/natH);
+    const rW = natW*scale, rH = natH*scale;
+    const ox = (r.width-rW)/2, oy = (r.height-rH)/2;
+    const sx = Math.max(0, (bx - ox) / scale);
+    const sy = Math.max(0, (by - oy) / scale);
+    const sw = Math.min(natW - sx, bw / scale);
+    const sh = Math.min(natH - sy, bh / scale);
+    if (sw < 1 || sh < 1) { invFormCropCancel(); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+    canvas.getContext('2d').drawImage(img, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
+      const newUrl = URL.createObjectURL(blob);
+      imgEl.src = newUrl;
+      invFormImgFile = new File([blob], invFormImgFile.name||'photo.jpg', { type:'image/jpeg' });
+      try { Object.defineProperty(invFormImgFile, '_blobUrl', { value:newUrl, configurable:true }); } catch(_) {}
+      document.getElementById('inv-form-crop-overlay').style.display = 'none';
+      _cropData = null;
+    }, 'image/jpeg', 0.9);
+  };
+  img.src = imgEl.src;
+}
+
 function invFormHandlePhoto(e) {
-  const file = e.target.files[0]; if (!file) return;
-  showToast('📷 Photo attached...');
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  e.target.value = '';
+  // Change 21: in edit mode with multiple files, add all to photo gallery directly
+  if (editingId && files.length > 1) {
+    showToast('Processing ' + files.length + ' photos...');
+    Promise.all(files.map(f => new Promise(resolve => {
+      const blobUrl = URL.createObjectURL(f);
+      resolve(blobUrl);
+    }))).then(urls => {
+      items = items.map(i => {
+        if (i.id !== editingId) return i;
+        const photos = [...(i.photos||[]), ...urls].slice(0, 12);
+        return {...i, photos, image_url: photos[0]||null};
+      });
+      saveItems();
+      const item = items.find(i => i.id === editingId);
+      if (item) invRenderPhotoGallery(item);
+      showToast(urls.length + ' photos added');
+    });
+    return;
+  }
+  const file = files[0];
+  showToast('Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
     if (invFormImgFile && invFormImgFile._blobUrl) {
       try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
@@ -2916,11 +3191,21 @@ function invFormHandlePhoto(e) {
     document.getElementById('inv-form-photo-preview').style.display = 'block';
     document.getElementById('inv-form-detect-btn').style.display = 'block';
     document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
+    // Change 21: in edit mode, also add to gallery immediately
+    if (editingId) {
+      items = items.map(i => {
+        if (i.id !== editingId) return i;
+        const photos = [...(i.photos||[]), blobUrl].slice(0, 12);
+        return {...i, photos, image_url: photos[0]||null};
+      });
+      saveItems();
+      const item = items.find(i => i.id === editingId);
+      if (item) invRenderPhotoGallery(item);
+    }
   }).catch(function(err) {
-    showToast('❌ ' + (err.message || 'Could not load photo'));
+    showToast('Could not load photo: ' + (err.message || 'unknown error'));
     console.error('invFormHandlePhoto failed:', err);
   });
-  e.target.value = '';
 }
 
 function invFormClearPhoto() {
@@ -2936,49 +3221,47 @@ function invFormClearPhoto() {
 
 async function invFormDetectItem() {
   if (!invFormImgFile) return;
-  if (!isUnlocked()) { showToast('⚠️ Access code required'); return; }
+  if (!isUnlocked()) { showToast('Access code required'); return; }
   const btn = document.getElementById('inv-form-detect-btn');
   const status = document.getElementById('inv-form-detect-status');
-  btn.disabled = true; btn.textContent = '🤖 Detecting...';
+  btn.disabled = true; btn.textContent = 'Detecting...';
   status.textContent = 'Analyzing photo...';
   try {
-    // v5.17: multipart/form-data — browser streams the raw file, no base64
-    // string allocated on the phone. Backend resizes server-side.
-    const fd = new FormData();
-    fd.append('image', invFormImgFile, invFormImgFile.name || 'photo.jpg');
-    fd.append('system', '');
+    // Compress image client-side: max 1200px, JPEG 0.85
+    const compressed = await compressImageForDetect(invFormImgFile, 1200, 0.85);
     const detectPrompt = 'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}';
-    // No `text` field — already inside messages, Anthropic rejects extras
-    fd.append('max_tokens', '400');
-    fd.append('model', 'claude-sonnet-4-6');
-    fd.append('messages', JSON.stringify([{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '' } },
-        { type: 'text', text: detectPrompt }
-      ]
-    }]));
-    // Strip Content-Type — browser sets it with boundary
-    const baseHeaders = getApiHeaders();
-    const headers = {};
-    for (const k in baseHeaders) {
-      if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let res;
+    try {
+      res = await fetch(API_BASE + '/v1/messages', {
+        method: 'POST',
+        headers: getApiHeaders(),
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 400,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: compressed } },
+              { type: 'text', text: detectPrompt }
+            ]
+          }]
+        })
+      });
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const res = await fetch(API_BASE + '/v1/messages-with-image', {
-      method: 'POST',
-      headers: headers,
-      body: fd,
-    });
+    if (res.status === 546) throw new Error('Camera resource limit reached — try a smaller photo or enter manually');
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`API Error ${res.status}: ${errText.substring(0, 100)}`);
+      throw new Error('API Error ' + res.status + ': ' + errText.substring(0, 100));
     }
     const d = await res.json();
     if (d.error) throw new Error(d.error.message);
     const raw = d.content?.find(b=>b.type==='text')?.text || '';
     const detected = JSON.parse(raw.replace(/```json|```/g,'').trim());
-
-    // Auto-fill the form fields
     document.getElementById('f-nickname').value = detected.name || '';
     if (detected.category && CATEGORIES.includes(detected.category)) {
       document.getElementById('f-category').value = detected.category;
@@ -2987,14 +3270,43 @@ async function invFormDetectItem() {
     if (detected.estimated_value) document.getElementById('f-price').value = detected.estimated_value.toFixed(2);
     if (detected.notes) document.getElementById('f-notes').value = detected.notes;
     updateProfitPreview();
-
-    status.textContent = `✓ Detected: ${detected.name} — review and confirm below`;
+    status.textContent = 'Detected: ' + detected.name + ' — review and confirm below';
     status.style.color = '#2D6B52';
   } catch(e) {
-    status.textContent = '⚠️ Detection failed: ' + (e.message || 'Try again');
+    if (e.name === 'AbortError') {
+      showToast('Detection timed out — try again or enter manually');
+      status.textContent = 'Detection timed out — enter manually';
+    } else {
+      status.textContent = 'Detection failed: ' + (e.message || 'Try again');
+    }
     status.style.color = 'var(--red)';
   }
-  btn.disabled = false; btn.textContent = '🤖 Detect Item from Photo';
+  btn.disabled = false; btn.textContent = 'Detect Item from Photo';
+}
+
+async function compressImageForDetect(file, maxPx, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        let w = img.width, h = img.height;
+        if (w > maxPx || h > maxPx) {
+          if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl.split(',')[1]); // return base64 only
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function openAddForm(prefill) {
@@ -3018,42 +3330,65 @@ function openAddForm(prefill) {
   showInvView('add');
 }
 
+let _lastInvFilter = null; // Change 16: remember filter before opening edit
+
 function startEdit(id) {
   const item = items.find(i => i.id === id);
-  if (!item) return;
+  if (!item) { showToast('Item not found — please refresh'); return; }
+  // Change 16: save active filter so we can restore it after save
+  _lastInvFilter = {...invListFilter};
   editingId = id;
-  invFormImgB64 = null; // don't overwrite with new photo unless user takes one
+  invFormImgB64 = null;
   initFormSelects();
+  // Change 18: reset all fields first to prevent data bleeding between items
+  ['f-nickname','f-sku','f-cost','f-price','f-notes'].forEach(fid => {
+    const el = document.getElementById(fid); if (el) el.value = '';
+  });
   document.getElementById('form-title').textContent = 'Edit Item';
-  document.getElementById('f-nickname').value = item.nickname;
-  document.getElementById('f-category').value = item.category;
-  document.getElementById('f-condition').value = item.condition;
-  document.getElementById('f-date').value = item.dateAcquired;
-  document.getElementById('f-platform').value = item.platform;
-  document.getElementById('f-cost').value = item.cost;
-  document.getElementById('f-price').value = item.sellPrice;
-  document.getElementById('f-status').value = item.status;
+  document.getElementById('f-nickname').value = item.nickname || '';
+  document.getElementById('f-category').value = item.category || CATEGORIES[0];
+  document.getElementById('f-condition').value = item.condition || 'Good';
+  document.getElementById('f-date').value = item.dateAcquired || new Date().toISOString().split('T')[0];
+  document.getElementById('f-platform').value = item.platform || 'eBay';
+  document.getElementById('f-cost').value = item.cost || '';
+  document.getElementById('f-price').value = item.sellPrice || '';
+  document.getElementById('f-status').value = item.status || 'Unlisted';
   document.getElementById('f-notes').value = item.notes || '';
   // Show existing photos
   document.getElementById('inv-form-photo-preview').style.display = 'none';
   document.getElementById('inv-form-detect-btn').style.display = 'none';
   document.getElementById('inv-form-detect-status').textContent = '';
-  // Show existing item photos below the camera buttons
-  const editPhotosEl = document.getElementById('inv-form-edit-photos');
-  if (editPhotosEl) {
-    if (item.photos && item.photos.length) {
-      editPhotosEl.style.display = 'block';
-      editPhotosEl.innerHTML = `<div class="edit-photos-label">EXISTING PHOTOS — tap ✕ to remove</div>`
-        + `<div class="edit-photo-grid">`
-        + item.photos.map((p,i)=>`<div class="edit-photo-wrap"><img src="${p}"><button class="edit-photo-del" onclick="editRemovePhoto(${id},${i})">✕</button></div>`).join('')
-        + `</div>`;
-    } else {
-      editPhotosEl.style.display = 'none';
-    }
-  }
+  // Change 21: multi-photo gallery — show photos from both photo_urls and photos arrays
+  invRenderPhotoGallery(item);
   updateProfitPreview();
   showInvView('add');
   window.scrollTo(0, 0);
+}
+
+// Change 21: render all photos from photo_urls + photos in a gallery strip
+function invRenderPhotoGallery(item) {
+  const el = document.getElementById('inv-form-edit-photos');
+  if (!el) return;
+  const urls = (item.photo_urls || []).filter(Boolean);
+  const localPhotos = (item.photos || []).filter(Boolean);
+  const allPhotos = [
+    ...urls.map(u => ({ src: u, source: 'url' })),
+    ...localPhotos.map((p, i) => ({ src: p, source: 'local', idx: i }))
+  ];
+  if (!allPhotos.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<div class="edit-photos-label">PHOTOS (${allPhotos.length}) — tap ✕ to remove</div>`
+    + `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">`
+    + allPhotos.map((photo, i) => {
+        const removeCall = photo.source === 'url'
+          ? `editRemovePhotoUrl(${item.id},'${photo.src}')`
+          : `editRemovePhoto(${item.id},${photo.idx})`;
+        return `<div style="position:relative;flex-shrink:0">
+          <img src="${photo.src}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+          <button onclick="${removeCall}" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;cursor:pointer;padding:0">✕</button>
+        </div>`;
+      }).join('')
+    + `</div>`;
 }
 
 function editRemovePhoto(itemId, photoIdx) {
@@ -3064,7 +3399,20 @@ function editRemovePhoto(itemId, photoIdx) {
     return {...i, photos, image_url: photos[0]||null};
   });
   saveItems();
-  startEdit(itemId); // re-render edit form
+  const item = items.find(i => i.id === itemId);
+  if (item) invRenderPhotoGallery(item);
+  showToast('Photo removed');
+}
+
+function editRemovePhotoUrl(itemId, url) {
+  items = items.map(i => {
+    if (i.id !== itemId) return i;
+    const photo_urls = (i.photo_urls || []).filter(u => u !== url);
+    return {...i, photo_urls};
+  });
+  saveItems();
+  const item = items.find(i => i.id === itemId);
+  if (item) invRenderPhotoGallery(item);
   showToast('Photo removed');
 }
 
@@ -3210,6 +3558,11 @@ function saveInvItem() {
   }
 
   editingId = null;
+  // Change 16: restore the filter the user was on before opening edit
+  if (_lastInvFilter && _lastInvFilter.type !== 'all') {
+    invListFilter = _lastInvFilter;
+  }
+  _lastInvFilter = null;
   showInvView('list');
   renderFilteredList();
 }
@@ -3694,7 +4047,9 @@ function pnlCalc() {
   const totalPkg = sold.length * S.pkgCost;
   const totalShip = S.shipping==='free' ? sold.length * S.shipCost : 0;
   const grossProfit = totalRevenue - totalCOGS - totalFees - totalPkg - totalShip;
-  const totalExpenses = pnlExpenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  // Change 15: filter out 'sale' entries — those are audit records, not expenses
+  const expenses = pnlExpenses.filter(e => e.category !== 'sale');
+  const totalExpenses = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
   const netProfit = grossProfit - totalExpenses;
   const taxReserve = netProfit > 0 ? netProfit * 0.25 : 0;
   return { sold, totalRevenue, totalCOGS, totalFees, totalPkg, totalShip, grossProfit, totalExpenses, netProfit, taxReserve };
@@ -3766,11 +4121,24 @@ function pnlAddExpense() {
 
 function pnlRenderExpenses() {
   const el = document.getElementById('pnl-exp-list');
+  const expenses = pnlExpenses.filter(e => e.category !== 'sale');
+  const sales = pnlExpenses.filter(e => e.category === 'sale');
   if (!pnlExpenses.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No expenses logged yet.</div>'; return; }
-  const total = pnlExpenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-  el.innerHTML = `<div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Total: -$${total.toFixed(2)}</div>`
+  const total = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  // Change 15: show sale audit events in green at top, expenses in red below
+  const saleRows = sales.length ? `<div style="margin-bottom:10px"><div style="font-size:10px;letter-spacing:0.12em;color:var(--muted);font-weight:800;margin-bottom:6px;text-transform:uppercase">Recent Sales</div><div class="card" style="padding:0 12px">`
+    + sales.slice(0,10).map(e=>`
+      <div class="pnl-exp-row">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text)">${e.desc||'Sale'}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px">${e.date}</div>
+        </div>
+        <span style="font-size:14px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif;flex-shrink:0;margin-left:10px">+$${parseFloat(e.amount).toFixed(2)}</span>
+      </div>`).join('')
+    + '</div></div>' : '';
+  const expRows = expenses.length ? `<div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Expenses Total: -$${total.toFixed(2)}</div>`
     + `<div class="card" style="padding:0 12px">`
-    + pnlExpenses.map(e=>`
+    + expenses.map(e=>`
       <div class="pnl-exp-row">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--text)">${e.desc||e.description||'Expense'}</div>
@@ -3781,7 +4149,9 @@ function pnlRenderExpenses() {
           <button onclick="pnlDeleteExp(${e.id})" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0">✕</button>
         </div>
       </div>`).join('')
-    + '</div>';
+    + '</div>' : '';
+  el.innerHTML = saleRows + expRows;
+  if (!saleRows && !expRows) el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No expenses logged yet.</div>';
 }
 
 function pnlDeleteExp(id) {
@@ -3792,7 +4162,7 @@ function pnlDeleteExp(id) {
 function pnlRenderReport() {
   const c = pnlCalc();
   const expByCat = {};
-  pnlExpenses.forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
+  pnlExpenses.filter(e => e.category !== 'sale').forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
   const catBreakdown = CATEGORIES.map(cat => {
     const ci = c.sold.filter(i=>i.category===cat);
     if (!ci.length) return '';
@@ -4256,16 +4626,27 @@ function confirmSold() {
   const price = document.getElementById('sold-price-input').value;
   if (!price || isNaN(parseFloat(price))) { alert('Enter the sale price.'); return; }
   const profit = calcProfit(soldModalItem.cost, price);
+  const soldAt = new Date().toISOString();
   items = items.map(i => i.id === soldModalItem.id
-    ? {...i, status:'Sold', sellPrice:price, notes:(i.notes||'').replace(/SOLD.*?\./,'').trim() + ` SOLD ${new Date().toLocaleDateString()} for $${price}.`}
+    ? {...i, status:'Sold', sellPrice:price, soldDate: soldAt, notes:(i.notes||'').replace(/SOLD.*?\./,'').trim() + ` SOLD ${new Date().toLocaleDateString()} for $${price}.`}
     : i
   );
   saveItems();
   updateStaleBadge();
-  logActivity('🎉', `Sold "${soldModalItem.nickname}" for $${price} (profit: $${profit.toFixed(2)})`);
+  // Change 15: write sale event to pnl_expenses for audit trail
+  pnlLoad();
+  pnlExpenses.unshift({
+    id: Date.now(),
+    desc: `Sold: ${soldModalItem.nickname} — $${parseFloat(price).toFixed(2)}`,
+    amount: parseFloat(profit.toFixed(2)),
+    category: 'sale',
+    date: soldAt.split('T')[0]
+  });
+  pnlSave();
+  logActivity('', `Sold "${soldModalItem.nickname}" for $${price} (profit: $${profit.toFixed(2)})`);
   closeSoldModal();
   renderInventory();
-  showToast('🎉 Sale recorded! +$' + profit.toFixed(2));
+  showToast('Sale recorded! +$' + profit.toFixed(2));
 }
 
 function closeSoldModal() {
@@ -4759,7 +5140,7 @@ function fileToBase64NoDecodeAndThumb(file) {
 // ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
 // ══════════════════════════════════════════════════
-const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:''};
+const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:'',exportReminderEnabled:false,exportReminderTime:'09:00'};
 let S = loadSrcSettings();
 
 const _origShowSettings=window.showSourcingSettings;
@@ -5105,6 +5486,10 @@ function populateSettingsUI() {
   set('slider-min-profit',S.minProfit); set('slider-target-roi',S.targetRoi);
   set('slider-max-days',S.maxDays); set('slider-ebay-fee',S.ebayFee); set('slider-pkg-cost',S.pkgCost);
   set('pa-removebg-key', S.removebgKey||'');
+  const remCb = document.getElementById('setting-reminder-enabled');
+  if (remCb) remCb.checked = !!S.exportReminderEnabled;
+  const remTime = document.getElementById('setting-reminder-time');
+  if (remTime) remTime.value = S.exportReminderTime || '09:00';
   updateSetting('min-profit',S.minProfit,'$',''); updateSetting('target-roi',S.targetRoi,'','%');
   updateSetting('max-days',S.maxDays,'',' days'); updateSetting('ebay-fee',S.ebayFee,'','%');
   updateSetting('pkg-cost',S.pkgCost,'$','');
@@ -5976,24 +6361,18 @@ function galleryScroll(id, total) {
 }
 
 // ══════════════════════════════════════════════════
-// STALE BADGE on inventory tab
+// STALE BADGE — removed (Change 8)
+// Was: counting Listed items older than maxDays and showing as a "9+" bubble
+// on the inventory tab icon. Removed because the count had no visible label
+// or explanation, confusing users. Stale items are surfaced in the Pulse tab
+// Action Queue instead.
 // ══════════════════════════════════════════════════
 function updateStaleBadge() {
-  const now = Date.now();
-  const staleCount = items.filter(i => {
-    if (i.status !== 'Listed') return false;
-    return (now - new Date(i.createdAt||i.dateAcquired).getTime()) / 86400000 > S.maxDays;
-  }).length;
+  // Badge removed — stale item count is now surfaced in Pulse tab Action Queue
   const btn = document.getElementById('tab-inventory');
   if (!btn) return;
   const existing = btn.querySelector('.stale-badge');
   if (existing) existing.remove();
-  if (staleCount > 0) {
-    const badge = document.createElement('span');
-    badge.className = 'stale-badge';
-    badge.textContent = staleCount > 9 ? '9+' : staleCount;
-    btn.appendChild(badge);
-  }
 }
 
 // ══════════════════════════════════════════════════
@@ -6209,6 +6588,23 @@ function renderTrendingKeywords(data, el) {
 // ══════════════════════════════════════════════════
 let csvWindowHours = 168;
 const CSV_EXPORTED_KEY = 'fef_csv_exported_ids';
+// Change 2: per-user export queue persisted in localStorage
+let _csvExportQueue = new Set();
+function _csvQueueKey() {
+  const uid = (window._currentUser && window._currentUser.id) || 'anon';
+  return `sfp_export_queue_${uid}`;
+}
+function _csvQueueLoad() {
+  try { _csvExportQueue = new Set(JSON.parse(localStorage.getItem(_csvQueueKey())||'[]')); } catch { _csvExportQueue = new Set(); }
+}
+function _csvQueueSave() { localStorage.setItem(_csvQueueKey(), JSON.stringify([..._csvExportQueue])); }
+function csvToggleQueue(id, checked) {
+  if (checked) _csvExportQueue.add(String(id));
+  else _csvExportQueue.delete(String(id));
+  _csvQueueSave();
+  const btnEl = document.getElementById('csv-export-btn');
+  if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
+}
 
 function setCsvExportMode(mode) {
   const isEbay = mode === 'ebay';
@@ -6254,28 +6650,45 @@ function renderCsvPreview() {
   const lastEl   = document.getElementById('csv-last-export');
   const listEl   = document.getElementById('csv-items-list');
   const btnEl    = document.getElementById('csv-export-btn');
-  if (!countEl) return; // tab not in DOM yet
+  if (!countEl) return;
+  _csvQueueLoad(); // Change 2: load persisted queue
   const candidates = getCsvCandidates();
   const lastExport = localStorage.getItem('fef_last_csv_export');
-  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} ready to export`;
+  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} available`;
   lastEl.textContent  = lastExport ? 'Last export: ' + lastExport : 'No exports yet';
-  if (btnEl) btnEl.disabled = candidates.length === 0;
+  if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
   if (!listEl) return;
   if (!candidates.length) {
     listEl.innerHTML = '<div class="csv-empty">No new Unlisted items in the selected window.<br>Try a wider time range or add more items.</div>';
     return;
   }
-  listEl.innerHTML = candidates.map(i => `
-    <div class="csv-item-row">
-      <div>
+  const unlistedCount = candidates.filter(i => i.status === 'Unlisted').length;
+  // Change 3: Select All Unlisted button
+  const selectAllBtn = unlistedCount > 0
+    ? `<button onclick="csvSelectAllUnlisted()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:6px;padding:4px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;margin-bottom:8px">Select All Unlisted (${unlistedCount})</button>`
+    : '';
+  listEl.innerHTML = selectAllBtn + candidates.map(i => {
+    const checked = _csvExportQueue.has(String(i.id));
+    return `<div class="csv-item-row" style="align-items:center">
+      <input type="checkbox" ${checked?'checked':''} onchange="csvToggleQueue(${i.id},this.checked)" style="width:16px;height:16px;flex-shrink:0;margin-right:8px;cursor:pointer" aria-label="Select ${i.nickname}">
+      <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · Cat ID: ${getEbayCatId(i)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · ${i.status}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:10px">
         <div style="font-size:13px;font-weight:700;color:var(--green)">$${i.sellPrice||'0'}</div>
         <div style="font-size:10px;color:var(--muted)">${i.condition}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+// Change 3: select all Unlisted candidates into the queue
+function csvSelectAllUnlisted() {
+  _csvQueueLoad();
+  getCsvCandidates().filter(i => i.status === 'Unlisted').forEach(i => _csvExportQueue.add(String(i.id)));
+  _csvQueueSave();
+  renderCsvPreview();
 }
 
 function conditionToEbayId(cond) {
@@ -6291,7 +6704,10 @@ function conditionToEbayId(cond) {
 }
 
 function generateAndDownloadCSV() {
-  const candidates = getCsvCandidates();
+  _csvQueueLoad();
+  // Change 2: only export items checked in the queue; fall back to all candidates if queue empty
+  let candidates = getCsvCandidates().filter(i => _csvExportQueue.has(String(i.id)));
+  if (!candidates.length) candidates = getCsvCandidates(); // legacy fallback
   if (!candidates.length) { showToast('No items to export'); return; }
 
   const h1 = `#INFO,Version=0.0.2,Template= eBay-draft-listings-template_US,,,,,,,,`;
@@ -6331,8 +6747,11 @@ function generateAndDownloadCSV() {
   // Items queued via "Save + Export" are now drafted on eBay — mark Listed.
   candidates.forEach(i => { if (i.status === 'Ready to Export') i.status = 'Listed'; });
   saveItems();
+  // Change 2: clear exported items from the queue
+  candidates.forEach(i => _csvExportQueue.delete(String(i.id)));
+  _csvQueueSave();
   localStorage.setItem('fef_last_csv_export', new Date().toLocaleString());
-  showToast(`✓ Exported ${candidates.length} item${candidates.length!==1?'s':''}`);
+  showToast(`Exported ${candidates.length} item${candidates.length!==1?'s':''}`);
   renderCsvPreview();
   renderInventory();
 }
@@ -7126,48 +7545,86 @@ function handleFlippdImport(e) {
 // ══════════════════════════════════════════════════
 // IMPORT — SPREADSHEET CSV
 // ══════════════════════════════════════════════════
+// Change 9: RFC 4180 CSV import — handles ScanForProfit CSV and eBay draft CSV
 function handleCsvImport(e) {
   const file = e.target.files[0];
   if (!file) return;
+  e.target.value = '';
   const reader = new FileReader();
   reader.onload = ev => {
     try {
       const rows = parseCsvRows(ev.target.result);
       if (!rows.length) { showToast('No rows found in CSV'); return; }
-      const header = rows[0].map(h => h.trim().toLowerCase());
 
-      // Detect eBay order/shipping CSV (headers from Seller Hub Orders export)
-      const ebayOrderHeaders = ['order number','buyer name','buyer username','sales record number','order id','transaction id','ship to name','ship to city'];
-      const isEbayOrderCsv = ebayOrderHeaders.some(h => header.includes(h));
-      if (isEbayOrderCsv) {
-        showToast('⚠️ This is an eBay order export, not an inventory CSV. To import inventory, use a ScanForProfit JSON backup or a spreadsheet with a "nickname" column.');
+      // Detect eBay order/shipping CSV (Seller Hub Orders export — not importable)
+      const firstHeader = rows[0].map(h => h.trim().toLowerCase());
+      const ebayOrderHeaders = ['order number','buyer name','buyer username','sales record number','transaction id','ship to name'];
+      if (ebayOrderHeaders.some(h => firstHeader.includes(h))) {
+        showToast('This is an eBay order export — not importable. Use a ScanForProfit backup or spreadsheet CSV.');
         return;
       }
 
-      // Detect eBay drafts/listings CSV (the file Flippd itself generates)
-      const ebayListingHeaders = ['custom label (sku)','item photo url','condition id'];
-      const isEbayListingCsv = ebayListingHeaders.some(h => header.includes(h));
-      if (isEbayListingCsv) {
-        showToast('⚠️ This is an eBay listings CSV, not a ScanForProfit inventory CSV. Use a ScanForProfit JSON backup to restore inventory.');
+      // Change 9: detect and parse eBay draft CSV (generated by ScanForProfit Export)
+      const isEbayDraft = rows[0][0].startsWith('#INFO') || firstHeader.some(h => h.includes('custom label (sku)') || h.includes('condition id'));
+      if (isEbayDraft) {
+        // Find the actual header row (first row that has 'custom label (sku)' or similar)
+        let headerRowIdx = -1;
+        for (let i = 0; i < Math.min(rows.length, 8); i++) {
+          const rh = rows[i].map(h => h.trim().toLowerCase());
+          if (rh.some(h => h.includes('custom label') || h.includes('title') && rh.some(hh => hh.includes('price')))) {
+            headerRowIdx = i; break;
+          }
+        }
+        if (headerRowIdx === -1) { showToast('Could not parse eBay CSV header row'); return; }
+        const ebayHeader = rows[headerRowIdx].map(h => h.trim().toLowerCase());
+        const skuCol = ebayHeader.findIndex(h => h.includes('custom label'));
+        const titleCol = ebayHeader.findIndex(h => h === 'title');
+        const priceCol = ebayHeader.findIndex(h => h === 'price');
+        const photoCol = ebayHeader.findIndex(h => h.includes('photo url'));
+        const descCol = ebayHeader.findIndex(h => h.includes('description'));
+        const existingSkus = new Set(items.map(i => i.sku).filter(Boolean));
+        let skippedCount = 0;
+        const parsed = [];
+        for (let i = headerRowIdx + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row.some(c => c.trim())) continue;
+          const sku = skuCol >= 0 ? (row[skuCol]||'').trim() : '';
+          if (sku && existingSkus.has(sku)) { skippedCount++; continue; }
+          const title = titleCol >= 0 ? (row[titleCol]||'').trim() : '';
+          if (!title) continue;
+          const price = priceCol >= 0 ? parseFloat(row[priceCol])||0 : 0;
+          const photo = photoCol >= 0 ? (row[photoCol]||'').trim() : '';
+          const desc = descCol >= 0 ? (row[descCol]||'').replace(/<[^>]+>/g,' ').trim() : '';
+          parsed.push(normaliseImportItem({ nickname: title, sku, sellPrice: String(price), notes: desc, photos: photo ? [photo] : [], image_url: photo || null, created_from: 'ebay_csv' }));
+        }
+        if (!parsed.length) { showToast(skippedCount ? `All ${skippedCount} items already in inventory (duplicate SKUs)` : 'No items found in eBay CSV'); return; }
+        pendingImportItems = parsed;
+        showImportPreview(pendingImportItems, skippedCount, 'csv');
         return;
       }
 
+      // Standard ScanForProfit CSV (nickname, cost, category, ... columns)
+      const header = firstHeader;
       const required = ['nickname'];
-      const missing = required.filter(r => !header.includes(r));
-      if (missing.length) {
-        showToast('⚠️ CSV must have a "nickname" column. Expected columns: nickname, category, condition, cost, sellPrice, platform, status, notes, dateAcquired.');
+      if (required.some(r => !header.includes(r))) {
+        showToast('CSV must have a "nickname" column. eBay CSVs are also supported.');
         return;
       }
       const existingSkus = new Set(items.map(i => i.sku).filter(Boolean));
+      let skippedCount = 0;
       const parsed = rows.slice(1).filter(r => r.some(c => c.trim())).map(row => {
         const obj = {};
         header.forEach((h, i) => { obj[h] = (row[i] || '').trim(); });
         return obj;
+      }).filter(r => {
+        if (!r.nickname) return false;
+        // Change 9: duplicate SKU check
+        if (r.sku && existingSkus.has(r.sku)) { skippedCount++; return false; }
+        return true;
       });
-      const newItems = parsed.filter(r => r.nickname);
-      const skippedCount = 0; // CSV rows don't have SKUs yet, so no dupes
-      pendingImportItems = newItems.map(r => normaliseImportItem({
+      pendingImportItems = parsed.map(r => normaliseImportItem({
         nickname:     r.nickname || r.name || r.item || '',
+        sku:          r.sku || '',
         category:     r.category || 'Electronics',
         condition:    r.condition || 'Good',
         cost:         r.cost || r['cost paid'] || '0',
@@ -7179,7 +7636,8 @@ function handleCsvImport(e) {
       }));
       showImportPreview(pendingImportItems, skippedCount, 'csv');
     } catch (err) {
-      showToast('⚠️ Could not parse CSV — check the file format');
+      showToast('Could not parse CSV — check the file format');
+      console.error('handleCsvImport error:', err);
     }
   };
   reader.readAsText(file);
@@ -7318,27 +7776,60 @@ function cancelImport() {
 // EXPORT — FULL FLIPPD BACKUP (JSON)
 // ══════════════════════════════════════════════════
 function exportFlippdBackup() {
-  const backup = {
-    version: '2.0',
-    exportedAt: new Date().toISOString(),
-    items: items,
-    expenses: pnlExpenses || [],
-    scanLog: (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })(),
-    settings: S,
-  };
-  const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], {type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const dateStr = new Date().toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'}).replace(/\//g,'-');
-  a.href     = url;
-  a.download = `ScanForProfit-backup-${dateStr}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(`✓ Backup saved — ${items.length} items`);
-  logActivity('💾', `Exported full backup (${items.length} items)`);
+  function toCsvRow(arr) {
+    return arr.map(v => {
+      const s = (v == null ? '' : String(v)).replace(/"/g, '""');
+      return /[",\n\r]/.test(s) ? `"${s}"` : s;
+    }).join(',');
+  }
+  function buildCsv(headers, rows) {
+    return [toCsvRow(headers), ...rows.map(r => toCsvRow(headers.map(h => r[h])))].join('\r\n');
+  }
+
+  const invHeaders = ['id','item_id','sku','nickname','category','condition','date_acquired','platform','cost','sell_price','status','notes','created_at','listing_title','ebay_category','sold_at','updated_at','photo_count'];
+  const invRows = items.map(i => ({
+    id: i.id, item_id: i.item_id||'', sku: i.sku||'', nickname: i.nickname||'', category: i.category||'',
+    condition: i.condition||'', date_acquired: i.dateAcquired||i.date_acquired||'', platform: i.platform||'eBay',
+    cost: i.cost||'', sell_price: i.sellPrice||i.sell_price||'', status: i.status||'', notes: i.notes||'',
+    created_at: i.createdAt||i.created_at||'', listing_title: i.listingTitle||i.listing_title||'',
+    ebay_category: i.ebayCategory||i.ebay_category||'', sold_at: i.soldDate||i.sold_at||'',
+    updated_at: i.updatedAt||i.updated_at||'', photo_count: (i.photos||[]).length + (i.photo_urls||[]).length
+  }));
+
+  pnlLoad();
+  const expHeaders = ['id','date','amount','category','description','miles'];
+  const expRows = (pnlExpenses || []).filter(e => e.category !== 'sale').map(e => ({
+    id: e.id||'', date: e.date||'', amount: e.amount||'', category: e.category||'',
+    description: e.desc||e.description||'', miles: e.miles||''
+  }));
+
+  const scanLog = (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })();
+  const scanHeaders = ['id','created_at','item_description','decision','estimated_profit','estimated_sell','cost','category','confidence'];
+  const scanRows = scanLog.map(e => ({
+    id: e.id||'', created_at: e.createdAt||e.created_at||'', item_description: e.item_description||e.itemDescription||'',
+    decision: e.decision||'', estimated_profit: e.estimated_profit||e.estimatedProfit||'',
+    estimated_sell: e.estimated_sell||e.estimatedSell||'', cost: e.cost||'',
+    category: e.category||'', confidence: e.confidence||''
+  }));
+
+  const zip = new JSZip();
+  zip.file('inventory.csv', buildCsv(invHeaders, invRows));
+  zip.file('expenses.csv',  buildCsv(expHeaders, expRows));
+  zip.file('scan_history.csv', buildCsv(scanHeaders, scanRows));
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  zip.generateAsync({type:'blob'}).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = `sfp-backup-${dateStr}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Backup saved — ${items.length} items`);
+    logActivity('', `Exported full backup (${items.length} items)`);
+  });
 }
 
 
