@@ -60,6 +60,7 @@ const PRICE_TIER: Record<string, string> = {
   'price_1Tb4hRId3kJSEdqMq9XwGKbZ': 'stack',   // Stack monthly
   'price_1Tb4hTId3kJSEdqMB21L5giT': 'stack',   // Stack annual
   'price_1Tb4hWId3kJSEdqMFrtyqDkK': 'empire',  // Empire monthly
+  // empire_annual: add price ID here once created in Stripe (no price exists yet)
 };
 
 Deno.serve(async (req: Request) => {
