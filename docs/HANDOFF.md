@@ -4,6 +4,55 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18c — Secrets audit complete
+
+### What changed this session
+
+No code changes. Secrets audit and operational Q&A only.
+
+### Secrets status — ALL SET ✅
+
+Every secret required across all platforms has been confirmed set by the user.
+
+**Supabase Edge Function secrets (all confirmed set):**
+- `ANTHROPIC_API_KEY` ✅
+- `JWT_SECRET` ✅
+- `RESEND_API_KEY` ✅
+- `STRIPE_SECRET_KEY` ✅
+- `STRIPE_WEBHOOK_SECRET` ✅
+- `STRIPE_PRICE_HUSTLE_MONTHLY` ✅
+- `STRIPE_PRICE_HUSTLE_ANNUAL` ✅
+- `STRIPE_PRICE_STACK_MONTHLY` ✅
+- `STRIPE_PRICE_STACK_ANNUAL` ✅
+- `STRIPE_PRICE_EMPIRE_MONTHLY` ✅
+- `STRIPE_PRICE_EMPIRE_ANNUAL` ✅
+- `EBAY_CLIENT_ID` ✅
+- `EBAY_CLIENT_SECRET` ✅
+- `EBAY_RUNAME` ✅ (code reads `EBAY_RUNAME` — no underscore between RU and NAME)
+- `FRONTEND_URL` ✅
+- `CRON_SECRET` ✅ (user-generated random string via `openssl rand -hex 32`)
+
+**GitHub Secrets:**
+- `EXPO_TOKEN` ✅
+
+**Vercel Environment Variables:**
+- All required vars ✅
+
+### Decisions made (do not reverse)
+- `CRON_SECRET` is a self-generated random string. Generate with `openssl rand -hex 32`. No external service needed.
+- `EBAY_RUNAME` is the correct secret name — no underscore between RU and NAME. The code in `ebay-oauth/index.ts` reads `Deno.env.get('EBAY_RUNAME')`.
+
+### Next task
+1. Verify Stripe upgrade flow end-to-end (still "not yet verified" in CLAUDE.md build status)
+2. Connect eBay developer sandbox credentials and run end-to-end OAuth + sync test (0 users have `ebay_access_token` set)
+3. Confirm PostHog events are firing (not yet verified)
+4. Sentry zero-error audit
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-06-18b — Wire pg_cron trigger for export-reminder (branch: claude/ebay-sync-schema-dhbhir)
 
 ### What changed this session
