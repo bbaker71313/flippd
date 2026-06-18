@@ -3856,7 +3856,9 @@ function pnlCalc() {
   const totalPkg = sold.length * S.pkgCost;
   const totalShip = S.shipping==='free' ? sold.length * S.shipCost : 0;
   const grossProfit = totalRevenue - totalCOGS - totalFees - totalPkg - totalShip;
-  const totalExpenses = pnlExpenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  // Change 15: filter out 'sale' entries — those are audit records, not expenses
+  const expenses = pnlExpenses.filter(e => e.category !== 'sale');
+  const totalExpenses = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
   const netProfit = grossProfit - totalExpenses;
   const taxReserve = netProfit > 0 ? netProfit * 0.25 : 0;
   return { sold, totalRevenue, totalCOGS, totalFees, totalPkg, totalShip, grossProfit, totalExpenses, netProfit, taxReserve };
@@ -3928,11 +3930,24 @@ function pnlAddExpense() {
 
 function pnlRenderExpenses() {
   const el = document.getElementById('pnl-exp-list');
+  const expenses = pnlExpenses.filter(e => e.category !== 'sale');
+  const sales = pnlExpenses.filter(e => e.category === 'sale');
   if (!pnlExpenses.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No expenses logged yet.</div>'; return; }
-  const total = pnlExpenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-  el.innerHTML = `<div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Total: -$${total.toFixed(2)}</div>`
+  const total = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  // Change 15: show sale audit events in green at top, expenses in red below
+  const saleRows = sales.length ? `<div style="margin-bottom:10px"><div style="font-size:10px;letter-spacing:0.12em;color:var(--muted);font-weight:800;margin-bottom:6px;text-transform:uppercase">Recent Sales</div><div class="card" style="padding:0 12px">`
+    + sales.slice(0,10).map(e=>`
+      <div class="pnl-exp-row">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text)">${e.desc||'Sale'}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px">${e.date}</div>
+        </div>
+        <span style="font-size:14px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif;flex-shrink:0;margin-left:10px">+$${parseFloat(e.amount).toFixed(2)}</span>
+      </div>`).join('')
+    + '</div></div>' : '';
+  const expRows = expenses.length ? `<div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Expenses Total: -$${total.toFixed(2)}</div>`
     + `<div class="card" style="padding:0 12px">`
-    + pnlExpenses.map(e=>`
+    + expenses.map(e=>`
       <div class="pnl-exp-row">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--text)">${e.desc||e.description||'Expense'}</div>
@@ -3943,7 +3958,9 @@ function pnlRenderExpenses() {
           <button onclick="pnlDeleteExp(${e.id})" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0">✕</button>
         </div>
       </div>`).join('')
-    + '</div>';
+    + '</div>' : '';
+  el.innerHTML = saleRows + expRows;
+  if (!saleRows && !expRows) el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No expenses logged yet.</div>';
 }
 
 function pnlDeleteExp(id) {
@@ -3954,7 +3971,7 @@ function pnlDeleteExp(id) {
 function pnlRenderReport() {
   const c = pnlCalc();
   const expByCat = {};
-  pnlExpenses.forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
+  pnlExpenses.filter(e => e.category !== 'sale').forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
   const catBreakdown = CATEGORIES.map(cat => {
     const ci = c.sold.filter(i=>i.category===cat);
     if (!ci.length) return '';
@@ -4418,16 +4435,27 @@ function confirmSold() {
   const price = document.getElementById('sold-price-input').value;
   if (!price || isNaN(parseFloat(price))) { alert('Enter the sale price.'); return; }
   const profit = calcProfit(soldModalItem.cost, price);
+  const soldAt = new Date().toISOString();
   items = items.map(i => i.id === soldModalItem.id
-    ? {...i, status:'Sold', sellPrice:price, notes:(i.notes||'').replace(/SOLD.*?\./,'').trim() + ` SOLD ${new Date().toLocaleDateString()} for $${price}.`}
+    ? {...i, status:'Sold', sellPrice:price, soldDate: soldAt, notes:(i.notes||'').replace(/SOLD.*?\./,'').trim() + ` SOLD ${new Date().toLocaleDateString()} for $${price}.`}
     : i
   );
   saveItems();
   updateStaleBadge();
-  logActivity('🎉', `Sold "${soldModalItem.nickname}" for $${price} (profit: $${profit.toFixed(2)})`);
+  // Change 15: write sale event to pnl_expenses for audit trail
+  pnlLoad();
+  pnlExpenses.unshift({
+    id: Date.now(),
+    desc: `Sold: ${soldModalItem.nickname} — $${parseFloat(price).toFixed(2)}`,
+    amount: parseFloat(profit.toFixed(2)),
+    category: 'sale',
+    date: soldAt.split('T')[0]
+  });
+  pnlSave();
+  logActivity('', `Sold "${soldModalItem.nickname}" for $${price} (profit: $${profit.toFixed(2)})`);
   closeSoldModal();
   renderInventory();
-  showToast('🎉 Sale recorded! +$' + profit.toFixed(2));
+  showToast('Sale recorded! +$' + profit.toFixed(2));
 }
 
 function closeSoldModal() {
