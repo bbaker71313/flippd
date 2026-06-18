@@ -1815,92 +1815,6 @@ body::before{
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════ -->
-<!-- TAB: P&L TRACKER -->
-<!-- ═══════════════════════════════════════ -->
-<div class="tab-panel" id="panel-pnl">
-  <div style="padding-top:4px;margin-bottom:14px">
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">P&amp;L Tracker</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Revenue · Expenses · Net profit · Tax estimate</div>
-  </div>
-
-  <!-- Summary cards -->
-  <div id="pnl-summary-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
-
-  <!-- Tax estimate banner -->
-  <div id="pnl-tax-banner" class="mb-14"></div>
-
-  <!-- Sub-tabs -->
-  <div style="display:flex;gap:6px;margin-bottom:14px">
-    <button class="filter-btn active" id="pnl-tab-sales" onclick="pnlSetTab('sales')">📊 Sales</button>
-    <button class="filter-btn" id="pnl-tab-expenses" onclick="pnlSetTab('expenses')">🧾 Expenses</button>
-    <button class="filter-btn" id="pnl-tab-monthly" onclick="pnlSetTab('monthly')">📅 Monthly</button>
-    <button class="filter-btn" id="pnl-tab-report" onclick="pnlSetTab('report')">📋 Report</button>
-  </div>
-
-  <!-- SALES VIEW -->
-  <div id="pnl-view-sales">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500">Pulled from inventory, sold items only</div>
-    <div id="pnl-sales-table"></div>
-  </div>
-
-  <!-- EXPENSES VIEW -->
-  <div id="pnl-view-expenses" style="display:none">
-    <div class="card mb-12">
-      <h3 class="card-title">➕ Add Expense</h3>
-      <div class="form-grid">
-        <div class="f-group col-full">
-          <label class="f-label">Description</label>
-          <input class="f-input" id="pnl-exp-desc" placeholder="e.g. Gas to thrift store, poly mailers, tape roll">
-        </div>
-        <div class="f-group">
-          <label class="f-label">Amount ($)</label>
-          <input class="f-input" type="number" id="pnl-exp-amt" placeholder="12.50" step="0.01" min="0">
-        </div>
-        <div class="f-group">
-          <label class="f-label">Category</label>
-          <select class="f-select" id="pnl-exp-cat">
-            <option>Gas &amp; Travel</option>
-            <option>Shipping Supplies</option>
-            <option>Storage</option>
-            <option>Platform Fees</option>
-            <option>Equipment</option>
-            <option>Marketing</option>
-            <option>Other</option>
-          </select>
-        </div>
-        <div class="f-group">
-          <label class="f-label">Date</label>
-          <input class="f-input" type="date" id="pnl-exp-date">
-        </div>
-      </div>
-      <button class="btn btn-green" onclick="pnlAddExpense()" style="margin-bottom:0;margin-top:12px">Add Expense</button>
-    </div>
-    <div id="pnl-exp-list"></div>
-  </div>
-
-  <!-- MONTHLY VIEW -->
-  <div id="pnl-view-monthly" style="display:none">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500">Profit breakdown by month</div>
-    <div class="card" style="padding:0 12px" id="pnl-monthly-content"></div>
-  </div>
-
-  <!-- REPORT VIEW -->
-  <div id="pnl-view-report" style="display:none">
-    <div id="pnl-report-content"></div>
-  </div>
-
-  <!-- MILEAGE QUICK-LOGGER (always visible) -->
-  <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:var(--yellow)">
-    <h3 class="card-title text-yellow">🚗 Quick Mileage Logger</h3>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="pnl-miles-input" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid var(--yellow);border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
-      <button onclick="pnlLogMileage()" style="background:var(--yellow);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
-    </div>
-    <div style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace">IRS rate: $0.67/mile · Auto-added to Gas & Travel expenses</div>
-  </div>
-</div>
-
 <!-- TAB: CSV EXPORT -->
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-csv">
@@ -2437,7 +2351,7 @@ let activeTab = 'sourcing';
   var _o='ebayhq_items_v1',_v=localStorage.getItem(_o);
   if(_v!==null){if(!localStorage.getItem('sfp_items_v1'))localStorage.setItem('sfp_items_v1',_v);localStorage.removeItem(_o);}
   // v2: flippd_* → sfp_* (ScanForProfit rebrand)
-  var _pairs=[['flippd_items_v1','sfp_items_v1'],['flippd_jwt','sfp_jwt'],['flippd_user_name','sfp_user_name'],['flippd_seeded','sfp_seeded'],['flippd_events','sfp_events']];
+  var _pairs=[['flippd_items_v1','sfp_items_v1'],['flippd_jwt','sfp_jwt'],['flippd_user_name','sfp_user_name'],['flippd_seeded','sfp_seeded']];
   for(var _i=0;_i<_pairs.length;_i++){var _p=_pairs[_i];var _pv=localStorage.getItem(_p[0]);if(_pv!==null){if(!localStorage.getItem(_p[1]))localStorage.setItem(_p[1],_pv);localStorage.removeItem(_p[0]);}}
 
 }catch(e){}})();
@@ -2592,7 +2506,6 @@ function saveItems() {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       try {
         localStorage.removeItem('sfp_growth_cache');
-        localStorage.removeItem('sfp_events');
         localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithoutPhotos()));
       } catch(e2) {
         showToast('\u26a0\ufe0f Storage full. Delete some items or photos to continue.');
@@ -2712,11 +2625,10 @@ function switchTab(tab) {
   if (tabBtn) tabBtn.classList.add('active');
   const panel = document.getElementById('panel-'+tab);
   if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-  if (tab === 'csv' || tab === 'import' || tab === 'pnl') window.scrollTo(0, 0);
+  if (tab === 'csv' || tab === 'import') window.scrollTo(0, 0);
   if (tab === 'inventory') renderInventory();
   if (tab === 'photo') populatePaDropdown();
   if (tab === 'growth') initGrowthTab();
-  if (tab === 'pnl') { pnlRenderSummary(); pnlSetTab('sales'); }
   if (tab === 'csv') { renderCsvPreview(); loadCsvReminder(); }
   if (tab === 'import') { resetImportUI(); }
   if (tab === 'dashboard') { statsSubTab('pnl'); }
@@ -2754,10 +2666,8 @@ function switchTab(tab) {
 function calcProfit(cost, price) {
   const c = parseFloat(cost) || 0;
   const p = parseFloat(price) || 0;
-  // Use user-configured fee rate and packaging cost (never hardcode)
-  const feePct = (S && S.ebayFee != null) ? S.ebayFee : 13;
-  const pkg    = (S && S.pkgCost != null) ? S.pkgCost : 1.25;
-  return p - c - (p * feePct / 100) - pkg;
+  if (!S || S.ebayFee == null || S.pkgCost == null) return 0;
+  return p - c - (p * S.ebayFee / 100) - S.pkgCost;
 }
 function profitStr(cost, price) { return calcProfit(cost,price).toFixed(2); }
 
@@ -4049,173 +3959,6 @@ function pnlLoad() {
 }
 function pnlSave() { localStorage.setItem(PNL_KEY, JSON.stringify(pnlExpenses)); }
 
-function pnlSetTab(tab) {
-  ['sales','expenses','monthly','report'].forEach(t => {
-    const btn = document.getElementById('pnl-tab-'+t);
-    const view = document.getElementById('pnl-view-'+t);
-    if (btn) btn.className = 'filter-btn' + (t===tab?' active':'');
-    if (view) view.style.display = t===tab ? 'block' : 'none';
-  });
-  if (tab==='sales') pnlRenderSales();
-  if (tab==='expenses') pnlRenderExpenses();
-  if (tab==='monthly') { const el=document.getElementById('pnl-monthly-content'); if(el) el.innerHTML=pnlRenderMonthly(); }
-  if (tab==='report') pnlRenderReport();
-}
-
-function pnlCalc() {
-  const sold = items.filter(i=>i.status==='Sold');
-  const totalRevenue = sold.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0), 0);
-  const totalCOGS = sold.reduce((s,i)=>s+(parseFloat(i.cost)||0), 0);
-  const totalFees = sold.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0)*(S.ebayFee/100), 0);
-  const totalPkg = sold.length * S.pkgCost;
-  const totalShip = S.shipping==='free' ? sold.length * S.shipCost : 0;
-  const grossProfit = totalRevenue - totalCOGS - totalFees - totalPkg - totalShip;
-  // Change 15: filter out 'sale' entries — those are audit records, not expenses
-  const expenses = pnlExpenses.filter(e => e.category !== 'sale');
-  const totalExpenses = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
-  const netProfit = grossProfit - totalExpenses;
-  const taxReserve = netProfit > 0 ? netProfit * S.taxReservePct : 0;
-  return { sold, totalRevenue, totalCOGS, totalFees, totalPkg, totalShip, grossProfit, totalExpenses, netProfit, taxReserve };
-}
-
-function pnlRenderSummary() {
-  const c = pnlCalc();
-  document.getElementById('pnl-summary-cards').innerHTML = `
-    <div class="pnl-sum-card"><div class="pnl-sum-num">$${c.totalRevenue.toFixed(0)}</div><div class="pnl-sum-label">Revenue</div></div>
-    <div class="pnl-sum-card"><div class="pnl-sum-num text-green">$${c.grossProfit.toFixed(0)}</div><div class="pnl-sum-label">Gross Profit</div></div>
-    <div class="pnl-sum-card"><div class="pnl-sum-num" style="color:${c.netProfit>=0?'var(--green)':'var(--red)'}">$${c.netProfit.toFixed(0)}</div><div class="pnl-sum-label">Net Profit</div></div>
-    <div class="pnl-sum-card"><div class="pnl-sum-num">${c.sold.length}</div><div class="pnl-sum-label">Items Sold</div></div>`;
-  document.getElementById('pnl-tax-banner').innerHTML = c.netProfit > 0
-    ? `<div style="background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
-        <div><div style="font-size:10px;letter-spacing:0.15em;color:var(--yellow);font-weight:800;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">⚠️ Tax Reserve (25%)</div>
-        <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-top:2px">Set aside from net profit</div></div>
-        <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:900;color:var(--yellow)">$${c.taxReserve.toFixed(0)}</div>
-       </div>`
-    : '';
-}
-
-function pnlRenderSales() {
-  const sold = items.filter(i=>i.status==='Sold');
-  if (!sold.length) {
-    document.getElementById('pnl-sales-table').innerHTML = '<div style="font-size:13px;color:var(--muted);padding:12px 0">No sold items yet.</div>';
-    return;
-  }
-  document.getElementById('pnl-sales-table').innerHTML = `
-    <div class="card" style="padding:0;overflow:hidden">
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:'IBM Plex Mono',monospace">
-          <thead><tr style="border-bottom:2px solid var(--border)">
-            <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:600">Item</th>
-            <th style="text-align:right;padding:8px 6px;color:var(--muted);font-weight:600">Sold</th>
-            <th style="text-align:right;padding:8px 6px;color:var(--muted);font-weight:600">Cost</th>
-            <th style="text-align:right;padding:8px 6px;color:var(--muted);font-weight:600">Fees</th>
-            <th style="text-align:right;padding:8px 10px;color:var(--muted);font-weight:600">Profit</th>
-          </tr></thead>
-          <tbody>${sold.map(i=>{
-            const fees = (parseFloat(i.sellPrice)||0) * (S.ebayFee/100);
-            const profit = calcProfit(i.cost, i.sellPrice);
-            return `<tr style="border-bottom:1px solid var(--border)">
-              <td style="padding:7px 10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-weight:600">${i.nickname}</td>
-              <td style="text-align:right;padding:7px 6px">$${parseFloat(i.sellPrice||0).toFixed(0)}</td>
-              <td style="text-align:right;padding:7px 6px;color:var(--muted)">$${parseFloat(i.cost||0).toFixed(0)}</td>
-              <td style="text-align:right;padding:7px 6px;color:var(--red)">$${fees.toFixed(0)}</td>
-              <td style="text-align:right;padding:7px 10px;font-weight:700;color:${profit>=0?'var(--green)':'var(--red)'}">$${profit.toFixed(0)}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function pnlAddExpense() {
-  const desc = document.getElementById('pnl-exp-desc').value.trim();
-  const amt = parseFloat(document.getElementById('pnl-exp-amt').value)||0;
-  const cat = document.getElementById('pnl-exp-cat').value;
-  const date = document.getElementById('pnl-exp-date').value || new Date().toISOString().split('T')[0];
-  if (!desc || !amt) { showToast('Fill in description and amount'); return; }
-  pnlExpenses.unshift({ id: Date.now(), desc, amount: amt, category: cat, date });
-  pnlSave();
-  document.getElementById('pnl-exp-desc').value = '';
-  document.getElementById('pnl-exp-amt').value = '';
-  pnlRenderExpenses();
-  pnlRenderSummary();
-  showToast('✓ Expense added');
-}
-
-function pnlRenderExpenses() {
-  const el = document.getElementById('pnl-exp-list');
-  const expenses = pnlExpenses.filter(e => e.category !== 'sale');
-  const sales = pnlExpenses.filter(e => e.category === 'sale');
-  if (!pnlExpenses.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No expenses logged yet.</div>'; return; }
-  const total = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-  // Change 15: show sale audit events in green at top, expenses in red below
-  const saleRows = sales.length ? `<div style="margin-bottom:10px"><div style="font-size:10px;letter-spacing:0.12em;color:var(--muted);font-weight:800;margin-bottom:6px;text-transform:uppercase">Recent Sales</div><div class="card" style="padding:0 12px">`
-    + sales.slice(0,10).map(e=>`
-      <div class="pnl-exp-row">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text)">${e.desc||'Sale'}</div>
-          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px">${e.date}</div>
-        </div>
-        <span style="font-size:14px;font-weight:800;color:var(--green);font-family:'Syne',sans-serif;flex-shrink:0;margin-left:10px">+$${parseFloat(e.amount).toFixed(2)}</span>
-      </div>`).join('')
-    + '</div></div>' : '';
-  const expRows = expenses.length ? `<div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Expenses Total: -$${total.toFixed(2)}</div>`
-    + `<div class="card" style="padding:0 12px">`
-    + expenses.map(e=>`
-      <div class="pnl-exp-row">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${e.desc||e.description||'Expense'}</div>
-          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px">${e.category} · ${e.date}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:10px">
-          <span style="font-size:15px;font-weight:800;color:var(--red);font-family:'Syne',sans-serif">-$${parseFloat(e.amount).toFixed(2)}</span>
-          <button onclick="pnlDeleteExp(${e.id})" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0">✕</button>
-        </div>
-      </div>`).join('')
-    + '</div>' : '';
-  el.innerHTML = saleRows + expRows;
-  if (!saleRows && !expRows) el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">No expenses logged yet.</div>';
-}
-
-function pnlDeleteExp(id) {
-  pnlExpenses = pnlExpenses.filter(e=>e.id!==id);
-  pnlSave(); pnlRenderExpenses(); pnlRenderSummary(); showToast('Expense deleted');
-}
-
-function pnlRenderReport() {
-  const c = pnlCalc();
-  const expByCat = {};
-  pnlExpenses.filter(e => e.category !== 'sale').forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + parseFloat(e.amount); });
-  const catBreakdown = CATEGORIES.map(cat => {
-    const ci = c.sold.filter(i=>i.category===cat);
-    if (!ci.length) return '';
-    const rev = ci.reduce((s,i)=>s+(parseFloat(i.sellPrice)||0),0);
-    const profit = ci.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
-    return `<div class="pnl-row"><span>${CAT_ICONS[cat]||''} ${cat} (${ci.length})</span><span style="color:var(--green);font-weight:700">$${profit.toFixed(2)}</span></div>`;
-  }).filter(Boolean).join('');
-
-  document.getElementById('pnl-report-content').innerHTML = `
-    <div class="card mb-12">
-      <h3 class="card-title">📊 Full P&amp;L Summary</h3>
-      <div style="font-size:13px;font-family:'IBM Plex Mono',monospace">
-        <div class="pnl-row"><span class="text-muted">Gross Revenue</span><span>$${c.totalRevenue.toFixed(2)}</span></div>
-        <div class="pnl-row"><span class="text-muted">Cost of Goods</span><span class="text-red">-$${c.totalCOGS.toFixed(2)}</span></div>
-        <div class="pnl-row"><span class="text-muted">eBay Fees (${S.ebayFee}%)</span><span class="text-red">-$${c.totalFees.toFixed(2)}</span></div>
-        <div class="pnl-row"><span class="text-muted">Packaging ($${S.pkgCost}/item)</span><span class="text-red">-$${c.totalPkg.toFixed(2)}</span></div>
-        ${c.totalShip>0?`<div class="pnl-row"><span class="text-muted">Shipping (covered)</span><span class="text-red">-$${c.totalShip.toFixed(2)}</span></div>`:''}
-        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span class="text-green">$${c.grossProfit.toFixed(2)}</span></div>
-        <div class="pnl-row"><span class="text-muted">Business Expenses</span><span class="text-red">-$${c.totalExpenses.toFixed(2)}</span></div>
-        <div class="pnl-row" style="border-top:2px solid var(--border-dark)">
-          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900">Net Profit</span>
-          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:${c.netProfit>=0?'var(--green)':'var(--red)'}">$${c.netProfit.toFixed(2)}</span>
-        </div>
-        <div class="pnl-row"><span class="text-yellow">⚠️ Tax Reserve (25%)</span><span style="color:var(--yellow);font-weight:700">$${c.taxReserve.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--green);font-weight:700">After-Tax Estimate</span><span style="color:var(--green);font-weight:700">$${(c.netProfit-c.taxReserve).toFixed(2)}</span></div>
-      </div>
-    </div>
-    ${catBreakdown ? `<div class="card mb-12"><h3 class="card-title">By Category</h3>${catBreakdown}</div>` : ''}
-    ${Object.keys(expByCat).length ? `<div class="card"><h3 class="card-title">Expenses by Type</h3>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</div>` : ''}`;
-}
 
 // ══════════════════════════════════════════════════
 // GROWTH AGENT
@@ -4978,8 +4721,7 @@ function renderDashboard() {
   const listed    = items.filter(i=>i.status==='Listed');
   const unlisted  = items.filter(i=>i.status==='Unlisted');
   const totalProfit = sold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
-  const pnlData   = pnlCalc ? pnlCalc() : null;
-  const netProfit = pnlData ? pnlData.netProfit : totalProfit;
+  const netProfit = totalProfit;
 
   // ── Growth cache ──
   const gc = loadGrowthCache();
@@ -5166,7 +4908,6 @@ function fileToBase64NoDecodeAndThumb(file) {
 const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:'',exportReminderEnabled:false,exportReminderTime:'09:00',taxReservePct:0.25,mileageRate:0.67};
 let S = loadSrcSettings();
 
-const _origShowSettings=window.showSourcingSettings;
 let _ebaySyncDays = 90;
 
 async function ebayConnect() {
@@ -5475,7 +5216,6 @@ function ebayDedupeNo() {
   showNextEbayDedupePair();
 }
 
-window.showSourcingSettings=function(){if(_origShowSettings)_origShowSettings();checkEbayStatus();};
 (function(){const p=new URLSearchParams(location.search);if(p.get('ebay_connected')){showToast('✓ eBay connected!');history.replaceState({},'',location.pathname);}if(p.get('ebay_error')){showToast('✗ eBay error: '+p.get('ebay_error'));history.replaceState({},'',location.pathname);}})();
 
 
@@ -5502,6 +5242,7 @@ function showSourcingSettings() {
   populateSettingsUI();
   populateAccountUI();
   showSrcView('settings');
+  checkEbayStatus();
 }
 
 function populateSettingsUI() {
@@ -6076,10 +5817,6 @@ function buyItem() {
   }
 }
 
-function watchItem() {
-  showToast('👀 Watch feature coming soon!');
-}
-
 // ══════════════════════════════════════════════════
 // SOURCING — RENDER SHELF
 // ══════════════════════════════════════════════════
@@ -6462,43 +6199,6 @@ function renderBestWorst() {
     <div><div style="font-size:9px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700;margin-bottom:6px;letter-spacing:0.15em">BEST</div>${best.map(i=>row(i,'var(--green)')).join('')}</div>
     ${worstSection}
   </div>`;
-}
-
-// ══════════════════════════════════════════════════
-// P&L ENHANCEMENTS — Month breakdown + mileage
-// ══════════════════════════════════════════════════
-function pnlRenderMonthly() {
-  const sold = items.filter(i=>i.status==='Sold');
-  if (!sold.length) return '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sold items yet.</div>';
-  const byMonth = {};
-  sold.forEach(i => {
-    const d = new Date(i.createdAt||i.dateAcquired);
-    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    const label = d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-    if (!byMonth[key]) byMonth[key] = {label, revenue:0, profit:0, count:0};
-    byMonth[key].revenue += parseFloat(i.sellPrice)||0;
-    byMonth[key].profit  += calcProfit(i.cost, i.sellPrice);
-    byMonth[key].count++;
-  });
-  return Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([,m])=>`
-    <div class="month-row">
-      <div><div style="font-size:var(--text-base);font-weight:700">${m.label}</div>
-      <div class="u-text-xs u-muted">${m.count} sold · $${m.revenue.toFixed(0)} revenue</div></div>
-      <div class="u-syne u-bold9 u-text-md ${m.profit>=0?'u-pos':'u-neg'}">$${m.profit.toFixed(0)}</div>
-    </div>`).join('');
-}
-
-function pnlLogMileage() {
-  const miles = parseFloat(document.getElementById('pnl-miles-input').value)||0;
-  if (!miles) return;
-  const rate = S.mileageRate;
-  const cost = miles * rate;
-  pnlExpenses.unshift({id:Date.now(), desc:`Mileage: ${miles} miles @ $${rate}/mi`, amount:cost, category:'Gas & Travel', date:new Date().toISOString().split('T')[0]});
-  pnlSave();
-  document.getElementById('pnl-miles-input').value = '';
-  pnlRenderExpenses(); pnlRenderSummary();
-  showToast(`✓ ${miles} miles = $${cost.toFixed(2)} logged`);
-  logActivity('🚗', `Logged ${miles} miles ($${cost.toFixed(2)})`);
 }
 
 // ══════════════════════════════════════════════════
@@ -7056,10 +6756,6 @@ function populateAccountUI() {
 }
 
 
-async function requestMagicLink() {
-  // Legacy stub — no longer used
-}
-
 async function loadUserInfo() {
   try {
     const res = await fetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
@@ -7312,6 +7008,7 @@ async function saveAndGenerateListing() {
 var _subInterval = 'month';
 
 var TIER_INFO = {
+  // WARNING: These prices must match Stripe product config. Update both together.
   hustle: { name:'Hustle', month:19,  year:180,  color:'#00e676', tagline:'For active resellers',
     features:['Unlimited AI scans','500 inventory items','Full eBay API Boost Listing','Cross-listing prep','Photo enhancement'] },
   stack:  { name:'Stack',  month:49,  year:468,  color:'#6b3fa0', tagline:'For serious operators',
@@ -7508,8 +7205,6 @@ window.onload = () => {
   updateFeeHint();
   const dashDate = document.getElementById('dash-date');
   if (dashDate) dashDate.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const expDate = document.getElementById('pnl-exp-date');
-  if (expDate) expDate.value = new Date().toISOString().split('T')[0];
   populatePaDropdown();
   renderCsvPreview();
   updateStaleBadge();
@@ -7870,17 +7565,7 @@ function exportFlippdBackup() {
 
 
 // ── Analytics event tracking ─────────────────────────────────────────────────
-function trackEvent(name, props) {
-  try {
-    var events = JSON.parse(localStorage.getItem('sfp_events')||'[]');
-    events.push(Object.assign({event:name,ts:Date.now()},props||{}));
-    if(events.length>500) events.splice(0,events.length-500);
-    localStorage.setItem('sfp_events',JSON.stringify(events));
-  } catch(e){}
-}
-
 // ── Wire analytics into key actions ──────────────────────────────────────────
-var _origLogScan = typeof logScan==='function' ? logScan : null;
 
 // ── STATS tab: Overview / P&L sub-navigation ─────────────────────────────────
 function statsSubTab(sub) {
