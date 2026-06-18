@@ -4,6 +4,43 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — Deploy export-reminder Edge Function (branch: claude/ebay-sync-schema-dhbhir)
+
+### What changed this session
+
+**export-reminder Edge Function — DEPLOYED**
+
+Deployed `supabase/functions/export-reminder/index.ts` to Supabase project `dqgfpchkheznvanfgsmx` as `export-reminder` v1 (function id: `bc1f68c3-2814-422d-abb5-dd0d72790c3a`). This was a long-standing deferred task from SESSION_6.
+
+The function:
+- Accepts `POST { userId }` (no JWT verification — caller is n8n/cron, not a user browser)
+- Queries `inventory` for items with `status = 'Ready to Export'`
+- Looks up user email from `users` table
+- Sends a Resend email listing the items with a link to `scanforprofit.com/app.html`
+- Returns `{ sent: true/false, count, reason }`
+
+**Prerequisites before emails will send:**
+- `RESEND_API_KEY` must be set in Supabase project secrets (Dashboard → Settings → Edge Functions → Secrets)
+- A cron trigger (n8n or Supabase pg_cron) must call `POST https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/export-reminder` with `{ userId }` at each user's preferred time
+
+### Files changed
+- `docs/HANDOFF.md` — this file
+
+### Decisions made (do not reverse)
+- `verify_jwt: false` — this function is invoked by cron/n8n, not a user browser session. The `userId` body param is used server-side only — no RLS bypass risk since the service role key is used.
+- Cron scheduling is out of scope for this session — function is the prerequisite. Wiring deferred.
+
+### Next task
+1. Set `RESEND_API_KEY` in Supabase secrets if not already set.
+2. Wire n8n or pg_cron to call `export-reminder` per user's preferred time (`S.exportReminderTime` from localStorage) — requires storing that preference in the DB to be cron-accessible.
+3. Connect eBay developer sandbox credential and run end-to-end sync test (0 users have `ebay_access_token` set).
+4. Verify Stripe upgrade flow end-to-end.
+
+### Blockers
+- None from this session.
+
+---
+
 ## Session: 2026-06-18 — eBay Sync Schema Fix (branch: claude/ebay-sync-schema-dhbhir)
 
 ### What changed this session
