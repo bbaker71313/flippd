@@ -31,7 +31,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>ScanForProfit — Scan the shelf. Know what to buy.</title>
+<title>ScanForProfit: Scan the shelf. Know what to buy.</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -138,7 +138,7 @@
   --z-toast:9500;
 }
 
-html,body{background:linear-gradient(180deg,#100f0c 0%,#0a0a0a 25%);color:var(--text);font-family:'IBM Plex Mono',monospace;min-height:100vh;overflow-x:hidden;-webkit-text-size-adjust:100%;font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+html,body{background:linear-gradient(180deg,#100f0c 0%,#0a0a0a 25%);color:var(--text);font-family:'IBM Plex Mono',monospace;min-height:100vh;overflow-x:hidden;-webkit-text-size-adjust:100%;font-size:1rem;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{padding-bottom:80px}
 
 /* ── Scanline texture overlay on body ── */
@@ -1165,15 +1165,15 @@ body::before{
 <!-- TRIAL / TIER BANNER (sticky, shows for trial + scout users) -->
 <div id="tier-banner" style="display:none;background:var(--green-bg);border-bottom:2px solid var(--green-border);padding:7px 16px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text);position:sticky;top:56px;z-index:50;display:flex;align-items:center;justify-content:center;gap:8px">
   <span id="tier-banner-text"></span>
-  <button id="tier-banner-cta" onclick="switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)" style="background:var(--green);color:#fff;border:none;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">Upgrade</button>
+  <button id="tier-banner-cta" onclick="switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)" style="background:var(--accent);color:#000;border:none;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">Upgrade</button>
 </div>
 
 <!-- TAB BAR -->
 <div class="tab-bar">
-  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>SCOUT</button>
-  <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>INVENTORY</button>
-  <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>PHOTOS</button>
-  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>PULSE</button>
+  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Scout</button>
+  <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Inventory</button>
+  <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Photos</button>
+  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Pulse</button>
   <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm3 0h2V2H5v8zm3 0h2V4h-2v6z" fill="currentColor" opacity="0.9"/></svg></span>P&amp;L</button>
 </div>
 
@@ -1186,8 +1186,8 @@ body::before{
   <div id="src-view-setup">
     <div style="height:18px"></div>
     <div class="setup-card">
-      <div style="font-family:'Syne',sans-serif;font-size:clamp(22px,6vw,28px);font-weight:900;line-height:1.1;color:var(--text);margin-bottom:10px">Stop leaving<br>money on the floor.</div>
-      <p class="setup-sub" style="margin-bottom:16px">ScanForProfit tells you in seconds whether to flip or pass — with real profit math after fees. Scan a single item or a whole shelf.</p>
+      <div style="font-family:'Syne',sans-serif;font-size:clamp(22px,6vw,28px);font-weight:900;line-height:1.1;color:var(--text);margin-bottom:10px">Flip or pass. You'll know in 8 seconds.</div>
+      <p class="setup-sub" style="margin-bottom:16px">ScanForProfit tells you in seconds whether to flip or pass, with real profit math after fees. Scan a single item or a whole shelf.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--green)">8 sec</div>
@@ -1221,8 +1221,7 @@ body::before{
 
       <!-- Check email screen (shown after register) -->
       <div id="auth-verify-screen" style="display:none;text-align:center;padding:12px 0">
-        <div style="font-size:36px;margin-bottom:12px">📬</div>
-        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:8px">Check your email!</div>
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:8px">Check your inbox</div>
         <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:16px">We sent a verification link to <strong id="auth-verify-email"></strong>. Click it to activate your account, then come back and log in.</p>
         <p class="text-xs-muted">Don't see it? Check your spam folder.</p>
         <button onclick="setAuthMode('login')" style="margin-top:16px;background:none;border:1px solid var(--border);color:var(--accent);padding:9px 20px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Back to Log In</button>
@@ -1248,7 +1247,7 @@ body::before{
       <p style="color:var(--muted);font-size:12px;line-height:1.6;font-weight:500">Set your fee rate, profit targets, and sourcing style.</p>
     </div>
     <div class="card">
-      <h3 class="card-title">🎯 Decision Thresholds</h3>
+      <h3 class="card-title">Decision Thresholds</h3>
       <div class="setting-row">
         <div class="flex-1"><span class="setting-name">Minimum Profit</span><span class="setting-desc">Item must clear this to get a FLIP</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -1281,7 +1280,7 @@ body::before{
       </div>
     </div>
     <div class="card">
-      <h3 class="card-title">💸 Your eBay Fees</h3>
+      <h3 class="card-title">Your eBay Fees</h3>
       <div class="setting-row">
         <div class="flex-1"><span class="setting-name">eBay Fee %</span><span class="setting-desc">Platform + payment fee</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -1304,16 +1303,16 @@ body::before{
       </div>
     </div>
     <div class="card">
-      <h3 class="card-title">🧠 Sourcing Style</h3>
-      <label class="radio-row" id="style-conservative"><input type="radio" name="style" value="conservative" onchange="updateStyle('conservative')"><div><strong>Conservative</strong> — Only clear winners</div></label>
-      <label class="radio-row" id="style-balanced"><input type="radio" name="style" value="balanced" checked onchange="updateStyle('balanced')"><div><strong>Balanced</strong> — Default, good mix</div></label>
-      <label class="radio-row" id="style-aggressive"><input type="radio" name="style" value="aggressive" onchange="updateStyle('aggressive')"><div><strong>Aggressive</strong> — Wider net, more buys</div></label>
+      <h3 class="card-title">Sourcing Style</h3>
+      <label class="radio-row" id="style-conservative"><input type="radio" name="style" value="conservative" onchange="updateStyle('conservative')"><div><strong>Conservative</strong>: Only clear winners</div></label>
+      <label class="radio-row" id="style-balanced"><input type="radio" name="style" value="balanced" checked onchange="updateStyle('balanced')"><div><strong>Balanced</strong>: Default, good mix</div></label>
+      <label class="radio-row" id="style-aggressive"><input type="radio" name="style" value="aggressive" onchange="updateStyle('aggressive')"><div><strong>Aggressive</strong>: Wider net, more buys</div></label>
     </div>
     <div class="card mb-12">
-      <h3 class="card-title">📸 Photo Tools</h3>
+      <h3 class="card-title">Photo Tools</h3>
       <div class="setting-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:6px">
         <span class="setting-name">Remove.bg API Key</span>
-        <span class="setting-desc">Free at remove.bg — 50 credits/month on free plan</span>
+        <span class="setting-desc">Free at remove.bg: 50 credits/month on free plan</span>
         <input type="password" class="f-input" id="pa-removebg-key" placeholder="Your remove.bg API key" style="width:100%;box-sizing:border-box;margin-top:4px" oninput="S.removebgKey=this.value">
       </div>
     </div>
@@ -1415,17 +1414,16 @@ body::before{
   <div id="src-view-input" style="display:none">
     <div style="padding:10px 0 18px">
       <h1 style="font-family:'Syne',sans-serif;font-size:clamp(24px,7vw,32px);font-weight:900;letter-spacing:-0.02em;line-height:1.1;color:var(--text)">Flip or <span style="color:#007a3d">pass?</span></h1>
-      <p style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6;font-weight:500">Photo or describe any item — AI gives you a FLIP or PASS decision with profit math.</p>
+      <p style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6;font-weight:500">Photo or describe any item. AI gives you a FLIP or PASS decision with profit math.</p>
     </div>
     <div class="mode-tabs">
       <button class="mode-tab active-green" id="tab-single" onclick="setMode('single')"><span class="tab-icon">📦</span>SINGLE ITEM</button>
       <button class="mode-tab" id="tab-shelf" onclick="setMode('shelf')"><span class="tab-icon">🔭</span>SHELF SCAN</button>
     </div>
     <div id="hint-single" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">📷 Photo or describe one item → get full FLIP or PASS breakdown with profit math</div>
-    <div id="hint-shelf" class="shelf-hint-box" style="display:none">🔭 Wide photo of a full shelf — AI identifies every item and sorts by HOT / FLIP / PASS</div>
+    <div id="hint-shelf" class="shelf-hint-box" style="display:none">🔭 Wide photo of a full shelf. AI identifies every item and sorts by HOT / FLIP / PASS</div>
     <div id="first-scan-prompt" style="background:var(--green-bg);border:1.5px solid var(--green-border);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:var(--green)">⚡ Start here</div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px">
         <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">Step 1 of 3</div>
       </div>
       <div style="font-size:11px;color:var(--soft);line-height:1.5;margin-bottom:8px">Take a photo of any item or describe it below. Get a FLIP or PASS in seconds.</div>
@@ -1452,9 +1450,9 @@ body::before{
       <div style="display:flex;align-items:center"><span class="cost-dollar">$</span><input class="cost-input" id="cost-input" aria-label="Your cost" type="number" placeholder="0.00" min="0" step="0.25"></div>
     </div>
     <div id="error-box" class="error-box" style="display:none"></div>
-    <button class="btn btn-green" id="analyze-btn" onclick="analyze()">FLIP OR PASS?</button>
-    <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-top:-8px;margin-bottom:12px" id="analyze-label">RUN THE NUMBERS</div>
-    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">RANK THIS SHELF</button>
+    <button class="btn btn-green" id="analyze-btn" onclick="analyze()">FLIP OR PASS</button>
+    <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-top:-8px;margin-bottom:12px" id="analyze-label">Run the Numbers</div>
+    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">Rank This Shelf</button>
     <div class="bottom-hint" id="hint-b-single">Identifies item · Pulls sold comps · Calculates profit after fees<br><span id="hint-fee-line">13% eBay fee · $1.25 packaging · Buyer pays shipping</span></div>
     <div class="bottom-hint" id="hint-b-shelf" style="display:none">Scans every visible item · Sorts by profit potential · Flags what to grab vs skip</div>
   </div>
@@ -1513,7 +1511,7 @@ body::before{
 
     <!-- PHOTO + AI DETECT SECTION -->
     <div class="card mb-14">
-      <h3 class="card-title">Photo — AI will detect item automatically</h3>
+      <h3 class="card-title">Photo: AI will detect item automatically</h3>
       <div id="inv-form-photo-preview" style="display:none;margin-bottom:10px">
         <img id="inv-form-photo-img" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:block">
         <div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap">
@@ -1623,10 +1621,10 @@ body::before{
     <h3 class="card-title">Attach to inventory item <span style="color:var(--muted);font-weight:500">(optional)</span></h3>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select class="f-select" id="pa-cat-select" onchange="paFilterByCategory(this.value)">
-        <option value="">— Select category —</option>
+        <option value="">Select category</option>
       </select>
       <select class="f-select" id="pa-inv-select" onchange="paLoadItem(this.value)" style="display:none">
-        <option value="">— Select item —</option>
+        <option value="">Select item</option>
       </select>
     </div>
     <div id="pa-existing-photos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
@@ -1722,7 +1720,7 @@ body::before{
 
   <!-- Stale cache notice -->
   <div id="growth-stale-banner" style="display:none;background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--yellow);font-weight:600">
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:4px"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M6 3v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Last updated over 24 hours ago — tap Refresh for today's insights
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:4px"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M6 3v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Last updated over 24 hours ago. Tap Refresh for today's insights
   </div>
 
   <!-- Loading state -->
@@ -1758,7 +1756,7 @@ body::before{
         </svg>
       </div>
       <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:8px">Your Business Brain</div>
-      <div style="font-size:13px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:20px">Tap Refresh to get today's insights — what's selling, what's stale, and what to hunt for this week.</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:20px">Tap Refresh to get today's insights: what's selling, what's stale, and what to hunt for this week.</div>
       <button onclick="runGrowthAgent()" class="btn btn-green" style="width:auto;padding:12px 28px">Run Market Trends</button>
     </div>
   </div>
@@ -1842,7 +1840,7 @@ body::before{
 
   <!-- SALES VIEW -->
   <div id="pnl-view-sales">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500">Pulled from inventory — sold items only</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500">Pulled from inventory, sold items only</div>
     <div id="pnl-sales-table"></div>
   </div>
 
@@ -2055,7 +2053,7 @@ body::before{
   </div>
   <div id="stats-view-dash" style="display:none">
     <div class="mb-14">
-      <div id="dash-greeting" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">Hey there 👋</div>
+      <div id="dash-greeting" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2"></div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px" id="dash-date"></div>
     </div>
     <div id="dash-content"></div>
@@ -2322,8 +2320,8 @@ body::before{
 <div class="modal-overlay" id="app-confirm-modal" style="display:none">
   <div class="modal-content" style="max-width:340px">
     <div style="padding:20px 20px 16px">
-      <div id="app-confirm-title" style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;color:var(--text);margin-bottom:8px">Are you sure?</div>
-      <div id="app-confirm-msg" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px">This action cannot be undone.</div>
+      <div id="app-confirm-title" style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;color:var(--text);margin-bottom:8px">Delete this item?</div>
+      <div id="app-confirm-msg" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px">This cannot be undone.</div>
       <div class="flex-gap-8">
         <button id="app-confirm-cancel" class="btn btn-ghost flex-1-mb0" onclick="appConfirmRespond(false)">Cancel</button>
         <button id="app-confirm-ok" class="btn" style="flex:1;margin-bottom:0;background:var(--red);color:#fff;border-color:var(--red)" onclick="appConfirmRespond(true)">Delete</button>
@@ -2783,7 +2781,7 @@ function renderInventoryHome() {
       <div class="empty-state-dashed">
         <div class="empty-icon">📦</div>
         <div class="empty-title">Nothing here yet</div>
-        <div class="empty-body">Scan an item in SCOUT and tap FLIP to add it here — or add one manually.</div>
+        <div class="empty-body">Scan an item in SCOUT and tap FLIP to add it here, or add one manually.</div>
         <button class="btn btn-amber" onclick="showInvView('add')">+ Add Your First Item</button>
       </div>`;
     return;
@@ -3215,7 +3213,7 @@ function invFormHandlePhoto(e) {
     imgEl.src = blobUrl;
     document.getElementById('inv-form-photo-preview').style.display = 'block';
     document.getElementById('inv-form-detect-btn').style.display = 'block';
-    document.getElementById('inv-form-detect-status').textContent = 'Photo ready — tap Detect to identify item';
+    document.getElementById('inv-form-detect-status').textContent = 'Photo ready. Tap Detect to identify item';
     // Change 21: in edit mode, also add to gallery immediately
     if (editingId) {
       items = items.map(i => {
@@ -3278,7 +3276,7 @@ async function invFormDetectItem() {
     } finally {
       clearTimeout(timeoutId);
     }
-    if (res.status === 546) throw new Error('Camera resource limit reached — try a smaller photo or enter manually');
+    if (res.status === 546) throw new Error('Camera resource limit reached. Try a smaller photo or enter manually');
     if (!res.ok) {
       const errText = await res.text();
       throw new Error('API Error ' + res.status + ': ' + errText.substring(0, 100));
@@ -3295,12 +3293,12 @@ async function invFormDetectItem() {
     if (detected.estimated_value) document.getElementById('f-price').value = detected.estimated_value.toFixed(2);
     if (detected.notes) document.getElementById('f-notes').value = detected.notes;
     updateProfitPreview();
-    status.textContent = 'Detected: ' + detected.name + ' — review and confirm below';
+    status.textContent = 'Detected: ' + detected.name + '. Review and confirm below';
     status.style.color = '#2D6B52';
   } catch(e) {
     if (e.name === 'AbortError') {
-      showToast('Detection timed out — try again or enter manually');
-      status.textContent = 'Detection timed out — enter manually';
+      showToast('Detection timed out. Try again or enter manually');
+      status.textContent = 'Detection timed out. Enter manually';
     } else {
       status.textContent = 'Detection failed: ' + (e.message || 'Try again');
     }
@@ -3359,7 +3357,7 @@ let _lastInvFilter = null; // Change 16: remember filter before opening edit
 
 function startEdit(id) {
   const item = items.find(i => i.id === id);
-  if (!item) { showToast('Item not found — please refresh'); return; }
+  if (!item) { showToast('Item not found. Please refresh'); return; }
   // Change 16: save active filter so we can restore it after save
   _lastInvFilter = {...invListFilter};
   editingId = id;
@@ -3402,7 +3400,7 @@ function invRenderPhotoGallery(item) {
   ];
   if (!allPhotos.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
-  el.innerHTML = `<div class="edit-photos-label">PHOTOS (${allPhotos.length}) — tap ✕ to remove</div>`
+  el.innerHTML = `<div class="edit-photos-label">PHOTOS (${allPhotos.length}). Tap ✕ to remove</div>`
     + `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">`
     + allPhotos.map((photo, i) => {
         const removeCall = photo.source === 'url'
@@ -3631,20 +3629,20 @@ function populatePaDropdown() {
   const catSel = document.getElementById('pa-cat-select');
   if (!catSel) return; // photo tab not in DOM yet — safe exit
   const activeCats = [...new Set(items.filter(i=>i.status!=='Sold').map(i=>i.category))].sort();
-  catSel.innerHTML = '<option value="">— Select category —</option>'
+  catSel.innerHTML = '<option value="">Select category</option>'
     + activeCats.map(c=>`<option value="${c}">${CAT_ICONS[c]||'📦'} ${c}</option>`).join('');
   const itemSel = document.getElementById('pa-inv-select');
   if (itemSel) {
     itemSel.style.display = 'none';
-    itemSel.innerHTML = '<option value="">— Select item —</option>';
+    itemSel.innerHTML = '<option value="">Select item</option>';
   }
 }
 
 function paFilterByCategory(cat) {
   const itemSel = document.getElementById('pa-inv-select');
-  if (!cat) { itemSel.style.display = 'none'; itemSel.innerHTML = '<option value="">— Select item —</option>'; return; }
+  if (!cat) { itemSel.style.display = 'none'; itemSel.innerHTML = '<option value="">Select item</option>'; return; }
   const filtered = items.filter(i=>i.category===cat && i.status!=='Sold');
-  itemSel.innerHTML = '<option value="">— Select item —</option>'
+  itemSel.innerHTML = '<option value="">Select item</option>'
     + filtered.map(i=>`<option value="${i.id}">${i.nickname} (${i.sku||'no SKU'})</option>`).join('');
   itemSel.style.display = 'block';
   document.getElementById('pa-existing-photos').innerHTML = '';
@@ -3683,7 +3681,7 @@ function paRemoveExisting(idx) {
 function paHandlePhotos(e) {
   const files = Array.from(e.target.files);
   const remaining = 4 - paPhotos.length;
-  if (remaining <= 0) { showToast('Max 4 photos — delete one to add another'); return; }
+  if (remaining <= 0) { showToast('Max 4 photos. Delete one to add another'); return; }
   const toProcess = files.slice(0, remaining);
   if (toProcess.length > 1) showToast('📷 Processing ' + toProcess.length + ' photos...');
   else showToast('📷 Processing photo...');
@@ -4026,7 +4024,7 @@ function paSaveDialogNewItem() {
     if (prev) prev.style.display = 'none';
     if (ep && window._paPreloadPhotos && window._paPreloadPhotos.length) {
       ep.style.display = 'block';
-      ep.innerHTML = '<div class="edit-photos-label">PHOTOS FROM EDITOR (' + window._paPreloadPhotos.length + ')</div><div class="edit-photo-grid">' + window._paPreloadPhotos.map(p=>'<div class="edit-photo-wrap"><img src="'+p+'"></div>').join('') + '</div>';
+      ep.innerHTML = '<div class="edit-photos-label">Photos from editor (' + window._paPreloadPhotos.length + ')</div><div class="edit-photo-grid">' + window._paPreloadPhotos.map(p=>'<div class="edit-photo-wrap"><img src="'+p+'"></div>').join('') + '</div>';
     }
     showInvView('add');
     updateProfitPreview();
@@ -4419,7 +4417,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
     clearInterval(msgInterval);
     hide('growth-loading');
     show('growth-empty');
-    showToast('⚠️ Error: ' + (e.message || 'Unknown error — try again'));
+    showToast('⚠️ Error: ' + (e.message || 'Unknown error. Try again'));
   }
 }
 
@@ -4451,7 +4449,7 @@ function renderGrowthResults(r) {
       </div>
       <div class="growth-profit">${c.profit}</div>
     </div>`).join('');
-  document.getElementById('growth-top-content').innerHTML = topContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sales data yet — keep listing!</div>';
+  document.getElementById('growth-top-content').innerHTML = topContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sales data yet. Keep listing!</div>';
 
   // Stale items — filter Bundle (single-item bundle makes no sense), add click actions
   const staleFiltered = (r.stale_actions||[]).filter(i => !i.action.toLowerCase().includes('bundle'));
@@ -4477,7 +4475,7 @@ function renderGrowthResults(r) {
         ${actionBadge}
       </div>
     </div>`;
-  }).join('') : '<div class="u-text-base u-pos" style="padding:var(--space-2) 0">&#x2713; No stale listings — great turnover!</div>';
+  }).join('') : '<div class="u-text-base u-pos" style="padding:var(--space-2) 0">&#x2713; No stale listings. Great turnover!</div>';
   document.getElementById('growth-stale-content').innerHTML = staleContent;
 
   // Hunt list
@@ -4576,12 +4574,12 @@ async function syncDropPriceToEbay() {
     } else if (res.status === 400 && data.error === 'eBay not connected') {
       showToast('Connect eBay in Settings to enable auto-sync');
     } else if (res.status === 404) {
-      showToast('No eBay listing found for this SKU — sync manually');
+      showToast('No eBay listing found for this SKU. Sync manually');
     } else {
       showToast('eBay sync failed: ' + (data.error || res.status));
     }
   } catch (e) {
-    showToast('eBay sync failed — check connection');
+    showToast('eBay sync failed. Check connection');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↗ Sync Price to eBay'; }
   }
@@ -4662,7 +4660,7 @@ function confirmSold() {
   pnlLoad();
   pnlExpenses.unshift({
     id: Date.now(),
-    desc: `Sold: ${soldModalItem.nickname} — $${parseFloat(price).toFixed(2)}`,
+    desc: `Sold: ${soldModalItem.nickname} at $${parseFloat(price).toFixed(2)}`,
     amount: parseFloat(profit.toFixed(2)),
     category: 'sale',
     date: soldAt.split('T')[0]
@@ -5093,7 +5091,7 @@ function showAppConfirm(title, message, okLabel, onConfirm) {
   const titleEl = document.getElementById('app-confirm-title');
   const msgEl   = document.getElementById('app-confirm-msg');
   const okBtn   = document.getElementById('app-confirm-ok');
-  if (titleEl) titleEl.textContent = title || 'Are you sure?';
+  if (titleEl) titleEl.textContent = title || 'Delete this item?';
   if (msgEl)   msgEl.textContent   = message || 'This action cannot be undone.';
   if (okBtn)   okBtn.textContent   = okLabel || 'Delete';
   document.getElementById('app-confirm-modal').style.display = 'flex';
@@ -5145,7 +5143,7 @@ function fileToBase64NoDecodeAndThumb(file) {
   return new Promise(function(resolve, reject) {
     if (!file) { reject(new Error('No file')); return; }
     if (file.size > MAX_UPLOAD_BYTES) {
-      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Max is 25MB — try a gallery photo.'));
+      reject(new Error('Photo is too large (' + Math.round(file.size/1024/1024) + 'MB). Max is 25MB. Try a gallery photo.'));
       return;
     }
     // Resolve immediately with the raw File — no allocation, no decode.
@@ -5694,8 +5692,8 @@ async function callScan(type, hint) {
       throw new Error('scan_limit');
     }
     if (res.status === 401 || res.status === 403) throw new Error('Session expired. Please log in again.');
-    if (res.status === 429) throw new Error('Rate limited — wait a moment and try again');
-    if (res.status >= 500) throw new Error('Server error — try again in a moment');
+    if (res.status === 429) throw new Error('Rate limited. Wait a moment and try again');
+    if (res.status >= 500) throw new Error('Server error. Try again in a moment');
     throw new Error(errData.error || 'API Error ' + res.status);
   }
   return res.json();
@@ -5733,9 +5731,9 @@ async function callClaude(system,msg,maxTok=1500) {
       if (res.status === 401 || res.status === 403) {
         throw new Error('Session expired. Please log in again.');
       } else if (res.status === 429) {
-        throw new Error('Rate limited — wait a moment and try again');
+        throw new Error('Rate limited. Wait a moment and try again');
       } else if (res.status === 413) {
-        throw new Error('Photo too large for server — try a smaller one');
+        throw new Error('Photo too large for server. Try a smaller one');
       } else if (res.status === 400) {
         // Backend may return error as a nested object (Anthropic format)
         // or a flat string. Walk the common shapes to extract a readable
@@ -5755,7 +5753,7 @@ async function callClaude(system,msg,maxTok=1500) {
         console.error('400 raw body:', errData);
         throw new Error('API Error 400: ' + detail);
       } else if (res.status >= 500) {
-        throw new Error('API server error — try again in a moment');
+        throw new Error('API server error. Try again in a moment');
       }
       throw new Error(`API Error ${res.status}`);
     }
@@ -5884,7 +5882,7 @@ async function analyze() {
       renderSingle({item,cost,fin,dec});
       renderScanHistory();
     }
-  } catch(e){resetBtn('analyze-btn','⚡ FLIP OR PASS?','green');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('analyze-btn','⚡ FLIP OR PASS','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
 function getShelfSys() {
@@ -5926,7 +5924,7 @@ async function analyzeShelf() {
       };
     });
     renderShelf(shelfItems);
-  } catch(e){resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('shelf-btn','🔭 Rank This Shelf','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
 // Threshold classifier helpers — return CSS class name for token-based coloring.
@@ -5947,14 +5945,14 @@ function demandClass(lv) {
 let lastSingleResult = null;
 
 function renderSingle({item,cost,fin,dec}) {
-  resetBtn('analyze-btn','FLIP OR PASS?','green');
+  resetBtn('analyze-btn','FLIP OR PASS','green');
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const shipLine=S.shipping==='free'
     ?`<span class="dv u-neg">-$${fin.shipCost.toFixed(2)}</span>`
     :`<span class="dv u-pos" style="font-weight:800">Buyer Pays ✓</span>`;
   const D_ICON={HOT:'[ HOT ]',BUY:'[ BUY ]',PASS:'[ PASS ]'};
-  const D_LBL={HOT:'HIGH PRIORITY — BUY NOW',BUY:'BUY IT',PASS:'PASS ON THIS ONE'};
+  const D_LBL={HOT:'HIGH PRIORITY: BUY NOW',BUY:'BUY IT',PASS:'PASS ON THIS ONE'};
   const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${k} ↗</a>`).join('');
   const tips=(item.listing_tips||[]).map(t=>`<li class="tip-item"><span class="tip-arrow">→</span>${t}</li>`).join('');
   const flags=(item.risk_flags||[]).filter(Boolean).map(f=>`<li class="tip-item u-neg"><span class="tip-arrow u-neg">!</span>${f}</li>`).join('');
@@ -6088,7 +6086,7 @@ function watchItem() {
 let currentShelfItems = []; // Global cache for shelf items
 
 function renderShelf(shelfItems) {
-  resetBtn('shelf-btn','🔭 RANK THIS SHELF','purple');
+  resetBtn('shelf-btn','🔭 Rank This Shelf','purple');
   currentShelfItems = shelfItems; // Cache for buy button clicks
   const hot=shelfItems.filter(i=>i.decision==='HOT');
   const buy=shelfItems.filter(i=>i.decision==='BUY');
@@ -6588,7 +6586,7 @@ async function fetchTrendingKeywords() {
     renderTrendingKeywords(data, el);
   } catch(e) {
     console.error('Trending keywords error:', e);
-    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Could not load trends — tap Refresh to retry</div>';
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Could not load trends. Tap Refresh to retry</div>';
   }
 }
 
@@ -6787,7 +6785,7 @@ function saveCsvReminder() {
   const t = document.getElementById('csv-reminder-time').value;
   localStorage.setItem('sfp_csv_reminder', t);
   const el = document.getElementById('csv-reminder-saved');
-  if (el) el.textContent = `✓ Reminder set for ${t} daily — open app at that time to export.`;
+  if (el) el.textContent = `✓ Reminder set for ${t} daily. Open app at that time to export.`;
 }
 
 function loadCsvReminder() {
