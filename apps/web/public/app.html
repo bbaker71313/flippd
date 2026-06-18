@@ -1467,7 +1467,24 @@ body::before{
       <h3 class="card-title">Photo — AI will detect item automatically</h3>
       <div id="inv-form-photo-preview" style="display:none;margin-bottom:10px">
         <img id="inv-form-photo-img" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:block">
-        <button onclick="invFormClearPhoto()" style="margin-top:6px;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Clear photo</button>
+        <div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap">
+          <button onclick="invFormRotatePhoto()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">↺ Rotate</button>
+          <button onclick="invFormCropStart()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">✂ Crop</button>
+          <button onclick="invFormClearPhoto()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Clear</button>
+        </div>
+      </div>
+      <!-- Change 4: crop overlay — positioned fixed over image via invFormCropStart() -->
+      <div id="inv-form-crop-overlay" style="display:none;position:fixed;z-index:1000;overflow:hidden;background:rgba(0,0,0,0.45);user-select:none">
+        <div id="inv-form-crop-box" style="position:absolute;border:2px solid var(--accent);box-sizing:border-box">
+          <div data-corner="nw" style="position:absolute;width:16px;height:16px;background:var(--accent);top:-8px;left:-8px;cursor:nw-resize;z-index:2"></div>
+          <div data-corner="ne" style="position:absolute;width:16px;height:16px;background:var(--accent);top:-8px;right:-8px;cursor:ne-resize;z-index:2"></div>
+          <div data-corner="sw" style="position:absolute;width:16px;height:16px;background:var(--accent);bottom:-8px;left:-8px;cursor:sw-resize;z-index:2"></div>
+          <div data-corner="se" style="position:absolute;width:16px;height:16px;background:var(--accent);bottom:-8px;right:-8px;cursor:se-resize;z-index:2"></div>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:3;white-space:nowrap">
+          <button onclick="invFormCropApply()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:7px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Apply Crop</button>
+          <button onclick="invFormCropCancel()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:6px;padding:7px 18px;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">Cancel</button>
+        </div>
       </div>
       <div class="cam-grid" id="inv-form-photo-btns">
         <button class="cam-btn green" onclick="document.getElementById('inv-form-cam').click()">CAMERA</button>
@@ -3021,6 +3038,102 @@ function openPhotoAgentFor(id) {
 let invFormImgB64 = null;
 let invFormImgType = 'image/jpeg';
 let invFormImgFile = null; // v5.17: raw File for multipart upload
+
+// Change 4: rotate/crop helpers
+function invFormRotatePhoto() {
+  const imgEl = document.getElementById('inv-form-photo-img');
+  if (!imgEl.src || !invFormImgFile) return;
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width  = img.naturalHeight;
+    canvas.height = img.naturalWidth;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
+      const newUrl = URL.createObjectURL(blob);
+      imgEl.src = newUrl;
+      invFormImgFile = new File([blob], invFormImgFile.name || 'photo.jpg', { type: 'image/jpeg' });
+      try { Object.defineProperty(invFormImgFile, '_blobUrl', { value: newUrl, configurable: true }); } catch(_) {}
+    }, 'image/jpeg', 0.9);
+  };
+  img.src = imgEl.src;
+}
+
+let _cropData = null;
+function invFormCropStart() {
+  const imgEl = document.getElementById('inv-form-photo-img');
+  if (!imgEl.src || !invFormImgFile) return;
+  const r = imgEl.getBoundingClientRect();
+  const overlay = document.getElementById('inv-form-crop-overlay');
+  overlay.style.cssText = `display:block;position:fixed;top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px;z-index:1000;overflow:hidden;user-select:none;background:rgba(0,0,0,0.45)`;
+  const box = document.getElementById('inv-form-crop-box');
+  const mx = r.width * 0.12, my = r.height * 0.12;
+  Object.assign(box.style, { left: mx+'px', top: my+'px', width: (r.width-mx*2)+'px', height: (r.height-my*2)+'px' });
+  _cropData = { imgEl, r };
+  overlay.onmousedown = function(e) {
+    const corner = e.target.dataset && e.target.dataset.corner;
+    if (!corner) return;
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const bl = box.offsetLeft, bt = box.offsetTop, bw = box.offsetWidth, bh = box.offsetHeight;
+    function mv(me) {
+      const dx = me.clientX - sx, dy = me.clientY - sy;
+      let l=bl, t=bt, w=bw, h=bh;
+      if (corner.includes('e')) w = Math.max(40, bw + dx);
+      if (corner.includes('s')) h = Math.max(40, bh + dy);
+      if (corner.includes('w')) { l = Math.min(bl+dx, bl+bw-40); w = Math.max(40, bw-dx); }
+      if (corner.includes('n')) { t = Math.min(bt+dy, bt+bh-40); h = Math.max(40, bh-dy); }
+      l = Math.max(0, Math.min(l, r.width-w));
+      t = Math.max(0, Math.min(t, r.height-h));
+      box.style.left=l+'px'; box.style.top=t+'px'; box.style.width=w+'px'; box.style.height=h+'px';
+    }
+    function up() { document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }
+    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+  };
+}
+function invFormCropCancel() {
+  const ov = document.getElementById('inv-form-crop-overlay');
+  if (ov) ov.style.display = 'none';
+  _cropData = null;
+}
+function invFormCropApply() {
+  if (!_cropData) return;
+  const { imgEl, r } = _cropData;
+  const box = document.getElementById('inv-form-crop-box');
+  const bx = box.offsetLeft, by = box.offsetTop, bw = box.offsetWidth, bh = box.offsetHeight;
+  const img = new Image();
+  img.onload = function() {
+    // Map displayed crop rect → natural image coords (accounting for object-fit:contain letterboxing)
+    const natW = img.naturalWidth, natH = img.naturalHeight;
+    const scale = Math.min(r.width/natW, r.height/natH);
+    const rW = natW*scale, rH = natH*scale;
+    const ox = (r.width-rW)/2, oy = (r.height-rH)/2;
+    const sx = Math.max(0, (bx - ox) / scale);
+    const sy = Math.max(0, (by - oy) / scale);
+    const sw = Math.min(natW - sx, bw / scale);
+    const sh = Math.min(natH - sy, bh / scale);
+    if (sw < 1 || sh < 1) { invFormCropCancel(); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+    canvas.getContext('2d').drawImage(img, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      try { URL.revokeObjectURL(invFormImgFile._blobUrl); } catch(_) {}
+      const newUrl = URL.createObjectURL(blob);
+      imgEl.src = newUrl;
+      invFormImgFile = new File([blob], invFormImgFile.name||'photo.jpg', { type:'image/jpeg' });
+      try { Object.defineProperty(invFormImgFile, '_blobUrl', { value:newUrl, configurable:true }); } catch(_) {}
+      document.getElementById('inv-form-crop-overlay').style.display = 'none';
+      _cropData = null;
+    }, 'image/jpeg', 0.9);
+  };
+  img.src = imgEl.src;
+}
 
 function invFormHandlePhoto(e) {
   const files = Array.from(e.target.files);
