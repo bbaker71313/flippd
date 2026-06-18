@@ -5285,7 +5285,7 @@ async function ebayPullListings(days){
   btn.style.opacity='0.5';
   
   try{
-    const r=await fetch(API_BASE+'/ebay/pull-listings',{
+    const r=await fetch(EBAY_BASE+'/pull-listings',{
       method:'POST',
       headers:getApiHeaders(),
       body:JSON.stringify({days})

@@ -84,11 +84,12 @@ Deno.serve(async (req: Request) => {
   const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
 
   try {
-    if (req.method === 'GET'  && path.endsWith('/authorize'))    return await handleAuthorize(req, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/callback'))     return await handleCallback(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/status'))       return await handleStatus(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/disconnect'))   return await handleDisconnect(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/price-change')) return await handlePriceChange(req, supabase, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/authorize'))     return await handleAuthorize(req, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/callback'))      return await handleCallback(req, supabase, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/status'))        return await handleStatus(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/disconnect'))    return await handleDisconnect(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/price-change'))  return await handlePriceChange(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/pull-listings')) return await handlePullListings(req, supabase, jwtSecret);
     return json({ error: 'Not found' }, 404);
   } catch (err) {
     console.error('ebay-oauth error:', err);
@@ -252,6 +253,120 @@ async function getValidEbayToken(
   }).eq('id', userId);
 
   return refreshData.access_token;
+}
+
+async function handlePullListings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const userId = await getAuthedUserId(req, jwtSecret);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+
+  const body = await req.json().catch(() => ({}));
+  const days = typeof body.days === 'number' ? Math.max(1, Math.min(365, body.days)) : 90;
+
+  const accessToken = await getValidEbayToken(userId, supabase);
+  if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
+
+  const ebayHeaders = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
+  let active = 0, drafted = 0, sold = 0;
+
+  // Build sku→title map from inventory items
+  const titleMap: Record<string, string> = {};
+  try {
+    const itemsRes = await fetch('https://api.ebay.com/sell/inventory/v1/inventory_item?limit=200', { headers: ebayHeaders });
+    if (itemsRes.ok) {
+      const itemsData = await itemsRes.json();
+      for (const item of (itemsData.inventoryItems ?? [])) {
+        if (item.sku && item.product?.title) titleMap[item.sku] = item.product.title;
+      }
+    }
+  } catch { /* title lookup is best-effort */ }
+
+  // Pull offers (active + draft listings) and upsert to inventory
+  try {
+    const offersRes = await fetch('https://api.ebay.com/sell/inventory/v1/offer?limit=200', { headers: ebayHeaders });
+    if (offersRes.ok) {
+      const offersData = await offersRes.json();
+      for (const offer of (offersData.offers ?? [])) {
+        const isPublished = offer.status === 'PUBLISHED';
+        if (isPublished) active++; else drafted++;
+
+        const listingId: string | null = offer.listing?.listingId ?? null;
+        const sellPrice: number | null = parseFloat(offer.pricingSummary?.price?.value ?? '0') || null;
+        const status = isPublished ? 'Listed' : 'Unlisted';
+        const title: string | null = offer.sku ? (titleMap[offer.sku] ?? null) : null;
+
+        // Find existing row by ebay_item_id, then by sku
+        let existing: { id: number } | null = null;
+        if (listingId) {
+          const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', listingId).maybeSingle();
+          existing = data;
+        }
+        if (!existing && offer.sku) {
+          const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', offer.sku).maybeSingle();
+          existing = data;
+        }
+
+        if (existing) {
+          const update: Record<string, unknown> = { status };
+          if (sellPrice) update.sell_price = sellPrice;
+          if (listingId) update.ebay_item_id = listingId;
+          if (title) update.listing_title = title.slice(0, 80);
+          await supabase.from('inventory').update(update).eq('id', existing.id);
+        } else if (offer.sku || listingId) {
+          await supabase.from('inventory').insert({
+            user_id: userId,
+            item_id: offer.sku ?? `ebay-${listingId}`,
+            sku: offer.sku ?? null,
+            nickname: (title ?? offer.sku ?? 'eBay item').slice(0, 255),
+            listing_title: title ? title.slice(0, 80) : null,
+            sell_price: sellPrice,
+            status,
+            ebay_item_id: listingId,
+            ebay_category_id: offer.categoryId ? parseInt(String(offer.categoryId), 10) : null,
+            platform: 'eBay',
+            created_from: 'ebay_sync',
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('ebay pull-listings offers error:', err);
+  }
+
+  // Pull fulfilled orders (mark matching inventory items as Sold)
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const ordersRes = await fetch(
+      `https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`,
+      { headers: ebayHeaders },
+    );
+    if (ordersRes.ok) {
+      const ordersData = await ordersRes.json();
+      for (const order of (ordersData.orders ?? [])) {
+        for (const item of (order.lineItems ?? [])) {
+          sold++;
+          let existing: { id: number } | null = null;
+          if (item.sku) {
+            const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', item.sku).maybeSingle();
+            existing = data;
+          }
+          if (!existing && item.legacyItemId) {
+            const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', item.legacyItemId).maybeSingle();
+            existing = data;
+          }
+          if (existing) {
+            await supabase.from('inventory').update({
+              status: 'Sold',
+              sold_at: order.creationDate ?? new Date().toISOString(),
+            }).eq('id', existing.id);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('ebay pull-listings orders error:', err);
+  }
+
+  return json({ active, drafted, sold });
 }
 
 async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
