@@ -14,7 +14,7 @@ Sentry.init({
   enabled: process.env.NODE_ENV === "production",
 });
 
-export default function RootLayout() {
+function RootLayout() {
   const segments = useSegments();
   const [session, setSession] = useState<Session | null>(null);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
@@ -65,3 +65,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
