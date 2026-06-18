@@ -55,7 +55,6 @@ const EBAY_SCOPES = [
   'https://api.ebay.com/oauth/api_scope/sell.inventory',
   'https://api.ebay.com/oauth/api_scope/sell.account',
   'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-  'https://api.ebay.com/oauth/api_scope/sell.finances',
   'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly',
 ].join(' ');
 
