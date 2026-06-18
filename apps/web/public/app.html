@@ -153,7 +153,7 @@ body::before{
     rgba(0,0,0,0.08) 4px
   );
   pointer-events:none;
-  z-index:9000;
+  z-index:0;
   mix-blend-mode:multiply;
 }
 
@@ -592,6 +592,7 @@ body::before{
 .kpi-icon{font-size:18px;margin-bottom:4px}
 .kpi-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--accent);line-height:1.1;text-shadow:0 0 28px rgba(212,168,67,0.65)}
 .kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;font-family:'IBM Plex Mono',monospace}
+@media(max-width:479px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 
 .nav-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .nav-card{background:linear-gradient(160deg,#1d1d1d 0%,#131313 100%);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 20px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05)}
@@ -1105,6 +1106,28 @@ body::before{
   font-size: var(--text-xs); padding: 1px 5px; cursor: pointer; line-height: 1.4;
 }
 
+/* ══ UTILITY CLASSES (extracted from repeated inline styles) ══ */
+.mb-12{margin-bottom:12px}
+.mb-14{margin-bottom:14px}
+.mb-8{margin-bottom:8px}
+.mb-0{margin-bottom:0}
+.w-full{width:100%}
+.text-right{text-align:right}
+.text-muted{color:var(--muted)}
+.text-red{color:var(--red)}
+.text-green{color:var(--green)}
+.text-yellow{color:var(--yellow)}
+.text-accent{color:var(--accent)}
+.text-xs-muted{font-size:11px;color:var(--muted)}
+.cursor-ptr{cursor:pointer}
+.icon-inline{vertical-align:-1px;margin-right:5px}
+.col-full{grid-column:1/-1}
+.flex-1{flex:1}
+.flex-1-mb0{flex:1;margin-bottom:0}
+.flex-1-min0{flex:1;min-width:0}
+.flex-gap-8{display:flex;gap:8px}
+.flex-between{display:flex;justify-content:space-between}
+.flex-center-6{display:flex;align-items:center;gap:6px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
@@ -1186,23 +1209,23 @@ body::before{
       </div>
       <!-- Auth mode toggle -->
       <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
-        <button id="auth-tab-login" onclick="setAuthMode('login')" style="flex:1;padding:7px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;transition:all 0.2s">Log In</button>
+        <button id="auth-tab-login" onclick="setAuthMode('login')" style="flex:1;padding:7px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#000;transition:all 0.2s">Log In</button>
         <button id="auth-tab-register" onclick="setAuthMode('register')" style="flex:1;padding:7px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.2s">Sign Up</button>
       </div>
 
       <!-- Login fields -->
       <div id="auth-login-fields">
-        <input class="setup-input" id="auth-username" aria-label="Username" type="text" placeholder="Username" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-password" aria-label="Password" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-username" aria-label="Username" type="text" placeholder="Username" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" class="mb-8" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-password" aria-label="Password" type="password" placeholder="Password" autocomplete="current-password" class="mb-8" onkeypress="authKeyPress(event)"/>
       </div>
 
       <!-- Register fields -->
       <div id="auth-register-fields" style="display:none">
-        <input class="setup-input" id="auth-name" aria-label="Your first name" type="text" placeholder="Your first name (e.g. Brittany)" autocomplete="given-name" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-reg-username" aria-label="Username" type="text" placeholder="Username (letters, numbers, underscores)" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-email" aria-label="Email address" type="email" placeholder="Email address" autocomplete="email" spellcheck="false" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-reg-password" aria-label="Password" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
-        <input class="setup-input" id="auth-password-confirm" aria-label="Confirm password" type="password" placeholder="Confirm password" autocomplete="new-password" style="margin-bottom:8px" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-name" aria-label="Your first name" type="text" placeholder="Your first name (e.g. Brittany)" autocomplete="given-name" spellcheck="false" class="mb-8" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-reg-username" aria-label="Username" type="text" placeholder="Username (letters, numbers, underscores)" autocomplete="username" spellcheck="false" autocorrect="off" autocapitalize="off" class="mb-8" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-email" aria-label="Email address" type="email" placeholder="Email address" autocomplete="email" spellcheck="false" class="mb-8" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-reg-password" aria-label="Password" type="password" placeholder="Password (min 6 characters)" autocomplete="new-password" class="mb-8" onkeypress="authKeyPress(event)"/>
+        <input class="setup-input" id="auth-password-confirm" aria-label="Confirm password" type="password" placeholder="Confirm password" autocomplete="new-password" class="mb-8" onkeypress="authKeyPress(event)"/>
       </div>
 
       <!-- Check email screen (shown after register) -->
@@ -1210,7 +1233,7 @@ body::before{
         <div style="font-size:36px;margin-bottom:12px">📬</div>
         <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin-bottom:8px">Check your email!</div>
         <p style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:16px">We sent a verification link to <strong id="auth-verify-email"></strong>. Click it to activate your account, then come back and log in.</p>
-        <p style="font-size:11px;color:var(--muted)">Don't see it? Check your spam folder.</p>
+        <p class="text-xs-muted">Don't see it? Check your spam folder.</p>
         <button onclick="setAuthMode('login')" style="margin-top:16px;background:none;border:1px solid var(--border);color:var(--accent);padding:9px 20px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Back to Log In</button>
       </div>
 
@@ -1236,9 +1259,9 @@ body::before{
     <div class="card">
       <h3 class="card-title">🎯 Decision Thresholds</h3>
       <div class="setting-row">
-        <div style="flex:1"><span class="setting-name">Minimum Profit</span><span class="setting-desc">Item must clear this to get a FLIP</span></div>
+        <div class="flex-1"><span class="setting-name">Minimum Profit</span><span class="setting-desc">Item must clear this to get a FLIP</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="flex-center-6">
             <input type="number" id="num-min-profit" min="5" max="50" step="1" value="15" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('min-profit',this.value,'$','')">
             <span class="setting-val" id="val-min-profit">$15</span>
           </div>
@@ -1246,9 +1269,9 @@ body::before{
         </div>
       </div>
       <div class="setting-row">
-        <div style="flex:1"><span class="setting-name">Target ROI %</span><span class="setting-desc">ROI needed for HIGH PRIORITY</span></div>
+        <div class="flex-1"><span class="setting-name">Target ROI %</span><span class="setting-desc">ROI needed for HIGH PRIORITY</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="flex-center-6">
             <input type="number" id="num-target-roi" min="50" max="500" step="25" value="200" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('target-roi',this.value,'','%')">
             <span class="setting-val" id="val-target-roi">200%</span>
           </div>
@@ -1256,9 +1279,9 @@ body::before{
         </div>
       </div>
       <div class="setting-row">
-        <div style="flex:1"><span class="setting-name">Max Days to Sell</span><span class="setting-desc">Slower items get a PASS</span></div>
+        <div class="flex-1"><span class="setting-name">Max Days to Sell</span><span class="setting-desc">Slower items get a PASS</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="flex-center-6">
             <input type="number" id="num-max-days" min="14" max="120" step="7" value="60" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('max-days',this.value,'',' days')">
             <span class="setting-val" id="val-max-days">60 days</span>
           </div>
@@ -1269,9 +1292,9 @@ body::before{
     <div class="card">
       <h3 class="card-title">💸 Your eBay Fees</h3>
       <div class="setting-row">
-        <div style="flex:1"><span class="setting-name">eBay Fee %</span><span class="setting-desc">Platform + payment fee</span></div>
+        <div class="flex-1"><span class="setting-name">eBay Fee %</span><span class="setting-desc">Platform + payment fee</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="flex-center-6">
             <input type="number" id="num-ebay-fee" min="8" max="18" step="0.5" value="13" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('ebay-fee',this.value,'','%')">
             <span class="setting-val" id="val-ebay-fee">13%</span>
           </div>
@@ -1279,9 +1302,9 @@ body::before{
         </div>
       </div>
       <div class="setting-row" style="border-bottom:none">
-        <div style="flex:1"><span class="setting-name">Packaging Cost</span><span class="setting-desc">Boxes, tape, padding</span></div>
+        <div class="flex-1"><span class="setting-name">Packaging Cost</span><span class="setting-desc">Boxes, tape, padding</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="flex-center-6">
             <input type="number" id="num-pkg-cost" min="0" max="5" step="0.25" value="1.25" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('pkg-cost',this.value,'$','')">
             <span class="setting-val" id="val-pkg-cost">$1.25</span>
           </div>
@@ -1295,7 +1318,7 @@ body::before{
       <label class="radio-row" id="style-balanced"><input type="radio" name="style" value="balanced" checked onchange="updateStyle('balanced')"><div><strong>Balanced</strong> — Default, good mix</div></label>
       <label class="radio-row" id="style-aggressive"><input type="radio" name="style" value="aggressive" onchange="updateStyle('aggressive')"><div><strong>Aggressive</strong> — Wider net, more buys</div></label>
     </div>
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">📸 Photo Tools</h3>
       <div class="setting-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:6px">
         <span class="setting-name">Remove.bg API Key</span>
@@ -1303,7 +1326,7 @@ body::before{
         <input type="password" class="f-input" id="pa-removebg-key" placeholder="Your remove.bg API key" style="width:100%;box-sizing:border-box;margin-top:4px" oninput="S.removebgKey=this.value">
       </div>
     </div>
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">Export Reminder</h3>
       <div class="setting-row" style="border-bottom:1px solid var(--border)">
         <div>
@@ -1332,15 +1355,15 @@ body::before{
       <h3 class="card-title">👤 Account</h3>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
-          <span style="color:var(--muted)">Username</span>
+          <span class="text-muted">Username</span>
           <span id="acct-username" style="color:var(--text);font-weight:700">—</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
-          <span style="color:var(--muted)">Email</span>
+          <span class="text-muted">Email</span>
           <span id="acct-email" style="color:var(--text)">—</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0">
-          <span style="color:var(--muted)">Plan</span>
+          <span class="text-muted">Plan</span>
           <span id="acct-tier" style="color:var(--green);font-weight:700;text-transform:uppercase">—</span>
         </div>
       </div>
@@ -1366,10 +1389,10 @@ body::before{
       <p style="color:var(--muted);font-size:12px;line-height:1.6">Enter your new password below.</p>
     </div>
     <div class="setup-card">
-      <input class="setup-input" id="reset-password-new" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" style="margin-bottom:8px">
-      <input class="setup-input" id="reset-password-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" style="margin-bottom:8px">
+      <input class="setup-input" id="reset-password-new" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" class="mb-8">
+      <input class="setup-input" id="reset-password-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" class="mb-8">
       <div id="reset-error" style="display:none;background:var(--red-bg);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;padding:10px 12px;margin-bottom:10px;font-weight:600"></div>
-      <button class="btn btn-green" onclick="submitPasswordReset()" style="width:100%">Set New Password →</button>
+      <button class="btn btn-green" onclick="submitPasswordReset()" class="w-full">Set New Password →</button>
       <div style="text-align:center;margin-top:10px">
         <button onclick="showSrcView('setup');setAuthMode('login')" style="background:none;border:none;color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">← Back to Login</button>
       </div>
@@ -1477,7 +1500,7 @@ body::before{
     <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text);margin-bottom:16px" id="form-title">Add New Item</div>
 
     <!-- PHOTO + AI DETECT SECTION -->
-    <div class="card" style="margin-bottom:14px">
+    <div class="card mb-14">
       <h3 class="card-title">Photo — AI will detect item automatically</h3>
       <div id="inv-form-photo-preview" style="display:none;margin-bottom:10px">
         <img id="inv-form-photo-img" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:block">
@@ -1514,7 +1537,7 @@ body::before{
     </div>
 
     <div class="form-grid">
-      <div class="f-group" style="grid-column:1/-1">
+      <div class="f-group col-full">
         <label class="f-label">Item Name *</label>
         <input class="f-input" id="f-nickname" placeholder="e.g. Sony Handycam CCD-F73">
       </div>
@@ -1546,20 +1569,20 @@ body::before{
         <label class="f-label">Status</label>
         <select class="f-select" id="f-status"></select>
       </div>
-      <div class="f-group" style="grid-column:1/-1" id="profit-preview-row">
+      <div class="f-group col-full" id="profit-preview-row">
         <div class="profit-preview">
           <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px">Est. Profit</span>
           <span id="profit-preview-val" style="font-size:18px;font-weight:800;font-family:'Syne',sans-serif;color:var(--green)"></span>
         </div>
       </div>
-      <div class="f-group" style="grid-column:1/-1">
+      <div class="f-group col-full">
         <label class="f-label">Notes / Flaws</label>
         <textarea class="f-textarea" id="f-notes" placeholder="Any flaws, missing parts, listing notes..."></textarea>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="saveInvItem()">✓ Add to Inventory</button>
-      <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="cancelInvForm()">Cancel</button>
+      <button class="btn btn-green flex-1-mb0" onclick="saveInvItem()">✓ Add to Inventory</button>
+      <button class="btn btn-ghost flex-1-mb0" onclick="cancelInvForm()">Cancel</button>
     </div>
     <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00e676);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
       &#x1f680; Save + Write eBay Listing
@@ -1584,7 +1607,7 @@ body::before{
   </div>
 
   <!-- Link to inventory item (optional) -->
-  <div class="card" style="margin-bottom:12px">
+  <div class="card mb-12">
     <h3 class="card-title">Attach to inventory item <span style="color:var(--muted);font-weight:500">(optional)</span></h3>
     <div style="display:flex;flex-direction:column;gap:8px">
       <select class="f-select" id="pa-cat-select" onchange="paFilterByCategory(this.value)">
@@ -1633,24 +1656,24 @@ body::before{
       </div>
     </div>
     <!-- Adjustments -->
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">🎨 Adjustments</h3>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Brightness</span><span id="pa-bright-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">15</span></div>
-          <input type="range" class="slider" id="pa-brightness" min="-80" max="80" value="15" step="1" oninput="paApplyFilters()" style="width:100%">
+          <input type="range" class="slider" id="pa-brightness" min="-80" max="80" value="15" step="1" oninput="paApplyFilters()" class="w-full">
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Contrast</span><span id="pa-contrast-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">20</span></div>
-          <input type="range" class="slider" id="pa-contrast" min="-50" max="80" value="20" step="1" oninput="paApplyFilters()" style="width:100%">
+          <input type="range" class="slider" id="pa-contrast" min="-50" max="80" value="20" step="1" oninput="paApplyFilters()" class="w-full">
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Saturation</span><span id="pa-sat-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">10</span></div>
-          <input type="range" class="slider" id="pa-saturation" min="-50" max="80" value="10" step="1" oninput="paApplyFilters()" style="width:100%">
+          <input type="range" class="slider" id="pa-saturation" min="-50" max="80" value="10" step="1" oninput="paApplyFilters()" class="w-full">
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <button id="pa-removebg-btn" onclick="paRemoveBg()" style="padding:7px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600">🪄 Remove BG</button>
-          <span style="font-size:11px;color:var(--muted)">Needs remove.bg key in Settings</span>
+          <span class="text-xs-muted">Needs remove.bg key in Settings</span>
         </div>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
           <input type="checkbox" id="pa-apply-all" style="width:18px;height:18px;accent-color:var(--accent)"> Apply to all photos
@@ -1659,7 +1682,7 @@ body::before{
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" style="flex:1;margin-bottom:0;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" onclick="paPhotoBoost()">✨ Boost</button>
-      <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="paDownloadAll()">⬇ Download</button>
+      <button class="btn btn-green flex-1-mb0" onclick="paDownloadAll()">⬇ Download</button>
       <button class="btn" style="flex:1;margin-bottom:0;background:#185FA5;color:#fff;border-color:#185FA5" onclick="paSaveToItem()">💾 Save</button>
     </div>
     <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="paReset()">Start Over</button>
@@ -1736,44 +1759,44 @@ body::before{
 
     <!-- Section: AI advice — moved directly under score card (Change 7) -->
     <div id="growth-advice-section" class="card" style="margin-bottom:14px;background:var(--green-bg);border-color:var(--green-border)">
-      <h3 class="card-title" style="color:var(--green)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M8 1L3 8h4L5 13l7-8H8L9 1z" fill="currentColor"/></svg>Your Business Advisor Says</h3>
+      <h3 class="card-title text-green"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><path d="M8 1L3 8h4L5 13l7-8H8L9 1z" fill="currentColor"/></svg>Your Business Advisor Says</h3>
       <div id="growth-advice-content" style="font-size:13px;color:var(--text);line-height:1.8;font-weight:500"></div>
     </div>
 
     <!-- Section: Top performers -->
-    <div id="growth-top-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><rect x="2" y="10" width="3" height="3" fill="currentColor" opacity="0.6"/><rect x="5.5" y="6" width="3" height="7" fill="currentColor"/><rect x="9" y="8" width="3" height="5" fill="currentColor" opacity="0.6"/></svg>Top Performing Categories</h3>
+    <div id="growth-top-section" class="card mb-14">
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><rect x="2" y="10" width="3" height="3" fill="currentColor" opacity="0.6"/><rect x="5.5" y="6" width="3" height="7" fill="currentColor"/><rect x="9" y="8" width="3" height="5" fill="currentColor" opacity="0.6"/></svg>Top Performing Categories</h3>
       <div id="growth-top-content"></div>
     </div>
 
     <!-- Section: Stale items -->
-    <div id="growth-stale-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M3 1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 1.5L7 7L10 1.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 12.5L7 7L10 12.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Action Queue</h3>
+    <div id="growth-stale-section" class="card mb-14">
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><path d="M3 1h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 1.5L7 7L10 1.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M4 12.5L7 7L10 12.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Action Queue</h3>
       <div id="growth-stale-content"></div>
     </div>
 
     <!-- Section: Hunt list -->
-    <div id="growth-hunt-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>What to Hunt This Week</h3>
+    <div id="growth-hunt-section" class="card mb-14">
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>What to Hunt This Week</h3>
       <div id="growth-hunt-content"></div>
     </div>
 
     <!-- Section: Market trends -->
-    <div id="growth-market-section" class="card" style="margin-bottom:14px">
-      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M1.5 12C3 9 5 7.5 7 7.5S11 9 12.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 10C4.5 8 5.5 7 7 7S9.5 8 10.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="4.5" r="1.2" fill="currentColor"/></svg>Live eBay Market Trends</h3>
+    <div id="growth-market-section" class="card mb-14">
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><path d="M1.5 12C3 9 5 7.5 7 7.5S11 9 12.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 10C4.5 8 5.5 7 7 7S9.5 8 10.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="4.5" r="1.2" fill="currentColor"/></svg>Live eBay Market Trends</h3>
       <div id="growth-market-content"></div>
     </div>
 
     <!-- SEASONAL SOURCING — static, month-based -->
-    <div class="card" style="margin-bottom:14px">
-      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M7 3v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Upcoming Seasonal Sourcing</h3>
+    <div class="card mb-14">
+      <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M7 3v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Upcoming Seasonal Sourcing</h3>
       <div id="seasonal-tips-content" style="font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace">Loading...</div>
     </div>
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
-    <div class="card" style="margin-bottom:14px">
+    <div class="card mb-14">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h3 class="card-title" style="margin-bottom:0"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:5px"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg>Trending on eBay Right Now</h3>
+        <h3 class="card-title mb-0"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg>Trending on eBay Right Now</h3>
         <button onclick="fetchTrendingKeywords()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Refresh</button>
       </div>
       <div id="growth-trending"><div style="font-size:12px;color:var(--muted);padding:8px 0;font-family:'IBM Plex Mono',monospace">Tap Refresh to load live trends →</div></div>
@@ -1795,7 +1818,7 @@ body::before{
   <div id="pnl-summary-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
 
   <!-- Tax estimate banner -->
-  <div id="pnl-tax-banner" style="margin-bottom:14px"></div>
+  <div id="pnl-tax-banner" class="mb-14"></div>
 
   <!-- Sub-tabs -->
   <div style="display:flex;gap:6px;margin-bottom:14px">
@@ -1813,10 +1836,10 @@ body::before{
 
   <!-- EXPENSES VIEW -->
   <div id="pnl-view-expenses" style="display:none">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">➕ Add Expense</h3>
       <div class="form-grid">
-        <div class="f-group" style="grid-column:1/-1">
+        <div class="f-group col-full">
           <label class="f-label">Description</label>
           <input class="f-input" id="pnl-exp-desc" placeholder="e.g. Gas to thrift store, poly mailers, tape roll">
         </div>
@@ -1859,7 +1882,7 @@ body::before{
 
   <!-- MILEAGE QUICK-LOGGER (always visible) -->
   <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:var(--yellow)">
-    <h3 class="card-title" style="color:var(--yellow)">🚗 Quick Mileage Logger</h3>
+    <h3 class="card-title text-yellow">🚗 Quick Mileage Logger</h3>
     <div style="display:flex;gap:8px;align-items:center">
       <input type="number" id="pnl-miles-input" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid var(--yellow);border-radius:8px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
       <button onclick="pnlLogMileage()" style="background:var(--yellow);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
@@ -1872,7 +1895,7 @@ body::before{
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-csv">
   <!-- Change 7: Back button to return to inventory -->
-  <button class="back-btn" onclick="switchTab('inventory')" style="margin-bottom:12px">← Back</button>
+  <button class="back-btn" onclick="switchTab('inventory')" class="mb-12">← Back</button>
   <div style="padding-top:4px;margin-bottom:16px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Export</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">eBay CSV export · Full ScanForProfit backup</div>
@@ -1880,11 +1903,11 @@ body::before{
 
   <!-- FORMAT SELECTOR -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="mode-tab active-green" id="csv-tab-ebay" onclick="setCsvExportMode('ebay')" role="button" tabindex="0" style="cursor:pointer">
+    <div class="mode-tab active-green" id="csv-tab-ebay" onclick="setCsvExportMode('ebay')" role="button" tabindex="0" class="cursor-ptr">
       <div style="font-size:12px;font-weight:700">eBay CSV</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Draft listings template</div>
     </div>
-    <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" role="button" tabindex="0" style="cursor:pointer">
+    <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" role="button" tabindex="0" class="cursor-ptr">
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Full CSV backup (ZIP)</div>
     </div>
@@ -1892,7 +1915,7 @@ body::before{
 
   <!-- EBAY CSV MODE -->
   <div id="csv-mode-ebay">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">Export Window</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
@@ -1903,14 +1926,14 @@ body::before{
       <div id="csv-preview-count" style="font-size:13px;font-weight:600;color:var(--soft);margin-bottom:4px"></div>
       <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
     </div>
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">Items Ready to Export</h3>
       <div id="csv-items-list"></div>
     </div>
     <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">Download CSV for eBay</button>
     <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.7;font-weight:500">After downloading: eBay Seller Hub → Reports → Upload → select your CSV file</p>
     <div class="card" style="margin-top:10px;background:var(--yellow-bg);border-color:#e8b840">
-      <h3 class="card-title" style="color:var(--yellow)">Daily Reminder</h3>
+      <h3 class="card-title text-yellow">Daily Reminder</h3>
       <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="time" id="csv-reminder-time" aria-label="Reminder time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
@@ -1922,10 +1945,10 @@ body::before{
 
   <!-- FLIPPD BACKUP MODE -->
   <div id="csv-mode-backup" style="display:none">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">Export Full Backup</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
-      <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:0">Download Full Backup</button>
+      <button class="btn btn-green" onclick="exportFlippdBackup()" class="mb-0">Download Full Backup</button>
     </div>
   </div>
 
@@ -1936,7 +1959,7 @@ body::before{
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-import">
   <!-- Change 7: Back button to return to inventory -->
-  <button class="back-btn" onclick="switchTab('inventory')" style="margin-bottom:12px">← Back</button>
+  <button class="back-btn" onclick="switchTab('inventory')" class="mb-12">← Back</button>
   <div style="padding-top:4px;margin-bottom:16px">
     <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Import Inventory</div>
     <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Restore from ScanForProfit backup · Import from spreadsheet</div>
@@ -1944,11 +1967,11 @@ body::before{
 
   <!-- FORMAT SELECTOR -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="mode-tab active-green" id="import-tab-flippd" onclick="setImportMode('flippd')" role="button" tabindex="0" style="cursor:pointer">
+    <div class="mode-tab active-green" id="import-tab-flippd" onclick="setImportMode('flippd')" role="button" tabindex="0" class="cursor-ptr">
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Restore your data</div>
     </div>
-    <div class="mode-tab" id="import-tab-manual" onclick="setImportMode('manual')" role="button" tabindex="0" style="cursor:pointer">
+    <div class="mode-tab" id="import-tab-manual" onclick="setImportMode('manual')" role="button" tabindex="0" class="cursor-ptr">
       <div style="font-size:12px;font-weight:700">Spreadsheet CSV</div>
       <div style="font-size:10px;margin-top:2px;opacity:0.8">Import from Excel/Sheets</div>
     </div>
@@ -1956,13 +1979,13 @@ body::before{
 
   <!-- FLIPPD BACKUP MODE -->
   <div id="import-mode-flippd">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">Restore from ScanForProfit Backup</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:14px">Upload a ScanForProfit JSON backup file to restore your inventory. New items will be added. Items with matching SKUs will be skipped to prevent duplicates.</p>
       <div id="import-flippd-dropzone" onclick="document.getElementById('import-flippd-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
         <div style="font-size:32px;margin-bottom:8px">↑</div>
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose file</div>
-        <div style="font-size:11px;color:var(--muted)">ScanForProfit-backup-*.json</div>
+        <div class="text-xs-muted">ScanForProfit-backup-*.json</div>
       </div>
       <input type="file" id="import-flippd-file" accept=".json" style="display:none" onchange="handleFlippdImport(event)">
     </div>
@@ -1970,7 +1993,7 @@ body::before{
 
   <!-- SPREADSHEET CSV MODE -->
   <div id="import-mode-manual" style="display:none">
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">Import from Spreadsheet</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV or an eBay draft listings CSV. Duplicate SKUs are skipped automatically.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.8;word-break:break-all">
@@ -1979,7 +2002,7 @@ body::before{
       </div>
       <div id="import-csv-dropzone" onclick="document.getElementById('import-csv-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose CSV</div>
-        <div style="font-size:11px;color:var(--muted)">Spreadsheet CSV or eBay draft listings CSV</div>
+        <div class="text-xs-muted">Spreadsheet CSV or eBay draft listings CSV</div>
       </div>
       <input type="file" id="import-csv-file" accept=".csv" style="display:none" onchange="handleCsvImport(event)">
     </div>
@@ -1988,12 +2011,12 @@ body::before{
   <!-- IMPORT PREVIEW -->
   <div id="import-preview" style="display:none">
     <div class="card" style="margin-bottom:12px;border-color:var(--green-border);background:var(--green-bg)">
-      <h3 class="card-title" style="color:var(--green)">✓ Ready to Import</h3>
+      <h3 class="card-title text-green">✓ Ready to Import</h3>
       <div id="import-summary" style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:10px"></div>
       <div id="import-preview-list" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px">
+      <div class="flex-gap-8">
         <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmImport()">✓ Import All</button>
-        <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="cancelImport()">Cancel</button>
+        <button class="btn btn-ghost flex-1-mb0" onclick="cancelImport()">Cancel</button>
       </div>
     </div>
   </div>
@@ -2019,7 +2042,7 @@ body::before{
     <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">Plan</button>
   </div>
   <div id="stats-view-dash" style="display:none">
-    <div style="margin-bottom:14px">
+    <div class="mb-14">
       <div id="dash-greeting" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">Hey there 👋</div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px" id="dash-date"></div>
     </div>
@@ -2034,10 +2057,10 @@ body::before{
     </div>
     <div id="spnl-sales"></div>
     <div id="spnl-exp" style="display:none">
-      <div class="card" style="margin-bottom:12px">
+      <div class="card mb-12">
         <h3 class="card-title">➕ Add Expense</h3>
         <div class="form-grid">
-          <div class="f-group" style="grid-column:1/-1"><label class="f-label">Description</label><input class="f-input" id="spnl-desc" placeholder="Gas, poly mailers, tape..."></div>
+          <div class="f-group col-full"><label class="f-label">Description</label><input class="f-input" id="spnl-desc" placeholder="Gas, poly mailers, tape..."></div>
           <div class="f-group"><label class="f-label">Amount ($)</label><input class="f-input" type="number" id="spnl-amt" placeholder="12.50" step="0.01"></div>
           <div class="f-group"><label class="f-label">Category</label><select class="f-select" id="spnl-cat"><option>Gas &amp; Travel</option><option>Shipping Supplies</option><option>Storage</option><option>Platform Fees</option><option>Equipment</option><option>Other</option></select></div>
           <div class="f-group"><label class="f-label">Date</label><input class="f-input" type="date" id="spnl-date"></div>
@@ -2048,7 +2071,7 @@ body::before{
     </div>
     <div id="spnl-mo" style="display:none"><div class="card" style="padding:0 12px" id="spnl-mo-content"></div></div>
     <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:var(--yellow)">
-      <h3 class="card-title" style="color:var(--yellow)">🚗 Mileage Logger</h3>
+      <h3 class="card-title text-yellow">🚗 Mileage Logger</h3>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="number" id="spnl-miles" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid var(--yellow);border-radius:4px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
         <button onclick="sPnlMiles()" style="background:var(--yellow);color:#000;border:none;border-radius:4px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
@@ -2100,7 +2123,7 @@ body::before{
     </div>
 
     <!-- Confidence meter -->
-    <div style="margin-bottom:14px">
+    <div class="mb-14">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:4px">
         <span>AI CONFIDENCE</span><span id="buy-conf-pct" style="color:var(--green-border);font-weight:700"></span>
       </div>
@@ -2111,7 +2134,7 @@ body::before{
     </div>
 
     <div class="form-grid" style="gap:8px">
-      <div class="f-group" style="grid-column:1/-1">
+      <div class="f-group col-full">
         <label class="f-label">Item Name</label>
         <input class="f-input" id="bc-name">
       </div>
@@ -2131,7 +2154,7 @@ body::before{
         <label class="f-label">Est. Sell Price ($)</label>
         <input class="f-input" type="number" id="bc-price" placeholder="0.00" step="0.01">
       </div>
-      <div class="f-group" style="grid-column:1/-1">
+      <div class="f-group col-full">
         <label class="f-label">Notes</label>
         <textarea class="f-textarea" id="bc-notes" rows="2"></textarea>
       </div>
@@ -2143,15 +2166,15 @@ body::before{
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase">Est. Profit</div>
         <div id="bc-profit-val" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--green)"></div>
       </div>
-      <div style="text-align:right">
+      <div class="text-right">
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase">ROI</div>
         <div id="bc-roi-val" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--green)"></div>
       </div>
     </div>
 
-    <div style="display:flex;gap:8px">
+    <div class="flex-gap-8">
       <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmBuyItem()">✓ Add to Inventory</button>
-      <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="closeBuyConfirm()">Cancel</button>
+      <button class="btn btn-ghost flex-1-mb0" onclick="closeBuyConfirm()">Cancel</button>
     </div>
   </div>
 </div>
@@ -2169,9 +2192,9 @@ body::before{
       <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace">Net Profit</span>
       <span id="sold-profit-val" style="font-weight:800;font-family:'Syne',sans-serif;color:var(--green);font-size:18px"></span>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-green" style="margin-bottom:0;flex:1" onclick="confirmSold()">✓ Confirm Sale</button>
-      <button class="btn btn-ghost" style="margin-bottom:0;flex:1" onclick="closeSoldModal()">Cancel</button>
+    <div class="flex-gap-8">
+      <button class="btn btn-green flex-1-mb0" onclick="confirmSold()">✓ Confirm Sale</button>
+      <button class="btn btn-ghost flex-1-mb0" onclick="closeSoldModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -2189,7 +2212,7 @@ body::before{
     <!-- SELECTION STAGE -->
     <div id="listing-selection-stage" style="display:block">
       <!-- Condition -->
-      <div style="margin-bottom:14px">
+      <div class="mb-14">
         <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Condition</label>
         <select id="listing-condition-select" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:8px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">
           <option value="New">New</option>
@@ -2201,7 +2224,7 @@ body::before{
       </div>
 
       <!-- eBay Category -->
-      <div style="margin-bottom:14px">
+      <div class="mb-14">
         <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">eBay Category</label>
         <select id="listing-ebay-category" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:8px 10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">
           <option value="">-- Select Category --</option>
@@ -2243,21 +2266,21 @@ body::before{
       <!-- Preview Content -->
       <div id="listing-preview-content" style="display:none">
         <!-- Title -->
-        <div style="margin-bottom:12px">
+        <div class="mb-12">
           <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📋 Title</label>
           <div id="listing-title-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;word-wrap:break-word;min-height:40px"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-title-length">0/80</span></div>
         </div>
 
         <!-- Description -->
-        <div style="margin-bottom:12px">
+        <div class="mb-12">
           <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📝 Description</label>
           <div id="listing-desc-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;word-wrap:break-word;min-height:100px;white-space:pre-wrap"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-desc-length">0/1500</span></div>
         </div>
 
         <!-- Condition Note -->
-        <div style="margin-bottom:14px">
+        <div class="mb-14">
           <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🏷️ Condition Note</label>
           <div id="listing-cond-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;word-wrap:break-word;min-height:60px;white-space:pre-wrap"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-cond-length">0/500</span></div>
@@ -2266,16 +2289,16 @@ body::before{
     </div>
 
     <!-- Buttons -->
-    <div id="listing-selection-buttons" style="display:flex;gap:8px">
-      <button class="btn btn-purple" style="margin-bottom:0;flex:1" onclick="proceedToPreview()">Next → Preview</button>
-      <button class="btn btn-ghost" style="margin-bottom:0;flex:1" onclick="closeListingModal()">Cancel</button>
+    <div id="listing-selection-buttons" class="flex-gap-8">
+      <button class="btn btn-purple flex-1-mb0" onclick="proceedToPreview()">Next → Preview</button>
+      <button class="btn btn-ghost flex-1-mb0" onclick="closeListingModal()">Cancel</button>
     </div>
 
     <div id="listing-preview-buttons" style="display:none;gap:8px;flex-direction:column">
-      <button class="btn btn-purple" style="margin-bottom:0" onclick="regenerateListing()">⚡ Regenerate</button>
-      <button class="btn btn-green" style="margin-bottom:0" onclick="saveListing(false)">💾 Save to Item</button>
-      <button class="btn btn-accent" style="margin-bottom:0" onclick="saveListing(true)">📤 Save + Export</button>
-      <button class="btn btn-ghost" style="margin-bottom:0" onclick="closeListingModal()">Cancel</button>
+      <button class="btn btn-purple mb-0" onclick="regenerateListing()">⚡ Regenerate</button>
+      <button class="btn btn-green mb-0" onclick="saveListing(false)">💾 Save to Item</button>
+      <button class="btn btn-accent mb-0" onclick="saveListing(true)">📤 Save + Export</button>
+      <button class="btn btn-ghost mb-0" onclick="closeListingModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -2289,8 +2312,8 @@ body::before{
     <div style="padding:20px 20px 16px">
       <div id="app-confirm-title" style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;color:var(--text);margin-bottom:8px">Are you sure?</div>
       <div id="app-confirm-msg" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px">This action cannot be undone.</div>
-      <div style="display:flex;gap:8px">
-        <button id="app-confirm-cancel" class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="appConfirmRespond(false)">Cancel</button>
+      <div class="flex-gap-8">
+        <button id="app-confirm-cancel" class="btn btn-ghost flex-1-mb0" onclick="appConfirmRespond(false)">Cancel</button>
         <button id="app-confirm-ok" class="btn" style="flex:1;margin-bottom:0;background:var(--red);color:#fff;border-color:var(--red)" onclick="appConfirmRespond(true)">Delete</button>
       </div>
     </div>
@@ -2315,9 +2338,9 @@ body::before{
     <div id="dp-scout-notice" style="display:none;background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--yellow);font-weight:600;margin-bottom:12px;font-family:'IBM Plex Mono',monospace">
       Remember to update your eBay listing manually after accepting.
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="closeDropPriceModal()">Cancel</button>
-      <button class="btn btn-green" style="flex:1;margin-bottom:0" onclick="acceptDropPrice()">Accept Drop</button>
+    <div class="flex-gap-8">
+      <button class="btn btn-ghost flex-1-mb0" onclick="closeDropPriceModal()">Cancel</button>
+      <button class="btn btn-green flex-1-mb0" onclick="acceptDropPrice()">Accept Drop</button>
     </div>
     <div id="dp-ebay-wrap" style="display:none;margin-top:8px">
       <button id="dp-ebay-btn" onclick="syncDropPriceToEbay()" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer">↗ Sync Price to eBay</button>
@@ -2333,8 +2356,8 @@ body::before{
     <div style="font-size:13px;color:var(--soft);line-height:1.7;margin-bottom:18px;font-family:'IBM Plex Mono',monospace">
       This marks the current listing as Unlisted and opens it for editing so you can relist it fresh.
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" style="flex:1;margin-bottom:0" onclick="closeRelistModal()">Cancel</button>
+    <div class="flex-gap-8">
+      <button class="btn btn-ghost flex-1-mb0" onclick="closeRelistModal()">Cancel</button>
       <button class="btn" style="flex:1;margin-bottom:0;background:var(--accent);color:#000;border-color:var(--accent)" onclick="confirmRelist()">Relist as New</button>
     </div>
   </div>
@@ -2845,9 +2868,9 @@ function renderFilteredList() {
         ${thumbUrl
           ? `<img class="item-thumb" src="${thumbUrl}" alt="" loading="lazy" onclick="${thumbClick}" role="button" tabindex="0" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer">`
           : `<div class="item-thumb" style="width:48px;height:48px;background:var(--bg);display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;cursor:pointer;border:1px solid var(--border)" onclick="${thumbClick}" role="button" tabindex="0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h4"/></svg></div>`}
-        <div style="flex:1;min-width:0">
+        <div class="flex-1-min0">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="${cardClick}" role="button" tabindex="0">
-            <div style="flex:1;min-width:0">
+            <div class="flex-1-min0">
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick">${item.nickname}</div>
             </div>
@@ -2962,11 +2985,11 @@ function showSoldDetail(id) {
     <div class="card" style="margin:12px 0">
       <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">PROFIT BREAKDOWN</div>
       <div style="font-size:13px;line-height:2.2;color:var(--text)">
-        <div style="display:flex;justify-content:space-between"><span>Sale price</span><span>$${soldPrice.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Cost paid</span><span>−$${cost.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span>eBay fee (${Sv.ebayFee||13}%)</span><span>−$${ebayFeeAmt.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Packaging</span><span>−$${pkgAmt.toFixed(2)}</span></div>
-        ${shipAmt > 0 ? `<div style="display:flex;justify-content:space-between"><span>Shipping</span><span>−$${shipAmt.toFixed(2)}</span></div>` : ''}
+        <div class="flex-between"><span>Sale price</span><span>$${soldPrice.toFixed(2)}</span></div>
+        <div class="flex-between"><span>Cost paid</span><span>−$${cost.toFixed(2)}</span></div>
+        <div class="flex-between"><span>eBay fee (${Sv.ebayFee||13}%)</span><span>−$${ebayFeeAmt.toFixed(2)}</span></div>
+        <div class="flex-between"><span>Packaging</span><span>−$${pkgAmt.toFixed(2)}</span></div>
+        ${shipAmt > 0 ? `<div class="flex-between"><span>Shipping</span><span>−$${shipAmt.toFixed(2)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;font-weight:700">
           <span>Net Profit</span><span class="${netProfit >= 0 ? 'u-pos' : 'u-neg'}">$${netProfit.toFixed(2)}</span></div>
         <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>
@@ -4049,7 +4072,7 @@ function pnlRenderSummary() {
   const c = pnlCalc();
   document.getElementById('pnl-summary-cards').innerHTML = `
     <div class="pnl-sum-card"><div class="pnl-sum-num">$${c.totalRevenue.toFixed(0)}</div><div class="pnl-sum-label">Revenue</div></div>
-    <div class="pnl-sum-card"><div class="pnl-sum-num" style="color:var(--green)">$${c.grossProfit.toFixed(0)}</div><div class="pnl-sum-label">Gross Profit</div></div>
+    <div class="pnl-sum-card"><div class="pnl-sum-num text-green">$${c.grossProfit.toFixed(0)}</div><div class="pnl-sum-label">Gross Profit</div></div>
     <div class="pnl-sum-card"><div class="pnl-sum-num" style="color:${c.netProfit>=0?'var(--green)':'var(--red)'}">$${c.netProfit.toFixed(0)}</div><div class="pnl-sum-label">Net Profit</div></div>
     <div class="pnl-sum-card"><div class="pnl-sum-num">${c.sold.length}</div><div class="pnl-sum-label">Items Sold</div></div>`;
   document.getElementById('pnl-tax-banner').innerHTML = c.netProfit > 0
@@ -4162,25 +4185,25 @@ function pnlRenderReport() {
   }).filter(Boolean).join('');
 
   document.getElementById('pnl-report-content').innerHTML = `
-    <div class="card" style="margin-bottom:12px">
+    <div class="card mb-12">
       <h3 class="card-title">📊 Full P&amp;L Summary</h3>
       <div style="font-size:13px;font-family:'IBM Plex Mono',monospace">
-        <div class="pnl-row"><span style="color:var(--muted)">Gross Revenue</span><span>$${c.totalRevenue.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">Cost of Goods</span><span style="color:var(--red)">-$${c.totalCOGS.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">eBay Fees (${S.ebayFee}%)</span><span style="color:var(--red)">-$${c.totalFees.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">Packaging ($${S.pkgCost}/item)</span><span style="color:var(--red)">-$${c.totalPkg.toFixed(2)}</span></div>
-        ${c.totalShip>0?`<div class="pnl-row"><span style="color:var(--muted)">Shipping (covered)</span><span style="color:var(--red)">-$${c.totalShip.toFixed(2)}</span></div>`:''}
-        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span style="color:var(--green)">$${c.grossProfit.toFixed(2)}</span></div>
-        <div class="pnl-row"><span style="color:var(--muted)">Business Expenses</span><span style="color:var(--red)">-$${c.totalExpenses.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="text-muted">Gross Revenue</span><span>$${c.totalRevenue.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="text-muted">Cost of Goods</span><span class="text-red">-$${c.totalCOGS.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="text-muted">eBay Fees (${S.ebayFee}%)</span><span class="text-red">-$${c.totalFees.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="text-muted">Packaging ($${S.pkgCost}/item)</span><span class="text-red">-$${c.totalPkg.toFixed(2)}</span></div>
+        ${c.totalShip>0?`<div class="pnl-row"><span class="text-muted">Shipping (covered)</span><span class="text-red">-$${c.totalShip.toFixed(2)}</span></div>`:''}
+        <div class="pnl-row" style="border-top:2px solid var(--border);font-weight:700"><span>Gross Profit</span><span class="text-green">$${c.grossProfit.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="text-muted">Business Expenses</span><span class="text-red">-$${c.totalExpenses.toFixed(2)}</span></div>
         <div class="pnl-row" style="border-top:2px solid var(--border-dark)">
           <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900">Net Profit</span>
           <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:900;color:${c.netProfit>=0?'var(--green)':'var(--red)'}">$${c.netProfit.toFixed(2)}</span>
         </div>
-        <div class="pnl-row"><span style="color:var(--yellow)">⚠️ Tax Reserve (25%)</span><span style="color:var(--yellow);font-weight:700">$${c.taxReserve.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="text-yellow">⚠️ Tax Reserve (25%)</span><span style="color:var(--yellow);font-weight:700">$${c.taxReserve.toFixed(2)}</span></div>
         <div class="pnl-row"><span style="color:var(--green);font-weight:700">After-Tax Estimate</span><span style="color:var(--green);font-weight:700">$${(c.netProfit-c.taxReserve).toFixed(2)}</span></div>
       </div>
     </div>
-    ${catBreakdown ? `<div class="card" style="margin-bottom:12px"><h3 class="card-title">By Category</h3>${catBreakdown}</div>` : ''}
+    ${catBreakdown ? `<div class="card mb-12"><h3 class="card-title">By Category</h3>${catBreakdown}</div>` : ''}
     ${Object.keys(expByCat).length ? `<div class="card"><h3 class="card-title">Expenses by Type</div>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</h3>` : ''}`;
 }
 
@@ -4217,10 +4240,10 @@ function renderSeasonalTips() {
   if (!el) return;
   const m = new Date().getMonth();
   const tips = SEASONAL_BY_MONTH[m] || [];
-  if (!tips.length) { el.innerHTML = '<div style="color:var(--muted)">No tips for this month.</div>'; return; }
+  if (!tips.length) { el.innerHTML = '<div class="text-muted">No tips for this month.</div>'; return; }
   el.innerHTML = tips.map((t, i) => `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0${i < tips.length - 1 ? ';border-bottom:1px solid var(--border)' : ''}">
-      <div style="flex:1">
+      <div class="flex-1">
         <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px">${t.category}</div>
         <div style="font-size:11px;color:var(--muted);line-height:1.5">${t.reason}</div>
       </div>
@@ -4388,7 +4411,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   }
 }
 
-const HUNT_ICON_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--accent)"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const HUNT_ICON_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-accent"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
 function renderGrowthResults(r) {
   show('growth-results');
@@ -4400,7 +4423,7 @@ function renderGrowthResults(r) {
         <div class="score-big" style="color:${r.score_color||'var(--green)'}">${r.business_score}</div>
         <div class="score-label">Business Score</div>
       </div>
-      <div style="flex:1">
+      <div class="flex-1">
         <div class="u-syne u-bold9" style="font-size:var(--text-lg);margin-bottom:var(--space-1)">${r.score_label}</div>
         <div class="u-text-base u-soft" style="line-height:1.5">${r.score_summary}</div>
       </div>
@@ -4409,7 +4432,7 @@ function renderGrowthResults(r) {
   // Top categories
   const topContent = (r.top_categories||[]).map(c=>`
     <div class="growth-cat-row">
-      <div style="flex:1;min-width:0">
+      <div class="flex-1-min0">
         <div class="growth-cat-name">${c.name}</div>
         <div class="growth-cat-sub">${c.insight}</div>
         <div class="growth-bar-bg"><div class="growth-bar-fill" style="width:${c.bar_pct||0}%"></div></div>
@@ -4427,12 +4450,12 @@ function renderGrowthResults(r) {
     const skuSafe = (i.sku||'').replace(/'/g,"\\'");
     const nameSafe = (i.name||'').replace(/'/g,"\\'");
     const actionBadge = isDropPrice
-      ? `<span class="stale-action" style="cursor:pointer" onclick="event.stopPropagation();openDropPriceModal('${skuSafe}','${nameSafe}')" title="View recommended price drop">&#x2193; ${i.action}</span>`
+      ? `<span class="stale-action cursor-ptr" onclick="event.stopPropagation();openDropPriceModal('${skuSafe}','${nameSafe}')" title="View recommended price drop">&#x2193; ${i.action}</span>`
       : isRelist
         ? `<span class="stale-action" style="cursor:pointer;background:rgba(212,168,67,0.12);border-color:var(--accent);color:var(--accent)" onclick="event.stopPropagation();openRelistConfirm('${skuSafe}','${nameSafe}')" title="Relist as new">&#x21BA; ${i.action}</span>`
         : `<span class="stale-action">${i.action}</span>`;
     return `
-    <div class="stale-item" style="cursor:pointer" onclick="goToStaleItemListing('${skuSafe}')" role="button" tabindex="0">
+    <div class="stale-item cursor-ptr" onclick="goToStaleItemListing('${skuSafe}')" role="button" tabindex="0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <div class="stale-name">${i.name}</div>
@@ -4983,7 +5006,7 @@ function renderDashboard() {
           </div>`).join('')}
       </div>`
     : `<div class="card" style="border-style:dashed;text-align:center;padding:24px 16px">
-        <div style="margin-bottom:8px;display:flex;justify-content:center"><svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--accent)"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <div style="margin-bottom:8px;display:flex;justify-content:center"><svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-accent"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
         <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No hunt list yet</div>
         <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Run the Growth Agent in Trends to get AI-curated items to look for this week.</div>
         <button onclick="switchTab('growth')" style="background:var(--accent);color:#000;border:none;border-radius:4px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Go to Trends →</button>
@@ -5010,17 +5033,17 @@ function renderDashboard() {
 
     <!-- ① 3-KPI STRIP -->
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" style="cursor:pointer">
+      <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" class="cursor-ptr">
         <div class="kpi-icon">📈</div>
         <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
         <div class="kpi-label">Net Profit</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('sold')" role="button" tabindex="0" style="cursor:pointer">
+      <div class="kpi-card" onclick="showKpiDrillDown('sold')" role="button" tabindex="0" class="cursor-ptr">
         <div class="kpi-icon">🏷️</div>
         <div class="kpi-val">${sold.length}</div>
         <div class="kpi-label">Items Sold</div>
       </div>
-      <div class="kpi-card" onclick="switchTab('inventory')" role="button" tabindex="0" style="cursor:pointer">
+      <div class="kpi-card" onclick="switchTab('inventory')" role="button" tabindex="0" class="cursor-ptr">
         <div class="kpi-icon">📋</div>
         <div class="kpi-val" style="color:${unlisted.length>0?'var(--yellow)':'var(--green)'}">${unlisted.length}</div>
         <div class="kpi-label">To List</div>
@@ -6322,12 +6345,12 @@ function confirmBuyItem() {
 function renderPhotoGallery(photos, containerId) {
   if (!photos || !photos.length) return '';
   if (photos.length === 1) {
-    return `<div style="margin-bottom:14px"><img src="${photos[0]}" style="width:100%;max-height:240px;object-fit:contain;border-radius:10px;border:1px solid var(--border)"></div>`;
+    return `<div class="mb-14"><img src="${photos[0]}" style="width:100%;max-height:240px;object-fit:contain;border-radius:10px;border:1px solid var(--border)"></div>`;
   }
   const id = containerId || 'gallery-' + Date.now();
   const imgs = photos.map((p,i)=>`<img src="${p}" onclick="galleryDot('${id}',${i})">`).join('');
   const dots = photos.map((_,i)=>`<div class="photo-dot${i===0?' active':''}" id="${id}-dot-${i}" onclick="galleryDot('${id}',${i})" role="button" tabindex="0"></div>`).join('');
-  return `<div style="margin-bottom:14px">
+  return `<div class="mb-14">
     <div class="photo-gallery" id="${id}" onscroll="galleryScroll('${id}',${photos.length})">${imgs}</div>
     <div class="photo-dots">${dots}</div>
   </div>`;
@@ -6512,12 +6535,12 @@ function renderScanHistory() {
   el.innerHTML = `
     <div class="card" style="margin-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h3 class="card-title" style="margin-bottom:0">📋 Today's Scans</h3>
+        <h3 class="card-title mb-0">📋 Today's Scans</h3>
         ${totalPotentialProfit>0?`<div style="font-size:12px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700">+$${totalPotentialProfit.toFixed(0)} potential</div>`:''}
       </div>
       ${todayScans.map(s=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
-          <div style="flex:1;min-width:0">
+          <div class="flex-1-min0">
             <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name||'Unknown item'}</div>
             <div style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px">${new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
           </div>
@@ -6563,7 +6586,7 @@ function renderTrendingKeywords(data, el) {
       <div class="trend-keyword">
         <div class="trend-rank">${k.rank}</div>
         <div class="trend-word">${k.word}</div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div class="flex-center-6">
           <div class="trend-bar-wrap"><div class="trend-bar-inner" style="width:${k.bar||50}%"></div></div>
           <span style="font-size:10px;${k.trend==='up'?'color:var(--green)':k.trend==='down'?'color:var(--red)':'color:var(--muted)'}">${k.trend==='up'?'↑':k.trend==='down'?'↓':'→'}</span>
         </div>
@@ -6660,7 +6683,7 @@ function renderCsvPreview() {
     const checked = _csvExportQueue.has(String(i.id));
     return `<div class="csv-item-row" style="align-items:center">
       <input type="checkbox" ${checked?'checked':''} onchange="csvToggleQueue(${i.id},this.checked)" style="width:16px;height:16px;flex-shrink:0;margin-right:8px;cursor:pointer" aria-label="Select ${i.nickname}">
-      <div style="flex:1;min-width:0">
+      <div class="flex-1-min0">
         <div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · ${i.status}</div>
       </div>
@@ -6867,7 +6890,7 @@ async function registerUser() {
     if (res.status === 409) {
       // Email or username already exists
       if (data.field === 'email') {
-        showAuthError('An account with this email already exists. Check your inbox for a verification link, or <a href="#" onclick="setAuthMode(\'login\');return false;" style="color:var(--accent)">log in here</a>.');
+        showAuthError('An account with this email already exists. Check your inbox for a verification link, or <a href="#" onclick="setAuthMode(\'login\');return false;" class="text-accent">log in here</a>.');
       } else {
         showAuthError('That username is already taken. Please choose another.');
       }
@@ -7125,7 +7148,7 @@ function showKpiDrillDown(type) {
     return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
       <div><div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} \u00b7 ${new Date(i.createdAt||i.dateAcquired).toLocaleDateString()}</div></div>
-      <div style="text-align:right">
+      <div class="text-right">
         <div style="font-size:13px;font-weight:700;color:var(--green)">$${parseFloat(i.sellPrice||0).toFixed(2)}</div>
         <div style="font-size:10px;color:${profit>=0?'var(--green)':'var(--red)'};font-family:'IBM Plex Mono',monospace">${profit>=0?'+':''}$${profit.toFixed(2)}</div>
       </div>
@@ -7144,7 +7167,7 @@ function showSourcingDrillDown() {
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
       <div><div style="font-size:13px;font-weight:700;color:var(--text)">${s.item||'Unknown item'}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${new Date(s.ts).toLocaleTimeString()}</div></div>
-      <div style="text-align:right">
+      <div class="text-right">
         <span style="background:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-bg)':'var(--red-bg)'};color:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
         ${s.roi ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${s.roi}% ROI</div>` : ''}
       </div>
@@ -7187,7 +7210,7 @@ function showPhotosDrillDown() {
       </div>
     </div>
     ${noPhotos.length>0 ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">Items missing photos:</div>
-    ${noPhotos.map(i=>`<div style="font-size:12px;color:var(--soft);padding:6px 0;border-bottom:1px solid var(--border)">${i.nickname} <span style="color:var(--muted)">(${i.sku||'no SKU'})</span></div>`).join('')}` : '<div style="text-align:center;padding:20px;color:var(--green)">\u2713 All items have photos!</div>'}`;
+    ${noPhotos.map(i=>`<div style="font-size:12px;color:var(--soft);padding:6px 0;border-bottom:1px solid var(--border)">${i.nickname} <span class="text-muted">(${i.sku||'no SKU'})</span></div>`).join('')}` : '<div style="text-align:center;padding:20px;color:var(--green)">\u2713 All items have photos!</div>'}`;
   showDrillDownModal('Photo Coverage', rows);
 }
 
@@ -7310,7 +7333,7 @@ function renderSubTierCards() {
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;margin-top:' + ((isPopular&&!isCurrent)||isCurrent?'6px':'0') + '">' +
         '<div><div style="font-family:\'Syne\',sans-serif;font-size:20px;font-weight:900;color:'+d.color+'">' + d.name + '</div>' +
         '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + d.tagline + '</div></div>' +
-        '<div style="text-align:right"><div style="font-family:\'Syne\',sans-serif;font-size:24px;font-weight:900;color:var(--text);line-height:1">$' + monthly + '</div>' +
+        '<div class="text-right"><div style="font-family:\'Syne\',sans-serif;font-size:24px;font-weight:900;color:var(--text);line-height:1">$' + monthly + '</div>' +
         '<div style="font-size:10px;color:var(--muted);margin-top:2px">/mo' + (_subInterval==='year'?' billed annually':'') + '</div></div>' +
       '</div>' +
       '<ul style="list-style:none;padding:0;margin:10px 0">' +
@@ -7719,7 +7742,7 @@ function showImportPreview(newItems, skippedCount, type) {
   const listEl = document.getElementById('import-preview-list');
   listEl.innerHTML = newItems.slice(0,20).map(i => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(0,153,61,0.2);font-size:12px">
-      <div style="flex:1;min-width:0">
+      <div class="flex-1-min0">
         <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</div>
         <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">${i.sku} · ${i.category} · $${parseFloat(i.cost||0).toFixed(2)} cost</div>
       </div>
@@ -7889,10 +7912,10 @@ function sPnlRender() {
   var tax = net > 0 ? net * 0.25 : 0;
   var sumEl = document.getElementById('spnl-sum');
   if(sumEl) sumEl.innerHTML =
-    '<div class="kpi-card"><div class="kpi-val" style="color:var(--green)">$'+totalRev.toFixed(0)+'</div><div class="kpi-label">Revenue</div></div>'+
-    '<div class="kpi-card"><div class="kpi-val" style="color:var(--accent)">$'+net.toFixed(0)+'</div><div class="kpi-label">Net Profit</div></div>'+
-    '<div class="kpi-card"><div class="kpi-val" style="color:var(--red)">$'+totalFees.toFixed(0)+'</div><div class="kpi-label">eBay Fees</div></div>'+
-    '<div class="kpi-card"><div class="kpi-val" style="color:var(--yellow)">$'+tax.toFixed(0)+'</div><div class="kpi-label">Tax Reserve</div></div>';
+    '<div class="kpi-card"><div class="kpi-val text-green">$'+totalRev.toFixed(0)+'</div><div class="kpi-label">Revenue</div></div>'+
+    '<div class="kpi-card"><div class="kpi-val text-accent">$'+net.toFixed(0)+'</div><div class="kpi-label">Net Profit</div></div>'+
+    '<div class="kpi-card"><div class="kpi-val text-red">$'+totalFees.toFixed(0)+'</div><div class="kpi-label">eBay Fees</div></div>'+
+    '<div class="kpi-card"><div class="kpi-val text-yellow">$'+tax.toFixed(0)+'</div><div class="kpi-label">Tax Reserve</div></div>';
   var salesEl = document.getElementById('spnl-sales');
   if(salesEl) {
     if(!sold.length) {
@@ -7900,7 +7923,7 @@ function sPnlRender() {
     } else {
       salesEl.innerHTML = sold.slice().reverse().map(function(i) {
         var p=calcProfit(i.cost,i.sellPrice);
-        return '<div class="item-card" style="margin-bottom:8px"><div style="font-weight:600;font-size:13px">'+(i.nickname||'Item')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Sold $'+parseFloat(i.sellPrice||0).toFixed(2)+' &middot; Cost $'+parseFloat(i.cost||0).toFixed(2)+' &middot; <span style="color:'+(p>=0?'var(--green)':'var(--red)')+'">Profit $'+p.toFixed(2)+'</span></div></div>';
+        return '<div class="item-card mb-8"><div style="font-weight:600;font-size:13px">'+(i.nickname||'Item')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Sold $'+parseFloat(i.sellPrice||0).toFixed(2)+' &middot; Cost $'+parseFloat(i.cost||0).toFixed(2)+' &middot; <span style="color:'+(p>=0?'var(--green)':'var(--red)')+'">Profit $'+p.toFixed(2)+'</span></div></div>';
       }).join('');
     }
   }
@@ -7910,7 +7933,7 @@ function sPnlRender() {
       expListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No expenses logged yet.</div>';
     } else {
       expListEl.innerHTML = pnlExpenses.slice().reverse().map(function(e) {
-        return '<div class="item-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:600">'+(e.desc||e.description||'Expense')+'</div><div style="font-size:11px;color:var(--muted)">'+(e.category||'')+' &middot; '+(e.date||'')+'</div></div><div style="font-family:Syne,sans-serif;font-weight:800;color:var(--red);font-size:14px">-$'+parseFloat(e.amount||0).toFixed(2)+'</div></div>';
+        return '<div class="item-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:600">'+(e.desc||e.description||'Expense')+'</div><div class="text-xs-muted">'+(e.category||'')+' &middot; '+(e.date||'')+'</div></div><div style="font-family:Syne,sans-serif;font-weight:800;color:var(--red);font-size:14px">-$'+parseFloat(e.amount||0).toFixed(2)+'</div></div>';
       }).join('');
     }
   }
@@ -7933,7 +7956,7 @@ function sPnlMonthly() {
   var months = Object.values(byMonth).reverse();
   if(!months.length){el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">No data yet.</div>';return;}
   el.innerHTML = months.map(function(m) {
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:600;font-size:13px">'+m.label+'</div><div style="font-size:11px;color:var(--muted)">'+m.count+' item'+(m.count!==1?'s':'')+' sold</div></div><div style="text-align:right"><div style="font-family:Syne,sans-serif;font-weight:900;color:var(--green);font-size:14px">$'+m.profit.toFixed(0)+'</div><div style="font-size:11px;color:var(--muted)">$'+m.revenue.toFixed(0)+' rev</div></div></div>';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:600;font-size:13px">'+m.label+'</div><div class="text-xs-muted">'+m.count+' item'+(m.count!==1?'s':'')+' sold</div></div><div class="text-right"><div style="font-family:Syne,sans-serif;font-weight:900;color:var(--green);font-size:14px">$'+m.profit.toFixed(0)+'</div><div class="text-xs-muted">$'+m.revenue.toFixed(0)+' rev</div></div></div>';
   }).join('');
 }
 
