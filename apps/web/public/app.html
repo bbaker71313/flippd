@@ -1108,6 +1108,7 @@ body::before{
 }
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -1854,7 +1855,7 @@ body::before{
     </div>
     <div class="mode-tab" id="csv-tab-backup" onclick="setCsvExportMode('backup')" role="button" tabindex="0" style="cursor:pointer">
       <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
-      <div style="font-size:10px;margin-top:2px;opacity:0.8">Full JSON export</div>
+      <div style="font-size:10px;margin-top:2px;opacity:0.8">Full CSV backup (ZIP)</div>
     </div>
   </div>
 
@@ -7641,27 +7642,60 @@ function cancelImport() {
 // EXPORT — FULL FLIPPD BACKUP (JSON)
 // ══════════════════════════════════════════════════
 function exportFlippdBackup() {
-  const backup = {
-    version: '2.0',
-    exportedAt: new Date().toISOString(),
-    items: items,
-    expenses: pnlExpenses || [],
-    scanLog: (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })(),
-    settings: S,
-  };
-  const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], {type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const dateStr = new Date().toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'}).replace(/\//g,'-');
-  a.href     = url;
-  a.download = `ScanForProfit-backup-${dateStr}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(`✓ Backup saved — ${items.length} items`);
-  logActivity('💾', `Exported full backup (${items.length} items)`);
+  function toCsvRow(arr) {
+    return arr.map(v => {
+      const s = (v == null ? '' : String(v)).replace(/"/g, '""');
+      return /[",\n\r]/.test(s) ? `"${s}"` : s;
+    }).join(',');
+  }
+  function buildCsv(headers, rows) {
+    return [toCsvRow(headers), ...rows.map(r => toCsvRow(headers.map(h => r[h])))].join('\r\n');
+  }
+
+  const invHeaders = ['id','item_id','sku','nickname','category','condition','date_acquired','platform','cost','sell_price','status','notes','created_at','listing_title','ebay_category','sold_at','updated_at','photo_count'];
+  const invRows = items.map(i => ({
+    id: i.id, item_id: i.item_id||'', sku: i.sku||'', nickname: i.nickname||'', category: i.category||'',
+    condition: i.condition||'', date_acquired: i.dateAcquired||i.date_acquired||'', platform: i.platform||'eBay',
+    cost: i.cost||'', sell_price: i.sellPrice||i.sell_price||'', status: i.status||'', notes: i.notes||'',
+    created_at: i.createdAt||i.created_at||'', listing_title: i.listingTitle||i.listing_title||'',
+    ebay_category: i.ebayCategory||i.ebay_category||'', sold_at: i.soldDate||i.sold_at||'',
+    updated_at: i.updatedAt||i.updated_at||'', photo_count: (i.photos||[]).length + (i.photo_urls||[]).length
+  }));
+
+  pnlLoad();
+  const expHeaders = ['id','date','amount','category','description','miles'];
+  const expRows = (pnlExpenses || []).filter(e => e.category !== 'sale').map(e => ({
+    id: e.id||'', date: e.date||'', amount: e.amount||'', category: e.category||'',
+    description: e.desc||e.description||'', miles: e.miles||''
+  }));
+
+  const scanLog = (() => { try { return JSON.parse(localStorage.getItem('fef_scan_log')||'[]'); } catch { return []; } })();
+  const scanHeaders = ['id','created_at','item_description','decision','estimated_profit','estimated_sell','cost','category','confidence'];
+  const scanRows = scanLog.map(e => ({
+    id: e.id||'', created_at: e.createdAt||e.created_at||'', item_description: e.item_description||e.itemDescription||'',
+    decision: e.decision||'', estimated_profit: e.estimated_profit||e.estimatedProfit||'',
+    estimated_sell: e.estimated_sell||e.estimatedSell||'', cost: e.cost||'',
+    category: e.category||'', confidence: e.confidence||''
+  }));
+
+  const zip = new JSZip();
+  zip.file('inventory.csv', buildCsv(invHeaders, invRows));
+  zip.file('expenses.csv',  buildCsv(expHeaders, expRows));
+  zip.file('scan_history.csv', buildCsv(scanHeaders, scanRows));
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  zip.generateAsync({type:'blob'}).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = `sfp-backup-${dateStr}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Backup saved — ${items.length} items`);
+    logActivity('', `Exported full backup (${items.length} items)`);
+  });
 }
 
 
