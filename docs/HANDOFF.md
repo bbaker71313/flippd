@@ -4,6 +4,74 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — Cleanup Prompt (branch: claude/new-session-yz3a9n)
+
+### What changed this session
+
+All work in `apps/web/public/app.html`. PR #87 — merged to main.
+
+**Task 1 — eBay Client ID (no-op):** `ebayConnect()` already calls `EBAY_BASE + '/authorize'` — no hardcoded eBay credentials in client JS. Done in prior sessions.
+
+**Task 2 — Remove calcProfit() fallbacks — DONE:**
+- Removed `(S && S.ebayFee != null) ? S.ebayFee : 13` → guard + direct `S.ebayFee`
+- Removed `(S && S.pkgCost != null) ? S.pkgCost : 1.25` → guard + direct `S.pkgCost`
+- Added early return `if (!S || S.ebayFee == null || S.pkgCost == null) return 0;` (impossible at runtime — DEFAULTS always provides both)
+
+**Task 3 — TIER_INFO Stripe comment — DONE:**
+- Added `// WARNING: These prices must match Stripe product config. Update both together.` above price values. Prices unchanged.
+
+**Task 4 — Delete requestMagicLink() — DONE:** Legacy stub deleted. 0 references remain.
+
+**Task 5 — Delete watchItem() — DONE:** Stub deleted. 0 references remain.
+
+**Task 6 — Delete trackEvent() + sfp_events — DONE:**
+- Deleted `trackEvent()` function
+- Removed `sfp_events` from localStorage quota-exceeded handler
+- Removed `['flippd_events','sfp_events']` from migration block
+
+**Task 7 — Delete _origLogScan — DONE:** Single assignment line deleted. `logScan` itself untouched.
+
+**Task 8 — Delete _origShowSettings — DONE:**
+- Deleted `const _origShowSettings = window.showSourcingSettings;`
+- Deleted `window.showSourcingSettings = function(){if(_origShowSettings)_origShowSettings();checkEbayStatus();};`
+- Added `checkEbayStatus();` directly inside `showSourcingSettings()` — settings modal unaffected.
+
+**Task 9 — Reconcile sPnlRender vs pnlRender* — DONE:**
+- `switchTab('pnl')` had ZERO callers — `panel-pnl` and all `pnlRender*` functions were the dead path.
+- `sPnlRender()` inside `stats-view-pnl` (reached via `switchTab('dashboard')`) is the canonical live path.
+- Deleted: `panel-pnl` HTML block, `pnlSetTab`, `pnlCalc`, `pnlRenderSummary`, `pnlRenderSales`, `pnlRenderExpenses`, `pnlRenderReport`, `pnlRenderMonthly`, `pnlAddExpense`, `pnlDeleteExp`, `pnlLogMileage`. Also cleaned stale `pnlCalc ?` reference from dashboard stats function.
+- `pnlLoad`, `pnlSave`, `pnlExpenses` kept — shared by `sPnlRender`.
+
+**Task 10 — Forgot Password (no-op):** `showForgotPassword()` already calls `requestPasswordResetByEmail()` → `AUTH_BASE + '/reset-request'` with toast feedback. Done in prior session (Settings tab audit).
+
+**Task 11 — Magic Link (no-op):** `requestMagicLink` was the only magic link code; deleted as Task 4.
+
+**Task 12 — JWT dedup (no-op):** `sfp_jwt` is already canonical everywhere. `fif_api_key` only appears in cleanup-remove paths (never written). `flippd_jwt` → `sfp_jwt` migration already in block. Done in PR #67.
+
+### Files changed
+- `apps/web/public/app.html` — 329 deletions, 7 insertions
+- `docs/HANDOFF.md` — this file
+
+### Commit / PR
+- `b8e55e9` — fix: cleanup dead code and security hardening (12 tasks)
+- PR #87 — merged to main
+
+### Decisions made (do not reverse)
+- `sPnlRender()` (stats-view-pnl, inside panel-dashboard) is the ONE canonical P&L render path. `panel-pnl` is permanently deleted.
+- `sfp_jwt` is the one JWT localStorage key. `fif_api_key` is dead — only remove it in cleanup paths, never write to it.
+- `trackEvent` / `sfp_events` analytics path is permanently deleted. Do not reintroduce.
+
+### Next task
+1. Stripe upgrade flow end-to-end verification (currently "not yet verified" in build status)
+2. Change 22 BLOCKER: eBay Sync reads from wrong table — `settings` table has no OAuth token columns; tokens are in `ebay_connections` (access_token, refresh_token, expires_at). Requires updating the eBay Sync Edge Function to query `ebay_connections` instead of `settings`.
+3. Deploy `export-reminder` Edge Function (exists locally at `supabase/functions/export-reminder/index.ts` but not yet deployed).
+
+### Blockers
+- Change 22 (eBay Sync): settings table has no ebay_oauth_token / ebay_refresh_token columns — tokens are in `ebay_connections`. Deferred from SESSION_6.
+- export-reminder deployment: requires `supabase functions deploy export-reminder --project-ref dqgfpchkheznvanfgsmx`
+
+---
+
 ## Session: 2026-06-18 — SESSION_8 Ship-Blockers (branch: claude/new-session-s9v08a)
 
 ### What changed this session
