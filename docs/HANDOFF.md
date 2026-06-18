@@ -4,6 +4,33 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — SESSION_9 eBay+Stripe fixes (branch: claude/missing-node-modules-kfrr2h)
+
+### What changed this session
+
+**eBay Sync blocker — FIXED (PR #88, merged)**
+- `supabase/functions/ebay-oauth/index.ts` — all 4 handlers (`handleCallback`, `handleStatus`, `handleDisconnect`, `getValidEbayToken`) rewritten to read/write `ebay_connections` table instead of `users`. Root cause: migration 005 added columns to `users` but live DB uses a separate `ebay_connections` table. Column mapping: `ebay_access_token`→`access_token`, `ebay_refresh_token`→`refresh_token`, `ebay_token_expires_at`→`expires_at`. Deployed as ebay-oauth v22.
+
+**Stripe customer portal — FIXED (PR #88, merged)**
+- `apps/web/public/app.html` line ~7404 — `openCustomerPortal()` was calling `API_BASE + '/stripe/portal'` (resolves to claude-proxy, wrong function). Fixed to `STRIPE_BASE + '/portal'`.
+- `supabase/functions/stripe-checkout/index.ts` — extended to handle `POST /portal`: verifies JWT, looks up `users.stripe_customer_id`, creates Stripe Billing Portal session. Deployed as stripe-checkout v28.
+
+### Decisions made (do not reverse)
+- eBay OAuth tokens live in `ebay_connections` table (not `users`). Do not add eBay columns to `users`.
+- Stripe portal is handled by `stripe-checkout` Edge Function at `/portal` path (not a separate function).
+
+### Next task
+1. Verify Stripe checkout flow end-to-end in browser (Stripe MCP auth was initiated but not completed this session — or test directly from live app)
+2. Merge PR #82 if still open (SESSION_7 deferred audit fixes)
+3. PostHog events confirmed — not yet verified
+4. Sentry zero-error audit — not yet verified
+5. eBay Developer sandbox credentials — still 0 rows in ebay_connections
+
+### Blockers
+- None from this session. eBay sync and Stripe portal blockers resolved.
+
+---
+
 ## Session: 2026-06-18 — SESSION_8 Ship-Blockers (branch: claude/new-session-s9v08a)
 
 ### What changed this session
