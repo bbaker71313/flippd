@@ -1306,6 +1306,23 @@ body::before{
         <input type="password" class="f-input" id="pa-removebg-key" placeholder="Your remove.bg API key" style="width:100%;box-sizing:border-box;margin-top:4px" oninput="S.removebgKey=this.value">
       </div>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3 class="card-title">Export Reminder</h3>
+      <div class="setting-row" style="border-bottom:1px solid var(--border)">
+        <div>
+          <span class="setting-name">Daily export reminder</span>
+          <span class="setting-desc">Email when you have items ready to export</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="setting-reminder-enabled" style="width:16px;height:16px;cursor:pointer" onchange="S.exportReminderEnabled=this.checked">
+          <span style="font-size:12px;color:var(--soft);font-family:'IBM Plex Mono',monospace">On</span>
+        </label>
+      </div>
+      <div class="setting-row" style="border-bottom:none">
+        <span class="setting-name">Reminder time</span>
+        <input type="time" id="setting-reminder-time" value="09:00" style="background:var(--input);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px" onchange="S.exportReminderTime=this.value">
+      </div>
+    </div>
     <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
     <div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
@@ -5123,7 +5140,7 @@ function fileToBase64NoDecodeAndThumb(file) {
 // ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
 // ══════════════════════════════════════════════════
-const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:''};
+const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:'',exportReminderEnabled:false,exportReminderTime:'09:00'};
 let S = loadSrcSettings();
 
 const _origShowSettings=window.showSourcingSettings;
@@ -5469,6 +5486,10 @@ function populateSettingsUI() {
   set('slider-min-profit',S.minProfit); set('slider-target-roi',S.targetRoi);
   set('slider-max-days',S.maxDays); set('slider-ebay-fee',S.ebayFee); set('slider-pkg-cost',S.pkgCost);
   set('pa-removebg-key', S.removebgKey||'');
+  const remCb = document.getElementById('setting-reminder-enabled');
+  if (remCb) remCb.checked = !!S.exportReminderEnabled;
+  const remTime = document.getElementById('setting-reminder-time');
+  if (remTime) remTime.value = S.exportReminderTime || '09:00';
   updateSetting('min-profit',S.minProfit,'$',''); updateSetting('target-roi',S.targetRoi,'','%');
   updateSetting('max-days',S.maxDays,'',' days'); updateSetting('ebay-fee',S.ebayFee,'','%');
   updateSetting('pkg-cost',S.pkgCost,'$','');
