@@ -6453,6 +6453,23 @@ function renderTrendingKeywords(data, el) {
 // ══════════════════════════════════════════════════
 let csvWindowHours = 168;
 const CSV_EXPORTED_KEY = 'fef_csv_exported_ids';
+// Change 2: per-user export queue persisted in localStorage
+let _csvExportQueue = new Set();
+function _csvQueueKey() {
+  const uid = (window._currentUser && window._currentUser.id) || 'anon';
+  return `sfp_export_queue_${uid}`;
+}
+function _csvQueueLoad() {
+  try { _csvExportQueue = new Set(JSON.parse(localStorage.getItem(_csvQueueKey())||'[]')); } catch { _csvExportQueue = new Set(); }
+}
+function _csvQueueSave() { localStorage.setItem(_csvQueueKey(), JSON.stringify([..._csvExportQueue])); }
+function csvToggleQueue(id, checked) {
+  if (checked) _csvExportQueue.add(String(id));
+  else _csvExportQueue.delete(String(id));
+  _csvQueueSave();
+  const btnEl = document.getElementById('csv-export-btn');
+  if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
+}
 
 function setCsvExportMode(mode) {
   const isEbay = mode === 'ebay';
@@ -6498,28 +6515,45 @@ function renderCsvPreview() {
   const lastEl   = document.getElementById('csv-last-export');
   const listEl   = document.getElementById('csv-items-list');
   const btnEl    = document.getElementById('csv-export-btn');
-  if (!countEl) return; // tab not in DOM yet
+  if (!countEl) return;
+  _csvQueueLoad(); // Change 2: load persisted queue
   const candidates = getCsvCandidates();
   const lastExport = localStorage.getItem('fef_last_csv_export');
-  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} ready to export`;
+  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} available`;
   lastEl.textContent  = lastExport ? 'Last export: ' + lastExport : 'No exports yet';
-  if (btnEl) btnEl.disabled = candidates.length === 0;
+  if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
   if (!listEl) return;
   if (!candidates.length) {
     listEl.innerHTML = '<div class="csv-empty">No new Unlisted items in the selected window.<br>Try a wider time range or add more items.</div>';
     return;
   }
-  listEl.innerHTML = candidates.map(i => `
-    <div class="csv-item-row">
-      <div>
+  const unlistedCount = candidates.filter(i => i.status === 'Unlisted').length;
+  // Change 3: Select All Unlisted button
+  const selectAllBtn = unlistedCount > 0
+    ? `<button onclick="csvSelectAllUnlisted()" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:6px;padding:4px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;margin-bottom:8px">Select All Unlisted (${unlistedCount})</button>`
+    : '';
+  listEl.innerHTML = selectAllBtn + candidates.map(i => {
+    const checked = _csvExportQueue.has(String(i.id));
+    return `<div class="csv-item-row" style="align-items:center">
+      <input type="checkbox" ${checked?'checked':''} onchange="csvToggleQueue(${i.id},this.checked)" style="width:16px;height:16px;flex-shrink:0;margin-right:8px;cursor:pointer" aria-label="Select ${i.nickname}">
+      <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · Cat ID: ${getEbayCatId(i)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · ${i.status}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:10px">
         <div style="font-size:13px;font-weight:700;color:var(--green)">$${i.sellPrice||'0'}</div>
         <div style="font-size:10px;color:var(--muted)">${i.condition}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+// Change 3: select all Unlisted candidates into the queue
+function csvSelectAllUnlisted() {
+  _csvQueueLoad();
+  getCsvCandidates().filter(i => i.status === 'Unlisted').forEach(i => _csvExportQueue.add(String(i.id)));
+  _csvQueueSave();
+  renderCsvPreview();
 }
 
 function conditionToEbayId(cond) {
@@ -6535,7 +6569,10 @@ function conditionToEbayId(cond) {
 }
 
 function generateAndDownloadCSV() {
-  const candidates = getCsvCandidates();
+  _csvQueueLoad();
+  // Change 2: only export items checked in the queue; fall back to all candidates if queue empty
+  let candidates = getCsvCandidates().filter(i => _csvExportQueue.has(String(i.id)));
+  if (!candidates.length) candidates = getCsvCandidates(); // legacy fallback
   if (!candidates.length) { showToast('No items to export'); return; }
 
   const h1 = `#INFO,Version=0.0.2,Template= eBay-draft-listings-template_US,,,,,,,,`;
@@ -6575,8 +6612,11 @@ function generateAndDownloadCSV() {
   // Items queued via "Save + Export" are now drafted on eBay — mark Listed.
   candidates.forEach(i => { if (i.status === 'Ready to Export') i.status = 'Listed'; });
   saveItems();
+  // Change 2: clear exported items from the queue
+  candidates.forEach(i => _csvExportQueue.delete(String(i.id)));
+  _csvQueueSave();
   localStorage.setItem('fef_last_csv_export', new Date().toLocaleString());
-  showToast(`✓ Exported ${candidates.length} item${candidates.length!==1?'s':''}`);
+  showToast(`Exported ${candidates.length} item${candidates.length!==1?'s':''}`);
   renderCsvPreview();
   renderInventory();
 }
