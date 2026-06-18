@@ -4,6 +4,55 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — SESSION_8 Ship-Blockers (branch: claude/new-session-s9v08a)
+
+### What changed this session
+
+Only one file changed: `apps/web/public/og-image.png` (new binary, 1200×630 PNG).
+
+**Tasks 1–5 — already complete from prior sessions:**
+- Task 1 (Remove PostHog from index.html): 0 occurrences — done in an earlier session.
+- Task 2 (Fix openRelistConfirm signature mismatch): Only one definition exists at line 4583 `openRelistConfirm(sku, name)`, all three call sites pass `(sku, name)` — already correct.
+- Task 3 (Remove FLIPPD v5.24 comment): Line 2 already reads `<!-- ScanForProfit app.html -->` — done in a prior session.
+- Task 4 (Remove Watch button from BUY result): BUY action bar (lines 5963–5970) only has BUY and PASS buttons — Watch already removed.
+- Task 5 (Remove "Early Access" label): 0 occurrences in app.html — done in a prior session.
+
+**Task 6 — DONE: Generate og-image.png**
+- Created `apps/web/public/og-image.png` at exact 1200×630 OG standard dimensions.
+- Dark "Industrial Terminal" palette: bg `#0a0a0a`, green `#00e676`, gold `#d4a843`, text `#f0ead8`.
+- Logo: Scan Bracket mark (two gold L-brackets + three green rising bars), faithful to BRAND_IDENTITY.md SVG spec.
+- Wordmark: "SCAN" in green + "FORPROFIT" in warm white, WorkSans Bold 74px.
+- Tagline: "Point. Scan. Know if it flips." in IBM Plex Mono 28px, gold — stop-slop approved (specific, active voice, no filler).
+- Domain: "scanforprofit.com" in muted mono, 15px.
+- Thin gold top-accent line, subtle scanline texture, vertical gold separator.
+- Used warm parchment palette from PROMPT_SHIP_BLOCKERS.md (`#00bb66`, `#f2ece0`, `#3a2410`) was **overridden** with canonical Industrial Terminal palette from BRAND_IDENTITY.md + HANDOFF.md "do not reverse" decision. Prompt tokens are stale.
+- Generated via Python/Pillow (no external service). WorkSans Bold + IBM Plex Mono from `/mnt/skills/examples/canvas-design/canvas-fonts/`.
+
+**idb rename (flippd_photos) — explicitly deferred:**
+- Accepted as-is, zero user-visible impact, high migration risk. Removed from blockers list.
+
+**TypeScript check:**
+- Pre-existing `TS2307`/`TS7026` errors (missing `node_modules` in sandbox) — unchanged, same as all prior sessions. This session introduced no TypeScript files.
+
+### Files changed
+- `apps/web/public/og-image.png` — new (1200×630 PNG)
+- `docs/HANDOFF.md` — this file
+
+### Commit
+- TBD (see below)
+
+### Next task
+1. Merge PR for this branch into main.
+2. Verify Vercel deploy picks up og-image.png and `<meta property="og:image">` is set in index.html/app.html.
+3. If og:image meta tag is missing, add it pointing to `/og-image.png`.
+4. Stripe upgrade flow end-to-end verification (currently "not yet verified" in build status).
+
+### Blockers
+- None introduced this session.
+- Change 22 (eBay Sync schema mismatch) remains deferred from SESSION_6 — `ebay_connections` table must be used, not `settings`.
+
+---
+
 ## Session: 2026-06-18 — SESSION_7 Deferred Audit Fixes (branch: claude/wonderful-shannon-pdnvca)
 
 ### What changed this session
