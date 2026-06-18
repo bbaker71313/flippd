@@ -2799,13 +2799,22 @@ function renderFilteredList() {
     return;
   }
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
-    const thumb = item.photos && item.photos[0];
+    // Change 14: photo thumbnail from photo_urls or photos array; SVG placeholder if none
+    const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
     const hasListing = item.listing ? true : false;
+    const isSold = item.status === 'Sold';
+    const isListed = item.status === 'Listed';
+    const isUnlisted = item.status === 'Unlisted';
+    // Change 13: Sold items open read-only detail view, others open edit
+    const cardClick = isSold ? `showSoldDetail(${item.id})` : `startEdit(${item.id})`;
+    const thumbClick = isSold ? `showSoldDetail(${item.id})` : `startEdit(${item.id})`;
     return `<div class="item-card">
       <div style="display:flex;align-items:flex-start;gap:var(--space-2)">
-        ${thumb ? `<img class="item-thumb" src="${item.photos[0]}" alt="" onclick="startEdit(${item.id})" role="button" tabindex="0" style="cursor:pointer">` : `<div class="item-thumb" style="background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;cursor:pointer" onclick="startEdit(${item.id})" role="button" tabindex="0">${CAT_ICONS[item.category]||'📦'}</div>`}
+        ${thumbUrl
+          ? `<img class="item-thumb" src="${thumbUrl}" alt="" loading="lazy" onclick="${thumbClick}" role="button" tabindex="0" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer">`
+          : `<div class="item-thumb" style="width:48px;height:48px;background:var(--bg);display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;cursor:pointer;border:1px solid var(--border)" onclick="${thumbClick}" role="button" tabindex="0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h4"/></svg></div>`}
         <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="startEdit(${item.id})" role="button" tabindex="0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="${cardClick}" role="button" tabindex="0">
             <div style="flex:1;min-width:0">
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick">${item.nickname}</div>
@@ -2813,11 +2822,15 @@ function renderFilteredList() {
             <span class="status-badge status-${item.status}" style="flex-shrink:0;margin-left:var(--space-1)">${item.status}</span>
           </div>
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
-            <span class="u-text-sm u-muted">🏷️ $${item.sellPrice||'0'}</span>
-            ${!hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">🚀 Listing</button>` : ''}
-            ${item.status!=='Sold' ? `<button class="sold-btn" onclick="openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
+            ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
+            ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
+            ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
+            ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
+            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm(${item.id})">Relist</button>` : ''}
           </div>
-          ${hasListing ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
+          ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
             <div id="listing-detail-${item.id}" style="display:none;margin-top:var(--space-2);font-size:var(--text-xs);line-height:1.5">
               <div style="margin-bottom:var(--space-1)"><strong>Title:</strong> <span class="u-muted">${item.listing.title}</span></div>
@@ -2854,6 +2867,88 @@ function invStatFilter(status) {
     renderInventoryHome();
     openFilteredList('status', status);
   }
+}
+
+// ── ITEM ACTION FUNCTIONS ──
+
+// Change 17: Mark Unlisted → Listed
+function markAsListed(id) {
+  items = items.map(i => i.id === id ? {...i, status: 'Listed', listed_at: new Date().toISOString()} : i);
+  saveItems();
+  renderFilteredList();
+  showToast('Item marked as Listed');
+}
+
+// Change 12: Relist sold item
+function openRelistConfirm(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm('Relist "' + item.nickname + '"? This creates a new Unlisted item with the same details.')) return;
+  relistItem(id);
+}
+
+function relistItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const newItem = {...item,
+    id: Date.now(),
+    status: 'Unlisted',
+    dateAcquired: new Date().toISOString().split('T')[0],
+    createdAt: new Date().toISOString(),
+  };
+  delete newItem.soldPrice; delete newItem.sold_price;
+  delete newItem.soldDate; delete newItem.sold_date;
+  items.push(newItem);
+  saveItems();
+  renderInventoryHome();
+  showToast('Item relisted and added to Unlisted');
+}
+
+// Change 13: Read-only detail view for Sold items
+function showSoldDetail(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const Sv = getSettings ? getSettings() : S;
+  const soldPrice = parseFloat(item.soldPrice || item.sold_price || 0);
+  const cost = parseFloat(item.cost) || 0;
+  const ebayFeeAmt = soldPrice * ((Sv.ebayFee || 13) / 100);
+  const pkgAmt = Sv.pkgCost || 1.25;
+  const shipAmt = (Sv.shipping === 'seller') ? (Sv.shipCost || 6) : 0;
+  const netProfit = soldPrice - cost - ebayFeeAmt - pkgAmt - shipAmt;
+  const roi = cost > 0 ? ((netProfit / cost) * 100).toFixed(0) : 'N/A';
+  const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
+  const overlay = document.createElement('div');
+  overlay.id = 'sold-detail-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;padding:16px;box-sizing:border-box';
+  overlay.innerHTML = `
+    <button class="back-btn" onclick="document.getElementById('sold-detail-overlay').remove()">← Back</button>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin:12px 0 4px">${item.nickname}</div>
+    <span class="status-badge status-Sold">Sold</span>
+    ${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--border);margin:12px 0;display:block">` : ''}
+    <div class="card" style="margin:12px 0">
+      <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">LISTING DATA</div>
+      <div style="font-size:13px;line-height:2;color:var(--text)">
+        <b>SKU:</b> ${item.sku||'—'}<br>
+        <b>Category:</b> ${item.category||'—'}<br>
+        <b>Condition:</b> ${item.condition||'—'}<br>
+        ${item.notes ? `<b>Notes:</b> ${item.notes}` : ''}
+      </div>
+    </div>
+    <div class="card" style="margin:12px 0">
+      <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">PROFIT BREAKDOWN</div>
+      <div style="font-size:13px;line-height:2.2;color:var(--text)">
+        <div style="display:flex;justify-content:space-between"><span>Sale price</span><span>$${soldPrice.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Cost paid</span><span>−$${cost.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>eBay fee (${Sv.ebayFee||13}%)</span><span>−$${ebayFeeAmt.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Packaging</span><span>−$${pkgAmt.toFixed(2)}</span></div>
+        ${shipAmt > 0 ? `<div style="display:flex;justify-content:space-between"><span>Shipping</span><span>−$${shipAmt.toFixed(2)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;font-weight:700">
+          <span>Net Profit</span><span class="${netProfit >= 0 ? 'u-pos' : 'u-neg'}">$${netProfit.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>
+      </div>
+    </div>
+    <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistConfirm(${item.id})">Relist This Item</button>`;
+  document.body.appendChild(overlay);
 }
 
 // ── DETAIL VIEW ──
@@ -3072,21 +3167,29 @@ function openAddForm(prefill) {
   showInvView('add');
 }
 
+let _lastInvFilter = null; // Change 16: remember filter before opening edit
+
 function startEdit(id) {
   const item = items.find(i => i.id === id);
-  if (!item) return;
+  if (!item) { showToast('Item not found — please refresh'); return; }
+  // Change 16: save active filter so we can restore it after save
+  _lastInvFilter = {...invListFilter};
   editingId = id;
-  invFormImgB64 = null; // don't overwrite with new photo unless user takes one
+  invFormImgB64 = null;
   initFormSelects();
+  // Change 18: reset all fields first to prevent data bleeding between items
+  ['f-nickname','f-sku','f-cost','f-price','f-notes'].forEach(fid => {
+    const el = document.getElementById(fid); if (el) el.value = '';
+  });
   document.getElementById('form-title').textContent = 'Edit Item';
-  document.getElementById('f-nickname').value = item.nickname;
-  document.getElementById('f-category').value = item.category;
-  document.getElementById('f-condition').value = item.condition;
-  document.getElementById('f-date').value = item.dateAcquired;
-  document.getElementById('f-platform').value = item.platform;
-  document.getElementById('f-cost').value = item.cost;
-  document.getElementById('f-price').value = item.sellPrice;
-  document.getElementById('f-status').value = item.status;
+  document.getElementById('f-nickname').value = item.nickname || '';
+  document.getElementById('f-category').value = item.category || CATEGORIES[0];
+  document.getElementById('f-condition').value = item.condition || 'Good';
+  document.getElementById('f-date').value = item.dateAcquired || new Date().toISOString().split('T')[0];
+  document.getElementById('f-platform').value = item.platform || 'eBay';
+  document.getElementById('f-cost').value = item.cost || '';
+  document.getElementById('f-price').value = item.sellPrice || '';
+  document.getElementById('f-status').value = item.status || 'Unlisted';
   document.getElementById('f-notes').value = item.notes || '';
   // Show existing photos
   document.getElementById('inv-form-photo-preview').style.display = 'none';
@@ -3264,6 +3367,11 @@ function saveInvItem() {
   }
 
   editingId = null;
+  // Change 16: restore the filter the user was on before opening edit
+  if (_lastInvFilter && _lastInvFilter.type !== 'all') {
+    invListFilter = _lastInvFilter;
+  }
+  _lastInvFilter = null;
   showInvView('list');
   renderFilteredList();
 }
