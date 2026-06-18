@@ -1,9 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, TextInput,
-  ActivityIndicator, ScrollView, Alert, Pressable, Animated, Image, Button,
+  ActivityIndicator, ScrollView, Alert, Pressable, Animated, Image,
 } from 'react-native';
-import * as Sentry from '@sentry/react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@sfp/shared';
@@ -276,8 +275,6 @@ export default function ScoutScreen() {
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.inverse }}>
-      {/* TEMP: Sentry test button — remove after verifying errors appear in dashboard */}
-      <Button title='Try!' onPress={() => { Sentry.captureException(new Error('First error')); }} />
       {/* Camera — always mounted, stays behind overlays */}
       <CameraView ref={cameraRef} facing="back" style={{ flex: 1 }} />
 
