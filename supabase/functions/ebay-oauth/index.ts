@@ -159,6 +159,8 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
 
   const tokenData = await tokenRes.json();
   const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+  // eBay refresh tokens are valid for 18 months
+  const refreshExpiresAt = new Date(Date.now() + 548 * 24 * 60 * 60 * 1000).toISOString();
 
   let ebayUsername: string | null = null;
   try {
@@ -173,12 +175,16 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     console.error('eBay identity lookup failed:', err);
   }
 
-  await supabase.from('users').update({
-    ebay_access_token: tokenData.access_token,
-    ebay_refresh_token: tokenData.refresh_token,
-    ebay_token_expires_at: expiresAt,
+  // Tokens live in ebay_connections, not users
+  await supabase.from('ebay_connections').upsert({
+    user_id: userId,
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token,
+    expires_at: expiresAt,
+    refresh_expires_at: refreshExpiresAt,
     ebay_username: ebayUsername,
-  }).eq('id', userId);
+    connected_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
 
   return Response.redirect(`${frontendUrl}/app.html?ebay_connected=true`, 302);
 }
@@ -187,15 +193,15 @@ async function handleStatus(req: Request, supabase: ReturnType<typeof createClie
   const userId = await getAuthedUserId(req, jwtSecret);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('ebay_access_token, ebay_username')
-    .eq('id', userId)
+  const { data: conn } = await supabase
+    .from('ebay_connections')
+    .select('access_token, ebay_username')
+    .eq('user_id', userId)
     .maybeSingle();
 
   return json({
-    connected: !!user?.ebay_access_token,
-    username: user?.ebay_username ?? null,
+    connected: !!conn?.access_token,
+    username: conn?.ebay_username ?? null,
   });
 }
 
@@ -203,12 +209,7 @@ async function handleDisconnect(req: Request, supabase: ReturnType<typeof create
   const userId = await getAuthedUserId(req, jwtSecret);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
-  await supabase.from('users').update({
-    ebay_access_token: null,
-    ebay_refresh_token: null,
-    ebay_token_expires_at: null,
-    ebay_username: null,
-  }).eq('id', userId);
+  await supabase.from('ebay_connections').delete().eq('user_id', userId);
 
   return json({ success: true });
 }
@@ -217,21 +218,21 @@ async function getValidEbayToken(
   userId: number,
   supabase: ReturnType<typeof createClient>,
 ): Promise<string | null> {
-  const { data: user } = await supabase
-    .from('users')
-    .select('ebay_access_token, ebay_refresh_token, ebay_token_expires_at')
-    .eq('id', userId)
+  const { data: conn } = await supabase
+    .from('ebay_connections')
+    .select('access_token, refresh_token, expires_at')
+    .eq('user_id', userId)
     .maybeSingle();
 
-  if (!user?.ebay_access_token) return null;
+  if (!conn?.access_token) return null;
 
-  const expiresAt = user.ebay_token_expires_at ? new Date(user.ebay_token_expires_at) : new Date(0);
-  if (expiresAt > new Date(Date.now() + 60_000)) return user.ebay_access_token;
+  const expiresAt = conn.expires_at ? new Date(conn.expires_at) : new Date(0);
+  if (expiresAt > new Date(Date.now() + 60_000)) return conn.access_token;
 
   // Token expired — refresh it
   const clientId = Deno.env.get('EBAY_CLIENT_ID');
   const clientSecret = Deno.env.get('EBAY_CLIENT_SECRET');
-  if (!clientId || !clientSecret || !user.ebay_refresh_token) return null;
+  if (!clientId || !clientSecret || !conn.refresh_token) return null;
 
   const refreshRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
     method: 'POST',
@@ -239,7 +240,7 @@ async function getValidEbayToken(
       'Content-Type': 'application/x-www-form-urlencoded',
       'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
     },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: user.ebay_refresh_token }),
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: conn.refresh_token }),
   });
 
   if (!refreshRes.ok) return null;
@@ -247,10 +248,10 @@ async function getValidEbayToken(
   const refreshData = await refreshRes.json();
   const newExpires = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
 
-  await supabase.from('users').update({
-    ebay_access_token: refreshData.access_token,
-    ebay_token_expires_at: newExpires,
-  }).eq('id', userId);
+  await supabase.from('ebay_connections').update({
+    access_token: refreshData.access_token,
+    expires_at: newExpires,
+  }).eq('user_id', userId);
 
   return refreshData.access_token;
 }
