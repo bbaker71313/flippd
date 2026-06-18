@@ -134,7 +134,7 @@
   --z-header-popover:201;
   --z-overlay:500;
   --z-modal:600;
-  --z-scanline:9000;
+  --z-scanline:0;
   --z-toast:9500;
 }
 
@@ -780,15 +780,6 @@ body::before{
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E"), linear-gradient(160deg,#1d1d1d 0%,#131313 100%);
 }
 
-/* HOT decision — pulse glow */
-@keyframes hotPulse {
-  0%, 100% { box-shadow: 0 4px 28px rgba(0,200,100,0.65); }
-  50% { box-shadow: 0 4px 52px rgba(0,240,120,0.9), 0 0 0 10px rgba(0,220,100,0.22); }
-}
-.decision-banner.is-hot {
-  animation: hotPulse 1.8s ease-in-out infinite;
-}
-
 /* BUY banner — subtle shimmer sweep */
 @keyframes buySweep {
   0% { background-position: -200% center; }
@@ -1341,6 +1332,27 @@ body::before{
       <div class="setting-row" style="border-bottom:none">
         <span class="setting-name">Reminder time</span>
         <input type="time" id="setting-reminder-time" value="09:00" style="background:var(--input);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px" onchange="S.exportReminderTime=this.value">
+      </div>
+    </div>
+    <div class="card mb-12">
+      <h3 class="card-title">💰 Tax &amp; Mileage</h3>
+      <div class="setting-row">
+        <div class="flex-1"><span class="setting-name">Tax Reserve %</span><span class="setting-desc">Set aside this % of net profit for taxes</span></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div class="flex-center-6">
+            <input type="number" id="num-tax-reserve" min="0" max="50" step="1" value="25" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="S.taxReservePct=parseFloat(this.value)/100||0">
+            <span class="setting-val" id="val-tax-reserve">25%</span>
+          </div>
+        </div>
+      </div>
+      <div class="setting-row" style="border-bottom:none">
+        <div class="flex-1"><span class="setting-name">Mileage Rate ($/mi)</span><span class="setting-desc">IRS standard rate — update annually</span></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div class="flex-center-6">
+            <input type="number" id="num-mileage-rate" min="0.3" max="1.0" step="0.01" value="0.67" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="S.mileageRate=parseFloat(this.value)">
+            <span class="setting-val" id="val-mileage-rate">$0.67/mi</span>
+          </div>
+        </div>
       </div>
     </div>
     <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
@@ -4064,7 +4076,7 @@ function pnlCalc() {
   const expenses = pnlExpenses.filter(e => e.category !== 'sale');
   const totalExpenses = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
   const netProfit = grossProfit - totalExpenses;
-  const taxReserve = netProfit > 0 ? netProfit * (S.taxReservePct ?? 0.25) : 0;
+  const taxReserve = netProfit > 0 ? netProfit * S.taxReservePct : 0;
   return { sold, totalRevenue, totalCOGS, totalFees, totalPkg, totalShip, grossProfit, totalExpenses, netProfit, taxReserve };
 }
 
@@ -4204,7 +4216,7 @@ function pnlRenderReport() {
       </div>
     </div>
     ${catBreakdown ? `<div class="card mb-12"><h3 class="card-title">By Category</h3>${catBreakdown}</div>` : ''}
-    ${Object.keys(expByCat).length ? `<div class="card"><h3 class="card-title">Expenses by Type</div>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</h3>` : ''}`;
+    ${Object.keys(expByCat).length ? `<div class="card"><h3 class="card-title">Expenses by Type</h3>${Object.entries(expByCat).map(([k,v])=>`<div class="pnl-row"><span>${k}</span><span style="color:var(--red);font-weight:700">-$${v.toFixed(2)}</span></div>`).join('')}</div>` : ''}`;
 }
 
 // ══════════════════════════════════════════════════
@@ -4259,7 +4271,7 @@ function initGrowthTab() {
 
   // Load cached trending if available
   try {
-    const tc = JSON.parse(localStorage.getItem('sfp_trending') ?? localStorage.getItem('fef_trending') ?? 'null');
+    const tc = JSON.parse(localStorage.getItem('sfp_trending') ?? 'null');
     const trendEl = document.getElementById('growth-trending');
     if (tc && trendEl && (Date.now()-tc.ts) < 3600000*6) {
       renderTrendingKeywords(tc.data, trendEl);
@@ -5153,7 +5165,7 @@ function fileToBase64NoDecodeAndThumb(file) {
 // ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
 // ══════════════════════════════════════════════════
-const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:'',exportReminderEnabled:false,exportReminderTime:'09:00'};
+const DEFAULTS = {minProfit:15,targetRoi:200,maxDays:60,minStr:0,ebayFee:13,pkgCost:1.25,shipping:'buyer',shipCost:6.00,style:'balanced',removebgKey:'',exportReminderEnabled:false,exportReminderTime:'09:00',taxReservePct:0.25,mileageRate:0.67};
 let S = loadSrcSettings();
 
 const _origShowSettings=window.showSourcingSettings;
@@ -5499,6 +5511,10 @@ function populateSettingsUI() {
   set('slider-min-profit',S.minProfit); set('slider-target-roi',S.targetRoi);
   set('slider-max-days',S.maxDays); set('slider-ebay-fee',S.ebayFee); set('slider-pkg-cost',S.pkgCost);
   set('pa-removebg-key', S.removebgKey||'');
+  set('num-tax-reserve', Math.round(S.taxReservePct*100));
+  set('num-mileage-rate', S.mileageRate.toFixed(2));
+  const taxEl = document.getElementById('val-tax-reserve'); if(taxEl) taxEl.textContent = Math.round(S.taxReservePct*100)+'%';
+  const milEl = document.getElementById('val-mileage-rate'); if(milEl) milEl.textContent = '$'+S.mileageRate.toFixed(2)+'/mi';
   const remCb = document.getElementById('setting-reminder-enabled');
   if (remCb) remCb.checked = !!S.exportReminderEnabled;
   const remTime = document.getElementById('setting-reminder-time');
@@ -5636,7 +5652,6 @@ function clearImage() {
   imgType = 'image/jpeg';
   const img = document.getElementById('preview-img');
   if (img) img.src = '';
-  try { sessionStorage.removeItem('flippd_preview_src'); } catch(e) {}
   const container = document.getElementById('preview-container');
   if (container) container.style.display = 'none';
 }
@@ -6478,7 +6493,7 @@ function pnlRenderMonthly() {
 function pnlLogMileage() {
   const miles = parseFloat(document.getElementById('pnl-miles-input').value)||0;
   if (!miles) return;
-  const rate = S.mileageRate ?? 0.67;
+  const rate = S.mileageRate;
   const cost = miles * rate;
   pnlExpenses.unshift({id:Date.now(), desc:`Mileage: ${miles} miles @ $${rate}/mi`, amount:cost, category:'Gas & Travel', date:new Date().toISOString().split('T')[0]});
   pnlSave();
@@ -6665,7 +6680,7 @@ function renderCsvPreview() {
   if (!countEl) return;
   _csvQueueLoad(); // Change 2: load persisted queue
   const candidates = getCsvCandidates();
-  const lastExport = localStorage.getItem('sfp_last_csv_export') ?? localStorage.getItem('fef_last_csv_export');
+  const lastExport = localStorage.getItem('sfp_last_csv_export');
   countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} available`;
   lastEl.textContent  = lastExport ? 'Last export: ' + lastExport : 'No exports yet';
   if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
@@ -6776,7 +6791,7 @@ function saveCsvReminder() {
 }
 
 function loadCsvReminder() {
-  const t   = localStorage.getItem('sfp_csv_reminder') ?? localStorage.getItem('fef_csv_reminder');
+  const t   = localStorage.getItem('sfp_csv_reminder');
   const el  = document.getElementById('csv-reminder-time');
   const msg = document.getElementById('csv-reminder-saved');
   if (t && el)  el.value = t;
@@ -7493,11 +7508,6 @@ window.onload = () => {
   }
 
   updateFeeHint();
-  // Removed in v5.12: sessionStorage preview restore.
-  // This read would `showPreview('data:image/jpeg;base64,' + imgB64)` which
-  // triggers the full-image decode crash on Android WebView. Nothing writes
-  // to flippd_preview_src in v5.11+, but we also remove the read to be safe.
-  try { sessionStorage.removeItem('flippd_preview_src'); } catch(e) {}
   const dashDate = document.getElementById('dash-date');
   if (dashDate) dashDate.textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const expDate = document.getElementById('pnl-exp-date');
@@ -7909,7 +7919,7 @@ function sPnlRender() {
   var totalFees = sold.reduce(function(s,i){return s+(parseFloat(i.sellPrice)||0)*(S.ebayFee/100);},0);
   var totalExp = pnlExpenses.reduce(function(s,e){return s+(parseFloat(e.amount)||0);},0);
   var net = totalProfit - totalExp;
-  var tax = net > 0 ? net * 0.25 : 0;
+  var tax = net > 0 ? net * S.taxReservePct : 0;
   var sumEl = document.getElementById('spnl-sum');
   if(sumEl) sumEl.innerHTML =
     '<div class="kpi-card"><div class="kpi-val text-green">$'+totalRev.toFixed(0)+'</div><div class="kpi-label">Revenue</div></div>'+
@@ -7977,7 +7987,7 @@ function sPnlAddExp() {
 function sPnlMiles() {
   var miles = parseFloat(document.getElementById('spnl-miles').value)||0;
   if(miles<=0){showToast('Enter miles driven');return;}
-  var amt = parseFloat((miles*(S.mileageRate ?? 0.67)).toFixed(2));
+  var amt = parseFloat((miles*S.mileageRate).toFixed(2));
   pnlExpenses.push({id:Date.now(),desc:miles+' miles driven',amount:amt,category:'Gas & Travel',date:new Date().toISOString().split('T')[0]});
   pnlSave();
   document.getElementById('spnl-miles').value='';

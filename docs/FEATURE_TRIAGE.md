@@ -244,9 +244,10 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 - **~Lines:** 5313–5324
 
 ### F-27 — Growth Agent
-- **Tab:** Trends (Growth)
+- **Status:** ✅ Implemented (inline) — prompt lives inline in `apps/web/public/app.html` at ~line 4342. This is the canonical version. Do NOT replace with the prompt below. Update the prompt below to match app.html if they diverge.
+- **Tab:** Trends / PULSE (Growth)
 - **Functions:** `runGrowthAgent()` (L3214), `initGrowthTab()` (L3179), `renderGrowthResults()` (L3338), `loadGrowthCache()` (L3172), `saveGrowthCache()` (L3175)
-- **Cache key:** `fef_growth_cache`, stale after 24 hours (`GROWTH_STALE_HOURS = 24`)
+- **Cache key:** `sfp_growth_cache`, stale after 24 hours (`GROWTH_STALE_HOURS = 24`)
 - **Auto-run:** on tab open if cache is missing or stale AND user is logged in
 - **AI Prompt (verbatim, L3279–3307):**
   ```
@@ -587,6 +588,7 @@ Sort: HOT first, then BUY, then PASS.
 ```
 
 ### P-05 — Growth Agent AI Prompt
+**Status:** ✅ Implemented (inline) — canonical prompt is in `apps/web/public/app.html` at ~line 4342, NOT this file. See F-27 note above.
 **Port from:** `runGrowthAgent()` (L3279–3307) — full prompt in Section 1 F-27 above.
 All variables injected: `inventorySummary` JSON, `S.ebayFee`, `S.pkgCost`, `S.minProfit`, `S.targetRoi`, `S.maxDays`, today's date.
 
