@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ScanForProfit — Thrift Store Scanner for eBay Resellers</title>
+  <title>ScanForProfit: Thrift Store Scanner for eBay Resellers</title>
   <meta name="description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list. Built for solo sellers." />
   <link rel="canonical" href="https://scanforprofit.com/" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <!-- Open Graph -->
-  <meta property="og:title" content="ScanForProfit — Thrift Store Scanner for eBay Resellers" />
+  <meta property="og:title" content="ScanForProfit: Thrift Store Scanner for eBay Resellers" />
   <meta property="og:description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list." />
   <meta property="og:url" content="https://scanforprofit.com/" />
   <meta property="og:type" content="website" />
@@ -18,7 +18,7 @@
   <meta property="og:image:height" content="630" />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="ScanForProfit — Thrift Store Scanner for eBay Resellers" />
+  <meta name="twitter:title" content="ScanForProfit: Thrift Store Scanner for eBay Resellers" />
   <meta name="twitter:description" content="The eBay reseller scanner that gives you BUY or PASS in 8 seconds. Real sold comps, your actual fees, shelf scan, AI listings, and a weekly hunt list." />
   <meta name="twitter:image" content="https://scanforprofit.com/og-image.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -44,11 +44,11 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      { "@type": "Question", "name": "How accurate are the profit estimates?", "acceptedAnswer": { "@type": "Answer", "text": "ScanForProfit pulls from real eBay sold listings — not asking prices. You see the comps. You make the call. We show you the data; you make the decision." } },
+      { "@type": "Question", "name": "How accurate are the profit estimates?", "acceptedAnswer": { "@type": "Answer", "text": "ScanForProfit pulls from real eBay sold listings, not asking prices. You see the comps. You make the call. We show you the data; you make the decision." } },
       { "@type": "Question", "name": "Does this work for all categories?", "acceptedAnswer": { "@type": "Answer", "text": "Electronics, clothing, home goods, collectibles, books, sports equipment, toys. If it sells on eBay, it works. If it doesn't sell on eBay, we'll tell you that too." } },
-      { "@type": "Question", "name": "What if I'm not tech-savvy?", "acceptedAnswer": { "@type": "Answer", "text": "Point. Tap. Done. If you can take a photo with your phone, you can use ScanForProfit. No setup, no integrations required to start." } },
-      { "@type": "Question", "name": "Can I export my data?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. CSV export anytime. Stack tier includes API access. Your inventory is yours — we never hold it hostage." } },
-      { "@type": "Question", "name": "What happens after my trial?", "acceptedAnswer": { "@type": "Answer", "text": "You drop to Scout tier automatically — 25 scans/month, 10 items, free forever. No charge, no card required, no cancelation flow. Upgrade when you're ready." } }
+      { "@type": "Question", "name": "What if I'm not tech-savvy?", "acceptedAnswer": { "@type": "Answer", "text": "Point. Tap. Done. If you can take a photo with your phone, you can use ScanForProfit. Point your camera. Done." } },
+      { "@type": "Question", "name": "Can I export my data?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. CSV export anytime. Stack tier includes API access. Your inventory is yours. We never hold it hostage." } },
+      { "@type": "Question", "name": "What happens after my trial?", "acceptedAnswer": { "@type": "Answer", "text": "You drop to Scout tier automatically: 25 scans/month, 10 items, free forever. No charge, no card required, no cancelation flow. Upgrade when you're ready." } }
     ]
   }
   </script>
@@ -121,7 +121,7 @@
     body {
       margin: 0;
       font-family: var(--mono);
-      font-size: 16px;
+      font-size: 1rem;
       line-height: 1.5;
       color: var(--text);
       background: linear-gradient(180deg, #100f0c 0%, #0a0a0a 25%);
@@ -137,6 +137,7 @@
     }
 
     h1, h2, h3, h4 { font-family: var(--display); font-weight: 800; line-height: 1.1; margin: 0; color: var(--text); letter-spacing: -0.02em; }
+    h2 { text-wrap: balance; }
     p { margin: 0; }
     a { color: inherit; text-decoration: none; }
     button { font: inherit; cursor: pointer; }
@@ -215,6 +216,7 @@
     .hero h1 {
       font-size: clamp(40px, 6.5vw, 64px);
       line-height: 1.04;
+      text-wrap: balance;
     }
     .hero h1 .ink { color: var(--text); }
     .hero h1 .accent {
@@ -727,6 +729,14 @@
       font-weight: 500; color: var(--muted);
     }
     .fine-print { font-family: var(--mono); font-size: var(--text-sm); color: var(--muted); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -755,18 +765,16 @@
       <div class="hero-copy">
         <span class="eyebrow"><span class="dot"></span>The thrift store scanner for eBay resellers</span>
         <h1>
-          <span class="ink">You're standing in front</span><br />
-          <span class="ink">of a shelf. You have</span><br />
-          <span class="accent">90 seconds.</span>
+          <span class="ink">You're standing in front of a shelf. You have</span> <span class="accent">90 seconds.</span>
         </h1>
-        <p class="hero-sub">ScanForProfit tells you BUY, PASS, or HOT in 8 seconds. Point your camera. Get the flip decision. Walk out with profit.</p>
+        <p class="hero-sub">ScanForProfit tells you BUY, PASS, or HOT in 8 seconds. Point your camera. Get the flip decision. Point. Scan. Decide.</p>
         <div class="hero-cta-row">
           <a class="btn btn-primary btn-lg" href="#early-access" data-cta="early-access" data-location="hero">Get early access →</a>
         </div>
         <div class="cta-sub">Free to start · No credit card · Cancel anytime</div>
         <div class="hero-trust">
-          <div>⌁ Real eBay fee math, not guesswork</div>
-          <div>⌁ <strong>8s</strong> per item</div>
+          <div>· Real eBay fee math, not guesswork</div>
+          <div>· <strong>8s</strong> per item</div>
         </div>
       </div>
 
@@ -932,27 +940,23 @@
   <section id="problem">
     <div class="container">
       <div class="section-head">
-        <span class="tag">// The sourcing grind is real</span>
+        <span class="tag">The sourcing grind is real</span>
         <h2>You've been running this on vibes and spreadsheets.</h2>
       </div>
       <div class="agitate-grid">
         <div class="agitate-card">
-          <span class="agitate-num">01</span>
           <span class="agitate-lead">Standing in the store</span>
           <p>You pick up a Nintendo 64. Someone else grabs it while you're typing in eBay search. You find it listed for $190 three days later. You paid $4 in gas to walk away empty.</p>
         </div>
         <div class="agitate-card warn">
-          <span class="agitate-num">02</span>
           <span class="agitate-lead">Getting home with a bad buy</span>
           <p>The vintage camera you thought was a slam dunk? Bought for $45. Listed for 60 days. No offers. Now it's in the pile with 46 other things you haven't listed yet.</p>
         </div>
         <div class="agitate-card">
-          <span class="agitate-num">03</span>
           <span class="agitate-lead">Looking at the pile</span>
           <p>47 items. Bought over the last two months. Zero listed. Because writing eBay descriptions for 47 items is a full-time job nobody warned you about.</p>
         </div>
       </div>
-      <p class="agitate-transition">There's a better way to do this. <span>It fits in your pocket.</span></p>
     </div>
   </section>
 
@@ -961,7 +965,7 @@
     <div class="container">
       <div class="showcase-grid">
         <div class="showcase-copy">
-          <span class="tag tag-section">// Shelf Scan</span>
+          <span class="tag tag-section">Shelf Scan</span>
           <h2 style="margin-top:var(--space-3)">One photo. Entire shelf ranked by flip potential.</h2>
           <p class="lead">No other app does this. Walk a 200-item estate sale in 3 minutes. Not 30.</p>
         </div>
@@ -1051,7 +1055,7 @@
           </div>
         </div>
         <div class="showcase-copy">
-          <span class="tag tag-section">// Growth Agent</span>
+          <span class="tag tag-section">Growth Agent</span>
           <h2 style="margin-top:var(--space-3)">Know what to hunt before you leave the house.</h2>
           <p class="lead">The Growth Agent analyzes your inventory, your recent sells, and live eBay trends. Then it builds your hunt list for the week. Not generic "electronics are hot." Your specific gaps. Your specific opportunity.</p>
           <p class="showcase-foot">Generated every Monday morning. Based on what sold in your area last week, what's trending on eBay, and what's been sitting in your inventory too long.</p>
@@ -1065,9 +1069,9 @@
   <section id="features">
     <div class="container">
       <div class="section-head">
-        <span class="tag">// Features</span>
+        <span class="tag">Features</span>
         <h2>Five tools. One pocket. Built for solo sellers.</h2>
-        <p>Scan, list, and track — without juggling six browser tabs and a spreadsheet that hates you.</p>
+        <p>Scan, list, and track, without juggling six browser tabs and a spreadsheet that hates you.</p>
       </div>
       <div class="features-grid">
 
@@ -1154,7 +1158,7 @@
   <section id="pricing">
     <div class="container">
       <div class="section-head">
-        <span class="tag">// Pricing</span>
+        <span class="tag">Pricing</span>
         <h2>Simple tiers. Pay when you're profitable.</h2>
         <p>No card required to start. Cancel anytime. Pay annually and save up to 18%.</p>
       </div>
@@ -1166,7 +1170,6 @@
             <h3>Scout</h3>
           </div>
           <div class="price-amount"><span class="num">FREE</span></div>
-          <div class="price-billing">Forever</div>
           <div class="price-meta">
             <div><div class="k">Scans/mo</div><div class="v">25</div></div>
             <div><div class="k">Items</div><div class="v">10</div></div>
@@ -1248,13 +1251,13 @@
   <section id="faq">
     <div class="container">
       <div class="section-head">
-        <span class="tag">// Objections, handled</span>
+        <span class="tag">Objections, handled</span>
         <h2>Questions resellers actually ask.</h2>
       </div>
       <div class="faq-grid">
         <details class="faq" open>
           <summary>How accurate are the profit estimates?</summary>
-          <div class="ans">ScanForProfit pulls from real eBay sold listings — not asking prices. You see the comps. You make the call. We show you the data; you make the decision.</div>
+          <div class="ans">ScanForProfit pulls from real eBay sold listings, not asking prices. You see the comps. You make the call. We show you the data; you make the decision.</div>
         </details>
         <details class="faq">
           <summary>Does this work for all categories?</summary>
@@ -1262,15 +1265,15 @@
         </details>
         <details class="faq">
           <summary>What if I'm not tech-savvy?</summary>
-          <div class="ans">Point. Tap. Done. If you can take a photo with your phone, you can use ScanForProfit. No setup, no integrations required to start.</div>
+          <div class="ans">Point. Tap. Done. If you can take a photo with your phone, you can use ScanForProfit. Point your camera. Done.</div>
         </details>
         <details class="faq">
           <summary>Can I export my data?</summary>
-          <div class="ans">Yes. CSV export anytime. Stack tier includes API access. Your inventory is yours — we never hold it hostage.</div>
+          <div class="ans">Yes. CSV export anytime. Stack tier includes API access. Your inventory is yours. We never hold it hostage.</div>
         </details>
         <details class="faq">
           <summary>What happens after my trial?</summary>
-          <div class="ans">You drop to Scout tier automatically — 25 scans/month, 10 items, free forever. No charge, no card required, no cancelation flow. Upgrade when you're ready.</div>
+          <div class="ans">You drop to Scout tier automatically: 25 scans/month, 10 items, free forever. No charge, no card required, no cancelation flow. Upgrade when you're ready.</div>
         </details>
       </div>
     </div>
@@ -1280,21 +1283,21 @@
   <section id="guarantee">
     <div class="container">
       <div class="section-head">
-        <span class="tag">// No catch</span>
+        <span class="tag">No catch</span>
         <h2>Zero risk. Literally.</h2>
       </div>
       <div class="guarantee-grid">
         <div class="guarantee-card">
           <span class="guarantee-check" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="#00c060" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg></span>
-          <p>The free tier requires <b>no credit card</b> &mdash; ever.</p>
+          <p>The free tier requires <b>no credit card</b>. Ever.</p>
         </div>
         <div class="guarantee-card">
           <span class="guarantee-check" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="#00c060" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg></span>
-          <p>Export your inventory as <b>CSV anytime</b> &mdash; your data is yours.</p>
+          <p>Export your inventory as <b>CSV anytime</b>. Your data is yours.</p>
         </div>
         <div class="guarantee-card">
           <span class="guarantee-check" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="#00c060" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg></span>
-          <p>Paid plans <b>cancel in one click</b> &mdash; no calls, no retention flows.</p>
+          <p>Paid plans <b>cancel in one click</b>. No calls, no retention flows.</p>
         </div>
       </div>
     </div>
@@ -1304,7 +1307,7 @@
   <section id="early-access">
     <div class="container">
       <div class="capture">
-        <span class="tag tag-section">// Early access</span>
+        <span class="tag tag-section">Early access</span>
         <h2 style="margin-top:var(--space-3)">Get in before we launch.</h2>
         <p class="sub">Free to start. No credit card. Early access members get the first 3 months of Hustle at Scout pricing.</p>
         <div class="capture-form" id="early-form">
@@ -1322,12 +1325,11 @@
   <section style="padding-top:0;">
     <div class="container">
       <div class="final-cta">
-        <h2>Walk the aisles like you can see profit.</h2>
+        <h2>See the profit before you pick it up.</h2>
         <p>Scan the whole shelf, know what to buy, and get a hunt list for next time. Free to start, no card required.</p>
         <div class="hero-cta-row">
           <a class="btn btn-primary btn-lg" href="#early-access" data-cta="early-access" data-location="final-cta">Get early access →</a>
         </div>
-        <div class="cta-sub">Free to start · No credit card · Cancel anytime</div>
       </div>
     </div>
   </section>
@@ -1342,7 +1344,7 @@
             <span class="logo-mark" aria-hidden="true">S</span>
             <span>ScanForProfit</span>
           </a>
-          <p>The thrift store scanner for solo eBay sellers. Scan smarter. Price tighter. Profit faster.</p>
+          <p>The thrift store scanner for solo eBay sellers. Real comps. Real fees. Real decisions.</p>
         </div>
         <div class="footer-col">
           <h4>Product</h4>
@@ -1470,7 +1472,7 @@
           trackEvent('waitlist_signup', { email });
         } catch (err) {
           msg.classList.add('err');
-          msg.textContent = 'Something went wrong — try again.';
+          msg.textContent = 'Something went wrong. Try again.';
           btn.disabled = false;
           btn.textContent = label;
         }
