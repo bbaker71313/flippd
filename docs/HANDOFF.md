@@ -4,6 +4,51 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-18 — SESSION_7 Deferred Audit Fixes (branch: claude/wonderful-shannon-pdnvca)
+
+### What changed this session
+
+All work in `apps/web/public/app.html` and `apps/web/public/index.html`.
+
+**ITEM A — CSS var conflict (`--accent` vs `--accent-color`):** No fix needed. `--accent` is the only declared name in both files. `--accent-color` has 0 occurrences — no broken references existed.
+
+**ITEM B — `body::before` scanline z-index:** Changed from `9000` → `0` in both `app.html` and `index.html`. Scanline texture now renders below all modals (lowest z-index in app: 200).
+
+**ITEM C — Inline style cleanup (`app.html`):** Added 21 utility classes to existing `<style>` block (`.mb-12`, `.mb-14`, `.mb-8`, `.mb-0`, `.text-muted`, `.text-red`, `.text-green`, `.text-yellow`, `.text-accent`, `.text-xs-muted`, `.cursor-ptr`, `.icon-inline`, `.col-full`, `.flex-1`, `.flex-1-mb0`, `.flex-1-min0`, `.flex-gap-8`, `.flex-between`, `.flex-center-6`, `.text-right`, `.w-full`). Inline `style=` count: 818 → 673 (145 removed). Double-class artifacts from sed fixed via Python merge.
+
+**ITEM D — KPI grid mobile fix:** Added `@media(max-width:479px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}` after `.kpi-label` rule. No existing rules changed.
+
+**ITEM E — Login button color:** `auth-tab-login` button `color:#fff` → `color:#000`. Gold (`#d4a843`) background with black text = ~9.3:1 contrast (WCAG AAA). Consistent with `.btn-amber` which already used `color:#000`.
+
+### Files changed
+- `apps/web/public/app.html`
+- `apps/web/public/index.html`
+- `docs/HANDOFF.md` (this file)
+
+### Commit
+- `b7d4ef3` — fix: deferred audit items (branch: `claude/wonderful-shannon-pdnvca`)
+- PR: https://github.com/bbaker71313/scanforprofit/pull/82
+
+### Items completed
+- A: DONE (no-op — no broken references existed)
+- B: DONE
+- C: DONE
+- D: DONE
+- E: DONE
+
+### Items still deferred (from SESSION_DEFERRED_FIX_PROMPT.md "WHAT NOT TO TOUCH")
+- Unsplash CDN images
+- `prefers-reduced-motion`
+- Nav link sparseness
+- "Welcome back" copy
+- Brand_Guidelines.html internal issues
+- Brand_Asset_Suite_v2.html SVG deduplication
+
+### Next task
+Merge PR #82 then verify Vercel deploy. Then: Stripe upgrade flow end-to-end verification (currently "not yet verified" in build status).
+
+---
+
 ## Session: 2026-06-18 — SESSION_6 Inventory Tab changes (branch: claude/new-session-0637zg)
 
 ### What changed this session
