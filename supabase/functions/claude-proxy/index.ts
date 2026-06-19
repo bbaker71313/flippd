@@ -1213,7 +1213,10 @@ Deno.serve(async (req: Request) => {
 
   let dbUser: Awaited<ReturnType<typeof getOrCreateUser>>;
   try { dbUser = await getOrCreateUser(supabase, email, username); }
-  catch (e) { return json({ error: (e as Error).message }, 500); }
+  catch (e) {
+    console.error('[claude-proxy] getOrCreateUser failed:', (e as Error).message, { email });
+    return json({ error: (e as Error).message }, 500);
+  }
 
   const isScan = body.type === 'single_scan' || body.type === 'shelf_scan';
   if (isScan) {
@@ -1284,6 +1287,8 @@ Deno.serve(async (req: Request) => {
     if (e instanceof HttpError) {
       return json({ error: e.message, ...e.data }, e.httpStatus);
     }
-    return json({ error: (e as Error).message ?? 'Internal error' }, 500);
+    const msg = (e as Error).message ?? 'Internal error';
+    console.error('[claude-proxy] unhandled error:', msg, { action: body?.type ?? 'unknown' });
+    return json({ error: msg }, 500);
   }
 });

@@ -5498,13 +5498,15 @@ async function callScan(type, hint) {
   if (!res.ok) {
     let errData = {};
     try { errData = await res.json(); } catch(_) {}
+    console.error('[callScan] error', res.status, JSON.stringify(errData).substring(0, 300));
     if (res.status === 429 && errData.error === 'scan_limit_reached') {
       showLimitReachedModal(errData);
       throw new Error('scan_limit');
     }
     if (res.status === 401 || res.status === 403) throw new Error('Session expired. Please log in again.');
     if (res.status === 429) throw new Error('Rate limited. Wait a moment and try again');
-    if (res.status >= 500) throw new Error('Server error. Try again in a moment');
+    if (res.status === 405) throw new Error('Scan request rejected (405). Please reload the page and try again.');
+    if (res.status >= 500) throw new Error(errData.error ? 'Server error: ' + errData.error : 'Server error. Try again in a moment');
     throw new Error(errData.error || 'API Error ' + res.status);
   }
   return res.json();
