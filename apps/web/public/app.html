@@ -5084,6 +5084,23 @@ async function ebayPullListings(days){
     await new Promise(r=>setTimeout(r,1000));
     await syncFromServer();
 
+    // Client-side dedup by ebay_item_id: if the server returned two rows with the same
+    // ebay_item_id (can happen if pull-listings ran multiple times), keep only the newest.
+    const ebayIdSeen = new Map();
+    items = items.filter(item => {
+      if (!item.ebay_item_id) return true;
+      const existing = ebayIdSeen.get(item.ebay_item_id);
+      if (!existing) { ebayIdSeen.set(item.ebay_item_id, item); return true; }
+      // Keep the item with the more recent updatedAt/createdAt
+      if (new Date(item.updatedAt || item.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
+        ebayIdSeen.set(item.ebay_item_id, item);
+        return true;
+      }
+      return false;
+    });
+    saveItems();
+    renderInventory();
+
     // Run client-side dedupe scan for ambiguous fuzzy matches (Bug 5 fix — Option A).
     // Backend auto-merges by ebay_item_id; this catches Flippd items added manually
     // with no eBay ID whose nickname is similar to a newly pulled eBay listing.

@@ -345,7 +345,6 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       const ordersData = await ordersRes.json();
       for (const order of (ordersData.orders ?? [])) {
         for (const item of (order.lineItems ?? [])) {
-          sold++;
           let existing: { id: number } | null = null;
           if (item.sku) {
             const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', item.sku).maybeSingle();
@@ -360,6 +359,26 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
               status: 'Sold',
               sold_at: order.creationDate ?? new Date().toISOString(),
             }).eq('id', existing.id);
+            sold++;
+          } else {
+            // No matching inventory row — insert a new Sold item from order data
+            const title = (item.title as string | null) ?? (item.sku ? `eBay item ${item.sku}` : 'eBay sold item');
+            const soldPrice = parseFloat((item.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
+            await supabase.from('inventory').insert({
+              user_id: userId,
+              item_id: item.sku ?? `ebay-order-${order.orderId}-${item.legacyItemId ?? ''}`,
+              sku: item.sku ?? null,
+              nickname: title.slice(0, 255),
+              listing_title: title.slice(0, 80),
+              sell_price: soldPrice,
+              sold_price: soldPrice,
+              status: 'Sold',
+              ebay_item_id: item.legacyItemId ?? null,
+              platform: 'eBay',
+              created_from: 'ebay_sync',
+              sold_at: order.creationDate ?? new Date().toISOString(),
+            });
+            sold++;
           }
         }
       }
@@ -507,7 +526,28 @@ async function handleSyncOrders(req: Request, supabase: ReturnType<typeof create
       let row: { id: number } | null = null;
       if (li.sku) { const { data: d } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', li.sku as string).maybeSingle(); row = d; }
       if (!row && li.legacyItemId) { const { data: d } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', li.legacyItemId as string).maybeSingle(); row = d; }
-      if (row) { await supabase.from('inventory').update({ status: 'Sold', sold_at: (order.creationDate as string) ?? new Date().toISOString(), sold_price: soldPrice }).eq('id', row.id); synced++; }
+      if (row) {
+        await supabase.from('inventory').update({ status: 'Sold', sold_at: (order.creationDate as string) ?? new Date().toISOString(), sold_price: soldPrice }).eq('id', row.id);
+        synced++;
+      } else {
+        // No local inventory row — insert a new Sold item so the sync is never 0 for real orders
+        const title = (li.title as string | null) ?? (li.sku ? `eBay item ${li.sku}` : 'eBay sold item');
+        await supabase.from('inventory').insert({
+          user_id: userId,
+          item_id: (li.sku as string | null) ?? `ebay-order-${order.orderId}-${li.legacyItemId ?? ''}`,
+          sku: (li.sku as string | null) ?? null,
+          nickname: title.slice(0, 255),
+          listing_title: title.slice(0, 80),
+          sell_price: soldPrice,
+          sold_price: soldPrice,
+          status: 'Sold',
+          ebay_item_id: (li.legacyItemId as string | null) ?? null,
+          platform: 'eBay',
+          created_from: 'ebay_sync',
+          sold_at: (order.creationDate as string) ?? new Date().toISOString(),
+        });
+        synced++;
+      }
     }
   }
   return json({ synced });
