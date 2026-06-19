@@ -1407,7 +1407,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div id="error-box" class="error-box" style="display:none"></div>
     <button class="btn btn-green" id="analyze-btn" onclick="analyze()">Run Profit Scanner</button>
     <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-top:-8px;margin-bottom:12px" id="analyze-label">Run the Numbers</div>
-    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">Rank This Shelf</button>
+    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">Run Profit Scanner</button>
     <div class="bottom-hint" id="hint-b-single">Identifies item · Pulls sold comps · Calculates profit after fees<br><span id="hint-fee-line">13% eBay fee · $1.25 packaging</span></div>
     <div class="bottom-hint" id="hint-b-shelf" style="display:none">Scans every visible item · Sorts by profit potential · Flags what to list vs skip</div>
   </div>
@@ -5650,7 +5650,7 @@ async function analyzeShelf() {
       };
     });
     renderShelf(shelfItems);
-  } catch(e){resetBtn('shelf-btn','Rank This Shelf','purple');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('shelf-btn','Run Profit Scanner','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
 // Threshold classifier helpers — return CSS class name for token-based coloring.

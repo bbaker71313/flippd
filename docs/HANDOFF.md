@@ -4,6 +4,64 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-19 — Audit pass + image compression fix (branch: claude/zealous-ritchie-yhxgqc → merged to main as PR #102)
+
+### What changed this session
+
+All changes in `apps/web/public/app.html` unless noted.
+
+**Branding / copy audit (all from 619_AM_AUDIT_FINDINGS.md):**
+- Scanner tab renamed: "Scout" / "SCOUT" → "Scanner" / "SCANNER" (display label only; tab-scanner is new internal ID)
+- Decision labels: "BUY" → "List", "PASS" → "Skip", "HOT" stays "Hot" (internal DB values unchanged: BUY/HOT/PASS)
+- Scan button: "FLIP OR PASS" → "Run Profit Scanner" (both single and shelf modes)
+- Shelf scan: "Rank This Shelf" → "Run Profit Scanner"
+- Scan headline: "Profit Scanner" subhead copy updated
+- Listing modal CTA: "Generate eBay Listing" + "List to eBay"
+- Add/Edit form save button: "Save to Inventory"
+- Inventory sync buttons: "Import eBay Listings" + "Sync eBay Listings"
+- Export CSV: moved to Unlisted view header, removed from dashboard
+- eBay Sync panel: date range buttons removed
+- Backup & Restore: moved to Settings card
+- Onboarding: per-user key (`sfp_onboarding_complete_<username>`)
+- Trial banner: overflow fix
+- Emoji removed throughout (⏳, ⏱, 🎉, tab category emojis, button emojis)
+- Amber glows removed from Scout setup-card, kpi-card hover, nav-card hover, item-card hover
+
+**Image compression fix (critical bug):**
+- Anthropic rejects images >10MB; phone photos regularly exceed this
+- `callScan()` now accepts optional `imageB64` param — if provided, sends JSON `{type, imageBase64}` instead of multipart FormData
+- `analyze()` calls `compressImageForDetect(imgFile, 1568, 0.85)` before `callScan()` — reduces phone photos to ≤1568px JPEG
+- Loading state: "Compressing photo..." shown during compression step
+
+**Project file updates:**
+- `CLAUDE.md`: tab table updated (Scout → Scanner); "Things Claude Gets Wrong" anti-pattern updated
+- `docs/FEATURE_TRIAGE.md`: F-01 renamed "Hot / List / Skip"; Scout tab references → Scanner tab
+- `docs/HANDOFF.md`: this entry
+
+### Commits
+- `b004b56` — audit pass (branding, UX copy, CSV import, glow removal, emoji cleanup)
+- `d960780` — image compression + Run Profit Scanner button rename
+
+### PR
+- PR #102 merged to main
+
+### Next tasks
+1. **Multi-photo scanner** (audit item 5): Single item scan should accept up to 3 photos. Camera: take → add → repeat. Gallery: multi-select up to 3. Shelf scan stays at 1.
+2. **Desktop camera** (audit item 11): "Take Photo" on desktop should open webcam, not file picker.
+3. **Unlisted items button cleanup** (audit): Remove Enhance Photo, Edit, Unlisted status badge from item cards — keep only essential actions.
+4. **Add/Edit photo multi-select** (audit item 5): Allow adding more than 1 photo per inventory item.
+5. **Date picker** (audit): Date Acquired field should open a calendar picker.
+6. **Verify Stripe checkout** — still needs price IDs in Supabase secrets.
+
+### Decisions
+- Internal `ScanDecision` type stays `'BUY' | 'HOT' | 'PASS'` — only the UI display labels changed (BUY → List, PASS → Skip). DB values not changed.
+- Tab internal ID changed from `tab-scout` to `tab-scanner` to match renamed display label.
+
+### Blockers
+- None.
+
+---
+
 ## Session: 2026-06-19 morning — eBay Sync button + listing policies fix (branch: claude/morning-session-anydn7)
 
 ### What changed this session
