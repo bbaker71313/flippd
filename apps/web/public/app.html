@@ -1153,8 +1153,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Scout</button>
   <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Inventory</button>
   <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Photos</button>
-  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Pulse</button>
-  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm3 0h2V2H5v8zm3 0h2V4h-2v6z" fill="currentColor" opacity="0.9"/></svg></span>P&amp;L</button>
+  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Profit Compass</button>
+  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm3 0h2V2H5v8zm3 0h2V4h-2v6z" fill="currentColor" opacity="0.9"/></svg></span>Profit Hub</button>
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -1703,7 +1703,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <div class="tab-panel" id="panel-growth">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-top:4px;margin-bottom:4px">
     <div>
-      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Pulse</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Profit Compass</div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px" id="growth-last-run"></div>
     </div>
     <button id="growth-refresh-btn" onclick="runGrowthAgent()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">↻ Refresh</button>
@@ -1955,7 +1955,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-dashboard">
   <div style="margin-bottom:14px;padding-top:4px">
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">P&amp;L</div>
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">Profit Hub</div>
     <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px">Your numbers, your business.</div>
   </div>
   <div style="display:flex;gap:6px;margin-bottom:14px">
