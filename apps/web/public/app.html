@@ -2281,6 +2281,16 @@ const CATEGORIES = ['Electronics','Clothing','Shoes','Home & Garden','Collectibl
 const PLATFORMS  = ['eBay','Poshmark','Mercari','FB Marketplace','Multiple'];
 const CONDITIONS = ['New','Like New','Good','Fair','Poor'];
 const STATUSES   = ['Unlisted','Listed','Sold'];
+
+function findDuplicateItem(nickname, sku) {
+  if (!nickname) return null;
+  const norm = s => String(s || '').toLowerCase().trim();
+  const n = norm(nickname);
+  return items.find(i =>
+    (sku && i.sku && norm(i.sku) === norm(sku)) ||
+    norm(i.nickname) === n
+  ) || null;
+}
 const CAT_ICONS  = {Electronics:'',Clothing:'',Shoes:'','Home & Garden':'',Collectibles:'','Toys & Hobbies':'','Sporting Goods':'',Books:'',Automotive:'','Health & Beauty':'',Tools:'','Musical Instruments':'','Pet Supplies':'',Baby:'','Jewelry & Watches':''};
 const SKU_PREFIXES = {Electronics:'ELC',Clothing:'CLO',Shoes:'SHO','Home & Garden':'HMG',Collectibles:'COL','Toys & Hobbies':'TOY','Sporting Goods':'SPT',Books:'BOK',Automotive:'AUT','Health & Beauty':'HLT',Tools:'TLS','Musical Instruments':'MUS','Pet Supplies':'PET',Baby:'BBY','Jewelry & Watches':'JWL'};
 
@@ -2856,18 +2866,30 @@ function markAsListed(id) {
 function relistItem(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  const newItem = {...item,
-    id: Date.now(),
+  const newId = Date.now();
+  const newItem = {
+    ...item,
+    id: newId,
     status: 'Unlisted',
     dateAcquired: new Date().toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
+    listed_at: null,
+    sold_at: null,
   };
+  // Clear sold fields and eBay ID so this is treated as a fresh listing
   delete newItem.soldPrice; delete newItem.sold_price;
   delete newItem.soldDate; delete newItem.sold_date;
+  delete newItem.ebay_item_id;
+  delete newItem.ebayItemId;
+  // Copy photos from IndexedDB for the original item into the new item
+  if (typeof photoMap !== 'undefined' && photoMap[item.id]) {
+    savePhotosIDB(newId, photoMap[item.id]);
+    photoMap[newId] = photoMap[item.id];
+  }
   items.push(newItem);
   saveItems();
   renderInventoryHome();
-  showToast('Item relisted and added to Unlisted');
+  showToast('New listing created in Unlisted — original stays in Sold');
 }
 
 // Change 13: Read-only detail view for Sold items
@@ -3457,6 +3479,14 @@ function saveInvItem() {
     invFormImgB64 = null;
     showToast('Item updated');
   } else {
+    // New item — check for duplicates before creating
+    const dup = findDuplicateItem(name, null);
+    if (dup) {
+      const proceed = confirm(
+        `"${dup.nickname}" already exists in ${dup.status}.\n\nAdd it again anyway?`
+      );
+      if (!proceed) return;
+    }
     // New item — use createInventoryItem
     const formPhoto = invFormImgB64 ? [`data:${invFormImgType};base64,${invFormImgB64}`] : [];
     createInventoryItem({
