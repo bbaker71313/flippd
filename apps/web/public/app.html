@@ -706,6 +706,27 @@ body::before{
 .pnl-exp-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
 .pnl-exp-row:last-child{border-bottom:none}
 
+/* ══ PROFIT HUB ══ */
+.ph-kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+@media(min-width:480px) { .ph-kpi-grid { grid-template-columns:repeat(3,1fr); } }
+.ph-kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; text-align:center; }
+.ph-kpi-val { font-family:'Syne',sans-serif; font-size:20px; font-weight:900; color:var(--text); margin-bottom:2px; }
+.ph-kpi-label { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; }
+.ph-section-title { font-size:10px; letter-spacing:0.18em; color:var(--muted); font-weight:800; margin:16px 0 10px; text-transform:uppercase; font-family:'IBM Plex Mono',monospace; }
+.ph-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+.ph-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; font-family:'IBM Plex Mono',monospace; }
+.ph-row:last-child { border-bottom:none; }
+.ph-row-label { color:var(--soft); }
+.ph-row-val { color:var(--text); font-weight:700; }
+.ph-chart-bar-wrap { display:flex; align-items:flex-end; gap:4px; height:60px; margin-top:10px; }
+.ph-bar { flex:1; background:var(--accent); border-radius:3px 3px 0 0; opacity:0.85; min-height:2px; }
+.ph-bar-label { font-size:9px; color:var(--muted); text-align:center; font-family:'IBM Plex Mono',monospace; margin-top:3px; }
+.ph-table { width:100%; border-collapse:collapse; font-size:11px; font-family:'IBM Plex Mono',monospace; }
+.ph-table th { color:var(--muted); font-weight:700; text-align:left; padding:5px 4px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:0.08em; }
+.ph-table td { padding:6px 4px; border-bottom:1px solid var(--border); color:var(--soft); }
+.ph-table tr:last-child td { border-bottom:none; }
+.ph-add-btn { width:100%; padding:8px; background:none; border:1px dashed var(--border); border-radius:6px; color:var(--accent); font-family:'IBM Plex Mono',monospace; font-size:11px; cursor:pointer; margin-top:8px; }
+
 /* ══ SETTINGS PAGE ══ */
 .setting-row{padding:14px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
 .setting-row:last-child{border-bottom:none}
@@ -1148,8 +1169,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Scanner</button>
   <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Inventory</button>
   <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Photos</button>
-  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Pulse</button>
-  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm3 0h2V2H5v8zm3 0h2V4h-2v6z" fill="currentColor" opacity="0.9"/></svg></span>P&amp;L</button>
+  <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Profit Compass</button>
+  <button class="tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm3 0h2V2H5v8zm3 0h2V4h-2v6z" fill="currentColor" opacity="0.9"/></svg></span>Profit Hub</button>
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -1610,6 +1631,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <button onclick="paRotate(-90)" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↺ Left</button>
       <button onclick="paRotate(90)" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Right</button>
+      <button onclick="paStartCrop()" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">✂ Crop</button>
       <button onclick="paCropSquare()" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">⬛ Square</button>
     </div>
     <!-- Before / After -->
@@ -1620,7 +1642,16 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       </div>
       <div>
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:700">Enhanced</div>
-        <canvas id="pa-canvas" style="width:100%;border-radius:8px;border:1px solid var(--green-border);display:block;cursor:zoom-in" onclick="paOpenFullscreen()" title="Tap to view fullscreen"></canvas>
+        <div style="position:relative">
+          <canvas id="pa-canvas" style="width:100%;border-radius:8px;border:1px solid var(--green-border);display:block;cursor:zoom-in" onclick="paOpenFullscreen()" title="Tap to view fullscreen"></canvas>
+          <div id="pa-crop-overlay" style="display:none;position:absolute;inset:0;cursor:crosshair;z-index:10">
+            <div id="pa-crop-rect" style="position:absolute;border:2px dashed var(--accent);box-sizing:border-box;display:none;pointer-events:none"></div>
+          </div>
+        </div>
+        <div id="pa-crop-controls" style="display:none;gap:8px;margin-top:8px">
+          <button onclick="paApplyCrop()" style="flex:1;padding:7px;background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Apply Crop</button>
+          <button onclick="paCancelCrop()" style="flex:1;padding:7px;background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">Cancel</button>
+        </div>
       </div>
     </div>
     <!-- Adjustments -->
@@ -1670,7 +1701,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <div class="tab-panel" id="panel-growth">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-top:4px;margin-bottom:4px">
     <div>
-      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Pulse</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Profit Compass</div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:2px" id="growth-last-run"></div>
     </div>
     <button id="growth-refresh-btn" onclick="runGrowthAgent()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0">↻ Refresh</button>
@@ -1877,7 +1908,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <!-- ═══════════════════════════════════════ -->
 <div class="tab-panel" id="panel-dashboard">
   <div style="margin-bottom:14px;padding-top:4px">
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">P&amp;L</div>
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2">Profit Hub</div>
     <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px">Your numbers, your business.</div>
   </div>
   <div style="display:flex;gap:6px;margin-bottom:14px">
@@ -2213,6 +2244,16 @@ const CATEGORIES = ['Electronics','Clothing','Shoes','Home & Garden','Collectibl
 const PLATFORMS  = ['eBay','Poshmark','Mercari','FB Marketplace','Multiple'];
 const CONDITIONS = ['New','Like New','Good','Fair','Poor'];
 const STATUSES   = ['Unlisted','Listed','Sold'];
+
+function findDuplicateItem(nickname, sku) {
+  if (!nickname) return null;
+  const norm = s => String(s || '').toLowerCase().trim();
+  const n = norm(nickname);
+  return items.find(i =>
+    (sku && i.sku && norm(i.sku) === norm(sku)) ||
+    norm(i.nickname) === n
+  ) || null;
+}
 const CAT_ICONS  = {Electronics:'',Clothing:'',Shoes:'','Home & Garden':'',Collectibles:'','Toys & Hobbies':'','Sporting Goods':'',Books:'',Automotive:'','Health & Beauty':'',Tools:'','Musical Instruments':'','Pet Supplies':'',Baby:'','Jewelry & Watches':''};
 const SKU_PREFIXES = {Electronics:'ELC',Clothing:'CLO',Shoes:'SHO','Home & Garden':'HMG',Collectibles:'COL','Toys & Hobbies':'TOY','Sporting Goods':'SPT',Books:'BOK',Automotive:'AUT','Health & Beauty':'HLT',Tools:'TLS','Musical Instruments':'MUS','Pet Supplies':'PET',Baby:'BBY','Jewelry & Watches':'JWL'};
 
@@ -2294,6 +2335,8 @@ function openPhotoDB() {
 
 function savePhotosIDB(itemId, photos) {
   if (!photos || !photos.length) return Promise.resolve();
+  // Keep module-level photoMap in sync so thumbnails appear immediately after save
+  photoMap[itemId] = photos;
   return openPhotoDB().then(function(db) {
     var tx = db.transaction('photos', 'readwrite');
     var store = tx.objectStore('photos');
@@ -2321,6 +2364,9 @@ function deletePhotosIDB(itemId) {
   }).catch(function(){});
 }
 
+// Module-level photo map — populated by hydratePhotos(), consulted at render time
+var photoMap = {};
+
 // Load all photos from IDB and attach to items array
 async function hydratePhotos() {
   try {
@@ -2332,7 +2378,6 @@ async function hydratePhotos() {
       req.onsuccess = function() { resolve(req.result || []); };
       req.onerror = function() { resolve([]); };
     });
-    var photoMap = {};
     all.forEach(function(r) {
       var id = parseInt(r.key.replace('item_', ''));
       photoMap[id] = r.data;
@@ -2695,7 +2740,14 @@ function renderFilteredList() {
   }
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
     // Change 14: photo thumbnail from photo_urls or photos array; SVG placeholder if none
-    const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
+    // Check module-level photoMap first (populated async by hydratePhotos) so thumbnails
+    // appear even when the IDB load completed after the initial render.
+    const _storedPhotos = (photoMap && photoMap[item.id]) || [];
+    const thumbUrl = (item.photo_urls && item.photo_urls[0])
+      || (_storedPhotos && _storedPhotos[0])
+      || (item.photos && item.photos[0])
+      || item.main_photo_url
+      || null;
     const hasListing = item.listing ? true : false;
     const isSold = item.status === 'Sold';
     const isListed = item.status === 'Listed';
@@ -2718,11 +2770,13 @@ function renderFilteredList() {
           </div>
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
             <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
-            ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
+            ${isListed ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing Boost</button>` : ''}
+            ${isUnlisted && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
             ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
-            ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">Sold</button>` : ''}
+            ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">Mark Sold</button>` : ''}
             ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
+            <button class="sm-btn" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();deleteItem(${item.id})">Delete</button>
           </div>
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
@@ -2777,25 +2831,37 @@ function markAsListed(id) {
 function relistItem(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  const newItem = {...item,
-    id: Date.now(),
+  const newId = Date.now();
+  const newItem = {
+    ...item,
+    id: newId,
     status: 'Unlisted',
     dateAcquired: new Date().toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
+    listed_at: null,
+    sold_at: null,
   };
+  // Clear sold fields and eBay ID so this is treated as a fresh listing
   delete newItem.soldPrice; delete newItem.sold_price;
   delete newItem.soldDate; delete newItem.sold_date;
+  delete newItem.ebay_item_id;
+  delete newItem.ebayItemId;
+  // Copy photos from IndexedDB for the original item into the new item
+  if (typeof photoMap !== 'undefined' && photoMap[item.id]) {
+    savePhotosIDB(newId, photoMap[item.id]);
+    photoMap[newId] = photoMap[item.id];
+  }
   items.push(newItem);
   saveItems();
   renderInventoryHome();
-  showToast('Item relisted and added to Unlisted');
+  showToast('New listing created in Unlisted — original stays in Sold');
 }
 
 // Change 13: Read-only detail view for Sold items
 function showSoldDetail(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  const Sv = getSettings ? getSettings() : S;
+  const Sv = S;
   const soldPrice = parseFloat(item.soldPrice || item.sold_price || 0);
   const cost = parseFloat(item.cost) || 0;
   const ebayFeeAmt = soldPrice * ((Sv.ebayFee || 13) / 100);
@@ -2803,7 +2869,12 @@ function showSoldDetail(id) {
   const shipAmt = (Sv.shipping === 'seller') ? (Sv.shipCost || 6) : 0;
   const netProfit = soldPrice - cost - ebayFeeAmt - pkgAmt - shipAmt;
   const roi = cost > 0 ? ((netProfit / cost) * 100).toFixed(0) : 'N/A';
-  const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
+  const _soldStoredPhotos = (photoMap && photoMap[item.id]) || [];
+  const thumbUrl = (item.photo_urls && item.photo_urls[0])
+    || (_soldStoredPhotos && _soldStoredPhotos[0])
+    || (item.photos && item.photos[0])
+    || item.main_photo_url
+    || null;
   const overlay = document.createElement('div');
   overlay.id = 'sold-detail-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;padding:16px;box-sizing:border-box';
@@ -3373,6 +3444,14 @@ function saveInvItem() {
     invFormImgB64 = null;
     showToast('Item updated');
   } else {
+    // New item — check for duplicates before creating
+    const dup = findDuplicateItem(name, null);
+    if (dup) {
+      const proceed = confirm(
+        `"${dup.nickname}" already exists in ${dup.status}.\n\nAdd it again anyway?`
+      );
+      if (!proceed) return;
+    }
     // New item — use createInventoryItem
     const formPhoto = invFormImgB64 ? [`data:${invFormImgType};base64,${invFormImgB64}`] : [];
     createInventoryItem({
@@ -3745,6 +3824,102 @@ function paCropSquare() {
   paPhotos[paActiveIdx]._isBlobUrl = false;
 }
 
+let _paCropState = null;
+
+function paStartCrop() {
+  const canvas = document.getElementById('pa-canvas');
+  if (!canvas || !paPhotos.length) return;
+  const overlay = document.getElementById('pa-crop-overlay');
+  const controls = document.getElementById('pa-crop-controls');
+  if (!overlay) return;
+  overlay.style.display = 'block';
+  if (controls) controls.style.display = 'flex';
+  _paCropState = { startX: 0, startY: 0, endX: 0, endY: 0, dragging: false };
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  function getPos(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    return {
+      x: Math.max(0, Math.min(rect.width, touch.clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, touch.clientY - rect.top))
+    };
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    const p = getPos(e);
+    _paCropState = { startX: p.x, startY: p.y, endX: p.x, endY: p.y, dragging: true, scaleX, scaleY, rect };
+    updateCropRect();
+  }
+  function onMove(e) {
+    if (!_paCropState || !_paCropState.dragging) return;
+    e.preventDefault();
+    const p = getPos(e);
+    _paCropState.endX = p.x; _paCropState.endY = p.y;
+    updateCropRect();
+  }
+  function onEnd(e) {
+    if (_paCropState) _paCropState.dragging = false;
+  }
+
+  overlay._onStart = onStart; overlay._onMove = onMove; overlay._onEnd = onEnd;
+  overlay.addEventListener('mousedown', onStart);
+  overlay.addEventListener('mousemove', onMove);
+  overlay.addEventListener('mouseup', onEnd);
+  overlay.addEventListener('touchstart', onStart, { passive: false });
+  overlay.addEventListener('touchmove', onMove, { passive: false });
+  overlay.addEventListener('touchend', onEnd);
+}
+
+function updateCropRect() {
+  const r = document.getElementById('pa-crop-rect');
+  if (!r || !_paCropState) return;
+  const { startX, startY, endX, endY } = _paCropState;
+  const x = Math.min(startX, endX), y = Math.min(startY, endY);
+  const w = Math.abs(endX - startX), h = Math.abs(endY - startY);
+  r.style.display = w > 2 && h > 2 ? 'block' : 'none';
+  r.style.left = x + 'px'; r.style.top = y + 'px';
+  r.style.width = w + 'px'; r.style.height = h + 'px';
+}
+
+function paApplyCrop() {
+  if (!_paCropState) return;
+  const canvas = document.getElementById('pa-canvas');
+  const { startX, startY, endX, endY, scaleX, scaleY } = _paCropState;
+  const x = Math.round(Math.min(startX, endX) * scaleX);
+  const y = Math.round(Math.min(startY, endY) * scaleY);
+  const w = Math.round(Math.abs(endX - startX) * scaleX);
+  const h = Math.round(Math.abs(endY - startY) * scaleY);
+  if (w < 10 || h < 10) { showToast('Select a larger area to crop'); return; }
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(x, y, w, h);
+  canvas.width = w; canvas.height = h;
+  ctx.putImageData(imageData, 0, 0);
+  paPhotos[paActiveIdx].w = w; paPhotos[paActiveIdx].h = h;
+  const result = canvas.toDataURL('image/jpeg', 0.92);
+  paPhotos[paActiveIdx].enhanced = result;
+  paPhotos[paActiveIdx].original = result;
+  paPhotos[paActiveIdx]._isBlobUrl = false;
+  paCancelCrop();
+  showToast('Crop applied');
+}
+
+function paCancelCrop() {
+  const overlay = document.getElementById('pa-crop-overlay');
+  const controls = document.getElementById('pa-crop-controls');
+  if (overlay) {
+    overlay.style.display = 'none';
+    if (overlay._onStart) { overlay.removeEventListener('mousedown', overlay._onStart); overlay.removeEventListener('mousemove', overlay._onMove); overlay.removeEventListener('mouseup', overlay._onEnd); overlay.removeEventListener('touchstart', overlay._onStart); overlay.removeEventListener('touchmove', overlay._onMove); overlay.removeEventListener('touchend', overlay._onEnd); }
+  }
+  if (controls) controls.style.display = 'none';
+  const r = document.getElementById('pa-crop-rect');
+  if (r) r.style.display = 'none';
+  _paCropState = null;
+}
+
 async function paRemoveBg() {
   const key = (S && S.removebgKey) ? S.removebgKey.trim() : '';
   if (!key) { showToast('Add your remove.bg API key in Settings → Photo Tools to enable this'); return; }
@@ -3789,22 +3964,76 @@ function paPhotoBoost() {
     return;
   }
   if (!paPhotos.length) return;
+
   const canvas = document.getElementById('pa-canvas');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const src = ctx.getImageData(0,0,W,H);
-  // Auto-levels per channel
-  let rMn=255,rMx=0,gMn=255,gMx=0,bMn=255,bMx=0;
-  for (let k=0;k<src.data.length;k+=4){rMn=Math.min(rMn,src.data[k]);rMx=Math.max(rMx,src.data[k]);gMn=Math.min(gMn,src.data[k+1]);gMx=Math.max(gMx,src.data[k+1]);bMn=Math.min(bMn,src.data[k+2]);bMx=Math.max(bMx,src.data[k+2]);}
-  for (let k=0;k<src.data.length;k+=4){src.data[k]=rMx>rMn?Math.min(255,((src.data[k]-rMn)/(rMx-rMn))*255):src.data[k];src.data[k+1]=gMx>gMn?Math.min(255,((src.data[k+1]-gMn)/(gMx-gMn))*255):src.data[k+1];src.data[k+2]=bMx>bMn?Math.min(255,((src.data[k+2]-bMn)/(bMx-bMn))*255):src.data[k+2];}
-  ctx.putImageData(src,0,0);
-  // Unsharp mask (sharpen kernel)
-  const s2=ctx.getImageData(0,0,W,H), dst=ctx.createImageData(W,H);
-  const kern=[0,-1,0,-1,5,-1,0,-1,0];
-  for(let y=0;y<H;y++){for(let x=0;x<W;x++){let r=0,g=0,b=0;for(let ky=0;ky<3;ky++){for(let kx=0;kx<3;kx++){const px=Math.min(W-1,Math.max(0,x+kx-1)),py=Math.min(H-1,Math.max(0,y+ky-1)),idx=(py*W+px)*4,k2=kern[ky*3+kx];r+=s2.data[idx]*k2;g+=s2.data[idx+1]*k2;b+=s2.data[idx+2]*k2;}}const i=(y*W+x)*4;dst.data[i]=Math.max(0,Math.min(255,r));dst.data[i+1]=Math.max(0,Math.min(255,g));dst.data[i+2]=Math.max(0,Math.min(255,b));dst.data[i+3]=s2.data[i+3];}}
-  ctx.putImageData(dst,0,0);
-  paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg',0.92);
-  showToast('Photo Boost applied');
+
+  // Step 1: Read pixel data
+  const src = ctx.getImageData(0, 0, W, H);
+  const d = src.data;
+
+  // Step 2: Auto white balance — find average of lightest 5% of pixels
+  let samples = [];
+  for (let k = 0; k < d.length; k += 4) {
+    const lum = 0.299 * d[k] + 0.587 * d[k+1] + 0.114 * d[k+2];
+    samples.push({ lum, r: d[k], g: d[k+1], b: d[k+2] });
+  }
+  samples.sort((a, b) => b.lum - a.lum);
+  const topN = Math.max(1, Math.floor(samples.length * 0.05));
+  const top = samples.slice(0, topN);
+  const avgR = top.reduce((s, p) => s + p.r, 0) / topN;
+  const avgG = top.reduce((s, p) => s + p.g, 0) / topN;
+  const avgB = top.reduce((s, p) => s + p.b, 0) / topN;
+  const wbR = avgR > 0 ? 255 / avgR : 1;
+  const wbG = avgG > 0 ? 255 / avgG : 1;
+  const wbB = avgB > 0 ? 255 / avgB : 1;
+
+  // Step 3: Apply white balance + contrast boost + slight saturation
+  for (let k = 0; k < d.length; k += 4) {
+    let r = Math.min(255, d[k] * wbR);
+    let g = Math.min(255, d[k+1] * wbG);
+    let b = Math.min(255, d[k+2] * wbB);
+    // Contrast: S-curve (mild)
+    r = 128 + (r - 128) * 1.1;
+    g = 128 + (g - 128) * 1.1;
+    b = 128 + (b - 128) * 1.1;
+    // Clamp
+    d[k]   = Math.max(0, Math.min(255, r));
+    d[k+1] = Math.max(0, Math.min(255, g));
+    d[k+2] = Math.max(0, Math.min(255, b));
+  }
+  ctx.putImageData(src, 0, 0);
+
+  // Step 4: Sharpen (gentle — eBay recommends sharp product focus, not over-sharpened)
+  const s2 = ctx.getImageData(0, 0, W, H);
+  const dst = ctx.createImageData(W, H);
+  // 3x3 sharpen kernel (less aggressive than [0,-1,0,-1,5,-1,0,-1,0])
+  const kern = [0, -0.5, 0, -0.5, 3, -0.5, 0, -0.5, 0];
+  const d2 = s2.data, dd = dst.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let r = 0, g = 0, b = 0;
+      for (let ky = 0; ky < 3; ky++) {
+        for (let kx = 0; kx < 3; kx++) {
+          const px = Math.min(W-1, Math.max(0, x + kx - 1));
+          const py = Math.min(H-1, Math.max(0, y + ky - 1));
+          const idx = (py * W + px) * 4;
+          const kv = kern[ky * 3 + kx];
+          r += d2[idx] * kv; g += d2[idx+1] * kv; b += d2[idx+2] * kv;
+        }
+      }
+      const i = (y * W + x) * 4;
+      dd[i]   = Math.max(0, Math.min(255, r));
+      dd[i+1] = Math.max(0, Math.min(255, g));
+      dd[i+2] = Math.max(0, Math.min(255, b));
+      dd[i+3] = d2[i+3];
+    }
+  }
+  ctx.putImageData(dst, 0, 0);
+
+  paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg', 0.95);
+  showToast('Photo Boost applied — white balance, contrast, and sharpness enhanced');
 }
 
 let _fsPinchDist = 0, _fsScale = 1;
@@ -4636,99 +4865,202 @@ function toggleListingDetail(itemId) {
 function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  // ── Data ──
   const tfStart   = getTimeframeStart(dashTimeframe);
-  const sold      = items.filter(i=>i.status==='Sold').filter(i=>new Date(i.createdAt||i.dateAcquired)>=tfStart);
-  const listed    = items.filter(i=>i.status==='Listed');
-  const unlisted  = items.filter(i=>i.status==='Unlisted');
-  const totalProfit = sold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
-  const netProfit = totalProfit;
+  const allSold   = items.filter(i => i.status === 'Sold');
+  const sold      = allSold.filter(i => new Date(i.soldDate || i.sold_at || i.createdAt) >= tfStart);
+  const listed    = items.filter(i => i.status === 'Listed');
+  const unlisted  = items.filter(i => i.status === 'Unlisted');
+  const Sv = S;
 
-  // ── Growth cache ──
-  const gc = loadGrowthCache();
-  const huntItems      = gc ? (gc.data.hunt_list||[]) : [];
-  const staleFromCache = gc ? (gc.data.stale_actions||[]).slice(0,5) : [];
+  // KPI computation
+  const totalSales  = sold.reduce((s, i) => s + parseFloat(i.soldPrice || i.sold_price || 0), 0);
+  const totalCosts  = sold.reduce((s, i) => s + parseFloat(i.cost || 0), 0);
+  const totalFees   = sold.reduce((s, i) => {
+    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    return s + sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+  }, 0);
+  const netProfit   = totalSales - totalCosts - totalFees;
+  const margin      = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : '0.0';
+  const roi         = totalCosts > 0 ? ((netProfit / totalCosts) * 100).toFixed(0) : 'N/A';
 
-  // ── Stale items fallback (computed when no growth cache) ──
-  const now = Date.now();
-  const staleComputed = listed.filter(i=>{
-    const days=(now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000;
-    return days>S.maxDays;
-  }).slice(0,5).map(i=>({
-    sku:i.sku, name:i.nickname,
-    days:Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000),
-    action:'Review pricing',
-    reason:`Listed ${Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000)} days — over your ${S.maxDays}-day target.`
-  }));
-  const staleItems = staleFromCache.length ? staleFromCache : staleComputed;
+  // Expenses from pnl_expenses (use existing expense data structure)
+  const expenses = pnlExpenses || [];
+  const expInPeriod = expenses.filter(e => new Date(e.date || e.createdAt) >= tfStart);
+  const totalExpenses = expInPeriod.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
 
-  // ── Hunt list HTML ──
-  const huntHTML = huntItems.length
-    ? `<div class="card" style="padding:14px 16px">
-        ${gc?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-          <div style="width:8px;height:8px;border-radius:50%;background:${gc.data.score_color||'var(--accent)'}"></div>
-          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted)">${gc.data.score_label} · Score ${gc.data.business_score}</div>
-        </div>`:''}
-        ${huntItems.slice(0,5).map(h=>`
-          <div class="hunt-item">
-            <div class="hunt-icon">${h.icon||HUNT_ICON_SVG}</div>
-            <div>
-              <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
-              <div class="hunt-why">${h.why}</div>
-            </div>
-          </div>`).join('')}
-      </div>`
-    : `<div class="card" style="border-style:dashed;text-align:center;padding:24px 16px">
-        <div style="margin-bottom:8px;display:flex;justify-content:center"><svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-accent"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-        <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No hunt list yet</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Run the Growth Agent in Trends to get AI-curated items to look for this week.</div>
-        <button onclick="switchTab('growth')" style="background:var(--accent);color:#000;border:none;border-radius:4px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Go to Trends →</button>
-      </div>`;
+  // Category breakdown
+  const catMap = {};
+  sold.forEach(i => {
+    const cat = i.category || 'Other';
+    if (!catMap[cat]) catMap[cat] = { sales: 0, profit: 0, count: 0 };
+    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const cost = parseFloat(i.cost || 0);
+    const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+    catMap[cat].sales += sp; catMap[cat].profit += sp - cost - fee; catMap[cat].count++;
+  });
+  const cats = Object.entries(catMap).sort((a, b) => b[1].profit - a[1].profit);
 
-  // ── Stale items HTML ──
-  const staleHTML = staleItems.length
-    ? `<div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:16px 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Action Queue</div>
-       <div class="card" style="padding:14px 16px">
-         ${staleItems.map(i=>`
-           <div class="stale-item">
-             <div style="display:flex;justify-content:space-between;align-items:flex-start">
-               <div>
-                 <div class="stale-name">${i.name}</div>
-                 <div class="stale-meta">${i.sku||''} · Listed ${i.days} days</div>
-                 <div style="font-size:11px;color:var(--soft);margin-top:3px;line-height:1.4">${i.reason}</div>
-               </div>
-               <span class="stale-action">${i.action}</span>
-             </div>
-           </div>`).join('')}
-       </div>` : '';
+  // Monthly trend (last 6 months)
+  const months = [];
+  for (let m = 5; m >= 0; m--) {
+    const d = new Date(); d.setMonth(d.getMonth() - m);
+    const label = d.toLocaleDateString('en-US', { month: 'short' });
+    const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
+    const mEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.createdAt); return dt >= mStart && dt <= mEnd; });
+    const mProfit = mSold.reduce((s, i) => {
+      const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+      const cost = parseFloat(i.cost || 0);
+      const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+      return s + sp - cost - fee;
+    }, 0);
+    months.push({ label, profit: mProfit, sales: mSold.reduce((s,i)=>s+parseFloat(i.soldPrice||i.sold_price||0),0) });
+  }
+  const maxMonthVal = Math.max(...months.map(m => Math.max(m.profit, m.sales)), 1);
 
+  // Top performers / underperformers
+  const soldWithProfit = sold.map(i => {
+    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const cost = parseFloat(i.cost || 0);
+    const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+    return { ...i, _profit: sp - cost - fee };
+  });
+  const topPerformers = [...soldWithProfit].sort((a,b)=>b._profit-a._profit).slice(0,5);
+  const negMargin     = soldWithProfit.filter(i=>i._profit<0).slice(0,5);
+
+  // Expense by category
+  const expCatMap = {};
+  expInPeriod.forEach(e => {
+    const c = e.category || 'Uncategorized';
+    expCatMap[c] = (expCatMap[c] || 0) + parseFloat(e.amount || 0);
+  });
+  const expCats = Object.entries(expCatMap).sort((a,b)=>b[1]-a[1]);
+
+  // Growth cache (hunt list + stale)
+  const gc = loadGrowthCache ? loadGrowthCache() : null;
+
+  // ── Render ──
   document.getElementById('dash-content').innerHTML = `
 
-    <!-- ① 3-KPI STRIP -->
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon"></div>
-        <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
-        <div class="kpi-label">Net Profit</div>
+    <!-- KPI ROW -->
+    <div class="ph-kpi-grid">
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:var(--green)">$${totalSales.toFixed(0)}</div>
+        <div class="ph-kpi-label">Total Sales</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('sold')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon"></div>
-        <div class="kpi-val">${sold.length}</div>
-        <div class="kpi-label">Items Sold</div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:var(--red)">$${totalCosts.toFixed(0)}</div>
+        <div class="ph-kpi-label">Total Costs</div>
       </div>
-      <div class="kpi-card" onclick="switchTab('inventory')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon"></div>
-        <div class="kpi-val" style="color:${unlisted.length>0?'var(--yellow)':'var(--green)'}">${unlisted.length}</div>
-        <div class="kpi-label">To List</div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:var(--yellow)">$${totalFees.toFixed(0)}</div>
+        <div class="ph-kpi-label">Total Fees</div>
+      </div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
+        <div class="ph-kpi-label">Net Profit</div>
+      </div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val">${margin}%</div>
+        <div class="ph-kpi-label">Margin</div>
+      </div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val">${roi}%</div>
+        <div class="ph-kpi-label">ROI</div>
       </div>
     </div>
 
-    <!-- ② HUNT LIST -->
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">This Week's Hunt List</div>
-    ${huntHTML}
+    <!-- EXPENSE TRACKER -->
+    <div class="ph-section-title">Expense Tracker</div>
+    <div class="ph-card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <span style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--red)">$${totalExpenses.toFixed(2)}</span>
+        <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;align-self:flex-end">this period</span>
+      </div>
+      ${expCats.length ? expCats.slice(0,5).map(([cat, amt]) => `
+        <div class="ph-row">
+          <span class="ph-row-label">${cat}</span>
+          <span class="ph-row-val">$${amt.toFixed(2)}</span>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No expenses logged this period.</div>'}
+      <button class="ph-add-btn" onclick="statsSubTab('expenses')">+ Add Expense</button>
+    </div>
 
-    <!-- ③ ACTION QUEUE -->
-    ${staleHTML}`;
+    <!-- TREND CHARTS -->
+    <div class="ph-section-title">Sales Trends</div>
+    <div class="ph-card">
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:6px">Monthly Profit (last 6 months)</div>
+      <div class="ph-chart-bar-wrap">
+        ${months.map(m => `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+            <div class="ph-bar" style="height:${Math.max(2, Math.round((Math.max(0,m.profit)/maxMonthVal)*56))}px;background:${m.profit>=0?'var(--green)':'var(--red)'}"></div>
+            <div class="ph-bar-label">${m.label}</div>
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:4px">Monthly Sales (last 6 months)</div>
+      <div class="ph-chart-bar-wrap">
+        ${months.map(m => `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+            <div class="ph-bar" style="height:${Math.max(2, Math.round((m.sales/maxMonthVal)*56))}px;background:var(--accent)"></div>
+            <div class="ph-bar-label">${m.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- CATEGORY PERFORMANCE -->
+    <div class="ph-section-title">Category Performance</div>
+    <div class="ph-card">
+      ${cats.length ? `<table class="ph-table">
+        <thead><tr><th>Category</th><th>Items</th><th>Profit</th></tr></thead>
+        <tbody>${cats.slice(0,8).map(([cat, d]) => `
+          <tr>
+            <td>${cat}</td>
+            <td>${d.count}</td>
+            <td style="color:${d.profit>=0?'var(--green)':'var(--red)'}">$${d.profit.toFixed(2)}</td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items this period.</div>'}
+    </div>
+
+    <!-- TOP PERFORMERS -->
+    <div class="ph-section-title">Top Performers</div>
+    <div class="ph-card">
+      ${topPerformers.length ? `<table class="ph-table">
+        <thead><tr><th>Item</th><th>Profit</th></tr></thead>
+        <tbody>${topPerformers.map(i => `
+          <tr>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="color:var(--green)">$${i._profit.toFixed(2)}</td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items yet.</div>'}
+    </div>
+
+    <!-- NEGATIVE MARGIN -->
+    ${negMargin.length ? `
+    <div class="ph-section-title">At Risk Items</div>
+    <div class="ph-card">
+      <table class="ph-table">
+        <thead><tr><th>Item</th><th>Loss</th></tr></thead>
+        <tbody>${negMargin.map(i => `
+          <tr>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="color:var(--red)">$${i._profit.toFixed(2)}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- RECENT SALES -->
+    <div class="ph-section-title">Recent Sales</div>
+    <div class="ph-card">
+      ${sold.length ? `<table class="ph-table">
+        <thead><tr><th>Item</th><th>Sold $</th><th>Profit</th></tr></thead>
+        <tbody>${[...sold].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.createdAt)).slice(0,10).map(i => {
+          const sp=parseFloat(i.soldPrice||i.sold_price||0),c=parseFloat(i.cost||0),f=sp*((Sv.ebayFee||13)/100)+(Sv.pkgCost||1.25),p=sp-c-f;
+          return `<tr>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td>$${sp.toFixed(2)}</td>
+            <td style="color:${p>=0?'var(--green)':'var(--red)'}">$${p.toFixed(2)}</td>
+          </tr>`;}).join('')}</tbody>
+      </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items this period.</div>'}
+    </div>`;
 }
 
 
@@ -4967,6 +5299,23 @@ async function ebayPullListings(days){
     // Re-fetch inventory from server so newly synced items appear (was loadInventory — that function doesn't exist).
     await new Promise(r=>setTimeout(r,1000));
     await syncFromServer();
+
+    // Client-side dedup by ebay_item_id: if the server returned two rows with the same
+    // ebay_item_id (can happen if pull-listings ran multiple times), keep only the newest.
+    const ebayIdSeen = new Map();
+    items = items.filter(item => {
+      if (!item.ebay_item_id) return true;
+      const existing = ebayIdSeen.get(item.ebay_item_id);
+      if (!existing) { ebayIdSeen.set(item.ebay_item_id, item); return true; }
+      // Keep the item with the more recent updatedAt/createdAt
+      if (new Date(item.updatedAt || item.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
+        ebayIdSeen.set(item.ebay_item_id, item);
+        return true;
+      }
+      return false;
+    });
+    saveItems();
+    renderInventory();
 
     // Run client-side dedupe scan for ambiguous fuzzy matches (Bug 5 fix — Option A).
     // Backend auto-merges by ebay_item_id; this catches Flippd items added manually
@@ -7168,8 +7517,15 @@ window.onload = () => {
   loadItems();
   // Hydrate photos from IndexedDB (async — photos load after render, that's OK)
   hydratePhotos().then(function() {
-    // Re-render inventory if it's visible so photos show
-    if (activeTab === 'inventory') renderInventory();
+    // Re-render inventory views if visible so photos show
+    if (activeTab === 'inventory') {
+      const listView = document.getElementById('inv-view-list');
+      if (listView && listView.style.display !== 'none') {
+        renderFilteredList();
+      } else {
+        renderInventoryHome();
+      }
+    }
   });
   pnlLoad();
   filterCat = 'All'; filterStatus = 'All';
