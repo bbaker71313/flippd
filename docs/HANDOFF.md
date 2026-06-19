@@ -4,6 +4,47 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-19 morning — eBay Sync button + listing policies fix (branch: claude/morning-session-anydn7)
+
+### What changed this session
+
+**eBay Sync button — `apps/web/public/app.html`**
+- `showEbaySyncPanel()` existed but had no caller anywhere on the inventory screen
+- Added full-width "eBay Sync" button between the Export CSV/Import row and the stats grid on the Inventory home view
+- Users can now open the eBay sync panel directly from Inventory without going into Settings
+
+**Listing policies fallback — `supabase/functions/ebay-oauth/index.ts` (v41)**
+- `handleCreateListing` was blocked if seller had no prior offers (needed to borrow `listingPolicies` from an existing offer)
+- Now falls back to eBay Account API: fetches `fulfillment_policy`, `payment_policy`, `return_policy` directly
+- If still no policies: error message now says "eBay Seller Hub → Account → Business Policies" instead of a generic failure
+- `sell.account` OAuth scope was already included — no OAuth re-auth needed
+
+**DB findings**
+- `ebay_connections` table confirmed exists and is the correct token store (not `users.ebay_access_token`)
+- User has eBay connected with token refresh handled automatically
+
+### Commit
+`f9d7115` — PR #97 (draft, open)
+
+### CI results (PR #97) — ALL GREEN
+- TypeScript Check: ✅
+- Vercel Preview: ✅ Ready
+- Supabase Preview: ✅ Database/Services/APIs deployed
+
+### Next tasks
+1. **Merge PR #97** — all CI green
+2. **Test "List on eBay"** — with v41 deployed, click "List on eBay" on an Unlisted item with a sell price set. Error message will now be specific if Business Policies aren't configured in eBay Seller Hub.
+3. **Test eBay Sync button** — now visible on Inventory tab home screen; opens the 30/60/90-day sync panel
+4. **Verify Stripe checkout** — still needs `STRIPE_PRICE_HUSTLE_MONTHLY`, `STRIPE_PRICE_STACK_MONTHLY`, `STRIPE_PRICE_EMPIRE_MONTHLY` in Supabase secrets (Dashboard → Edge Functions → Secrets)
+
+### Decisions made (do not reverse)
+- `ebay_connections` table is canonical for eBay token storage. Prior HANDOFF entries suggesting tokens live in `users` columns are stale.
+
+### Blockers
+- None. If "List on eBay" still fails after v41, the error message will be specific enough to diagnose.
+
+---
+
 ## Session: 2026-06-19c — Visual polish + CSS refactor (branch: claude/visual-polish-css-refactor-m08ddu)
 
 ### What changed this session
