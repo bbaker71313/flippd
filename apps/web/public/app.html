@@ -116,16 +116,10 @@
   --text-3xl:44px;
 
   /* ── Shadow system ───────────────────────────────────────────────────
-     --shadow-* = structural elevation (cards, sticky headers, modals).
-     --glow-*   = brand-language state signals (decision banners, CTAs).
-     HOT decision banner's bespoke layered glow stays inline — it's a
-     deliberate one-off state effect, not generic elevation.            ── */
+     --shadow-* = structural elevation (cards, sticky headers, modals). ── */
   --shadow-sm:0 2px 8px rgba(0,0,0,0.3);
   --shadow-md:0 4px 16px rgba(0,0,0,0.4);
   --shadow-lg:0 4px 32px rgba(0,0,0,0.6);
-  --glow-accent:0 0 20px rgba(212,168,67,0.25);
-  --glow-green:0 0 20px rgba(0,230,118,0.3);
-  --glow-red:0 0 16px rgba(255,51,51,0.3);
 
   /* ── Z-index scale ───────────────────────────────────────────────────
      Names only — zero value changes. Add new layers here; never use
@@ -345,20 +339,18 @@ body::before{
 .btn:disabled{opacity:0.35;cursor:not-allowed;filter:grayscale(40%)}
 .btn-green{
   background:linear-gradient(135deg,#00e676 0%,#00bf5a 100%);color:#000;
-  box-shadow:0 0 36px rgba(0,230,118,0.5);
   font-weight:900;
 }
-.btn-green:hover{box-shadow:0 0 52px rgba(0,230,118,0.7);transform:translateY(-1px)}
-.btn-purple{background:var(--purple-border);color:#fff;box-shadow:0 0 20px rgba(124,77,255,0.25)}
-.btn-amber{background:linear-gradient(135deg,#d4a843 0%,#b8882a 100%);color:#000;box-shadow:0 0 36px rgba(212,168,67,0.5);font-weight:900}
+.btn-green:hover{transform:translateY(-1px)}
+.btn-purple{background:var(--purple-border);color:#fff}
+.btn-amber{background:linear-gradient(135deg,#d4a843 0%,#b8882a 100%);color:#000;font-weight:900}
 .btn-ghost{
   background:transparent;
   border:1px solid var(--border-bright);
   color:var(--soft);font-size:13px;padding:12px;box-shadow:none;
 }
 .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
-.btn-red{background:var(--red);color:#fff;box-shadow:0 0 16px rgba(255,51,51,0.2)}
-.btn-red:hover{box-shadow:0 0 24px rgba(255,51,51,0.35)}
+.btn-red{background:var(--red);color:#fff}
 
 /* ══ LOADING ══ */
 .loading-wrap{display:flex;align-items:center;justify-content:center;gap:12px}
@@ -392,24 +384,7 @@ body::before{
   margin-bottom:14px;flex-wrap:wrap;
   position:relative;overflow:hidden;
 }
-/* HOT — gold pulse + scan line */
 
-@keyframes scanLine{
-  0%{transform:translateY(-100%)}
-  100%{transform:translateY(400%)}
-}
-.decision-banner.is-hot{animation:hotGlow 1.6s ease-in-out infinite}
-.decision-banner.is-hot::after{
-  content:'';position:absolute;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,rgba(255,179,0,0.6),transparent);
-  animation:scanLine 2s linear infinite;
-  pointer-events:none;
-}
-/* BUY — subtle shimmer */
-@keyframes shimmer{
-  0%{background-position:-200% center}
-  100%{background-position:200% center}
-}
 
 
 .d-icon{font-size:38px;flex-shrink:0}
@@ -790,21 +765,6 @@ body::before{
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E"), linear-gradient(160deg,#1d1d1d 0%,#131313 100%);
 }
 
-/* BUY banner — subtle shimmer sweep */
-@keyframes buySweep {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-.decision-banner.is-buy::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 4px;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
-  background-size: 200% 100%;
-  animation: buySweep 3s ease-in-out infinite;
-  pointer-events: none;
-}
 .decision-banner { position: relative; overflow: hidden; }
 
 /* Stat numbers count-up flash */
@@ -894,7 +854,7 @@ body::before{
 
 /* Setup card — warmer glow */
 .setup-card {
-  box-shadow: 0 0 60px rgba(212,168,67,0.18), 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,168,67,0.1);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
 }
 
 /* Growth score — entrance */
@@ -910,17 +870,14 @@ body::before{
    those are removed in Phase 2 (renderSingle → renderShelf refactors).   */
 .decision-banner.is-hot {
   background: linear-gradient(135deg,#00dd77 0%,#00b8a0 100%);
-  box-shadow: 0 4px 36px rgba(0,200,100,0.65);
   color: #fff;
 }
 .decision-banner.is-buy {
   background: linear-gradient(135deg,#1caa48 0%,#158a34 100%);
-  box-shadow: 0 4px 32px rgba(20,160,60,0.6);
   color: #fff;
 }
 .decision-banner.is-pass {
   background: linear-gradient(135deg,#ee1111 0%,#bb0000 100%);
-  box-shadow: 0 4px 32px rgba(200,0,0,0.6);
   color: #fff;
 }
 
@@ -1156,8 +1113,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
   </div>
   <div class="header-right" style="display:flex;gap:6px;align-items:center">
-    <button class="hdr-btn" onclick="toggleGlobalSearch()" title="Search">🔍</button>
-    <button class="hdr-btn" onclick="toggleActivityFeed()" title="Activity">🕐</button>
+    <button class="hdr-btn" onclick="toggleGlobalSearch()" title="Search"></button>
+    <button class="hdr-btn" onclick="toggleActivityFeed()" title="Activity"></button>
     <button class="hdr-btn" onclick="showSourcingSettings()" title="Settings"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.93 2.93l1.41 1.41M11.66 11.66l1.41 1.41M2.93 13.07l1.41-1.41M11.66 4.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
   </div>
 </div>
@@ -1166,7 +1123,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <div id="global-search-bar" style="display:none;background:var(--header);padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.1)">
   <div class="flex-center-8">
     <input id="global-search-input" aria-label="Search all inventory by name or SKU" class="search-box" placeholder="Search all inventory by name or SKU..." style="flex:1;margin:0" oninput="runGlobalSearch(this.value)" autofocus>
-    <button onclick="toggleGlobalSearch()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
+    <button onclick="toggleGlobalSearch()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px"></button>
   </div>
   <div id="global-search-results" style="margin-top:8px;max-height:280px;overflow-y:auto"></div>
 </div>
@@ -1176,7 +1133,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <div id="activity-panel" style="display:none;position:fixed;top:0;right:0;width:min(320px,90vw);height:100vh;background:var(--card);z-index:201;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,0.3)">
   <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
     <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--text)">Recent Activity</div>
-    <button onclick="toggleActivityFeed()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+    <button onclick="toggleActivityFeed()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer"></button>
   </div>
   <div id="activity-list" style="padding:8px 0"></div>
 </div>
@@ -1357,7 +1314,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       </div>
     </div>
     <div class="card mb-12">
-      <h3 class="card-title">💰 Tax &amp; Mileage</h3>
+      <h3 class="card-title">Tax &amp; Mileage</h3>
       <div class="setting-row">
         <div class="flex-1"><span class="setting-name">Tax Reserve %</span><span class="setting-desc">Set aside this % of net profit for taxes</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -1377,16 +1334,16 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
         </div>
       </div>
     </div>
-    <button class="btn btn-green" onclick="saveSettings()">✓ Save Settings</button>
+    <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
     <div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🛒 eBay Account</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">eBay Account</div>
       <div id="ebay-status-display" style="font-size:12px;color:var(--muted);margin-bottom:10px">Checking...</div>
       <button id="ebay-connect-btn" class="btn btn-green" style="width:100%;font-size:13px;padding:10px" onclick="ebayConnect()">Connect eBay Account</button>
       <button id="ebay-disconnect-btn" class="btn" style="width:100%;font-size:12px;padding:8px;display:none;background:var(--card);border:1.5px solid var(--border);color:var(--muted);margin-top:6px" onclick="ebayDisconnect()">Disconnect</button>
     </div>
     <div class="card" style="margin-top:8px">
-      <h3 class="card-title">👤 Account</h3>
+      <h3 class="card-title">Account</h3>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:12px">
         <div class="flex-between-center" style="padding:7px 0;border-bottom:1px solid var(--border)">
           <span class="text-muted">Username</span>
@@ -1440,11 +1397,11 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <p style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6;font-weight:500">Photo or describe any item. AI gives you a FLIP or PASS decision with profit math.</p>
     </div>
     <div class="mode-tabs">
-      <button class="mode-tab active-green" id="tab-single" onclick="setMode('single')"><span class="tab-icon">📦</span>SINGLE ITEM</button>
-      <button class="mode-tab" id="tab-shelf" onclick="setMode('shelf')"><span class="tab-icon">🔭</span>SHELF SCAN</button>
+      <button class="mode-tab active-green" id="tab-single" onclick="setMode('single')"><span class="tab-icon"></span>SINGLE ITEM</button>
+      <button class="mode-tab" id="tab-shelf" onclick="setMode('shelf')"><span class="tab-icon"></span>SHELF SCAN</button>
     </div>
-    <div id="hint-single" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">📷 Photo or describe one item → get full FLIP or PASS breakdown with profit math</div>
-    <div id="hint-shelf" class="shelf-hint-box" style="display:none">🔭 Wide photo of a full shelf. AI identifies every item and sorts by HOT / FLIP / PASS</div>
+    <div id="hint-single" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Photo or describe one item → get full FLIP or PASS breakdown with profit math</div>
+    <div id="hint-shelf" class="shelf-hint-box" style="display:none">Wide photo of a full shelf. AI identifies every item and sorts by HOT / FLIP / PASS</div>
     <div id="first-scan-prompt" style="background:var(--green-bg);border:1.5px solid var(--green-border);border-radius:10px;padding:10px 12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px">
         <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">Step 1 of 3</div>
@@ -1464,7 +1421,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <input class="file-input" id="input-camera" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="handleImage(event)">
     <input class="file-input" id="input-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="handleImage(event)">
     <div id="preview-container" style="display:none">
-      <div class="preview-box"><img id="preview-img" src="" alt="preview"><button class="preview-clear" onclick="clearImage()">✕ Clear</button></div>
+      <div class="preview-box"><img id="preview-img" src="" alt="preview"><button class="preview-clear" onclick="clearImage()">Clear</button></div>
     </div>
     <div class="or-divider" id="or-div"><div class="or-line"></div><span class="or-text">OR DESCRIBE IT</span><div class="or-line"></div></div>
     <textarea class="text-input" id="text-input" placeholder='e.g. "Xbox 360 with games" or any item...'></textarea>
@@ -1540,8 +1497,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
         <img id="inv-form-photo-img" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);display:block">
         <div style="display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap">
           <button onclick="invFormRotatePhoto()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">↺ Rotate</button>
-          <button onclick="invFormCropStart()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">✂ Crop</button>
-          <button onclick="invFormClearPhoto()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Clear</button>
+          <button onclick="invFormCropStart()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace">Crop</button>
+          <button onclick="invFormClearPhoto()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">Clear</button>
         </div>
       </div>
       <!-- Change 4: crop overlay — positioned fixed over image via invFormCropStart() -->
@@ -1615,7 +1572,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-green flex-1-mb0" onclick="saveInvItem()">✓ Add to Inventory</button>
+      <button class="btn btn-green flex-1-mb0" onclick="saveInvItem()">Add to Inventory</button>
       <button class="btn btn-ghost flex-1-mb0" onclick="cancelInvForm()">Cancel</button>
     </div>
     <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00e676);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
@@ -1691,7 +1648,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
     <!-- Adjustments -->
     <div class="card mb-12">
-      <h3 class="card-title">🎨 Adjustments</h3>
+      <h3 class="card-title">Adjustments</h3>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--soft);font-weight:600">Brightness</span><span id="pa-bright-val" style="color:var(--green-border);font-weight:700;font-family:'IBM Plex Mono',monospace">15</span></div>
@@ -1706,7 +1663,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
           <input type="range" class="slider" id="pa-saturation" min="-50" max="80" value="10" step="1" oninput="paApplyFilters()" class="w-full">
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <button id="pa-removebg-btn" onclick="paRemoveBg()" style="padding:7px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600">🪄 Remove BG</button>
+          <button id="pa-removebg-btn" onclick="paRemoveBg()" style="padding:7px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600">Remove BG</button>
           <span class="text-xs-muted">Needs remove.bg key in Settings</span>
         </div>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
@@ -1715,9 +1672,9 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" style="flex:1;margin-bottom:0;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" onclick="paPhotoBoost()">✨ Boost</button>
+      <button class="btn" style="flex:1;margin-bottom:0;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" onclick="paPhotoBoost()">Boost</button>
       <button class="btn btn-green flex-1-mb0" onclick="paDownloadAll()">⬇ Download</button>
-      <button class="btn" style="flex:1;margin-bottom:0;background:#185FA5;color:#fff;border-color:#185FA5" onclick="paSaveToItem()">💾 Save</button>
+      <button class="btn" style="flex:1;margin-bottom:0;background:#185FA5;color:#fff;border-color:#185FA5" onclick="paSaveToItem()">Save</button>
     </div>
     <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="paReset()">Start Over</button>
   </div>
@@ -1726,7 +1683,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <!-- Photo Fullscreen Overlay -->
 <div id="pa-fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:9100;align-items:center;justify-content:center" onclick="paCloseFullscreen(event)">
   <img id="pa-fs-img" style="max-width:95vw;max-height:92vh;object-fit:contain;border-radius:4px;touch-action:none" alt="enhanced photo">
-  <button onclick="event.stopPropagation();paCloseFullscreen()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:16px;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Close</button>
+  <button onclick="event.stopPropagation();paCloseFullscreen()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:16px;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:'IBM Plex Mono',monospace">Close</button>
 </div>
 
 
@@ -1965,11 +1922,11 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <!-- IMPORT PREVIEW -->
   <div id="import-preview" style="display:none">
     <div class="card" style="margin-bottom:12px;border-color:var(--green-border);background:var(--green-bg)">
-      <h3 class="card-title text-green">✓ Ready to Import</h3>
+      <h3 class="card-title text-green">Ready to Import</h3>
       <div id="import-summary" style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:10px"></div>
       <div id="import-preview-list" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
       <div class="flex-gap-8">
-        <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmImport()">✓ Import All</button>
+        <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmImport()">Import All</button>
         <button class="btn btn-ghost flex-1-mb0" onclick="cancelImport()">Cancel</button>
       </div>
     </div>
@@ -2005,14 +1962,14 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <div id="stats-view-pnl">
     <div id="spnl-sum" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"></div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="filter-btn active" id="spnl-t-sales" onclick="sPnlTab('sales')">📊 Sales</button>
-      <button class="filter-btn" id="spnl-t-exp" onclick="sPnlTab('exp')">🧾 Expenses</button>
-      <button class="filter-btn" id="spnl-t-mo" onclick="sPnlTab('mo')">📅 Monthly</button>
+      <button class="filter-btn active" id="spnl-t-sales" onclick="sPnlTab('sales')">Sales</button>
+      <button class="filter-btn" id="spnl-t-exp" onclick="sPnlTab('exp')">Expenses</button>
+      <button class="filter-btn" id="spnl-t-mo" onclick="sPnlTab('mo')">Monthly</button>
     </div>
     <div id="spnl-sales"></div>
     <div id="spnl-exp" style="display:none">
       <div class="card mb-12">
-        <h3 class="card-title">➕ Add Expense</h3>
+        <h3 class="card-title">Add Expense</h3>
         <div class="form-grid">
           <div class="f-group col-full"><label class="f-label">Description</label><input class="f-input" id="spnl-desc" placeholder="Gas, poly mailers, tape..."></div>
           <div class="f-group"><label class="f-label">Amount ($)</label><input class="f-input" type="number" id="spnl-amt" placeholder="12.50" step="0.01"></div>
@@ -2025,7 +1982,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
     <div id="spnl-mo" style="display:none"><div class="card" style="padding:0 12px" id="spnl-mo-content"></div></div>
     <div class="card" style="margin-top:12px;background:var(--yellow-bg);border-color:var(--yellow)">
-      <h3 class="card-title text-yellow">🚗 Mileage Logger</h3>
+      <h3 class="card-title text-yellow">Mileage Logger</h3>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="number" id="spnl-miles" aria-label="Miles driven" placeholder="Miles driven" style="flex:1;padding:8px 10px;border:1px solid var(--yellow);border-radius:4px;background:var(--card);font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
         <button onclick="sPnlMiles()" style="background:var(--yellow);color:#000;border:none;border-radius:4px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">Log Miles</button>
@@ -2068,7 +2025,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <!-- ═══════════════════════════════════════ -->
 <div class="modal-overlay" id="buy-confirm-modal" style="display:none">
   <div class="modal-box" style="max-height:85vh;overflow-y:auto">
-    <div class="modal-title">🛒 Confirm Add to Inventory</div>
+    <div class="modal-title">Confirm Add to Inventory</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500">Review AI details before saving. Tap any field to edit.</div>
 
     <div id="buy-confirm-photo" style="margin-bottom:12px;display:none">
@@ -2126,7 +2083,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
 
     <div class="flex-gap-8">
-      <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmBuyItem()">✓ Add to Inventory</button>
+      <button class="btn btn-green" style="flex:2;margin-bottom:0" onclick="confirmBuyItem()">Add to Inventory</button>
       <button class="btn btn-ghost flex-1-mb0" onclick="closeBuyConfirm()">Cancel</button>
     </div>
   </div>
@@ -2146,7 +2103,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <span id="sold-profit-val" style="font-weight:800;font-family:'Syne',sans-serif;color:var(--green);font-size:18px"></span>
     </div>
     <div class="flex-gap-8">
-      <button class="btn btn-green flex-1-mb0" onclick="confirmSold()">✓ Confirm Sale</button>
+      <button class="btn btn-green flex-1-mb0" onclick="confirmSold()">Confirm Sale</button>
       <button class="btn btn-ghost flex-1-mb0" onclick="closeSoldModal()">Cancel</button>
     </div>
   </div>
@@ -2156,8 +2113,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <div class="modal-overlay" id="listing-modal" style="display:none">
   <div class="modal-box" style="max-height:90vh;overflow-y:auto">
     <div class="flex-between-center mb-14">
-      <div class="modal-title">🚀 AI Power Listing</div>
-      <button onclick="closeListingModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0">✕</button>
+      <div class="modal-title">AI Power Listing</div>
+      <button onclick="closeListingModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0"></button>
     </div>
     
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px">Item: <span id="listing-item-nickname" style="color:var(--text);font-weight:700"></span></div>
@@ -2220,21 +2177,21 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <div id="listing-preview-content" style="display:none">
         <!-- Title -->
         <div class="mb-12">
-          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📋 Title</label>
+          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Title</label>
           <div id="listing-title-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;word-wrap:break-word;min-height:40px"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-title-length">0/80</span></div>
         </div>
 
         <!-- Description -->
         <div class="mb-12">
-          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📝 Description</label>
+          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Description</label>
           <div id="listing-desc-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;word-wrap:break-word;min-height:100px;white-space:pre-wrap"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-desc-length">0/1500</span></div>
         </div>
 
         <!-- Condition Note -->
         <div class="mb-14">
-          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🏷️ Condition Note</label>
+          <label style="display:block;font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Condition Note</label>
           <div id="listing-cond-display" style="background:var(--input-bg);border:1.5px solid var(--border);border-radius:4px;padding:10px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;word-wrap:break-word;min-height:60px;white-space:pre-wrap"></div>
           <div style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px"><span id="listing-cond-length">0/500</span></div>
         </div>
@@ -2248,9 +2205,9 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
 
     <div id="listing-preview-buttons" style="display:none;gap:8px;flex-direction:column">
-      <button class="btn btn-purple mb-0" onclick="regenerateListing()">⚡ Regenerate</button>
-      <button class="btn btn-green mb-0" onclick="saveListing(false)">💾 Save to Item</button>
-      <button class="btn btn-accent mb-0" onclick="saveListing(true)">📤 Save + Export</button>
+      <button class="btn btn-purple mb-0" onclick="regenerateListing()">Regenerate</button>
+      <button class="btn btn-green mb-0" onclick="saveListing(false)">Save to Item</button>
+      <button class="btn btn-accent mb-0" onclick="saveListing(true)">Save + Export</button>
       <button class="btn btn-ghost mb-0" onclick="closeListingModal()">Cancel</button>
     </div>
   </div>
@@ -2324,7 +2281,7 @@ const CATEGORIES = ['Electronics','Clothing','Shoes','Home & Garden','Collectibl
 const PLATFORMS  = ['eBay','Poshmark','Mercari','FB Marketplace','Multiple'];
 const CONDITIONS = ['New','Like New','Good','Fair','Poor'];
 const STATUSES   = ['Unlisted','Listed','Sold'];
-const CAT_ICONS  = {Electronics:'⚡',Clothing:'👗',Shoes:'👟','Home & Garden':'🏡',Collectibles:'🏆','Toys & Hobbies':'🧸','Sporting Goods':'⚽',Books:'📚',Automotive:'🚗','Health & Beauty':'💄',Tools:'🔧','Musical Instruments':'🎸','Pet Supplies':'🐾',Baby:'🍼','Jewelry & Watches':'💍'};
+const CAT_ICONS  = {Electronics:'',Clothing:'',Shoes:'','Home & Garden':'',Collectibles:'','Toys & Hobbies':'','Sporting Goods':'',Books:'',Automotive:'','Health & Beauty':'',Tools:'','Musical Instruments':'','Pet Supplies':'',Baby:'','Jewelry & Watches':''};
 const SKU_PREFIXES = {Electronics:'ELC',Clothing:'CLO',Shoes:'SHO','Home & Garden':'HMG',Collectibles:'COL','Toys & Hobbies':'TOY','Sporting Goods':'SPT',Books:'BOK',Automotive:'AUT','Health & Beauty':'HLT',Tools:'TLS','Musical Instruments':'MUS','Pet Supplies':'PET',Baby:'BBY','Jewelry & Watches':'JWL'};
 
 // ══════════════════════════════════════════════════
@@ -2585,7 +2542,7 @@ async function syncFromServer() {
     renderInventory();
     renderDashboard();
     updateStaleBadge();
-    console.log(`✅ Synced ${serverItems.length} items from server`);
+    console.log(`Synced ${serverItems.length} items from server`);
   } catch (err) {
     console.warn('Server sync failed, using local data:', err.message);
   }
@@ -2666,7 +2623,7 @@ function switchTab(tab) {
   // NOTE: do NOT remove flippd_preview_src here — Android camera launches a new
   // Activity which can fire tab-switch events; clearing the preview key here causes
   // the photo black-screen / return-to-input bug after the checkmark is tapped.
-  // The preview key is owned by clearImage() (✕ Clear button + goSrcBack()) only.
+  // The preview key is owned by clearImage() (Clear button + goSrcBack()) only.
   if (tab !== 'sourcing') {
     try {
       // Limit activity log to last 30 entries and 7 days
@@ -2718,7 +2675,7 @@ function renderInventoryHome() {
     document.getElementById('inv-home-stats').innerHTML = '';
     document.getElementById('inv-cat-cards').innerHTML = `
       <div class="empty-state-dashed">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon"></div>
         <div class="empty-title">Nothing here yet</div>
         <div class="empty-body">Scan an item in SCOUT and tap FLIP to add it here, or add one manually.</div>
         <button class="btn btn-amber" onclick="showInvView('add')">+ Add Your First Item</button>
@@ -2765,7 +2722,7 @@ function renderInventoryHome() {
     const unlistedC = ci.filter(i=>i.status==='Unlisted').length;
     return `<div class="inv-cat-card" onclick="openFilteredList('category','${cat}')" role="button" tabindex="0">
       <div style="display:flex;align-items:center;gap:var(--space-2)">
-        <div style="font-size:24px">${CAT_ICONS[cat]||'📦'}</div>
+        <div style="font-size:24px">${CAT_ICONS[cat]}</div>
         <div>
           <div class="inv-cat-name">${cat}</div>
           <div class="inv-cat-meta">${listedC} listed · ${unlistedC} unlisted</div>
@@ -2799,7 +2756,7 @@ function renderFilteredList() {
   if (q) filtered = filtered.filter(i=>i.nickname.toLowerCase().includes(q)||(i.sku||'').toLowerCase().includes(q));
   document.getElementById('inv-list-count').textContent = `${filtered.length} item${filtered.length!==1?'s':''}`;
   if (!filtered.length) {
-    document.getElementById('inv-list-items').innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-txt">No items found.</div></div>`;
+    document.getElementById('inv-list-items').innerHTML = `<div class="empty-state"><div class="empty-icon"></div><div class="empty-txt">No items found.</div></div>`;
     return;
   }
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
@@ -2831,7 +2788,7 @@ function renderFilteredList() {
             ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
-            ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
+            ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">Sold</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
             ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
           </div>
@@ -2955,7 +2912,7 @@ function showDetail(id) {
   if (!item) return;
   const p = calcProfit(item.cost, item.sellPrice);
   const soldBtnHtml = item.status !== 'Sold'
-    ? `<button class="sm-btn" style="background:#2D6B52;color:#fff" onclick="openSoldModal(${item.id})">✓ Mark Sold</button>`
+    ? `<button class="sm-btn" style="background:#2D6B52;color:#fff" onclick="openSoldModal(${item.id})">Mark Sold</button>`
     : '';
   const galleryId = 'gallery-' + item.id;
   const photosHtml = item.photos && item.photos.length
@@ -2971,7 +2928,7 @@ function showDetail(id) {
     </div>
     ${item.created_from && item.created_from !== 'manual' ? `
     <div class="ai-sourced-badge">
-      🔍 AI Sourced${item.sourcing_meta?.scanned_at ? ' · ' + new Date(item.sourcing_meta.scanned_at).toLocaleDateString() : ''}
+      AI Sourced${item.sourcing_meta?.scanned_at ? ' · ' + new Date(item.sourcing_meta.scanned_at).toLocaleDateString() : ''}
       ${item.sourcing_meta?.confidence ? ` · ${item.sourcing_meta.confidence}% confidence` : ''}
     </div>` : ''}
     ${photosHtml}
@@ -2990,8 +2947,8 @@ function showDetail(id) {
     </div>
     ${item.notes ? `<div class="notes-box"><div class="d-lbl u-mb-1">Notes / Flaws</div><div class="u-soft" style="font-size:var(--text-base);line-height:1.6">${item.notes}</div></div>` : ''}
     <div class="btn-row">
-      <button class="sm-btn sm-btn-primary" onclick="startEdit(${item.id})">✏️ Edit</button>
-      <button class="sm-btn" style="background:#185FA5;color:#fff" onclick="openPhotoAgentFor(${item.id})">📸 Photos</button>
+      <button class="sm-btn sm-btn-primary" onclick="startEdit(${item.id})">Edit</button>
+      <button class="sm-btn" style="background:#185FA5;color:#fff" onclick="openPhotoAgentFor(${item.id})">Photos</button>
       ${soldBtnHtml}
       <button class="sm-btn sm-btn-danger" onclick="deleteItem(${item.id})">Delete</button>
     </div>`;
@@ -3340,7 +3297,7 @@ function invRenderPhotoGallery(item) {
   ];
   if (!allPhotos.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
-  el.innerHTML = `<div class="edit-photos-label">PHOTOS (${allPhotos.length}). Tap ✕ to remove</div>`
+  el.innerHTML = `<div class="edit-photos-label">PHOTOS (${allPhotos.length}). Tap X to remove</div>`
     + `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">`
     + allPhotos.map((photo, i) => {
         const removeCall = photo.source === 'url'
@@ -3348,7 +3305,7 @@ function invRenderPhotoGallery(item) {
           : `editRemovePhoto(${item.id},${photo.idx})`;
         return `<div style="position:relative;flex-shrink:0">
           <img src="${photo.src}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
-          <button onclick="${removeCall}" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;cursor:pointer;padding:0">✕</button>
+          <button onclick="${removeCall}" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;cursor:pointer;padding:0"></button>
         </div>`;
       }).join('')
     + `</div>`;
@@ -3445,7 +3402,7 @@ function createInventoryItem(data) {
   pushItemToServer(newItem); // sync to server in background
   populatePaDropdown();
   updateStaleBadge();
-  logActivity('📦', `Added "${newItem.nickname}" to inventory (${newItem.sku})`);
+  logActivity('', `Added "${newItem.nickname}" to inventory (${newItem.sku})`);
   return newItem;
 }
 
@@ -3482,7 +3439,7 @@ function saveInvItem() {
     const updatedItem = items.find(i => i.id === editingId);
     if (updatedItem) updateItemOnServer(updatedItem); // sync to server in background
     invFormImgB64 = null;
-    showToast('✓ Item updated');
+    showToast('Item updated');
   } else {
     // New item — use createInventoryItem
     const formPhoto = invFormImgB64 ? [`data:${invFormImgType};base64,${invFormImgB64}`] : [];
@@ -3501,7 +3458,7 @@ function saveInvItem() {
       created_from: invFormImgB64 ? 'manual_photo' : 'manual',
     });
     invFormImgB64 = null;
-    showToast('✓ Item added to inventory');
+    showToast('Item added to inventory');
     // If photos are pending from the photo editor, save them and open edit view
     if (window._paPreloadPhotos && window._paPreloadPhotos.length) {
       const newItem = items[items.length - 1];
@@ -3570,7 +3527,7 @@ function populatePaDropdown() {
   if (!catSel) return; // photo tab not in DOM yet — safe exit
   const activeCats = [...new Set(items.filter(i=>i.status!=='Sold').map(i=>i.category))].sort();
   catSel.innerHTML = '<option value="">Select category</option>'
-    + activeCats.map(c=>`<option value="${c}">${CAT_ICONS[c]||'📦'} ${c}</option>`).join('');
+    + activeCats.map(c=>`<option value="${c}">${c}</option>`).join('');
   const itemSel = document.getElementById('pa-inv-select');
   if (itemSel) {
     itemSel.style.display = 'none';
@@ -3598,7 +3555,7 @@ function paLoadItem(id) {
     el.innerHTML = item.photos.map((p,idx) =>
       `<div style="position:relative">
         <img src="${p}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
-        <button onclick="paRemoveExisting(${idx})" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 4px;cursor:pointer">✕</button>
+        <button onclick="paRemoveExisting(${idx})" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 4px;cursor:pointer"></button>
        </div>`
     ).join('');
   } else {
@@ -3623,8 +3580,8 @@ function paHandlePhotos(e) {
   const remaining = 4 - paPhotos.length;
   if (remaining <= 0) { showToast('Max 4 photos. Delete one to add another'); return; }
   const toProcess = files.slice(0, remaining);
-  if (toProcess.length > 1) showToast('📷 Processing ' + toProcess.length + ' photos...');
-  else showToast('📷 Processing photo...');
+  if (toProcess.length > 1) showToast('Processing ' + toProcess.length + ' photos...');
+  else showToast('Processing photo...');
   (async function() {
     for (let i = 0; i < toProcess.length; i++) {
       try {
@@ -3645,7 +3602,7 @@ function paHandlePhotos(e) {
         });
         if (!dims.ok) {
           URL.revokeObjectURL(blobUrl);
-          showToast('❌ Skipped one photo (could not load)');
+          showToast('Skipped one photo (could not load)');
           continue;
         }
         // Cap effective working size so the canvas doesn't blow memory.
@@ -3667,7 +3624,7 @@ function paHandlePhotos(e) {
         await new Promise(function(r) { setTimeout(r, 50); });
       } catch (err) {
         console.error('paHandlePhotos failed:', err);
-        showToast('❌ Skipped one photo: ' + (err.message || 'load failed'));
+        showToast('Skipped one photo: ' + (err.message || 'load failed'));
       }
     }
   })();
@@ -3679,7 +3636,7 @@ function paRenderThumbs() {
   document.getElementById('pa-thumbs').innerHTML = paPhotos.map((p, i) => `
     <div class="pa-thumb${i===paActiveIdx?' active':''}" onclick="paSelectPhoto(${i})" role="button" tabindex="0">
       <img src="${p.original}">
-      <button class="pa-thumb-del" onclick="event.stopPropagation();paDeletePhoto(${i})">✕</button>
+      <button class="pa-thumb-del" onclick="event.stopPropagation();paDeletePhoto(${i})"></button>
     </div>`).join('');
 }
 
@@ -3772,7 +3729,7 @@ async function paDownloadAll() {
     a.href = p.enhanced || p.original;
     a.click();
   });
-  showToast(`✓ ${paPhotos.length} photo${paPhotos.length!==1?'s':''} downloaded`);
+  showToast(`${paPhotos.length} photo${paPhotos.length!==1?'s':''} downloaded`);
 }
 
 async function paSaveToItem() {
@@ -3790,7 +3747,7 @@ async function paSaveToItem() {
     return {...i, photos: combined};
   });
   saveItems();
-  showToast(`✓ ${saved.length} photo${saved.length!==1?'s':''} saved to item`);
+  showToast(`${saved.length} photo${saved.length!==1?'s':''} saved to item`);
   // Redirect to edit screen showing the updated photos
   const targetId = paTargetItemId;
   paReset();
@@ -3882,11 +3839,11 @@ async function paRemoveBg() {
       paPhotos[paActiveIdx].enhanced = result;
       paPhotos[paActiveIdx].original = result;
       paPhotos[paActiveIdx]._isBlobUrl = false;
-      showToast('✓ Background removed');
+      showToast('Background removed');
     };
     img2.src = blobUrl;
-  } catch(e) { showToast('❌ Remove BG failed: '+(e.message||'unknown error')); }
-  finally { if (btn) { btn.disabled=false; btn.textContent='🪄 Remove BG'; } }
+  } catch(e) { showToast('Remove BG failed: '+(e.message||'unknown error')); }
+  finally { if (btn) { btn.disabled=false; btn.textContent='Remove BG'; } }
 }
 
 function paPhotoBoost() {
@@ -3894,7 +3851,7 @@ function paPhotoBoost() {
   const trialEndsAt = window._currentUser && window._currentUser.trialEndsAt;
   const trialActive = trialEndsAt && new Date(trialEndsAt) > new Date();
   if (tier === 'scout' && !trialActive) {
-    showToast('✨ Photo Boost is a Hustle+ feature');
+    showToast('Photo Boost is a Hustle+ feature');
     switchTab('dashboard');
     setTimeout(() => statsSubTab('subscription'), 150);
     return;
@@ -3915,7 +3872,7 @@ function paPhotoBoost() {
   for(let y=0;y<H;y++){for(let x=0;x<W;x++){let r=0,g=0,b=0;for(let ky=0;ky<3;ky++){for(let kx=0;kx<3;kx++){const px=Math.min(W-1,Math.max(0,x+kx-1)),py=Math.min(H-1,Math.max(0,y+ky-1)),idx=(py*W+px)*4,k2=kern[ky*3+kx];r+=s2.data[idx]*k2;g+=s2.data[idx+1]*k2;b+=s2.data[idx+2]*k2;}}const i=(y*W+x)*4;dst.data[i]=Math.max(0,Math.min(255,r));dst.data[i+1]=Math.max(0,Math.min(255,g));dst.data[i+2]=Math.max(0,Math.min(255,b));dst.data[i+3]=s2.data[i+3];}}
   ctx.putImageData(dst,0,0);
   paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg',0.92);
-  showToast('✨ Photo Boost applied');
+  showToast('Photo Boost applied');
 }
 
 let _fsPinchDist = 0, _fsScale = 1;
@@ -3948,7 +3905,7 @@ function paShowSaveDialog() {
   const overlay = document.createElement('div');
   overlay.id = 'pa-save-dialog';
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
-  overlay.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:320px;width:100%;box-sizing:border-box"><div style="font-family:\'Syne\',sans-serif;font-size:17px;font-weight:900;color:var(--text);margin-bottom:6px">Save Photos To</div><div style="font-size:12px;color:var(--muted);margin-bottom:18px">Select where to attach these enhanced photos</div><button onclick="paSaveDialogNewItem()" style="width:100%;padding:12px;background:var(--green);color:#000;border:none;border-radius:8px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px">+ New Inventory Item</button><button onclick="paSaveDialogExisting()" style="width:100%;padding:12px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:8px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px">📦 Existing Item</button><button onclick="document.getElementById(\'pa-save-dialog\').remove()" style="width:100%;padding:8px;background:none;color:var(--muted);border:none;font-family:\'IBM Plex Mono\',monospace;font-size:12px;cursor:pointer">Cancel</button></div>';
+  overlay.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:320px;width:100%;box-sizing:border-box"><div style="font-family:\'Syne\',sans-serif;font-size:17px;font-weight:900;color:var(--text);margin-bottom:6px">Save Photos To</div><div style="font-size:12px;color:var(--muted);margin-bottom:18px">Select where to attach these enhanced photos</div><button onclick="paSaveDialogNewItem()" style="width:100%;padding:12px;background:var(--green);color:#000;border:none;border-radius:8px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px">+ New Inventory Item</button><button onclick="paSaveDialogExisting()" style="width:100%;padding:12px;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:8px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px">Existing Item</button><button onclick="document.getElementById(\'pa-save-dialog\').remove()" style="width:100%;padding:8px;background:none;color:var(--muted);border:none;font-family:\'IBM Plex Mono\',monospace;font-size:12px;cursor:pointer">Cancel</button></div>';
   document.body.appendChild(overlay);
 }
 function paSaveDialogNewItem() {
@@ -4072,7 +4029,7 @@ function hide(id) { const el=document.getElementById(id); if(el) el.style.displa
 
 async function runGrowthAgent() {
   if (!isUnlocked()) {
-    showToast('⚠️ Add your API key in Sourcing tab first');
+    showToast('Add your API key in Sourcing tab first');
     return;
   }
   hide('growth-empty'); hide('growth-results'); hide('growth-stale-banner');
@@ -4160,7 +4117,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
     {"icon":"emoji","item":"string","why":"one sentence why to hunt this now","priority":"HIGH or MED"}
   ],
   "market_trends": [
-    {"arrow":"📈 or 📉","category":"string","detail":"one sentence trend insight for thrift resellers"}
+    {"arrow":"up or down","category":"string","detail":"one sentence trend insight for thrift resellers"}
   ],
   "advisor_message": "3-4 sentences of direct actionable advice using their actual numbers. Be specific. Tell them exactly what to do differently this week."
 }`;
@@ -4185,13 +4142,13 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
     hide('growth-stale-banner');
     renderGrowthResults(result);
     if (window.posthog) posthog.capture('growth_agent_run');
-    showToast('✓ Market Trends updated');
+    showToast('Market Trends updated');
 
   } catch(e) {
     clearInterval(msgInterval);
     hide('growth-loading');
     show('growth-empty');
-    showToast('⚠️ Error: ' + (e.message || 'Unknown error. Try again'));
+    showToast('Error: ' + (e.message || 'Unknown error. Try again'));
   }
 }
 
@@ -4266,7 +4223,7 @@ function renderGrowthResults(r) {
   // Market trends
   const trendContent = (r.market_trends||[]).map(t=>`
     <div class="trend-item">
-      <div class="trend-arrow">${t.arrow||'📊'}</div>
+      <div class="trend-arrow">${t.arrow||''}</div>
       <div>
         <div class="trend-name">${t.category}</div>
         <div class="trend-detail">${t.detail}</div>
@@ -4541,7 +4498,7 @@ async function proceedToPreview() {
   const ebayCategory = document.getElementById('listing-ebay-category').value;
   
   if (!condition || !ebayCategory) {
-    showToast('⚠️ Select both condition and category');
+    showToast('Select both condition and category');
     return;
   }
   
@@ -4611,9 +4568,9 @@ async function saveListing(exportCsv) {
   
   if (exportCsv) {
     item.status = 'Ready to Export';
-    showToast('✓ Listing saved & queued for export');
+    showToast('Listing saved & queued for export');
   } else {
-    showToast('✓ Listing saved to item');
+    showToast('Listing saved to item');
   }
   
   saveItems();
@@ -4675,7 +4632,7 @@ function exportListingsToCSV() {
   const readyItems = items.filter(i => i.status === 'Ready to Export' && i.listing);
   
   if (readyItems.length === 0) {
-    showToast('⚠️ No listings ready for export');
+    showToast('No listings ready for export');
     return;
   }
   
@@ -4730,7 +4687,7 @@ function exportListingsToCSV() {
   });
   saveItems();
   
-  showToast('✓ Exported ' + readyItems.length + ' listings');
+  showToast('Exported ' + readyItems.length + ' listings');
   renderInventory();
 }
 
@@ -4818,17 +4775,17 @@ function renderDashboard() {
     <!-- ① 3-KPI STRIP -->
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon">📈</div>
+        <div class="kpi-icon"></div>
         <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
         <div class="kpi-label">Net Profit</div>
       </div>
       <div class="kpi-card" onclick="showKpiDrillDown('sold')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon">🏷️</div>
+        <div class="kpi-icon"></div>
         <div class="kpi-val">${sold.length}</div>
         <div class="kpi-label">Items Sold</div>
       </div>
       <div class="kpi-card" onclick="switchTab('inventory')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon">📋</div>
+        <div class="kpi-icon"></div>
         <div class="kpi-val" style="color:${unlisted.length>0?'var(--yellow)':'var(--green)'}">${unlisted.length}</div>
         <div class="kpi-label">To List</div>
       </div>
@@ -4952,7 +4909,7 @@ async function ebayConnect() {
     if (!data.authUrl) throw new Error('missing authUrl');
     location.href = data.authUrl;
   } catch (e) {
-    showToast('❌ Could not start eBay connection. Please try again.');
+    showToast('Could not start eBay connection. Please try again.');
   }
 }
 
@@ -5015,10 +4972,10 @@ async function checkEbayStatus() {
 function checkEbayOAuthCallback() {
   const params = new URLSearchParams(location.search);
   if (params.get('ebay_connected') === 'true') {
-    showToast('✅ Connected to eBay!');
+    showToast('Connected to eBay!');
   }
   if (params.get('ebay_error')) {
-    showToast('❌ eBay connection failed: ' + params.get('ebay_error'));
+    showToast('eBay connection failed: ' + params.get('ebay_error'));
   }
   if (params.has('ebay_connected') || params.has('ebay_error')) {
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -5067,13 +5024,13 @@ async function ebayPullListings(days){
     
     if(!r.ok){
       st.style.color='var(--red)';
-      st.textContent='✗ '+d.error;
+      st.textContent=d.error;
       return;
     }
     
     st.style.color='var(--green)';
     const total = d.active + d.drafted + d.sold;
-    st.innerHTML=`✅ Synced ${total} items<br>${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
+    st.innerHTML=`Synced ${total} items<br>${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
     
     // Re-fetch inventory from server so newly synced items appear (was loadInventory — that function doesn't exist).
     await new Promise(r=>setTimeout(r,1000));
@@ -5089,7 +5046,7 @@ async function ebayPullListings(days){
     
   }catch(e){
     st.style.color='var(--red)';
-    st.textContent='✗ '+e.message;
+    st.textContent=e.message;
   }finally{
     btn.disabled=false;
     btn.style.opacity='1';
@@ -5108,10 +5065,10 @@ async function handleListOnEbay(inventoryId) {
       method: 'POST', headers: getApiHeaders(), body: JSON.stringify({ inventoryId })
     });
     const data = await res.json();
-    if (!res.ok) { showToast('✗ ' + (data.error || 'eBay listing failed')); return; }
-    showToast('✅ Listed on eBay!');
+    if (!res.ok) { showToast(data.error || 'eBay listing failed'); return; }
+    showToast('Listed on eBay!');
     await syncFromServer();
-  } catch(e) { showToast('✗ ' + e.message); }
+  } catch(e) { showToast(e.message); }
 }
 
 async function handleSyncOrders() {
@@ -5123,10 +5080,10 @@ async function handleSyncOrders() {
   try {
     const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
     const data = await res.json();
-    if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ ' + (data.error || 'Sync failed'); } return; }
-    if (st) { st.style.color = 'var(--green)'; st.textContent = '✅ ' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = data.error || 'Sync failed'; } return; }
+    if (st) { st.style.color = 'var(--green)'; st.textContent = '' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
     await syncFromServer();
-  } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ ' + e.message; } }
+  } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = e.message; } }
   finally { if (btn) { btn.disabled = false; btn.style.opacity = '1'; } }
 }
 
@@ -5247,7 +5204,7 @@ function showNextEbayDedupePair() {
     const modal = document.getElementById('ebay-dedupe-modal');
     if (modal) modal.style.display = 'none';
     if (typeof renderInventory === 'function') renderInventory();
-    if (typeof showToast === 'function') showToast('✓ Dedupe complete');
+    if (typeof showToast === 'function') showToast('Dedupe complete');
     return;
   }
   const pair = _ebayDedupeCurrent;
@@ -5278,7 +5235,7 @@ function ebayDedupeNo() {
   showNextEbayDedupePair();
 }
 
-(function(){const p=new URLSearchParams(location.search);if(p.get('ebay_connected')){showToast('✓ eBay connected!');history.replaceState({},'',location.pathname);}if(p.get('ebay_error')){showToast('✗ eBay error: '+p.get('ebay_error'));history.replaceState({},'',location.pathname);}})();
+(function(){const p=new URLSearchParams(location.search);if(p.get('ebay_connected')){showToast('eBay connected!');history.replaceState({},'',location.pathname);}if(p.get('ebay_error')){showToast('eBay error: '+p.get('ebay_error'));history.replaceState({},'',location.pathname);}})();
 
 
 function loadSrcSettings() {
@@ -5303,7 +5260,7 @@ function saveSettings() {
     }).catch(() => {});
   }
   if (window.posthog) posthog.capture('settings_saved');
-  updateFeeHint(); updateStaleBadge(); showSrcView('input'); showToast('✓ Settings saved');
+  updateFeeHint(); updateStaleBadge(); showSrcView('input'); showToast('Settings saved');
 }
 function resetSettings() { S={...DEFAULTS}; localStorage.removeItem('fif_settings'); populateSettingsUI(); }
 
@@ -5419,7 +5376,7 @@ function triggerImageInput(type) {
 function handleImage(e) {
   const file = (e.target || e).files && (e.target || e).files[0];
   if (!file) return;
-  showToast('📷 Photo attached...');
+  showToast('Photo attached...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
     // v5.17: store raw File reference for multipart upload
     // v5.18: use URL.createObjectURL for the preview thumbnail — this is
@@ -5438,7 +5395,7 @@ function handleImage(e) {
     try { Object.defineProperty(imgFile, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
     showPreview(blobUrl);
   }).catch(function(err) {
-    showToast('❌ ' + (err.message || 'Could not load photo'));
+    showToast(err.message || 'Could not load photo'));
     console.error('handleImage failed:', err);
   });
   try { (e.target || e).value = ''; } catch(_) {}
@@ -5640,7 +5597,7 @@ function resetBtn(id,label,color) {
   const b=document.getElementById(id); if(!b) return;
   b.disabled=false; b.innerHTML=label; b.style.background=''; b.className='btn btn-'+(color||'green');
 }
-function showError(m){const b=document.getElementById('error-box');b.textContent='⚠️ '+m;b.style.display='block';}
+function showError(m){const b=document.getElementById('error-box');b.textContent=m;b.style.display='block';}
 function hideError(){document.getElementById('error-box').style.display='none';}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
@@ -5693,7 +5650,7 @@ async function analyze() {
       renderSingle({item,cost,fin,dec});
       renderScanHistory();
     }
-  } catch(e){resetBtn('analyze-btn','⚡ FLIP OR PASS','green');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('analyze-btn','FLIP OR PASS','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
 function getShelfSys() {
@@ -5735,7 +5692,7 @@ async function analyzeShelf() {
       };
     });
     renderShelf(shelfItems);
-  } catch(e){resetBtn('shelf-btn','🔭 Rank This Shelf','purple');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('shelf-btn','Rank This Shelf','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
 // Threshold classifier helpers — return CSS class name for token-based coloring.
@@ -5761,7 +5718,7 @@ function renderSingle({item,cost,fin,dec}) {
   const{profit,roi,fee}=fin;
   const shipLine=S.shipping==='free'
     ?`<span class="dv u-neg">-$${fin.shipCost.toFixed(2)}</span>`
-    :`<span class="dv u-pos" style="font-weight:800">Buyer Pays ✓</span>`;
+    :`<span class="dv u-pos" style="font-weight:800">Buyer Pays</span>`;
   const D_ICON={HOT:'[ HOT ]',BUY:'[ BUY ]',PASS:'[ PASS ]'};
   const D_LBL={HOT:'HIGH PRIORITY: BUY NOW',BUY:'BUY IT',PASS:'PASS ON THIS ONE'};
   const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${k} ↗</a>`).join('');
@@ -5794,7 +5751,7 @@ function renderSingle({item,cost,fin,dec}) {
     </div>
 
     <div class="card">
-      <h3 class="card-title">💰 Financial Breakdown</h3>
+      <h3 class="card-title">Financial Breakdown</h3>
       <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv u-syne u-text-lg">$${item.avg_sold_price?.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${item.price_low} – $${item.price_high}</span></div>
       <hr class="divider">
@@ -5807,7 +5764,7 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="data-row"><span class="dl">ROI</span><span class="dv u-syne u-text-lg ${roiClass(roi)}">${roi.toFixed(0)}%</span></div>
     </div>
     <div class="card">
-      <h3 class="card-title">📊 Market Intelligence</h3>
+      <h3 class="card-title">Market Intelligence</h3>
       <div class="data-row"><span class="dl">Demand</span><span class="dv u-text-md ${demandClass(item.demand_level)}">${item.demand_level}</span></div>
       <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv ${strClass(item.sell_through_rate)}">${item.sell_through_rate}%</span></div>
       <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv ${daysClass(item.avg_days_to_sell)}">${item.avg_days_to_sell} days</span></div>
@@ -5820,17 +5777,17 @@ function renderSingle({item,cost,fin,dec}) {
       </div>
     </div>
     <div class="two-col">
-      <div class="card"><h3 class="card-title">✍️ Listing Tips</div><ul class="tips-list">${tips}</ul></h3>
-      <div class="card"><h3 class="card-title">🔎 Check This</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</h3>
+      <div class="card"><h3 class="card-title">Listing Tips</div><ul class="tips-list">${tips}</ul></h3>
+      <div class="card"><h3 class="card-title">Check This</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</h3>
     </div>
     <div class="card">
-      <h3 class="card-title">🔍 eBay Search Terms</h3>
+      <h3 class="card-title">eBay Search Terms</h3>
       <div class="tags-wrap">${kw}</div>
     </div>
-    ${item.notes?`<div class="card"><h3 class="card-title">📌 Notes</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
+    ${item.notes?`<div class="card"><h3 class="card-title">Notes</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
     <div class="legend-row">
-      <span class="legend-item">✅ Min profit: $${S.minProfit}</span>
-      <span class="legend-item">🎯 Target ROI: ${S.targetRoi}%+</span>
+      <span class="legend-item">Min profit: $${S.minProfit}</span>
+      <span class="legend-item">Target ROI: ${S.targetRoi}%+</span>
       <span class="legend-item">⏱ Max: ${S.maxDays} days</span>
     </div>`;
   showSrcView('results');
@@ -5871,7 +5828,7 @@ function logScan(dec, roi, cost, bought) {
 }
 
 function buyItem() {
-  if (!lastSingleResult) { showToast('⚠️ No item analyzed yet'); return; }
+  if (!lastSingleResult) { showToast('No item analyzed yet'); return; }
   try {
     const {item, cost, fin, dec} = lastSingleResult;
     // Log scan name for history
@@ -5883,7 +5840,7 @@ function buyItem() {
     }
     showBuyConfirm(item, cost, fin, dec);
   } catch(e) {
-    showToast('⚠️ Error: ' + (e.message || 'Could not open confirmation'));
+    showToast('Error: ' + (e.message || 'Could not open confirmation'));
     console.error('buyItem error:', e);
   }
 }
@@ -5894,12 +5851,12 @@ function buyItem() {
 let currentShelfItems = []; // Global cache for shelf items
 
 function renderShelf(shelfItems) {
-  resetBtn('shelf-btn','🔭 Rank This Shelf','purple');
+  resetBtn('shelf-btn','Rank This Shelf','purple');
   currentShelfItems = shelfItems; // Cache for buy button clicks
   const hot=shelfItems.filter(i=>i.decision==='HOT');
   const buy=shelfItems.filter(i=>i.decision==='BUY');
   const pass=shelfItems.filter(i=>i.decision==='PASS');
-  const icon={HOT:'🔥',BUY:'✅',PASS:'❌'};
+  const icon={HOT:'',BUY:'',PASS:''};
   const ri=(i,idx)=>{
     const mc=calcMaxCost(i.avg_sold_price);
     const mcHint=mc>0?`<div class="s-max-cost">if item is under $${mc.toFixed(2)}</div>`:'';
@@ -5912,8 +5869,8 @@ function renderShelf(shelfItems) {
         <span class="${demandClass(i.demand_level)}">${i.demand_level} demand</span>
       </div>
       <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${i.decision_reason}</div>
-      ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">🔎 ${i.condition_notes}</div>`:''}
-      ${i.decision!=='PASS'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">🛒 Buy → Add to Inventory</button>`:''}
+      ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">${i.condition_notes}</div>`:''}
+      ${i.decision!=='PASS'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">Buy → Add to Inventory</button>`:''}
     </div>`;
   };
   document.getElementById('shelf-content').innerHTML=`
@@ -5921,19 +5878,19 @@ function renderShelf(shelfItems) {
     <div class="u-syne u-bold9" style="font-size:var(--text-2xl);margin-bottom:var(--space-1);color:var(--text)">Shelf Report</div>
     <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+buy.length} worth buying · ${pass.length} to skip</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-bottom:var(--space-4)">
-      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-hot">${hot.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">🔥 HOT</div></div>
-      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-buy">${buy.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">✅ BUY</div></div>
-      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-pass">${pass.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">❌ PASS</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-hot">${hot.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">HOT</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-buy">${buy.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">BUY</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-pass">${pass.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">PASS</div></div>
     </div>
-    ${hot.length?`<div class="shelf-section-hdr is-hot">🔥 Grab These First</div>${hot.map((i,idx)=>ri(i,idx)).join('')}`:''}
-    ${buy.length?`<div class="shelf-section-hdr is-buy u-mt-3">✅ Worth Buying</div>${buy.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
-    ${pass.length?`<div class="shelf-section-hdr is-pass u-mt-3">❌ Skip These</div>${pass.map((i,idx)=>ri(i,hot.length+buy.length+idx)).join('')}`:''}`;
+    ${hot.length?`<div class="shelf-section-hdr is-hot">Grab These First</div>${hot.map((i,idx)=>ri(i,idx)).join('')}`:''}
+    ${buy.length?`<div class="shelf-section-hdr is-buy u-mt-3">Worth Buying</div>${buy.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
+    ${pass.length?`<div class="shelf-section-hdr is-pass u-mt-3">Skip These</div>${pass.map((i,idx)=>ri(i,hot.length+buy.length+idx)).join('')}`:''}`;
   showSrcView('shelf');
 }
 
 function buyShelfItem(itemIndex) {
   if (!currentShelfItems || !currentShelfItems[itemIndex]) {
-    showToast('⚠️ Item not found');
+    showToast('Item not found');
     return;
   }
   const shelfItem = currentShelfItems[itemIndex];
@@ -5980,7 +5937,7 @@ function buyShelfItem(itemIndex) {
   document.getElementById('inv-list-title').textContent = 'Unlisted Items';
   renderFilteredList();
   showInvView('list');
-  showToast(`🛒 "${newItem.nickname}" added! SKU: ${newItem.sku}`);
+  showToast(`"${newItem.nickname}" added! SKU: ${newItem.sku}`);
 }
 
 function goSrcBack() { clearImage(); showSrcView('input'); }
@@ -6045,7 +6002,7 @@ function runGlobalSearch(q) {
   el.innerHTML = matches.map(i => {
     const thumb = i.photos && i.photos[0]
       ? `<img class="gs-thumb" src="${i.photos[0]}">`
-      : `<div class="gs-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">${CAT_ICONS[i.category]||'📦'}</div>`;
+      : `<div class="gs-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">${CAT_ICONS[i.category]||''}</div>`;
     return `<div class="gs-item" onclick="gsGoToItem(${i.id})" role="button" tabindex="0">
       ${thumb}
       <div><div class="gs-name">${i.nickname}</div>
@@ -6107,7 +6064,7 @@ function showBuyConfirm(item, cost, fin, dec) {
     `Demand: ${item.demand_level}.`,
     `Avg days to sell: ${item.avg_days_to_sell}.`,
     item.notes||'',
-    item.risk_flags?.length ? `⚠️ ${item.risk_flags.join(', ')}` : '',
+    item.risk_flags?.length ? `${item.risk_flags.join(', ')}` : '',
   ].filter(Boolean).join(' ').trim();
 
   document.getElementById('bc-profit-val').textContent = '$' + fin.profit.toFixed(2);
@@ -6150,14 +6107,14 @@ function confirmBuyItem() {
       keywords: item.search_keywords, scanned_at: new Date().toISOString(),
     },
   });
-  logActivity('🛒', `Added "${newItem.nickname}" to inventory (SKU: ${newItem.sku})`);
+  logActivity('', `Added "${newItem.nickname}" to inventory (SKU: ${newItem.sku})`);
   closeBuyConfirm();
   switchTab('inventory');
   invListFilter = {type:'status', value:'Unlisted'};
   document.getElementById('inv-list-title').textContent = 'Unlisted Items';
   renderFilteredList();
   showInvView('list');
-  showToast(`✓ "${newItem.nickname}" added! SKU: ${newItem.sku}`);
+  showToast(`"${newItem.nickname}" added! SKU: ${newItem.sku}`);
 }
 
 // ══════════════════════════════════════════════════
@@ -6319,7 +6276,7 @@ function renderScanHistory() {
   el.innerHTML = `
     <div class="card" style="margin-top:12px">
       <div class="flex-between-center mb-10">
-        <h3 class="card-title mb-0">📋 Today's Scans</h3>
+        <h3 class="card-title mb-0">Today's Scans</h3>
         ${totalPotentialProfit>0?`<div style="font-size:12px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700">+$${totalPotentialProfit.toFixed(0)} potential</div>`:''}
       </div>
       ${todayScans.map(s=>`
@@ -6556,7 +6513,7 @@ function saveCsvReminder() {
   const t = document.getElementById('csv-reminder-time').value;
   localStorage.setItem('sfp_csv_reminder', t);
   const el = document.getElementById('csv-reminder-saved');
-  if (el) el.textContent = `✓ Reminder set for ${t} daily. Open app at that time to export.`;
+  if (el) el.textContent = `Reminder set for ${t} daily. Open app at that time to export.`;
 }
 
 function loadCsvReminder() {
@@ -6732,7 +6689,7 @@ async function loginUser() {
       updateDashGreeting();
       switchTab('sourcing');
       showSrcView('input');
-      showToast('✓ Welcome back' + (data.user?.name ? ', ' + data.user.name + '!' : '!'));
+      showToast('Welcome back' + (data.user?.name ? ', ' + data.user.name + '!' : '!'));
       loadUserInfo();
       syncFromServer();
     } else {
@@ -6749,7 +6706,7 @@ function updateDashGreeting() {
   if (!el) return;
   const hour = new Date().getHours();
   const time = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  el.textContent = name ? time + ', ' + name + ' 👋' : time + ' 👋';
+  el.textContent = name ? time + ', ' + name + '' : time + '';
 }
 
 function showForgotPassword() {
@@ -6766,7 +6723,7 @@ async function requestPasswordResetByEmail(email) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
-    if (res.ok) showToast('✓ Reset link sent — check your email');
+    if (res.ok) showToast('Reset link sent — check your email');
     else { const d = await res.json(); showToast('Error: ' + (d.error || 'Could not send reset email')); }
   } catch (e) { showToast('Error: ' + e.message); }
 }
@@ -6794,7 +6751,7 @@ async function submitPasswordReset() {
     });
     const data = await res.json();
     if (res.ok) {
-      showToast('✓ Password updated — please log in');
+      showToast('Password updated — please log in');
       _resetToken = null;
       showSrcView('setup'); setAuthMode('login');
     } else {
@@ -7316,7 +7273,7 @@ window.onload = () => {
   renderCsvPreview();
   updateStaleBadge();
   renderScanHistory();
-  logActivity('🚀', 'App opened');
+  logActivity('', 'App opened');
 };
 // ══════════════════════════════════════════════════
 // IMPORT — MODE SWITCHER
@@ -7373,7 +7330,7 @@ function handleFlippdImport(e) {
         window._pendingExpenses = backup.expenses;
       }
     } catch (err) {
-      showToast('⚠️ Could not read file — is it a valid ScanForProfit backup?');
+      showToast('Could not read file — is it a valid ScanForProfit backup?');
     }
   };
   reader.readAsText(file);
@@ -7588,16 +7545,16 @@ function confirmImport() {
   }
 
   const count = pendingImportItems.length;
-  logActivity('📥', `Imported ${count} item${count!==1?'s':''}`);
+  logActivity('', `Imported ${count} item${count!==1?'s':''}`);
   updateStaleBadge();
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-result').style.display = 'block';
   document.getElementById('import-result-content').innerHTML = `
-    <div style="font-size:24px;margin-bottom:8px">✓</div>
+    <div style="font-size:24px;margin-bottom:8px"></div>
     <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:900;margin-bottom:4px">${count} item${count!==1?'s':''} imported!</div>
     <div style="font-size:12px;font-weight:500;opacity:0.8">Added to your inventory. Duplicates were skipped.</div>`;
   pendingImportItems = [];
-  showToast(`✓ Imported ${count} item${count!==1?'s':''}`);
+  showToast(`Imported ${count} item${count!==1?'s':''}`);
 }
 
 function cancelImport() {
@@ -7719,7 +7676,7 @@ function sPnlRender() {
   var salesEl = document.getElementById('spnl-sales');
   if(salesEl) {
     if(!sold.length) {
-      salesEl.innerHTML = '<div style="text-align:center;padding:32px 16px;border:2px dashed var(--border);border-radius:12px"><div style="font-size:28px;margin-bottom:8px">💰</div><div style="font-family:Syne,sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No sales yet</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Mark items as Sold in your inventory to track P&L here.</div></div>';
+      salesEl.innerHTML = '<div style="text-align:center;padding:32px 16px;border:2px dashed var(--border);border-radius:12px"><div style="font-size:28px;margin-bottom:8px"></div><div style="font-family:Syne,sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No sales yet</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Mark items as Sold in your inventory to track P&L here.</div></div>';
     } else {
       salesEl.innerHTML = sold.slice().reverse().map(function(i) {
         var p=calcProfit(i.cost,i.sellPrice);
@@ -7771,7 +7728,7 @@ function sPnlAddExp() {
   document.getElementById('spnl-desc').value='';
   document.getElementById('spnl-amt').value='';
   sPnlRender();
-  showToast('✓ Expense added');
+  showToast('Expense added');
 }
 
 function sPnlMiles() {
@@ -7782,13 +7739,13 @@ function sPnlMiles() {
   pnlSave();
   document.getElementById('spnl-miles').value='';
   sPnlRender();
-  showToast('✓ $'+amt.toFixed(2)+' logged for '+miles+' miles');
+  showToast('$'+amt.toFixed(2)+' logged for '+miles+' miles');
 }
 
 </script>
 <div id="ebay-sync-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:flex-end;justify-content:center;flex-direction:column">
 <div style="background:var(--surface);border-radius:12px 12px 0 0;padding:24px;width:100%;max-width:540px;border-top:1.5px solid var(--border)">
-<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:16px">🔄 Sync from eBay</div>
+<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:16px">Sync from eBay</div>
 <div style="display:flex;gap:8px;margin-bottom:16px">
 <button class="btn" id="sync-30" onclick="setSyncDays(30)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">30 days</button>
 <button class="btn" id="sync-60" onclick="setSyncDays(60)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">60 days</button>
@@ -7796,7 +7753,7 @@ function sPnlMiles() {
 </div>
 <div id="sync-progress" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px;line-height:1.4"></div>
 <button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull Listings from eBay</button>
-<button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">✓ Sync Sold Orders</button>
+<button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">Sync Sold Orders</button>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
 
