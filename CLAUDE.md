@@ -346,7 +346,7 @@ Display: convert to local time at UI layer only
 
 📱 Mobile Tab Structure (5 tabs — never add, rename, or remove)
 Tab | Label in App (display) | Tab ID | Feature
-Scout | SCOUT | tab-scout | AI shelf scanner — single item + shelf mode
+Scanner | SCANNER | tab-scanner | Profit Scanner — single item + shelf scan mode
 Inventory | INVENTORY | tab-inventory | Add/edit/delete items, status tracking, photos
 Photos | PHOTOS | tab-photo | AI listing generator, photo management, CSV export
 Trends | PULSE | tab-pulse | Growth Agent — weekly business brief
@@ -481,7 +481,7 @@ Hardcoding fee percentages — always from user settings via ebayFee param
 Hardcoding mileage rate or tax reserve — always configurable in settings
 Using magic link auth — it was removed. Email verification + password only
 Rewriting AI prompts — port them verbatim from FEATURE_TRIAGE.md
-Adding a 6th tab — 5 tabs only: Scout (SCOUT), Inventory (INVENTORY), Photos (PHOTOS), Trends (PULSE), Dash (P&L)
+Adding a 6th tab — 5 tabs only: Scanner (SCANNER), Inventory (INVENTORY), Photos (PHOTOS), Trends (PULSE), Dash (P&L)
 Calling Anthropic API from client — always via Supabase Edge Function
 Using StyleSheet in React Native — NativeWind classes only
 Using <form> tags — use onClick/onChange handlers

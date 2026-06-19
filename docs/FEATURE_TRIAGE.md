@@ -11,8 +11,8 @@ Last status update: 2026-06-16
 | Feature area | Status | Where implemented |
 |---|---|---|
 | Auth (register / verify / login) | ✅ Built | `apps/mobile/app/(auth)/`, `supabase/functions/auth` |
-| Scout tab — single item scan (F-01, F-03, F-07, F-08) | ✅ Built | `apps/mobile/app/(tabs)/scout.tsx`, `supabase/functions/claude-proxy` |
-| Scout tab — shelf scan (F-02, F-04) | ✅ Built | same as above |
+| Scanner tab — single item scan (F-01, F-03, F-07, F-08) | ✅ Built | `apps/mobile/app/(tabs)/scout.tsx`, `supabase/functions/claude-proxy` |
+| Scanner tab — shelf scan (F-02, F-04) | ✅ Built | same as above |
 | Inventory CRUD + photos + status (F-09 to F-18) | ✅ Built | `apps/mobile/app/(tabs)/inventory.tsx`, claude-proxy |
 | Listing generator + CSV export + trending keywords (F-28, F-29, F-31) | ✅ Built | `apps/mobile/app/(tabs)/listing.tsx`, claude-proxy |
 | Growth Agent / Trends tab (F-27) | ✅ Built | `apps/mobile/app/(tabs)/trends.tsx`, claude-proxy |
@@ -40,8 +40,8 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 
 ---
 
-### F-01 — Single Item Scan (FLIP OR PASS)
-- **Tab:** Sourcing (Scout)
+### F-01 — Single Item Scan (Hot / List / Skip)
+- **Tab:** Scanner
 - **Functions:** `analyze()` (L4694), `getSingleSys()` (L4644), `callClaude()` (L4536), `calcFinancials()` (L4666), `getDecision()` (L4673)
 - **Data reads:** `S.ebayFee`, `S.pkgCost`, `S.minProfit`, `S.targetRoi`, `S.maxDays`, `S.style`, `imgFile` (raw File ref), `text-input` DOM
 - **Data writes:** `fef_scan_log` (localStorage), item name patched back into scan log entry

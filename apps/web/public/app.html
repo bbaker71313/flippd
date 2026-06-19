@@ -5374,24 +5374,37 @@ function clearImage() {
 // v5.18: multipart/form-data upload of the raw imgFile — no client-side
 // decode (matches invFormDetectItem's memory-safe pattern). The backend
 // converts to base64 server-side, where memory isn't constrained.
-async function callScan(type, hint) {
+async function callScan(type, hint, imageB64) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
-  if (!imgFile) throw new Error('No photo selected');
-  const fd = new FormData();
-  fd.append('type', type);
-  if (hint) fd.append('hint', hint);
-  fd.append('image', imgFile, imgFile.name || 'photo.jpg');
-  // Strip Content-Type — browser sets it with the multipart boundary
-  const baseHeaders = getApiHeaders();
-  const headers = {};
-  for (const k in baseHeaders) {
-    if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+  if (!imageB64 && !imgFile) throw new Error('No photo selected');
+  let res;
+  if (imageB64) {
+    // Pre-compressed base64 path — send JSON so we avoid re-encoding overhead
+    // and stay under Anthropic's 10MB image limit.
+    const body = { type, imageBase64: imageB64 };
+    if (hint) body.hint = hint;
+    res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify(body),
+    });
+  } else {
+    const fd = new FormData();
+    fd.append('type', type);
+    if (hint) fd.append('hint', hint);
+    fd.append('image', imgFile, imgFile.name || 'photo.jpg');
+    // Strip Content-Type — browser sets it with the multipart boundary
+    const baseHeaders = getApiHeaders();
+    const headers = {};
+    for (const k in baseHeaders) {
+      if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
+    }
+    res = await fetch(API_BASE, {
+      method: 'POST',
+      headers: headers,
+      body: fd,
+    });
   }
-  const res = await fetch(API_BASE, {
-    method: 'POST',
-    headers: headers,
-    body: fd,
-  });
   if (!res.ok) {
     let errData = {};
     try { errData = await res.json(); } catch(_) {}
@@ -5549,9 +5562,14 @@ async function analyze() {
   try {
     await sleep(300); setBtnLoading('analyze-btn','Analyzing eBay market...',false);
     if (imgFile) {
-      // Photo scan: use typed endpoint — full business logic on server
+      // Photo scan: use typed endpoint — full business logic on server.
+      // Compress to ≤1568px JPEG before upload — prevents exceeding Anthropic's
+      // 10MB base64 image limit when shooting on high-res phone cameras.
+      setBtnLoading('analyze-btn','Compressing photo...',false);
+      const compressedB64 = await compressImageForDetect(imgFile, 1568, 0.85);
+      setBtnLoading('analyze-btn','Analyzing eBay market...',false);
       const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
-      const r=await callScan('single_scan', hint);
+      const r=await callScan('single_scan', hint, compressedB64);
       setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
       // Map camelCase server response → snake_case for renderSingle
       const item={
@@ -5590,7 +5608,7 @@ async function analyze() {
       renderSingle({item,cost,fin,dec});
       renderScanHistory();
     }
-  } catch(e){resetBtn('analyze-btn','FLIP OR PASS','green');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
 function getShelfSys() {
@@ -5632,7 +5650,7 @@ async function analyzeShelf() {
       };
     });
     renderShelf(shelfItems);
-  } catch(e){resetBtn('shelf-btn','Rank This Shelf','purple');showError('Error: '+(e.message||'Try again.'));}
+  } catch(e){resetBtn('shelf-btn','Run Profit Scanner','purple');showError('Error: '+(e.message||'Try again.'));}
 }
 
 // Threshold classifier helpers — return CSS class name for token-based coloring.
@@ -5653,7 +5671,7 @@ function demandClass(lv) {
 let lastSingleResult = null;
 
 function renderSingle({item,cost,fin,dec}) {
-  resetBtn('analyze-btn','FLIP OR PASS','green');
+  resetBtn('analyze-btn','Run Profit Scanner','green');
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const shipLine=S.shipping==='free'
