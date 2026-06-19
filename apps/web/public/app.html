@@ -2812,6 +2812,7 @@ function renderFilteredList() {
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">Sold</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
             ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
+            <button class="sm-btn" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();deleteItem(${item.id})">Delete</button>
           </div>
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
