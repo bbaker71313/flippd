@@ -7147,8 +7147,29 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.onload = () => {
-  // Check for password reset token in URL (?reset=TOKEN)
   const urlParams = new URLSearchParams(window.location.search);
+
+  // Handle email verification redirect (?verified=true|already, ?error=invalid_token|token_expired)
+  const verifiedParam = urlParams.get('verified');
+  const errorParam = urlParams.get('error');
+  if (verifiedParam || errorParam) {
+    history.replaceState({}, '', window.location.pathname);
+    switchTab('sourcing');
+    showSrcView('setup');
+    setAuthMode('login');
+    if (verifiedParam === 'true') {
+      showToast('Email verified! Log in to start scanning.');
+    } else if (verifiedParam === 'already') {
+      showToast('Account already verified — log in below.');
+    } else if (errorParam === 'token_expired') {
+      showAuthError('That verification link has expired. Sign up again to get a new one.');
+    } else {
+      showAuthError('Invalid verification link. Please sign up again.');
+    }
+    return;
+  }
+
+  // Check for password reset token in URL (?reset=TOKEN)
   const resetToken = urlParams.get('reset');
   if (resetToken) {
     _resetToken = resetToken;

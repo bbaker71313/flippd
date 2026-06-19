@@ -84,8 +84,10 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
 }
 
 async function sendVerificationEmail(to: string, token: string): Promise<void> {
-  const appUrl = Deno.env.get('APP_URL') ?? 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
-  const verifyLink = `${appUrl}/verify?token=${token}`;
+  // Use SUPABASE_URL (always set in Edge Functions) so the verify link always hits the auth
+  // function regardless of what APP_URL or FRONTEND_URL are set to in secrets.
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? 'https://dqgfpchkheznvanfgsmx.supabase.co';
+  const verifyLink = `${supabaseUrl}/functions/v1/auth/verify?token=${token}`;
   await sendEmail(
     to,
     'Verify your ScanForProfit account',
@@ -195,8 +197,10 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
   const url = new URL(req.url);
   const token = url.searchParams.get('token');
   const frontendUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
+  // Always redirect to app.html so the user lands on the login screen with feedback
+  const appUrl = `${frontendUrl}/app.html`;
 
-  if (!token) return Response.redirect(`${frontendUrl}?error=invalid_token`, 302);
+  if (!token) return Response.redirect(`${appUrl}?error=invalid_token`, 302);
 
   const { data: user } = await supabase
     .from('users')
@@ -204,9 +208,9 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
     .eq('verification_token', token)
     .maybeSingle();
 
-  if (!user) return Response.redirect(`${frontendUrl}?error=invalid_token`, 302);
-  if (user.is_verified) return Response.redirect(`${frontendUrl}?verified=already`, 302);
-  if (new Date(user.verification_token_expires) < new Date()) return Response.redirect(`${frontendUrl}?error=token_expired`, 302);
+  if (!user) return Response.redirect(`${appUrl}?error=invalid_token`, 302);
+  if (user.is_verified) return Response.redirect(`${appUrl}?verified=already`, 302);
+  if (new Date(user.verification_token_expires) < new Date()) return Response.redirect(`${appUrl}?error=token_expired`, 302);
 
   const { data: verifiedUser } = await supabase.from('users')
     .update({ is_verified: true, verification_token: null, verification_token_expires: null })
@@ -218,7 +222,7 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
     sendWelcomeEmail(verifiedUser.email, verifiedUser.username).catch(console.error);
   }
 
-  return Response.redirect(`${frontendUrl}?verified=true`, 302);
+  return Response.redirect(`${appUrl}?verified=true`, 302);
 }
 
 async function handleLogin(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
