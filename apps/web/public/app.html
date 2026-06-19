@@ -598,7 +598,7 @@ body::before{
 .kpi-icon{font-size:18px;margin-bottom:4px}
 .kpi-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--accent);line-height:1.1;text-shadow:0 0 28px rgba(212,168,67,0.65)}
 .kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;font-family:'IBM Plex Mono',monospace}
-@media(max-width:479px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:639px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 
 .nav-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .nav-card{background:linear-gradient(160deg,#1d1d1d 0%,#131313 100%);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 20px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05)}
@@ -1125,6 +1125,12 @@ body::before{
 .flex-gap-8{display:flex;gap:8px}
 .flex-between{display:flex;justify-content:space-between}
 .flex-center-6{display:flex;align-items:center;gap:6px}
+.flex-center{display:flex;align-items:center}
+.flex-center-8{display:flex;align-items:center;gap:8px}
+.flex-between-center{display:flex;justify-content:space-between;align-items:center}
+.mb-10{margin-bottom:10px}
+.mb-16{margin-bottom:16px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
@@ -1154,7 +1160,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
 <!-- GLOBAL SEARCH BAR -->
 <div id="global-search-bar" style="display:none;background:var(--header);padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.1)">
-  <div style="display:flex;gap:8px;align-items:center">
+  <div class="flex-center-8">
     <input id="global-search-input" aria-label="Search all inventory by name or SKU" class="search-box" placeholder="Search all inventory by name or SKU..." style="flex:1;margin:0" oninput="runGlobalSearch(this.value)" autofocus>
     <button onclick="toggleGlobalSearch()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
   </div>
@@ -1247,7 +1253,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
         <div id="auth-forgot" style="text-align:center">
           <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;text-decoration:underline">Forgot password?</button>
         </div>
-        <p class="setup-hint" id="auth-hint" style="text-align:center;font-size:11px;margin-top:8px">Welcome back. Enter your credentials to continue.</p>
+        <p class="setup-hint" id="auth-hint" style="text-align:center;font-size:11px;margin-top:8px">Log in to your ScanForProfit account.</p>
       </div>
 
       <div id="trial-banner" style="display:none;background:var(--green-bg);border:1px solid var(--green-border);border-radius:6px;padding:10px;margin-top:12px;font-size:11px;color:var(--text);text-align:center"></div>
@@ -1378,15 +1384,15 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div class="card" style="margin-top:8px">
       <h3 class="card-title">👤 Account</h3>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div class="flex-between-center" style="padding:7px 0;border-bottom:1px solid var(--border)">
           <span class="text-muted">Username</span>
           <span id="acct-username" style="color:var(--text);font-weight:700">—</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div class="flex-between-center" style="padding:7px 0;border-bottom:1px solid var(--border)">
           <span class="text-muted">Email</span>
           <span id="acct-email" style="color:var(--text)">—</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0">
+        <div class="flex-between-center" style="padding:7px 0">
           <span class="text-muted">Plan</span>
           <span id="acct-tier" style="color:var(--green);font-weight:700;text-transform:uppercase">—</span>
         </div>
@@ -1491,9 +1497,9 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
   <!-- HOME VIEW -->
   <div id="inv-view-home">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-top:4px">
+    <div class="flex-between-center mb-14" style="padding-top:4px">
       <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text)">Inventory</div>
-      <button onclick="showInvView('add')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
+      <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">Export CSV</button>
@@ -1508,9 +1514,9 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <!-- LIST VIEW -->
   <div id="inv-view-list" style="display:none">
     <button class="back-btn" onclick="showInvView('home')">← Back</button>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="flex-between-center mb-10">
       <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text)" id="inv-list-title">Items</div>
-      <button onclick="showInvView('add')" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
+      <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
     </div>
     <input class="search-box" style="width:100%;margin-bottom:10px" placeholder="Search..." id="inv-search-list" aria-label="Search inventory list" oninput="renderFilteredList()">
     <div class="count-row" id="inv-list-count"></div>
@@ -1655,7 +1661,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
   <!-- Workspace -->
   <div id="pa-workspace" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="flex-between-center mb-8">
       <div style="font-size:12px;color:var(--muted);font-weight:600" id="pa-count-label">0 photos</div>
       <button onclick="document.getElementById('pa-gallery').click()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">+ Add More</button>
     </div>
@@ -1818,7 +1824,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
     <!-- TRENDING KEYWORDS — always shown, refreshes independently -->
     <div class="card mb-14">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="flex-between-center mb-10">
         <h3 class="card-title mb-0"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="icon-inline"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg>Trending on eBay Right Now</h3>
         <button onclick="fetchTrendingKeywords()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Refresh</button>
       </div>
@@ -2022,7 +2028,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text);margin-bottom:6px">Your Plan</div>
 
     <div id="sub-current-card" style="background:var(--card);border:2px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="flex-between-center mb-8">
         <div>
           <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Current Plan</div>
           <div id="sub-tier-name" style="font-family:'Syne',sans-serif;font-size:26px;font-weight:900;color:var(--accent)">Trial</div>
@@ -2036,7 +2042,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <button id="sub-manage-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--soft);padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">&#x2699; Manage Billing &amp; Subscription</button>
 
     <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
-      <button id="sub-bill-month" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:default;background:var(--accent);color:#fff">Monthly</button>
+      <button id="sub-bill-month" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:default;background:var(--accent);color:#000">Monthly</button>
     </div>
 
     <div id="sub-tier-cards"></div>
@@ -2138,7 +2144,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 <!-- AI POWER LISTING MODAL -->
 <div class="modal-overlay" id="listing-modal" style="display:none">
   <div class="modal-box" style="max-height:90vh;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div class="flex-between-center mb-14">
       <div class="modal-title">🚀 AI Power Listing</div>
       <button onclick="closeListingModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0">✕</button>
     </div>
@@ -2262,7 +2268,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div class="modal-title">Drop Listing Price</div>
     <div id="dp-item-name" style="font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--accent);margin-bottom:16px"></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="flex-between-center mb-10">
         <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.08em">Current Price</span>
         <span style="font-size:15px;font-weight:700;color:var(--soft);font-family:'Syne',sans-serif" id="dp-current-price"></span>
       </div>
@@ -2811,12 +2817,12 @@ function renderFilteredList() {
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
             <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
             ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
-            ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
+            ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
-            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
+            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
           </div>
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
@@ -6301,7 +6307,7 @@ function renderScanHistory() {
   const totalPotentialProfit = todayScans.filter(s=>s.bought).reduce((a,s)=>a+(s.potentialProfit||0),0);
   el.innerHTML = `
     <div class="card" style="margin-top:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="flex-between-center mb-10">
         <h3 class="card-title mb-0">📋 Today's Scans</h3>
         ${totalPotentialProfit>0?`<div style="font-size:12px;color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:700">+$${totalPotentialProfit.toFixed(0)} potential</div>`:''}
       </div>
@@ -6576,9 +6582,9 @@ function setAuthMode(mode) {
 
   // Tab styles
   document.getElementById('auth-tab-login').style.background = (!isRegister && !isVerify) ? 'var(--accent)' : 'transparent';
-  document.getElementById('auth-tab-login').style.color = (!isRegister && !isVerify) ? '#fff' : 'var(--muted)';
+  document.getElementById('auth-tab-login').style.color = (!isRegister && !isVerify) ? '#000' : 'var(--muted)';
   document.getElementById('auth-tab-register').style.background = isRegister ? 'var(--accent)' : 'transparent';
-  document.getElementById('auth-tab-register').style.color = isRegister ? '#fff' : 'var(--muted)';
+  document.getElementById('auth-tab-register').style.color = isRegister ? '#000' : 'var(--muted)';
 
   // Show/hide field groups
   document.getElementById('auth-login-fields').style.display = (!isRegister && !isVerify) ? 'block' : 'none';
@@ -6590,7 +6596,7 @@ function setAuthMode(mode) {
   document.getElementById('auth-submit-btn').textContent = isRegister ? 'Create Account →' : 'Log In →';
   document.getElementById('auth-hint').textContent = isRegister
     ? '7-day free trial. No credit card required.'
-    : 'Welcome back. Enter your credentials to continue.';
+    : 'Log in to your ScanForProfit account.';
   document.getElementById('auth-forgot').style.display = isRegister ? 'none' : 'block';
 
   hideAuthError();
