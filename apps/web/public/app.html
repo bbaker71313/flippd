@@ -2362,6 +2362,8 @@ function openPhotoDB() {
 
 function savePhotosIDB(itemId, photos) {
   if (!photos || !photos.length) return Promise.resolve();
+  // Keep module-level photoMap in sync so thumbnails appear immediately after save
+  photoMap[itemId] = photos;
   return openPhotoDB().then(function(db) {
     var tx = db.transaction('photos', 'readwrite');
     var store = tx.objectStore('photos');
@@ -2389,6 +2391,9 @@ function deletePhotosIDB(itemId) {
   }).catch(function(){});
 }
 
+// Module-level photo map — populated by hydratePhotos(), consulted at render time
+var photoMap = {};
+
 // Load all photos from IDB and attach to items array
 async function hydratePhotos() {
   try {
@@ -2400,7 +2405,6 @@ async function hydratePhotos() {
       req.onsuccess = function() { resolve(req.result || []); };
       req.onerror = function() { resolve([]); };
     });
-    var photoMap = {};
     all.forEach(function(r) {
       var id = parseInt(r.key.replace('item_', ''));
       photoMap[id] = r.data;
@@ -2761,7 +2765,14 @@ function renderFilteredList() {
   }
   document.getElementById('inv-list-items').innerHTML = filtered.map(item => {
     // Change 14: photo thumbnail from photo_urls or photos array; SVG placeholder if none
-    const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
+    // Check module-level photoMap first (populated async by hydratePhotos) so thumbnails
+    // appear even when the IDB load completed after the initial render.
+    const _storedPhotos = (photoMap && photoMap[item.id]) || [];
+    const thumbUrl = (item.photo_urls && item.photo_urls[0])
+      || (_storedPhotos && _storedPhotos[0])
+      || (item.photos && item.photos[0])
+      || item.main_photo_url
+      || null;
     const hasListing = item.listing ? true : false;
     const isSold = item.status === 'Sold';
     const isListed = item.status === 'Listed';
@@ -2871,7 +2882,12 @@ function showSoldDetail(id) {
   const shipAmt = (Sv.shipping === 'seller') ? (Sv.shipCost || 6) : 0;
   const netProfit = soldPrice - cost - ebayFeeAmt - pkgAmt - shipAmt;
   const roi = cost > 0 ? ((netProfit / cost) * 100).toFixed(0) : 'N/A';
-  const thumbUrl = (item.photo_urls && item.photo_urls[0]) || (item.photos && item.photos[0]) || item.main_photo_url || null;
+  const _soldStoredPhotos = (photoMap && photoMap[item.id]) || [];
+  const thumbUrl = (item.photo_urls && item.photo_urls[0])
+    || (_soldStoredPhotos && _soldStoredPhotos[0])
+    || (item.photos && item.photos[0])
+    || item.main_photo_url
+    || null;
   const overlay = document.createElement('div');
   overlay.id = 'sold-detail-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;padding:16px;box-sizing:border-box';
@@ -7216,8 +7232,15 @@ window.onload = () => {
   loadItems();
   // Hydrate photos from IndexedDB (async — photos load after render, that's OK)
   hydratePhotos().then(function() {
-    // Re-render inventory if it's visible so photos show
-    if (activeTab === 'inventory') renderInventory();
+    // Re-render inventory views if visible so photos show
+    if (activeTab === 'inventory') {
+      const listView = document.getElementById('inv-view-list');
+      if (listView && listView.style.display !== 'none') {
+        renderFilteredList();
+      } else {
+        renderInventoryHome();
+      }
+    }
   });
   pnlLoad();
   filterCat = 'All'; filterStatus = 'All';
