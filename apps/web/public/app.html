@@ -2811,6 +2811,7 @@ function renderFilteredList() {
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
             <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
             ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
+            ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
@@ -5080,6 +5081,36 @@ async function ebayPullListings(days){
 
 async function runEbaySyncPull(){
   await ebayPullListings(_ebaySyncDays);
+}
+
+async function handleListOnEbay(inventoryId) {
+  if (!isUnlocked()) { showToast('Log in to push listings to eBay'); return; }
+  showToast('⏳ Pushing to eBay...');
+  try {
+    const res = await fetch(EBAY_BASE + '/create-listing', {
+      method: 'POST', headers: getApiHeaders(), body: JSON.stringify({ inventoryId })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast('✗ ' + (data.error || 'eBay listing failed')); return; }
+    showToast('✅ Listed on eBay!');
+    await syncFromServer();
+  } catch(e) { showToast('✗ ' + e.message); }
+}
+
+async function handleSyncOrders() {
+  if (!isUnlocked()) { showToast('Log in to sync sold orders'); return; }
+  const st = document.getElementById('sync-progress');
+  const btn = document.getElementById('sync-orders-btn');
+  if (st) { st.style.color = 'var(--soft)'; st.textContent = '⏳ Syncing sold orders from eBay...'; }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  try {
+    const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
+    const data = await res.json();
+    if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ ' + (data.error || 'Sync failed'); } return; }
+    if (st) { st.style.color = 'var(--green)'; st.textContent = '✅ ' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    await syncFromServer();
+  } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ ' + e.message; } }
+  finally { if (btn) { btn.disabled = false; btn.style.opacity = '1'; } }
 }
 
 // ══════════════════════════════════════════════════
@@ -7726,7 +7757,8 @@ function sPnlMiles() {
 <button class="btn" id="sync-90" onclick="setSyncDays(90)" style="flex:1;font-size:12px;padding:10px;background:var(--accent);color:#000;border:none;font-weight:700">90 days</button>
 </div>
 <div id="sync-progress" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px;line-height:1.4"></div>
-<button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull from eBay</button>
+<button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull Listings from eBay</button>
+<button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">✓ Sync Sold Orders</button>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
 
