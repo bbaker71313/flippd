@@ -2,28 +2,20 @@ function LogoMark() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 32 32"
+      viewBox="0 0 128 128"
       fill="none"
       className="w-7 h-7 flex-shrink-0"
       aria-hidden="true"
     >
-      <path
-        d="M3 13 V3 H13"
-        stroke="#d4a843"
-        strokeWidth="2.5"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <path
-        d="M19 29 H29 V19"
-        stroke="#d4a843"
-        strokeWidth="2.5"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <rect x="6" y="21" width="4" height="6" fill="#00e676" />
-      <rect x="12" y="16" width="4" height="11" fill="#00e676" />
-      <rect x="18" y="11" width="4" height="16" fill="#00e676" />
+      <style>{`
+        @keyframes sfp-pulse { 0%,100% { r:4; } 50% { r:8; } }
+      `}</style>
+      <circle cx="64" cy="64" r="56" stroke="#d4a843" strokeWidth="2.5" />
+      <circle cx="64" cy="64" r="40" stroke="#00e676" strokeWidth="2.5" strokeDasharray="2.5 5" />
+      <circle cx="64" cy="64" r="24" stroke="#d4a843" strokeWidth="2" />
+      <line x1="24" y1="64" x2="104" y2="64" stroke="#00e676" strokeWidth="2.5" />
+      <line x1="64" y1="24" x2="64" y2="104" stroke="#00e676" strokeWidth="2.5" />
+      <circle cx="64" cy="64" r="4" fill="#00e676" style={{ animation: 'sfp-pulse 3s ease-in-out infinite' }} />
     </svg>
   );
 }
