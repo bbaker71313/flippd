@@ -4,6 +4,60 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-19c — Visual polish + CSS refactor (branch: claude/visual-polish-css-refactor-m08ddu)
+
+### What changed this session
+
+All changes in `apps/web/public/app.html` and `apps/web/public/index.html`.
+
+**app.html — 7 targeted fixes from the deferred audit:**
+
+1. **KPI grid breakpoint widened**: `max-width:479px` → `max-width:639px` — 4-col grid now collapses to 2-col on all phones and small tablets (not just sub-480px screens)
+
+2. **prefers-reduced-motion added**: `@media(prefers-reduced-motion:reduce)` block added to app.html `<style>` — matches what index.html already had; disables all CSS animations/transitions for users who prefer reduced motion
+
+3. **Inline style reduction continued**: Added 5 new utility classes (`.flex-center`, `.flex-center-8`, `.flex-between-center`, `.mb-10`, `.mb-16`). Converted repeated flex layout patterns in settings, inventory list, photo workspace, and modal headers. Count: 818 (Session 7) → 673 (Session 7 sweep) → 616 (pre-session) → **608** (post-session)
+
+4. **Gold button contrast fixed — all instances**: `color:#fff` → `color:#000` on all `background:var(--accent)` buttons:
+   - Auth tab Login/Register buttons (HTML inline style)
+   - `setAuthMode()` JS was overriding the Session 7 HTML fix back to `#fff` — both active states now set `#000`
+   - `#sub-bill-month` (Monthly billing toggle)
+   - "List on eBay" button (JS template string)
+   - "Relist" button (JS template string)
+   - "+ Add Item" / "+ Add" inventory buttons
+
+5. **Auth hint copy updated**: "Welcome back. Enter your credentials to continue." → "Log in to your ScanForProfit account." — updated in both HTML (initial render) and `setAuthMode()` JS (login mode switch). The `showToast('✓ Welcome back...')` on successful login is intentionally kept (contextually appropriate celebration message, not placeholder text)
+
+**index.html — 2 fixes:**
+
+6. **Nav link sparseness resolved**: Nav had only "Pricing". Added "Features" (`#features`) and "FAQ" (`#faq`) — links appear at ≥880px per existing `.nav-links` media query
+
+7. **Hero eyebrow copy updated**: "The thrift store scanner for eBay resellers" → "AI-powered profit scanner for eBay resellers" — adds "AI-powered", removes passive "thrift store scanner" phrasing
+
+### Audit items NOT touched (permanently deferred):
+- `prefers-reduced-motion` on index.html — already present since Session 7
+- `body::before` scanline z-index — already fixed in Session 7 (z-index: 0)
+- "Welcome back" toast on login success (`showToast`) — intentionally kept
+
+### Commit
+`1a1ea22` — on branch `claude/visual-polish-css-refactor-m08ddu`, PR #96
+
+### CI status (at session end)
+- Vercel Preview: ✅ Building → deployed
+- Supabase: ✅ Skipped (no supabase/ changes — correct)
+- Railway: ✅ Building
+- TypeScript Check: ⏳ In progress at session end
+
+### Next tasks
+1. Merge PR #96 once all CI passes
+2. Verify Stripe checkout end-to-end (still "not yet verified")
+3. PR #93 (eBay push listing + sync orders) — merge if not already done
+
+### Blockers
+- None from this session
+
+---
+
 ## Session: 2026-06-19b — eBay push listing + sync sold orders (branch: claude/stripe-empire-ebay-layout-l8wh8v)
 
 ### What changed this session
