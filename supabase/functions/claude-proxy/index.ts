@@ -95,9 +95,10 @@ async function getOrCreateUser(
 
   let user = existing;
   if (!user) {
+    const derivedName = username || email.split('@')[0];
     const { data: created, error } = await supabase
       .from('users')
-      .insert({ email, username: username || email.split('@')[0], password: 'supabase_auth', is_verified: true })
+      .insert({ name: derivedName, email, username: derivedName, password: 'supabase_auth', is_verified: true })
       .select('id, tier, scan_count_month, scan_reset_date').single();
     if (error || !created) throw new Error('Failed to create user');
     user = created;
