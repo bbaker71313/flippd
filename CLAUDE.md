@@ -218,6 +218,7 @@ AI proxy: Edge Function calls Anthropic API server-side
 Payments
 Platform: Stripe
 Tiers: Scout (free) · Hustle ($19/mo) · Stack ($49/mo) · Empire ($199/mo)
+Billing: Monthly only — annual plans not yet available. Do not show annual toggle or yearly pricing anywhere.
 Video Ads
 Framework: Remotion 4 (@sfp/video)
 Compositions: HeroVideo, SquareAd, StoryAd, TikTokAd, YouTubePreroll

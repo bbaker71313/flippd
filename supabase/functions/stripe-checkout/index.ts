@@ -125,7 +125,8 @@ Deno.serve(async (req: Request) => {
   const userId    = body.userId as string | undefined;
   const returnUrl = (body.returnUrl as string) ?? 'scanforprofit://subscription/success';
 
-  const priceKey = tier.includes('_') ? tier : `${tier}_${interval}`;
+  const normalizedInterval = interval === 'month' ? 'monthly' : interval === 'year' ? 'annual' : interval;
+  const priceKey = tier.includes('_') ? tier : `${tier}_${normalizedInterval}`;
   const envKey   = PRICE_ID_MAP[priceKey];
   if (!envKey) return json({ error: `Unknown tier: ${tier}` }, 400);
 

@@ -116,7 +116,8 @@
 
     *, *::before, *::after { box-sizing: border-box; }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; overflow-x: hidden; }
+    body { overflow-x: hidden; }
 
     body {
       margin: 0;
@@ -745,7 +746,7 @@
   <header class="nav">
     <div class="container nav-inner">
       <a href="/" class="logo" aria-label="ScanForProfit home">
-        <span class="logo-mark" aria-hidden="true">S</span>
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 13 V3 H13" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/><path d="M19 29 H29 V19" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/><rect x="6" y="21" width="4" height="6" fill="#00e676"><animate attributeName="height" values="6;10;6" dur="1.2s" repeatCount="indefinite" begin="0s"/><animate attributeName="y" values="21;17;21" dur="1.2s" repeatCount="indefinite" begin="0s"/></rect><rect x="12" y="16" width="4" height="11" fill="#00e676"><animate attributeName="height" values="11;15;11" dur="1.2s" repeatCount="indefinite" begin="0.2s"/><animate attributeName="y" values="16;12;16" dur="1.2s" repeatCount="indefinite" begin="0.2s"/></rect><rect x="18" y="11" width="4" height="16" fill="#00e676"><animate attributeName="height" values="16;20;16" dur="1.2s" repeatCount="indefinite" begin="0.4s"/><animate attributeName="y" values="11;7;11" dur="1.2s" repeatCount="indefinite" begin="0.4s"/></rect></svg>
         <span>ScanForProfit</span>
       </a>
       <nav class="nav-links" aria-label="Primary">
@@ -1160,7 +1161,7 @@
       <div class="section-head">
         <span class="tag">Pricing</span>
         <h2>Simple tiers. Pay when you're profitable.</h2>
-        <p>No card required to start. Cancel anytime. Pay annually and save up to 18%.</p>
+        <p>No card required to start. Monthly billing only. Cancel anytime.</p>
       </div>
       <div class="pricing-grid">
 
@@ -1188,7 +1189,6 @@
             <h3>Hustle</h3>
           </div>
           <div class="price-amount"><span class="num">$19</span><span class="unit">/mo</span></div>
-          <div class="price-billing">or $180/yr · <strong class="u-green-bdr">Save $48</strong></div>
           <div class="price-meta">
             <div><div class="k">Scans/mo</div><div class="v">Unlimited</div></div>
             <div><div class="k">Items</div><div class="v">500</div></div>
@@ -1209,7 +1209,6 @@
             <h3>Stack</h3>
           </div>
           <div class="price-amount"><span class="num">$49</span><span class="unit">/mo</span></div>
-          <div class="price-billing">or $480/yr · <strong class="u-green-bdr">Save $108</strong></div>
           <div class="price-meta">
             <div><div class="k">Scans/mo</div><div class="v">Unlimited</div></div>
             <div><div class="k">Items</div><div class="v">Unlimited</div></div>
@@ -1341,7 +1340,7 @@
       <div class="footer-grid">
         <div class="footer-col footer-brand">
           <a href="/" class="logo">
-            <span class="logo-mark" aria-hidden="true">S</span>
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 13 V3 H13" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/><path d="M19 29 H29 V19" stroke="#d4a843" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/><rect x="6" y="21" width="4" height="6" fill="#00e676"><animate attributeName="height" values="6;10;6" dur="1.2s" repeatCount="indefinite" begin="0s"/><animate attributeName="y" values="21;17;21" dur="1.2s" repeatCount="indefinite" begin="0s"/></rect><rect x="12" y="16" width="4" height="11" fill="#00e676"><animate attributeName="height" values="11;15;11" dur="1.2s" repeatCount="indefinite" begin="0.2s"/><animate attributeName="y" values="16;12;16" dur="1.2s" repeatCount="indefinite" begin="0.2s"/></rect><rect x="18" y="11" width="4" height="16" fill="#00e676"><animate attributeName="height" values="16;20;16" dur="1.2s" repeatCount="indefinite" begin="0.4s"/><animate attributeName="y" values="11;7;11" dur="1.2s" repeatCount="indefinite" begin="0.4s"/></rect></svg>
             <span>ScanForProfit</span>
           </a>
           <p>The thrift store scanner for solo eBay sellers. Real comps. Real fees. Real decisions.</p>
