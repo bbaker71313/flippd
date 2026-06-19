@@ -1633,6 +1633,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <button onclick="paRotate(-90)" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↺ Left</button>
       <button onclick="paRotate(90)" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">↻ Right</button>
+      <button onclick="paStartCrop()" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">✂ Crop</button>
       <button onclick="paCropSquare()" style="flex:1;padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace">⬛ Square</button>
     </div>
     <!-- Before / After -->
@@ -1643,7 +1644,16 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       </div>
       <div>
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:700">Enhanced</div>
-        <canvas id="pa-canvas" style="width:100%;border-radius:8px;border:1px solid var(--green-border);display:block;cursor:zoom-in" onclick="paOpenFullscreen()" title="Tap to view fullscreen"></canvas>
+        <div style="position:relative">
+          <canvas id="pa-canvas" style="width:100%;border-radius:8px;border:1px solid var(--green-border);display:block;cursor:zoom-in" onclick="paOpenFullscreen()" title="Tap to view fullscreen"></canvas>
+          <div id="pa-crop-overlay" style="display:none;position:absolute;inset:0;cursor:crosshair;z-index:10">
+            <div id="pa-crop-rect" style="position:absolute;border:2px dashed var(--accent);box-sizing:border-box;display:none;pointer-events:none"></div>
+          </div>
+        </div>
+        <div id="pa-crop-controls" style="display:none;gap:8px;margin-top:8px">
+          <button onclick="paApplyCrop()" style="flex:1;padding:7px;background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer">Apply Crop</button>
+          <button onclick="paCancelCrop()" style="flex:1;padding:7px;background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer">Cancel</button>
+        </div>
       </div>
     </div>
     <!-- Adjustments -->
@@ -3859,6 +3869,102 @@ function paCropSquare() {
   paPhotos[paActiveIdx].enhanced = result;
   paPhotos[paActiveIdx].original = result;
   paPhotos[paActiveIdx]._isBlobUrl = false;
+}
+
+let _paCropState = null;
+
+function paStartCrop() {
+  const canvas = document.getElementById('pa-canvas');
+  if (!canvas || !paPhotos.length) return;
+  const overlay = document.getElementById('pa-crop-overlay');
+  const controls = document.getElementById('pa-crop-controls');
+  if (!overlay) return;
+  overlay.style.display = 'block';
+  if (controls) controls.style.display = 'flex';
+  _paCropState = { startX: 0, startY: 0, endX: 0, endY: 0, dragging: false };
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  function getPos(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    return {
+      x: Math.max(0, Math.min(rect.width, touch.clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, touch.clientY - rect.top))
+    };
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    const p = getPos(e);
+    _paCropState = { startX: p.x, startY: p.y, endX: p.x, endY: p.y, dragging: true, scaleX, scaleY, rect };
+    updateCropRect();
+  }
+  function onMove(e) {
+    if (!_paCropState || !_paCropState.dragging) return;
+    e.preventDefault();
+    const p = getPos(e);
+    _paCropState.endX = p.x; _paCropState.endY = p.y;
+    updateCropRect();
+  }
+  function onEnd(e) {
+    if (_paCropState) _paCropState.dragging = false;
+  }
+
+  overlay._onStart = onStart; overlay._onMove = onMove; overlay._onEnd = onEnd;
+  overlay.addEventListener('mousedown', onStart);
+  overlay.addEventListener('mousemove', onMove);
+  overlay.addEventListener('mouseup', onEnd);
+  overlay.addEventListener('touchstart', onStart, { passive: false });
+  overlay.addEventListener('touchmove', onMove, { passive: false });
+  overlay.addEventListener('touchend', onEnd);
+}
+
+function updateCropRect() {
+  const r = document.getElementById('pa-crop-rect');
+  if (!r || !_paCropState) return;
+  const { startX, startY, endX, endY } = _paCropState;
+  const x = Math.min(startX, endX), y = Math.min(startY, endY);
+  const w = Math.abs(endX - startX), h = Math.abs(endY - startY);
+  r.style.display = w > 2 && h > 2 ? 'block' : 'none';
+  r.style.left = x + 'px'; r.style.top = y + 'px';
+  r.style.width = w + 'px'; r.style.height = h + 'px';
+}
+
+function paApplyCrop() {
+  if (!_paCropState) return;
+  const canvas = document.getElementById('pa-canvas');
+  const { startX, startY, endX, endY, scaleX, scaleY } = _paCropState;
+  const x = Math.round(Math.min(startX, endX) * scaleX);
+  const y = Math.round(Math.min(startY, endY) * scaleY);
+  const w = Math.round(Math.abs(endX - startX) * scaleX);
+  const h = Math.round(Math.abs(endY - startY) * scaleY);
+  if (w < 10 || h < 10) { showToast('Select a larger area to crop'); return; }
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(x, y, w, h);
+  canvas.width = w; canvas.height = h;
+  ctx.putImageData(imageData, 0, 0);
+  paPhotos[paActiveIdx].w = w; paPhotos[paActiveIdx].h = h;
+  const result = canvas.toDataURL('image/jpeg', 0.92);
+  paPhotos[paActiveIdx].enhanced = result;
+  paPhotos[paActiveIdx].original = result;
+  paPhotos[paActiveIdx]._isBlobUrl = false;
+  paCancelCrop();
+  showToast('Crop applied');
+}
+
+function paCancelCrop() {
+  const overlay = document.getElementById('pa-crop-overlay');
+  const controls = document.getElementById('pa-crop-controls');
+  if (overlay) {
+    overlay.style.display = 'none';
+    if (overlay._onStart) { overlay.removeEventListener('mousedown', overlay._onStart); overlay.removeEventListener('mousemove', overlay._onMove); overlay.removeEventListener('mouseup', overlay._onEnd); overlay.removeEventListener('touchstart', overlay._onStart); overlay.removeEventListener('touchmove', overlay._onMove); overlay.removeEventListener('touchend', overlay._onEnd); }
+  }
+  if (controls) controls.style.display = 'none';
+  const r = document.getElementById('pa-crop-rect');
+  if (r) r.style.display = 'none';
+  _paCropState = null;
 }
 
 async function paRemoveBg() {
