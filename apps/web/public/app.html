@@ -1501,10 +1501,11 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text)">Inventory</div>
       <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">Export CSV</button>
       <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">Import</button>
     </div>
+    <button class="btn" onclick="showEbaySyncPanel()" style="width:100%;margin-bottom:12px;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)">eBay Sync</button>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
     <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>

@@ -455,8 +455,22 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
     locKey = 'sfp-default';
   }
   const offerListR = await (await fetch('https://api.ebay.com/sell/inventory/v1/offer?limit=1', { headers: h })).json() as Record<string, unknown>;
-  const policies = (offerListR.offers as Array<Record<string, unknown>>)?.[0]?.listingPolicies;
-  if (!policies) return json({ error: 'No eBay listing policies found. Set up shipping, return, and payment policies in your eBay seller account, then try again.' }, 400);
+  let policies = (offerListR.offers as Array<Record<string, unknown>>)?.[0]?.listingPolicies as Record<string, unknown> | undefined;
+
+  if (!policies) {
+    // No existing offer to borrow from — fetch policies from Account API directly
+    const [ffR, pmR, rtR] = await Promise.all([
+      fetch('https://api.ebay.com/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US', { headers: h }).then(r => r.json()).catch(() => ({})),
+      fetch('https://api.ebay.com/sell/account/v1/payment_policy?marketplace_id=EBAY_US', { headers: h }).then(r => r.json()).catch(() => ({})),
+      fetch('https://api.ebay.com/sell/account/v1/return_policy?marketplace_id=EBAY_US', { headers: h }).then(r => r.json()).catch(() => ({})),
+    ]) as [Record<string, unknown>, Record<string, unknown>, Record<string, unknown>];
+    const ffId = (ffR.fulfillmentPolicies as Array<Record<string, unknown>>)?.[0]?.fulfillmentPolicyId as string | undefined;
+    const pmId = (pmR.paymentPolicies as Array<Record<string, unknown>>)?.[0]?.paymentPolicyId as string | undefined;
+    const rtId = (rtR.returnPolicies as Array<Record<string, unknown>>)?.[0]?.returnPolicyId as string | undefined;
+    if (ffId && pmId && rtId) policies = { fulfillmentPolicyId: ffId, paymentPolicyId: pmId, returnPolicyId: rtId };
+  }
+
+  if (!policies) return json({ error: 'eBay Business Policies not found. In eBay Seller Hub → Account → Business Policies, create at least one Shipping, Payment, and Return policy, then try again.' }, 400);
   const catId = item.ebay_category_id ? String(item.ebay_category_id) : '20082';
   const offerRes = await fetch('https://api.ebay.com/sell/inventory/v1/offer', {
     method: 'POST', headers: h,
