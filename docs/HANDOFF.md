@@ -4,6 +4,71 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-19 — Stripe fix, monthly billing, desktop layout, animated logo (branch: claude/stripe-empire-ebay-layout-l8wh8v)
+
+### What changed this session
+
+**Bug fix — Stripe checkout interval mismatch (RESOLVED)**
+- Root cause: `app.html` sends `interval: 'month'` but `PRICE_ID_MAP` keys use `'monthly'`/`'annual'`. Every upgrade click returned a silent "Unknown tier: hustle" error.
+- Fix: Added normalization in `stripe-checkout/index.ts`: `month→monthly`, `year→annual` before PRICE_ID_MAP lookup.
+- Deployed as `stripe-checkout` v46 via Supabase MCP.
+
+**Annual billing removed (monthly only for now)**
+- `app.html`: Removed the Monthly/Annual toggle button from the Plan tab. Price cards always render using `d['month']` price. Removed `_subInterval==='year'` conditional display.
+- `index.html`: Removed `or $180/yr · Save $48` (Hustle) and `or $480/yr · Save $108` (Stack). Updated tagline to "Monthly billing only. Cancel anytime."
+- `CLAUDE.md`: Added "Billing: Monthly only — annual plans not yet available" rule.
+
+**index.html mobile overflow fix**
+- Added `overflow-x: hidden` to both `html` and `body` to prevent horizontal overflow that caused mobile browsers to zoom out.
+
+**app.html desktop responsive layout**
+- Added two breakpoints so the app fills screen on desktop:
+  - `@media (min-width: 860px)` → `max-width: 860px`
+  - `@media (min-width: 1100px)` → `max-width: 1100px`
+- Applies to `.tab-panel`, `.app-header`, `.tab-bar`.
+
+**Animated logo in index.html**
+- Replaced the static gold "S" box (`.logo-mark`) with the pulsing ScanMark SVG in both nav and footer.
+- SVG matches the loading indicator in app.html's Pulse tab.
+
+### eBay scopes confirmed (5 total, in `ebay-oauth/index.ts`)
+1. `api_scope` — public read
+2. `sell.inventory` — create/update/publish/delete listings and offers
+3. `sell.account` — fulfillment/payment/return policies
+4. `sell.fulfillment` — orders, shipments, tracking
+5. `commerce.identity.readonly` — seller username
+
+### CI results (PR #93)
+- Vercel: ✅ Deployed
+- Supabase: ✅ Preview branch
+- TypeScript Check: pending at session end
+- Railway: building at session end
+
+### Next task
+1. Merge PR #93
+2. Decide eBay feature priority (user was asked):
+   - **Option A (recommended)**: Push listing to eBay — closes the full scan→add→list loop
+   - **Option B**: Sync sold orders — pull fulfilled orders, mark inventory as Sold
+3. After merge: verify Stripe checkout end-to-end. IMPORTANT: requires these Supabase secrets to be set in Dashboard → Edge Functions → Secrets:
+   - `STRIPE_PRICE_HUSTLE_MONTHLY`
+   - `STRIPE_PRICE_STACK_MONTHLY`
+   - `STRIPE_PRICE_EMPIRE_MONTHLY`
+
+### Files changed
+- `supabase/functions/stripe-checkout/index.ts` — interval normalization, deployed v46
+- `apps/web/public/app.html` — remove annual toggle, monthly-only price cards, desktop breakpoints
+- `apps/web/public/index.html` — remove annual pricing, overflow fix, animated logo
+- `CLAUDE.md` — monthly-only billing rule
+- `docs/HANDOFF.md` — this file
+
+### Commit
+`31b7276` — PR #93 (draft, open)
+
+### Blockers
+- Stripe checkout still requires `STRIPE_PRICE_*_MONTHLY` env vars to be set in Supabase secrets (separate from code fix).
+
+---
+
 ## Session: 2026-06-18b — Wire pg_cron trigger for export-reminder (branch: claude/ebay-sync-schema-dhbhir)
 
 ### What changed this session
