@@ -4011,22 +4011,76 @@ function paPhotoBoost() {
     return;
   }
   if (!paPhotos.length) return;
+
   const canvas = document.getElementById('pa-canvas');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const src = ctx.getImageData(0,0,W,H);
-  // Auto-levels per channel
-  let rMn=255,rMx=0,gMn=255,gMx=0,bMn=255,bMx=0;
-  for (let k=0;k<src.data.length;k+=4){rMn=Math.min(rMn,src.data[k]);rMx=Math.max(rMx,src.data[k]);gMn=Math.min(gMn,src.data[k+1]);gMx=Math.max(gMx,src.data[k+1]);bMn=Math.min(bMn,src.data[k+2]);bMx=Math.max(bMx,src.data[k+2]);}
-  for (let k=0;k<src.data.length;k+=4){src.data[k]=rMx>rMn?Math.min(255,((src.data[k]-rMn)/(rMx-rMn))*255):src.data[k];src.data[k+1]=gMx>gMn?Math.min(255,((src.data[k+1]-gMn)/(gMx-gMn))*255):src.data[k+1];src.data[k+2]=bMx>bMn?Math.min(255,((src.data[k+2]-bMn)/(bMx-bMn))*255):src.data[k+2];}
-  ctx.putImageData(src,0,0);
-  // Unsharp mask (sharpen kernel)
-  const s2=ctx.getImageData(0,0,W,H), dst=ctx.createImageData(W,H);
-  const kern=[0,-1,0,-1,5,-1,0,-1,0];
-  for(let y=0;y<H;y++){for(let x=0;x<W;x++){let r=0,g=0,b=0;for(let ky=0;ky<3;ky++){for(let kx=0;kx<3;kx++){const px=Math.min(W-1,Math.max(0,x+kx-1)),py=Math.min(H-1,Math.max(0,y+ky-1)),idx=(py*W+px)*4,k2=kern[ky*3+kx];r+=s2.data[idx]*k2;g+=s2.data[idx+1]*k2;b+=s2.data[idx+2]*k2;}}const i=(y*W+x)*4;dst.data[i]=Math.max(0,Math.min(255,r));dst.data[i+1]=Math.max(0,Math.min(255,g));dst.data[i+2]=Math.max(0,Math.min(255,b));dst.data[i+3]=s2.data[i+3];}}
-  ctx.putImageData(dst,0,0);
-  paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg',0.92);
-  showToast('Photo Boost applied');
+
+  // Step 1: Read pixel data
+  const src = ctx.getImageData(0, 0, W, H);
+  const d = src.data;
+
+  // Step 2: Auto white balance — find average of lightest 5% of pixels
+  let samples = [];
+  for (let k = 0; k < d.length; k += 4) {
+    const lum = 0.299 * d[k] + 0.587 * d[k+1] + 0.114 * d[k+2];
+    samples.push({ lum, r: d[k], g: d[k+1], b: d[k+2] });
+  }
+  samples.sort((a, b) => b.lum - a.lum);
+  const topN = Math.max(1, Math.floor(samples.length * 0.05));
+  const top = samples.slice(0, topN);
+  const avgR = top.reduce((s, p) => s + p.r, 0) / topN;
+  const avgG = top.reduce((s, p) => s + p.g, 0) / topN;
+  const avgB = top.reduce((s, p) => s + p.b, 0) / topN;
+  const wbR = avgR > 0 ? 255 / avgR : 1;
+  const wbG = avgG > 0 ? 255 / avgG : 1;
+  const wbB = avgB > 0 ? 255 / avgB : 1;
+
+  // Step 3: Apply white balance + contrast boost + slight saturation
+  for (let k = 0; k < d.length; k += 4) {
+    let r = Math.min(255, d[k] * wbR);
+    let g = Math.min(255, d[k+1] * wbG);
+    let b = Math.min(255, d[k+2] * wbB);
+    // Contrast: S-curve (mild)
+    r = 128 + (r - 128) * 1.1;
+    g = 128 + (g - 128) * 1.1;
+    b = 128 + (b - 128) * 1.1;
+    // Clamp
+    d[k]   = Math.max(0, Math.min(255, r));
+    d[k+1] = Math.max(0, Math.min(255, g));
+    d[k+2] = Math.max(0, Math.min(255, b));
+  }
+  ctx.putImageData(src, 0, 0);
+
+  // Step 4: Sharpen (gentle — eBay recommends sharp product focus, not over-sharpened)
+  const s2 = ctx.getImageData(0, 0, W, H);
+  const dst = ctx.createImageData(W, H);
+  // 3x3 sharpen kernel (less aggressive than [0,-1,0,-1,5,-1,0,-1,0])
+  const kern = [0, -0.5, 0, -0.5, 3, -0.5, 0, -0.5, 0];
+  const d2 = s2.data, dd = dst.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let r = 0, g = 0, b = 0;
+      for (let ky = 0; ky < 3; ky++) {
+        for (let kx = 0; kx < 3; kx++) {
+          const px = Math.min(W-1, Math.max(0, x + kx - 1));
+          const py = Math.min(H-1, Math.max(0, y + ky - 1));
+          const idx = (py * W + px) * 4;
+          const kv = kern[ky * 3 + kx];
+          r += d2[idx] * kv; g += d2[idx+1] * kv; b += d2[idx+2] * kv;
+        }
+      }
+      const i = (y * W + x) * 4;
+      dd[i]   = Math.max(0, Math.min(255, r));
+      dd[i+1] = Math.max(0, Math.min(255, g));
+      dd[i+2] = Math.max(0, Math.min(255, b));
+      dd[i+3] = d2[i+3];
+    }
+  }
+  ctx.putImageData(dst, 0, 0);
+
+  paPhotos[paActiveIdx].enhanced = canvas.toDataURL('image/jpeg', 0.95);
+  showToast('Photo Boost applied — white balance, contrast, and sharpness enhanced');
 }
 
 let _fsPinchDist = 0, _fsScale = 1;
