@@ -387,16 +387,31 @@ async function handleInventoryUpdate(
   if (!itemId) throw new Error('Missing item id');
 
   const updates: Record<string, unknown> = {};
-  if (body.nickname  !== undefined) updates.nickname   = body.nickname;
-  if (body.category  !== undefined) updates.category   = body.category;
-  if (body.condition !== undefined) updates.condition  = body.condition;
-  if (body.cost      !== undefined) updates.cost       = body.cost;
-  if (body.sellPrice !== undefined) updates.sell_price = body.sellPrice;
-  if (body.platform  !== undefined) updates.platform   = body.platform;
-  if (body.notes     !== undefined) updates.notes      = body.notes;
-  if (body.photos    !== undefined) {
+  if (body.nickname   !== undefined) updates.nickname   = body.nickname;
+  if (body.category   !== undefined) updates.category   = body.category;
+  if (body.condition  !== undefined) updates.condition  = body.condition;
+  if (body.cost       !== undefined) updates.cost       = body.cost;
+  // accept camelCase (new clients) and snake_case (itemForServer spread from server data)
+  if (body.sellPrice  !== undefined) updates.sell_price = body.sellPrice;
+  if (body.sell_price !== undefined) updates.sell_price = body.sell_price;
+  if (body.platform   !== undefined) updates.platform   = body.platform;
+  if (body.notes      !== undefined) updates.notes      = body.notes;
+  if (body.status     !== undefined) updates.status     = body.status;
+  if (body.photos     !== undefined) {
     updates.photos      = body.photos;
     updates.photo_count = Array.isArray(body.photos) ? body.photos.length : 0;
+  }
+  // photo_count sent directly by itemForServer
+  if (body.photo_count !== undefined && updates.photo_count === undefined) {
+    updates.photo_count = body.photo_count;
+  }
+
+  // If nothing editable was provided, return the current row without a DB write
+  if (Object.keys(updates).length === 0) {
+    const { data: item, error } = await supabase.from('inventory')
+      .select('*').eq('id', itemId).eq('user_id', userId).maybeSingle();
+    if (error) throw new Error(error.message);
+    return { item };
   }
 
   const { data: item, error } = await supabase.from('inventory')
