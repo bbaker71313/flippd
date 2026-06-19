@@ -4,6 +4,55 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-19b — eBay push listing + sync sold orders (branch: claude/stripe-empire-ebay-layout-l8wh8v)
+
+### What changed this session
+
+**eBay create-listing endpoint (NEW) — `ebay-oauth` v40**
+- `POST /create-listing` — pushes a ScanForProfit inventory item to eBay as a live fixed-price listing
+  1. Loads item from DB (validates sell_price exists)
+  2. PUT `/sell/inventory/v1/inventory_item/{sku}` — registers product (title, desc, condition, images)
+  3. GET `/sell/inventory/v1/location` — gets/creates merchant location key (`sfp-default` if none)
+  4. GET `/sell/inventory/v1/offer?limit=1` — borrows listingPolicies from existing offer (returns 400 with setup instructions if seller has no offers yet)
+  5. POST `/sell/inventory/v1/offer` — creates offer (FIXED_PRICE, EBAY_US, category 20082 fallback)
+  6. POST `/sell/inventory/v1/offer/{offerId}/publish` — publishes listing
+  7. Updates inventory: `status='Listed'`, `ebay_item_id=listingId`, `listed_at=now()`
+  8. Returns `{ listingId, listingUrl }`
+- Condition mapping: New→NEW, Like New→LIKE_NEW, Open Box→NEW_OTHER, Good/Used→USED_GOOD, Fair→USED_ACCEPTABLE, Poor→FOR_PARTS_OR_NOT_WORKING
+- Category fallback: uses `item.ebay_category_id` from DB, or 20082 ("Everything Else")
+
+**eBay sync-orders endpoint (NEW) — `ebay-oauth` v40**
+- `POST /sync-orders` — dedicated sold-order sync (90 days) that captures actual sale price
+  - Queries eBay Fulfillment API for all orders in last 90 days
+  - For each line item: matches by SKU then by `ebay_item_id`
+  - Updates DB: `status='Sold'`, `sold_at`, `sold_price` (from `lineItemCost.value`)
+  - Returns `{ synced }` count
+- Differs from `pull-listings` (which ignores actual sale price)
+
+**Migration: `sold_price` column**
+- `supabase/migrations/20260619000000_006_add_sold_price.sql`
+- `ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS sold_price numeric;`
+- Applied to Supabase project dqgfpchkheznvanfgsmx ✅
+
+**app.html UI changes**
+- "List on eBay" button: appears on Unlisted items with no `ebay_item_id`. Calls `handleListOnEbay(id)` → `POST /create-listing` → refreshes inventory.
+- "Sync Sold Orders" button: added to eBay sync panel (below "Pull Listings" button). Calls `handleSyncOrders()` → `POST /sync-orders` → shows count + refreshes inventory.
+- Both handlers show progress in `#sync-progress` and restore button state in `finally`.
+
+### Commit
+`07a0c23` — on branch `claude/stripe-empire-ebay-layout-l8wh8v`, PR #93
+
+### Next tasks
+1. **Test push listing**: Click "List on eBay" on an Unlisted item in app.html. First time may need eBay listing policies set up.
+2. **Test sync orders**: Use "Sync Sold Orders" button in eBay sync panel.
+3. **Merge PR #93** — Vercel deploying as of 2026-06-19 02:16 UTC.
+4. **Verify Stripe checkout** — still needs `STRIPE_PRICE_HUSTLE_MONTHLY`, `STRIPE_PRICE_STACK_MONTHLY`, `STRIPE_PRICE_EMPIRE_MONTHLY` in Supabase secrets.
+
+### Blockers
+- `handleCreateListing` requires seller to have at least one existing eBay offer (to borrow listing policies). If the seller has never listed via Inventory API, `policies` will be null and the endpoint returns a 400 with setup instructions. Workaround: the user can create one listing manually on eBay first, then all future pushes will work.
+
+---
+
 ## Session: 2026-06-19 — Stripe fix, monthly billing, desktop layout, animated logo (branch: claude/stripe-empire-ebay-layout-l8wh8v)
 
 ### What changed this session
