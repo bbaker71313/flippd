@@ -438,7 +438,7 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
   if (!item.sell_price) return json({ error: 'Set a sell price before listing on eBay' }, 400);
   const accessToken = await getValidEbayToken(userId, supabase);
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
-  const h = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json' };
+  const h = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'en-US' };
   const sku = (item.sku as string | null) || `sfp-${item.id}`;
   const title = ((item.listing_title || item.nickname || 'Item for sale') as string).slice(0, 80);
   const desc  = ((item.listing_description || item.notes || title) as string).slice(0, 4000);
