@@ -1077,8 +1077,11 @@ const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always i
 // ── Legacy proxy: handles old Replit-style /v1/messages endpoints ──────────
 function ab2b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
+  const CHUNK = 8192;
   let s = '';
-  for (let i = 0; i < bytes.byteLength; i++) s += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
   return btoa(s);
 }
 
