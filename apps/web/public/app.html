@@ -707,6 +707,27 @@ body::before{
 .pnl-exp-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
 .pnl-exp-row:last-child{border-bottom:none}
 
+/* ══ PROFIT HUB ══ */
+.ph-kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+@media(min-width:480px) { .ph-kpi-grid { grid-template-columns:repeat(3,1fr); } }
+.ph-kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; text-align:center; }
+.ph-kpi-val { font-family:'Syne',sans-serif; font-size:20px; font-weight:900; color:var(--text); margin-bottom:2px; }
+.ph-kpi-label { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; }
+.ph-section-title { font-size:10px; letter-spacing:0.18em; color:var(--muted); font-weight:800; margin:16px 0 10px; text-transform:uppercase; font-family:'IBM Plex Mono',monospace; }
+.ph-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+.ph-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; font-family:'IBM Plex Mono',monospace; }
+.ph-row:last-child { border-bottom:none; }
+.ph-row-label { color:var(--soft); }
+.ph-row-val { color:var(--text); font-weight:700; }
+.ph-chart-bar-wrap { display:flex; align-items:flex-end; gap:4px; height:60px; margin-top:10px; }
+.ph-bar { flex:1; background:var(--accent); border-radius:3px 3px 0 0; opacity:0.85; min-height:2px; }
+.ph-bar-label { font-size:9px; color:var(--muted); text-align:center; font-family:'IBM Plex Mono',monospace; margin-top:3px; }
+.ph-table { width:100%; border-collapse:collapse; font-size:11px; font-family:'IBM Plex Mono',monospace; }
+.ph-table th { color:var(--muted); font-weight:700; text-align:left; padding:5px 4px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:0.08em; }
+.ph-table td { padding:6px 4px; border-bottom:1px solid var(--border); color:var(--soft); }
+.ph-table tr:last-child td { border-bottom:none; }
+.ph-add-btn { width:100%; padding:8px; background:none; border:1px dashed var(--border); border-radius:6px; color:var(--accent); font-family:'IBM Plex Mono',monospace; font-size:11px; cursor:pointer; margin-top:8px; }
+
 /* ══ SETTINGS PAGE ══ */
 .setting-row{padding:14px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
 .setting-row:last-child{border-bottom:none}
@@ -4912,99 +4933,202 @@ function toggleListingDetail(itemId) {
 function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-  // ── Data ──
   const tfStart   = getTimeframeStart(dashTimeframe);
-  const sold      = items.filter(i=>i.status==='Sold').filter(i=>new Date(i.createdAt||i.dateAcquired)>=tfStart);
-  const listed    = items.filter(i=>i.status==='Listed');
-  const unlisted  = items.filter(i=>i.status==='Unlisted');
-  const totalProfit = sold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0);
-  const netProfit = totalProfit;
+  const allSold   = items.filter(i => i.status === 'Sold');
+  const sold      = allSold.filter(i => new Date(i.soldDate || i.sold_at || i.createdAt) >= tfStart);
+  const listed    = items.filter(i => i.status === 'Listed');
+  const unlisted  = items.filter(i => i.status === 'Unlisted');
+  const Sv        = getSettings ? getSettings() : S;
 
-  // ── Growth cache ──
-  const gc = loadGrowthCache();
-  const huntItems      = gc ? (gc.data.hunt_list||[]) : [];
-  const staleFromCache = gc ? (gc.data.stale_actions||[]).slice(0,5) : [];
+  // KPI computation
+  const totalSales  = sold.reduce((s, i) => s + parseFloat(i.soldPrice || i.sold_price || 0), 0);
+  const totalCosts  = sold.reduce((s, i) => s + parseFloat(i.cost || 0), 0);
+  const totalFees   = sold.reduce((s, i) => {
+    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    return s + sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+  }, 0);
+  const netProfit   = totalSales - totalCosts - totalFees;
+  const margin      = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : '0.0';
+  const roi         = totalCosts > 0 ? ((netProfit / totalCosts) * 100).toFixed(0) : 'N/A';
 
-  // ── Stale items fallback (computed when no growth cache) ──
-  const now = Date.now();
-  const staleComputed = listed.filter(i=>{
-    const days=(now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000;
-    return days>S.maxDays;
-  }).slice(0,5).map(i=>({
-    sku:i.sku, name:i.nickname,
-    days:Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000),
-    action:'Review pricing',
-    reason:`Listed ${Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000)} days — over your ${S.maxDays}-day target.`
-  }));
-  const staleItems = staleFromCache.length ? staleFromCache : staleComputed;
+  // Expenses from pnl_expenses (use existing expense data structure)
+  const expenses = loadExpenses ? loadExpenses() : (window._expenses || []);
+  const expInPeriod = expenses.filter(e => new Date(e.date || e.createdAt) >= tfStart);
+  const totalExpenses = expInPeriod.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
 
-  // ── Hunt list HTML ──
-  const huntHTML = huntItems.length
-    ? `<div class="card" style="padding:14px 16px">
-        ${gc?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-          <div style="width:8px;height:8px;border-radius:50%;background:${gc.data.score_color||'var(--accent)'}"></div>
-          <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted)">${gc.data.score_label} · Score ${gc.data.business_score}</div>
-        </div>`:''}
-        ${huntItems.slice(0,5).map(h=>`
-          <div class="hunt-item">
-            <div class="hunt-icon">${h.icon||HUNT_ICON_SVG}</div>
-            <div>
-              <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
-              <div class="hunt-why">${h.why}</div>
-            </div>
-          </div>`).join('')}
-      </div>`
-    : `<div class="card" style="border-style:dashed;text-align:center;padding:24px 16px">
-        <div style="margin-bottom:8px;display:flex;justify-content:center"><svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" class="text-accent"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" fill="currentColor"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="9" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="9" x2="17" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-        <div style="font-family:'Syne',sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No hunt list yet</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Run the Growth Agent in Trends to get AI-curated items to look for this week.</div>
-        <button onclick="switchTab('growth')" style="background:var(--accent);color:#000;border:none;border-radius:4px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Go to Trends →</button>
-      </div>`;
+  // Category breakdown
+  const catMap = {};
+  sold.forEach(i => {
+    const cat = i.category || 'Other';
+    if (!catMap[cat]) catMap[cat] = { sales: 0, profit: 0, count: 0 };
+    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const cost = parseFloat(i.cost || 0);
+    const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+    catMap[cat].sales += sp; catMap[cat].profit += sp - cost - fee; catMap[cat].count++;
+  });
+  const cats = Object.entries(catMap).sort((a, b) => b[1].profit - a[1].profit);
 
-  // ── Stale items HTML ──
-  const staleHTML = staleItems.length
-    ? `<div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin:16px 0 10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Action Queue</div>
-       <div class="card" style="padding:14px 16px">
-         ${staleItems.map(i=>`
-           <div class="stale-item">
-             <div style="display:flex;justify-content:space-between;align-items:flex-start">
-               <div>
-                 <div class="stale-name">${i.name}</div>
-                 <div class="stale-meta">${i.sku||''} · Listed ${i.days} days</div>
-                 <div style="font-size:11px;color:var(--soft);margin-top:3px;line-height:1.4">${i.reason}</div>
-               </div>
-               <span class="stale-action">${i.action}</span>
-             </div>
-           </div>`).join('')}
-       </div>` : '';
+  // Monthly trend (last 6 months)
+  const months = [];
+  for (let m = 5; m >= 0; m--) {
+    const d = new Date(); d.setMonth(d.getMonth() - m);
+    const label = d.toLocaleDateString('en-US', { month: 'short' });
+    const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
+    const mEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.createdAt); return dt >= mStart && dt <= mEnd; });
+    const mProfit = mSold.reduce((s, i) => {
+      const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+      const cost = parseFloat(i.cost || 0);
+      const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+      return s + sp - cost - fee;
+    }, 0);
+    months.push({ label, profit: mProfit, sales: mSold.reduce((s,i)=>s+parseFloat(i.soldPrice||i.sold_price||0),0) });
+  }
+  const maxMonthVal = Math.max(...months.map(m => Math.max(m.profit, m.sales)), 1);
 
+  // Top performers / underperformers
+  const soldWithProfit = sold.map(i => {
+    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const cost = parseFloat(i.cost || 0);
+    const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
+    return { ...i, _profit: sp - cost - fee };
+  });
+  const topPerformers = [...soldWithProfit].sort((a,b)=>b._profit-a._profit).slice(0,5);
+  const negMargin     = soldWithProfit.filter(i=>i._profit<0).slice(0,5);
+
+  // Expense by category
+  const expCatMap = {};
+  expInPeriod.forEach(e => {
+    const c = e.category || 'Uncategorized';
+    expCatMap[c] = (expCatMap[c] || 0) + parseFloat(e.amount || 0);
+  });
+  const expCats = Object.entries(expCatMap).sort((a,b)=>b[1]-a[1]);
+
+  // Growth cache (hunt list + stale)
+  const gc = loadGrowthCache ? loadGrowthCache() : null;
+
+  // ── Render ──
   document.getElementById('dash-content').innerHTML = `
 
-    <!-- ① 3-KPI STRIP -->
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="kpi-card" onclick="showKpiDrillDown('profit')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon"></div>
-        <div class="kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
-        <div class="kpi-label">Net Profit</div>
+    <!-- KPI ROW -->
+    <div class="ph-kpi-grid">
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:var(--green)">$${totalSales.toFixed(0)}</div>
+        <div class="ph-kpi-label">Total Sales</div>
       </div>
-      <div class="kpi-card" onclick="showKpiDrillDown('sold')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon"></div>
-        <div class="kpi-val">${sold.length}</div>
-        <div class="kpi-label">Items Sold</div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:var(--red)">$${totalCosts.toFixed(0)}</div>
+        <div class="ph-kpi-label">Total Costs</div>
       </div>
-      <div class="kpi-card" onclick="switchTab('inventory')" role="button" tabindex="0" class="cursor-ptr">
-        <div class="kpi-icon"></div>
-        <div class="kpi-val" style="color:${unlisted.length>0?'var(--yellow)':'var(--green)'}">${unlisted.length}</div>
-        <div class="kpi-label">To List</div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:var(--yellow)">$${totalFees.toFixed(0)}</div>
+        <div class="ph-kpi-label">Total Fees</div>
+      </div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val" style="color:${netProfit>=0?'var(--green)':'var(--red)'}">$${netProfit.toFixed(0)}</div>
+        <div class="ph-kpi-label">Net Profit</div>
+      </div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val">${margin}%</div>
+        <div class="ph-kpi-label">Margin</div>
+      </div>
+      <div class="ph-kpi">
+        <div class="ph-kpi-val">${roi}%</div>
+        <div class="ph-kpi-label">ROI</div>
       </div>
     </div>
 
-    <!-- ② HUNT LIST -->
-    <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:10px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">This Week's Hunt List</div>
-    ${huntHTML}
+    <!-- EXPENSE TRACKER -->
+    <div class="ph-section-title">Expense Tracker</div>
+    <div class="ph-card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <span style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--red)">$${totalExpenses.toFixed(2)}</span>
+        <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;align-self:flex-end">this period</span>
+      </div>
+      ${expCats.length ? expCats.slice(0,5).map(([cat, amt]) => `
+        <div class="ph-row">
+          <span class="ph-row-label">${cat}</span>
+          <span class="ph-row-val">$${amt.toFixed(2)}</span>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No expenses logged this period.</div>'}
+      <button class="ph-add-btn" onclick="statsSubTab('expenses')">+ Add Expense</button>
+    </div>
 
-    <!-- ③ ACTION QUEUE -->
-    ${staleHTML}`;
+    <!-- TREND CHARTS -->
+    <div class="ph-section-title">Sales Trends</div>
+    <div class="ph-card">
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:6px">Monthly Profit (last 6 months)</div>
+      <div class="ph-chart-bar-wrap">
+        ${months.map(m => `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+            <div class="ph-bar" style="height:${Math.max(2, Math.round((Math.max(0,m.profit)/maxMonthVal)*56))}px;background:${m.profit>=0?'var(--green)':'var(--red)'}"></div>
+            <div class="ph-bar-label">${m.label}</div>
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:4px">Monthly Sales (last 6 months)</div>
+      <div class="ph-chart-bar-wrap">
+        ${months.map(m => `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+            <div class="ph-bar" style="height:${Math.max(2, Math.round((m.sales/maxMonthVal)*56))}px;background:var(--accent)"></div>
+            <div class="ph-bar-label">${m.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- CATEGORY PERFORMANCE -->
+    <div class="ph-section-title">Category Performance</div>
+    <div class="ph-card">
+      ${cats.length ? `<table class="ph-table">
+        <thead><tr><th>Category</th><th>Items</th><th>Profit</th></tr></thead>
+        <tbody>${cats.slice(0,8).map(([cat, d]) => `
+          <tr>
+            <td>${cat}</td>
+            <td>${d.count}</td>
+            <td style="color:${d.profit>=0?'var(--green)':'var(--red)'}">$${d.profit.toFixed(2)}</td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items this period.</div>'}
+    </div>
+
+    <!-- TOP PERFORMERS -->
+    <div class="ph-section-title">Top Performers</div>
+    <div class="ph-card">
+      ${topPerformers.length ? `<table class="ph-table">
+        <thead><tr><th>Item</th><th>Profit</th></tr></thead>
+        <tbody>${topPerformers.map(i => `
+          <tr>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="color:var(--green)">$${i._profit.toFixed(2)}</td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items yet.</div>'}
+    </div>
+
+    <!-- NEGATIVE MARGIN -->
+    ${negMargin.length ? `
+    <div class="ph-section-title">At Risk Items</div>
+    <div class="ph-card">
+      <table class="ph-table">
+        <thead><tr><th>Item</th><th>Loss</th></tr></thead>
+        <tbody>${negMargin.map(i => `
+          <tr>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="color:var(--red)">$${i._profit.toFixed(2)}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- RECENT SALES -->
+    <div class="ph-section-title">Recent Sales</div>
+    <div class="ph-card">
+      ${sold.length ? `<table class="ph-table">
+        <thead><tr><th>Item</th><th>Sold $</th><th>Profit</th></tr></thead>
+        <tbody>${[...sold].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.createdAt)).slice(0,10).map(i => {
+          const sp=parseFloat(i.soldPrice||i.sold_price||0),c=parseFloat(i.cost||0),f=sp*((Sv.ebayFee||13)/100)+(Sv.pkgCost||1.25),p=sp-c-f;
+          return `<tr>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td>$${sp.toFixed(2)}</td>
+            <td style="color:${p>=0?'var(--green)':'var(--red)'}">$${p.toFixed(2)}</td>
+          </tr>`;}).join('')}</tbody>
+      </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items this period.</div>'}
+    </div>`;
 }
 
 
