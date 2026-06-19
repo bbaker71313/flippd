@@ -2929,7 +2929,7 @@ function relistItem(id) {
 function showSoldDetail(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  const Sv = getSettings ? getSettings() : S;
+  const Sv = S;
   const soldPrice = parseFloat(item.soldPrice || item.sold_price || 0);
   const cost = parseFloat(item.cost) || 0;
   const ebayFeeAmt = soldPrice * ((Sv.ebayFee || 13) / 100);
@@ -4938,7 +4938,7 @@ function renderDashboard() {
   const sold      = allSold.filter(i => new Date(i.soldDate || i.sold_at || i.createdAt) >= tfStart);
   const listed    = items.filter(i => i.status === 'Listed');
   const unlisted  = items.filter(i => i.status === 'Unlisted');
-  const Sv        = getSettings ? getSettings() : S;
+  const Sv = S;
 
   // KPI computation
   const totalSales  = sold.reduce((s, i) => s + parseFloat(i.soldPrice || i.sold_price || 0), 0);
@@ -4952,7 +4952,7 @@ function renderDashboard() {
   const roi         = totalCosts > 0 ? ((netProfit / totalCosts) * 100).toFixed(0) : 'N/A';
 
   // Expenses from pnl_expenses (use existing expense data structure)
-  const expenses = loadExpenses ? loadExpenses() : (window._expenses || []);
+  const expenses = pnlExpenses || [];
   const expInPeriod = expenses.filter(e => new Date(e.date || e.createdAt) >= tfStart);
   const totalExpenses = expInPeriod.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
 
