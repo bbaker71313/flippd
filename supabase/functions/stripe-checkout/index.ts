@@ -56,9 +56,6 @@ const PRICE_ID_MAP: Record<string, string> = {
   hustle_monthly: 'STRIPE_PRICE_HUSTLE_MONTHLY',
   stack_monthly:  'STRIPE_PRICE_STACK_MONTHLY',
   empire_monthly: 'STRIPE_PRICE_EMPIRE_MONTHLY',
-  hustle_annual:  'STRIPE_PRICE_HUSTLE_ANNUAL',
-  stack_annual:   'STRIPE_PRICE_STACK_ANNUAL',
-  empire_annual:  'STRIPE_PRICE_EMPIRE_ANNUAL',
 };
 
 Deno.serve(async (req: Request) => {
