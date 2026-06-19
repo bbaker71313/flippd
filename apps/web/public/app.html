@@ -214,6 +214,12 @@ body::before{
 @media (min-width: 600px) {
   .app-header, .tab-bar { max-width: 540px; margin: 0 auto; }
 }
+@media (min-width: 860px) {
+  .tab-panel, .app-header, .tab-bar { max-width: 860px; }
+}
+@media (min-width: 1100px) {
+  .tab-panel, .app-header, .tab-bar { max-width: 1100px; }
+}
 
 /* ══ CARDS ══ */
 .card{
@@ -2030,8 +2036,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <button id="sub-manage-btn" onclick="openCustomerPortal()" style="display:none;width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--soft);padding:12px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:16px">&#x2699; Manage Billing &amp; Subscription</button>
 
     <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:14px">
-      <button id="sub-bill-month" onclick="setSubInterval('month')" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff">Monthly</button>
-      <button id="sub-bill-year" onclick="setSubInterval('year')" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted)">Annual <span style="background:var(--green);color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:3px">SAVE 20%</span></button>
+      <button id="sub-bill-month" style="flex:1;padding:8px;border:none;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:default;background:var(--accent);color:#fff">Monthly</button>
     </div>
 
     <div id="sub-tier-cards"></div>
@@ -2806,6 +2811,7 @@ function renderFilteredList() {
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
             <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
             ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
+            ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
             ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">✓ Sold</button>` : ''}
@@ -5077,6 +5083,36 @@ async function runEbaySyncPull(){
   await ebayPullListings(_ebaySyncDays);
 }
 
+async function handleListOnEbay(inventoryId) {
+  if (!isUnlocked()) { showToast('Log in to push listings to eBay'); return; }
+  showToast('⏳ Pushing to eBay...');
+  try {
+    const res = await fetch(EBAY_BASE + '/create-listing', {
+      method: 'POST', headers: getApiHeaders(), body: JSON.stringify({ inventoryId })
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast('✗ ' + (data.error || 'eBay listing failed')); return; }
+    showToast('✅ Listed on eBay!');
+    await syncFromServer();
+  } catch(e) { showToast('✗ ' + e.message); }
+}
+
+async function handleSyncOrders() {
+  if (!isUnlocked()) { showToast('Log in to sync sold orders'); return; }
+  const st = document.getElementById('sync-progress');
+  const btn = document.getElementById('sync-orders-btn');
+  if (st) { st.style.color = 'var(--soft)'; st.textContent = '⏳ Syncing sold orders from eBay...'; }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  try {
+    const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
+    const data = await res.json();
+    if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ ' + (data.error || 'Sync failed'); } return; }
+    if (st) { st.style.color = 'var(--green)'; st.textContent = '✅ ' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    await syncFromServer();
+  } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = '✗ ' + e.message; } }
+  finally { if (btn) { btn.disabled = false; btn.style.opacity = '1'; } }
+}
+
 // ══════════════════════════════════════════════════
 // EBAY DEDUPE — client-side fuzzy match for ambiguous pairs
 // Backend auto-merges by ebay_item_id. This catches pre-existing
@@ -7066,8 +7102,8 @@ function renderSubTierCards() {
   var currentTier = user.tier || 'trial';
   container.innerHTML = ['hustle','stack','empire'].map(function(t) {
     var d = TIER_INFO[t];
-    var price = d[_subInterval];
-    var monthly = _subInterval==='year' ? (price/12).toFixed(0) : price;
+    var price = d['month'];
+    var monthly = price;
     var isCurrent = currentTier === t;
     var isPopular = t === 'hustle';
     return '<div style="background:var(--card);border:' + (isCurrent?'2px solid '+d.color:'1px solid var(--border)') + ';border-radius:12px;padding:16px;margin-bottom:12px;position:relative">' +
@@ -7077,7 +7113,7 @@ function renderSubTierCards() {
         '<div><div style="font-family:\'Syne\',sans-serif;font-size:20px;font-weight:900;color:'+d.color+'">' + d.name + '</div>' +
         '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + d.tagline + '</div></div>' +
         '<div class="text-right"><div style="font-family:\'Syne\',sans-serif;font-size:24px;font-weight:900;color:var(--text);line-height:1">$' + monthly + '</div>' +
-        '<div style="font-size:10px;color:var(--muted);margin-top:2px">/mo' + (_subInterval==='year'?' billed annually':'') + '</div></div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">/mo</div></div>' +
       '</div>' +
       '<ul style="list-style:none;padding:0;margin:10px 0">' +
         d.features.map(function(f){ return '<li style="font-size:12px;color:var(--soft);padding:3px 0;display:flex;align-items:flex-start"><span style="color:'+d.color+';margin-right:6px;font-weight:700">\u2713</span><span>'+f+'</span></li>'; }).join('') +
@@ -7721,7 +7757,8 @@ function sPnlMiles() {
 <button class="btn" id="sync-90" onclick="setSyncDays(90)" style="flex:1;font-size:12px;padding:10px;background:var(--accent);color:#000;border:none;font-weight:700">90 days</button>
 </div>
 <div id="sync-progress" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px;line-height:1.4"></div>
-<button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull from eBay</button>
+<button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull Listings from eBay</button>
+<button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">✓ Sync Sold Orders</button>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
 

@@ -87,8 +87,10 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'GET'  && path.endsWith('/callback'))      return await handleCallback(req, supabase, jwtSecret);
     if (req.method === 'GET'  && path.endsWith('/status'))        return await handleStatus(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/disconnect'))    return await handleDisconnect(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/price-change'))  return await handlePriceChange(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/pull-listings')) return await handlePullListings(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/price-change'))   return await handlePriceChange(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/pull-listings'))  return await handlePullListings(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/create-listing')) return await handleCreateListing(req, supabase, jwtSecret);
+    if (req.method === 'POST' && path.endsWith('/sync-orders'))    return await handleSyncOrders(req, supabase, jwtSecret);
     return json({ error: 'Not found' }, 404);
   } catch (err) {
     console.error('ebay-oauth error:', err);
@@ -424,4 +426,75 @@ async function handlePriceChange(req: Request, supabase: ReturnType<typeof creat
   }
 
   return json({ success: true, offerId, newPrice });
+}
+const EBAY_COND: Record<string, string> = { 'New': 'NEW', 'Like New': 'LIKE_NEW', 'Open Box': 'NEW_OTHER', 'Good': 'USED_GOOD', 'Used': 'USED_GOOD', 'Fair': 'USED_ACCEPTABLE', 'Poor': 'FOR_PARTS_OR_NOT_WORKING' };
+async function handleCreateListing(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const userId = await getAuthedUserId(req, jwtSecret);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+  const { inventoryId } = await req.json().catch(() => ({})) as { inventoryId?: number };
+  if (!inventoryId) return json({ error: 'Missing inventoryId' }, 400);
+  const { data: item } = await supabase.from('inventory').select('*').eq('id', inventoryId).eq('user_id', userId).maybeSingle();
+  if (!item) return json({ error: 'Item not found' }, 404);
+  if (!item.sell_price) return json({ error: 'Set a sell price before listing on eBay' }, 400);
+  const accessToken = await getValidEbayToken(userId, supabase);
+  if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
+  const h = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json' };
+  const sku = (item.sku as string | null) || `sfp-${item.id}`;
+  const title = ((item.listing_title || item.nickname || 'Item for sale') as string).slice(0, 80);
+  const desc  = ((item.listing_description || item.notes || title) as string).slice(0, 4000);
+  const cond  = EBAY_COND[(item.condition as string) ?? ''] ?? 'USED_GOOD';
+  const imgs  = (Array.isArray(item.photos) ? (item.photos as string[]) : []).slice(0, 12);
+  await fetch(`https://api.ebay.com/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
+    method: 'PUT', headers: h,
+    body: JSON.stringify({ product: { title, description: desc, ...(imgs.length ? { imageUrls: imgs } : {}) }, condition: cond, availability: { shipToLocationAvailability: { quantity: 1 } } }),
+  });
+  const locR = await (await fetch('https://api.ebay.com/sell/inventory/v1/location', { headers: h })).json() as Record<string, unknown>;
+  let locKey = (locR.locations as Array<Record<string, unknown>>)?.[0]?.merchantLocationKey as string | undefined;
+  if (!locKey) {
+    await fetch('https://api.ebay.com/sell/inventory/v1/location/sfp-default', { method: 'POST', headers: h, body: JSON.stringify({ merchantLocationStatus: 'ENABLED', name: 'ScanForProfit', location: { address: { country: 'US' } } }) });
+    locKey = 'sfp-default';
+  }
+  const offerListR = await (await fetch('https://api.ebay.com/sell/inventory/v1/offer?limit=1', { headers: h })).json() as Record<string, unknown>;
+  const policies = (offerListR.offers as Array<Record<string, unknown>>)?.[0]?.listingPolicies;
+  if (!policies) return json({ error: 'No eBay listing policies found. Set up shipping, return, and payment policies in your eBay seller account, then try again.' }, 400);
+  const catId = item.ebay_category_id ? String(item.ebay_category_id) : '20082';
+  const offerRes = await fetch('https://api.ebay.com/sell/inventory/v1/offer', {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ sku, marketplaceId: 'EBAY_US', format: 'FIXED_PRICE', availableQuantity: 1, categoryId: catId, listingDescription: desc, listingPolicies: policies, merchantLocationKey: locKey, pricingSummary: { price: { currency: 'USD', value: Number(item.sell_price).toFixed(2) } } }),
+  });
+  if (!offerRes.ok) {
+    const e = await offerRes.json().catch(() => ({})) as Record<string, unknown>;
+    return json({ error: (e.errors as Array<Record<string, unknown>>)?.[0]?.message ?? 'Failed to create eBay offer' }, 502);
+  }
+  const { offerId } = await offerRes.json() as { offerId: string };
+  const pubRes = await fetch(`https://api.ebay.com/sell/inventory/v1/offer/${offerId}/publish`, { method: 'POST', headers: h });
+  if (!pubRes.ok) {
+    const e = await pubRes.json().catch(() => ({})) as Record<string, unknown>;
+    return json({ error: (e.errors as Array<Record<string, unknown>>)?.[0]?.message ?? 'Failed to publish eBay listing' }, 502);
+  }
+  const { listingId } = await pubRes.json() as { listingId: string };
+  await supabase.from('inventory').update({ status: 'Listed', ebay_item_id: listingId, listed_at: new Date().toISOString() }).eq('id', inventoryId);
+  return json({ listingId, listingUrl: `https://www.ebay.com/itm/${listingId}` });
+}
+
+async function handleSyncOrders(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  const userId = await getAuthedUserId(req, jwtSecret);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+  const accessToken = await getValidEbayToken(userId, supabase);
+  if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const ordersRes = await fetch(`https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
+  if (!ordersRes.ok) return json({ error: 'eBay orders API error: ' + ordersRes.status }, 502);
+  const { orders = [] } = await ordersRes.json() as { orders?: Array<Record<string, unknown>> };
+  let synced = 0;
+  for (const order of orders) {
+    for (const li of (order.lineItems ?? []) as Array<Record<string, unknown>>) {
+      const soldPrice = parseFloat((li.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
+      let row: { id: number } | null = null;
+      if (li.sku) { const { data: d } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', li.sku as string).maybeSingle(); row = d; }
+      if (!row && li.legacyItemId) { const { data: d } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', li.legacyItemId as string).maybeSingle(); row = d; }
+      if (row) { await supabase.from('inventory').update({ status: 'Sold', sold_at: (order.creationDate as string) ?? new Date().toISOString(), sold_price: soldPrice }).eq('id', row.id); synced++; }
+    }
+  }
+  return json({ synced });
 }

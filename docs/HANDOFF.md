@@ -4,6 +4,120 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-19b — eBay push listing + sync sold orders (branch: claude/stripe-empire-ebay-layout-l8wh8v)
+
+### What changed this session
+
+**eBay create-listing endpoint (NEW) — `ebay-oauth` v40**
+- `POST /create-listing` — pushes a ScanForProfit inventory item to eBay as a live fixed-price listing
+  1. Loads item from DB (validates sell_price exists)
+  2. PUT `/sell/inventory/v1/inventory_item/{sku}` — registers product (title, desc, condition, images)
+  3. GET `/sell/inventory/v1/location` — gets/creates merchant location key (`sfp-default` if none)
+  4. GET `/sell/inventory/v1/offer?limit=1` — borrows listingPolicies from existing offer (returns 400 with setup instructions if seller has no offers yet)
+  5. POST `/sell/inventory/v1/offer` — creates offer (FIXED_PRICE, EBAY_US, category 20082 fallback)
+  6. POST `/sell/inventory/v1/offer/{offerId}/publish` — publishes listing
+  7. Updates inventory: `status='Listed'`, `ebay_item_id=listingId`, `listed_at=now()`
+  8. Returns `{ listingId, listingUrl }`
+- Condition mapping: New→NEW, Like New→LIKE_NEW, Open Box→NEW_OTHER, Good/Used→USED_GOOD, Fair→USED_ACCEPTABLE, Poor→FOR_PARTS_OR_NOT_WORKING
+- Category fallback: uses `item.ebay_category_id` from DB, or 20082 ("Everything Else")
+
+**eBay sync-orders endpoint (NEW) — `ebay-oauth` v40**
+- `POST /sync-orders` — dedicated sold-order sync (90 days) that captures actual sale price
+  - Queries eBay Fulfillment API for all orders in last 90 days
+  - For each line item: matches by SKU then by `ebay_item_id`
+  - Updates DB: `status='Sold'`, `sold_at`, `sold_price` (from `lineItemCost.value`)
+  - Returns `{ synced }` count
+- Differs from `pull-listings` (which ignores actual sale price)
+
+**Migration: `sold_price` column**
+- `supabase/migrations/20260619000000_006_add_sold_price.sql`
+- `ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS sold_price numeric;`
+- Applied to Supabase project dqgfpchkheznvanfgsmx ✅
+
+**app.html UI changes**
+- "List on eBay" button: appears on Unlisted items with no `ebay_item_id`. Calls `handleListOnEbay(id)` → `POST /create-listing` → refreshes inventory.
+- "Sync Sold Orders" button: added to eBay sync panel (below "Pull Listings" button). Calls `handleSyncOrders()` → `POST /sync-orders` → shows count + refreshes inventory.
+- Both handlers show progress in `#sync-progress` and restore button state in `finally`.
+
+### Commit
+`07a0c23` — on branch `claude/stripe-empire-ebay-layout-l8wh8v`, PR #93
+
+### Next tasks
+1. **Test push listing**: Click "List on eBay" on an Unlisted item in app.html. First time may need eBay listing policies set up.
+2. **Test sync orders**: Use "Sync Sold Orders" button in eBay sync panel.
+3. **Merge PR #93** — Vercel deploying as of 2026-06-19 02:16 UTC.
+4. **Verify Stripe checkout** — still needs `STRIPE_PRICE_HUSTLE_MONTHLY`, `STRIPE_PRICE_STACK_MONTHLY`, `STRIPE_PRICE_EMPIRE_MONTHLY` in Supabase secrets.
+
+### Blockers
+- `handleCreateListing` requires seller to have at least one existing eBay offer (to borrow listing policies). If the seller has never listed via Inventory API, `policies` will be null and the endpoint returns a 400 with setup instructions. Workaround: the user can create one listing manually on eBay first, then all future pushes will work.
+
+---
+
+## Session: 2026-06-19 — Stripe fix, monthly billing, desktop layout, animated logo (branch: claude/stripe-empire-ebay-layout-l8wh8v)
+
+### What changed this session
+
+**Bug fix — Stripe checkout interval mismatch (RESOLVED)**
+- Root cause: `app.html` sends `interval: 'month'` but `PRICE_ID_MAP` keys use `'monthly'`/`'annual'`. Every upgrade click returned a silent "Unknown tier: hustle" error.
+- Fix: Added normalization in `stripe-checkout/index.ts`: `month→monthly`, `year→annual` before PRICE_ID_MAP lookup.
+- Deployed as `stripe-checkout` v46 via Supabase MCP.
+
+**Annual billing removed (monthly only for now)**
+- `app.html`: Removed the Monthly/Annual toggle button from the Plan tab. Price cards always render using `d['month']` price. Removed `_subInterval==='year'` conditional display.
+- `index.html`: Removed `or $180/yr · Save $48` (Hustle) and `or $480/yr · Save $108` (Stack). Updated tagline to "Monthly billing only. Cancel anytime."
+- `CLAUDE.md`: Added "Billing: Monthly only — annual plans not yet available" rule.
+
+**index.html mobile overflow fix**
+- Added `overflow-x: hidden` to both `html` and `body` to prevent horizontal overflow that caused mobile browsers to zoom out.
+
+**app.html desktop responsive layout**
+- Added two breakpoints so the app fills screen on desktop:
+  - `@media (min-width: 860px)` → `max-width: 860px`
+  - `@media (min-width: 1100px)` → `max-width: 1100px`
+- Applies to `.tab-panel`, `.app-header`, `.tab-bar`.
+
+**Animated logo in index.html**
+- Replaced the static gold "S" box (`.logo-mark`) with the pulsing ScanMark SVG in both nav and footer.
+- SVG matches the loading indicator in app.html's Pulse tab.
+
+### eBay scopes confirmed (5 total, in `ebay-oauth/index.ts`)
+1. `api_scope` — public read
+2. `sell.inventory` — create/update/publish/delete listings and offers
+3. `sell.account` — fulfillment/payment/return policies
+4. `sell.fulfillment` — orders, shipments, tracking
+5. `commerce.identity.readonly` — seller username
+
+### CI results (PR #93)
+- Vercel: ✅ Deployed
+- Supabase: ✅ Preview branch
+- TypeScript Check: pending at session end
+- Railway: building at session end
+
+### Next task
+1. Merge PR #93
+2. Decide eBay feature priority (user was asked):
+   - **Option A (recommended)**: Push listing to eBay — closes the full scan→add→list loop
+   - **Option B**: Sync sold orders — pull fulfilled orders, mark inventory as Sold
+3. After merge: verify Stripe checkout end-to-end. IMPORTANT: requires these Supabase secrets to be set in Dashboard → Edge Functions → Secrets:
+   - `STRIPE_PRICE_HUSTLE_MONTHLY`
+   - `STRIPE_PRICE_STACK_MONTHLY`
+   - `STRIPE_PRICE_EMPIRE_MONTHLY`
+
+### Files changed
+- `supabase/functions/stripe-checkout/index.ts` — interval normalization, deployed v46
+- `apps/web/public/app.html` — remove annual toggle, monthly-only price cards, desktop breakpoints
+- `apps/web/public/index.html` — remove annual pricing, overflow fix, animated logo
+- `CLAUDE.md` — monthly-only billing rule
+- `docs/HANDOFF.md` — this file
+
+### Commit
+`31b7276` — PR #93 (draft, open)
+
+### Blockers
+- Stripe checkout still requires `STRIPE_PRICE_*_MONTHLY` env vars to be set in Supabase secrets (separate from code fix).
+
+---
+
 ## Session: 2026-06-18b — Wire pg_cron trigger for export-reminder (branch: claude/ebay-sync-schema-dhbhir)
 
 ### What changed this session
