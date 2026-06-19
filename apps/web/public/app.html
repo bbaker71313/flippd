@@ -5395,7 +5395,7 @@ function handleImage(e) {
     try { Object.defineProperty(imgFile, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
     showPreview(blobUrl);
   }).catch(function(err) {
-    showToast(err.message || 'Could not load photo'));
+    showToast(err.message || 'Could not load photo');
     console.error('handleImage failed:', err);
   });
   try { (e.target || e).value = ''; } catch(_) {}
