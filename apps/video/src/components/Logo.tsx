@@ -5,26 +5,15 @@ export const ScanMark: React.FC<{ size?: number; dark?: boolean }> = ({
   size = 40,
   dark = true,
 }) => {
-  const bracketColor = dark ? brand.accent : brand.accentDim;
+  const ringColor = dark ? brand.accent : brand.accentDim;
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <path
-        d="M3 13 V3 H13"
-        stroke={bracketColor}
-        strokeWidth={2.5}
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <path
-        d="M19 29 H29 V19"
-        stroke={bracketColor}
-        strokeWidth={2.5}
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <rect x="6" y="21" width="4" height="6" fill={brand.green} />
-      <rect x="12" y="16" width="4" height="11" fill={brand.green} />
-      <rect x="18" y="11" width="4" height="16" fill={brand.green} />
+    <svg width={size} height={size} viewBox="0 0 128 128" fill="none">
+      <circle cx="64" cy="64" r="56" stroke={ringColor} strokeWidth={2.5} />
+      <circle cx="64" cy="64" r="40" stroke={brand.green} strokeWidth={2.5} strokeDasharray="2.5 5" />
+      <circle cx="64" cy="64" r="24" stroke={ringColor} strokeWidth={2} />
+      <line x1="24" y1="64" x2="104" y2="64" stroke={brand.green} strokeWidth={2.5} />
+      <line x1="64" y1="24" x2="64" y2="104" stroke={brand.green} strokeWidth={2.5} />
+      <circle cx="64" cy="64" r="4" fill={brand.green} />
     </svg>
   );
 };

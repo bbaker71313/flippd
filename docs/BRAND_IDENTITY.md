@@ -8,44 +8,52 @@
 
 ## 1. LOGO CONCEPT
 
-### The Mark: "Scan Bracket"
+### The Mark: "Concentric Crosshair"
 
-Two L-shaped corner brackets (scan viewfinder / price-tag reticle) frame three
-ascending bar-chart columns. The brackets read as "targeting" while the rising bars
-read as "profit." At 32 × 32 px the bars are the dominant element; at 200 px the
-brackets read as a precision instrument surrounding a data signal.
+Three concentric circles (outer gold, middle green dashed, inner gold) with a
+green crosshair and a pulsing green center dot. Reads as a precision scanning
+instrument targeting profit. At small sizes the crosshair dominates; at large
+sizes the layered ring depth becomes the story.
 
 **Rules:**
-- Two colors only: `#d4a843` (brackets) + `#00e676` (bars)
-- Flat fill only — no gradients, no drop shadows
+- Two colors only: `#d4a843` (gold rings) + `#00e676` (green crosshair, dashed ring, center dot)
+- Stroke only — no gradient fills, no drop shadows
 - Minimum clear-space: 4 px on all sides at any render size
-- On light backgrounds (rare — print, favicon on white), swap bracket stroke to `#8a6c28` (darker gold, better contrast on white)
+- On light backgrounds (rare — print, email), swap gold stroke to `#8a6c28` (darker gold, better contrast on white)
 
-### SVG Mark (32 × 32 viewBox — scales to any size)
+### SVG Mark (128 × 128 viewBox — scales to any size)
 
 ```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Top-left scan bracket -->
-  <path
-    d="M3 13 V3 H13"
-    stroke="#d4a843"
-    stroke-width="2.5"
-    stroke-linecap="square"
-    stroke-linejoin="miter"
-  />
-  <!-- Bottom-right scan bracket -->
-  <path
-    d="M19 29 H29 V19"
-    stroke="#d4a843"
-    stroke-width="2.5"
-    stroke-linecap="square"
-    stroke-linejoin="miter"
-  />
-  <!-- Rising profit bars -->
-  <rect x="6"  y="21" width="4" height="6"  fill="#00e676"/>
-  <rect x="12" y="16" width="4" height="11" fill="#00e676"/>
-  <rect x="18" y="11" width="4" height="16" fill="#00e676"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <circle cx="64" cy="64" r="56" stroke="#d4a843" stroke-width="2.5"/>
+  <circle cx="64" cy="64" r="40" stroke="#00e676" stroke-width="2.5" stroke-dasharray="2.5 5"/>
+  <circle cx="64" cy="64" r="24" stroke="#d4a843" stroke-width="2"/>
+  <line x1="24" y1="64" x2="104" y2="64" stroke="#00e676" stroke-width="2.5"/>
+  <line x1="64" y1="24" x2="64" y2="104" stroke="#00e676" stroke-width="2.5"/>
+  <circle cx="64" cy="64" r="4" fill="#00e676"/>
 </svg>
+```
+
+### Animated Variants (use where motion is allowed)
+
+| Variant | Animation | Use |
+|---|---|---|
+| Pulse Glow | Center dot `r` pulses 4→8, 3s loop | Nav headers, email, subtle UI |
+| Scanning Sweep | Crosshair rotates 360°, 2s loop | Loading states, scan-in-progress |
+| Expand & Contract | Middle ring `r` pulses 40→48, 2.5s loop | Empty states, idle/ready |
+| Layered Scan | Rings light up sequentially, 3s loop | Onboarding, product tour |
+
+```svg
+<!-- Pulse Glow: add to center dot -->
+<defs><style>@keyframes sfp-pulse{0%,100%{r:4}50%{r:8}}</style></defs>
+<circle cx="64" cy="64" r="4" fill="#00e676" style="animation:sfp-pulse 3s ease-in-out infinite"/>
+
+<!-- Scanning Sweep: wrap crosshair in <g> -->
+<defs><style>@keyframes sfp-sweep{0%,100%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style></defs>
+<g style="animation:sfp-sweep 2s linear infinite;transform-origin:64px 64px">
+  <line x1="24" y1="64" x2="104" y2="64" stroke="#00e676" stroke-width="2.5"/>
+  <line x1="64" y1="24" x2="64" y2="104" stroke="#00e676" stroke-width="2.5"/>
+</g>
 ```
 
 ### Wordmark (200 px header)
