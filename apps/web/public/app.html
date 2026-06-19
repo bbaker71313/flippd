@@ -35,7 +35,7 @@
 <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-<title>ScanForProfit: Scan the shelf. Know what to buy.</title>
+<title>ScanForProfit: Scan, List, Profit.</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -242,10 +242,9 @@ body::before{
 
 /* ══ SETUP ══ */
 .setup-card{
-  background:linear-gradient(135deg,#1e1800 0%,#100c00 100%);
-  border:1px solid rgba(212,168,67,0.4);
+  background:var(--card);
+  border:1px solid var(--border);
   border-radius:14px;padding:24px 20px;margin-bottom:18px;
-  box-shadow:0 0 60px rgba(212,168,67,0.15),inset 0 1px 0 rgba(212,168,67,0.08);
 }
 .setup-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);margin-bottom:8px}
 .setup-sub{font-size:12px;color:var(--soft);line-height:1.7;margin-bottom:16px}
@@ -572,7 +571,7 @@ body::before{
   transition:transform 0.15s,box-shadow 0.15s,border-color 0.15s;
   box-shadow:0 4px 20px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05);
 }
-.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.7),0 0 0 1px rgba(212,168,67,0.2);border-color:rgba(212,168,67,0.3)}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.7);border-color:var(--border-bright)}
 .kpi-card:active{transform:scale(0.96)}
 .kpi-icon{font-size:18px;margin-bottom:4px}
 .kpi-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:var(--accent);line-height:1.1;text-shadow:0 0 28px rgba(212,168,67,0.65)}
@@ -581,7 +580,7 @@ body::before{
 
 .nav-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .nav-card{background:linear-gradient(160deg,#1d1d1d 0%,#131313 100%);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;cursor:pointer;transition:all 0.15s;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 20px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05)}
-.nav-card:hover{border-color:rgba(212,168,67,0.3);box-shadow:0 8px 32px rgba(0,0,0,0.7),0 0 0 1px rgba(212,168,67,0.15)}
+.nav-card:hover{border-color:var(--border-bright);box-shadow:0 8px 32px rgba(0,0,0,0.7)}
 .nav-card:active{transform:scale(0.97);opacity:0.9}
 .nav-card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .nav-card-icon{font-size:18px}
@@ -782,7 +781,7 @@ body::before{
 .cam-btn:active { transform: scale(0.96) translateY(1px); }
 
 /* Item card hover lift */
-.item-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,168,67,0.12); transform: translateY(-2px); }
+.item-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.7); transform: translateY(-2px); }
 .item-card { transition: box-shadow 0.15s, transform 0.15s; }
 
 /* Sold modal — success burst */
@@ -852,10 +851,6 @@ body::before{
 }
 .app-header { position: sticky; }
 
-/* Setup card — warmer glow */
-.setup-card {
-  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
-}
 
 /* Growth score — entrance */
 @keyframes scoreCount {
@@ -1109,7 +1104,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <div class="app-logo">
     <div>
       <div class="app-logo-name">ScanForProfit</div>
-      <div class="app-logo-sub">Scan the shelf. Know what to buy.</div>
+      <div class="app-logo-sub">Scan, List, Profit.</div>
     </div>
   </div>
   <div class="header-right" style="display:flex;gap:6px;align-items:center">
@@ -1143,14 +1138,14 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
 
 <!-- TRIAL / TIER BANNER (sticky, shows for trial + scout users) -->
-<div id="tier-banner" style="display:none;background:var(--green-bg);border-bottom:2px solid var(--green-border);padding:7px 16px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text);position:sticky;top:56px;z-index:50;display:flex;align-items:center;justify-content:center;gap:8px">
+<div id="tier-banner" style="display:none;background:var(--green-bg);border-bottom:2px solid var(--green-border);padding:7px 12px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text);position:sticky;top:56px;z-index:50;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;width:100%;overflow:hidden;flex-wrap:wrap">
   <span id="tier-banner-text"></span>
   <button id="tier-banner-cta" onclick="switchTab('dashboard');setTimeout(function(){statsSubTab('subscription')},150)" style="background:var(--accent);color:#000;border:none;padding:3px 10px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">Upgrade</button>
 </div>
 
 <!-- TAB BAR -->
 <div class="tab-bar">
-  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Scout</button>
+  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Scanner</button>
   <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Inventory</button>
   <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Photos</button>
   <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Pulse</button>
@@ -1166,12 +1161,12 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <div id="src-view-setup">
     <div style="height:18px"></div>
     <div class="setup-card">
-      <div style="font-family:'Syne',sans-serif;font-size:clamp(22px,6vw,28px);font-weight:900;line-height:1.1;color:var(--text);margin-bottom:10px">Flip or pass. You'll know in 8 seconds.</div>
-      <p class="setup-sub" style="margin-bottom:16px">ScanForProfit tells you in seconds whether to flip or pass, with real profit math after fees. Scan a single item or a whole shelf.</p>
+      <div style="font-family:'Syne',sans-serif;font-size:clamp(22px,6vw,28px);font-weight:900;line-height:1.1;color:var(--text);margin-bottom:10px">Scan, List, Profit.</div>
+      <p class="setup-sub" style="margin-bottom:16px">ScanForProfit gives you a Hot/List/Skip decision with real profit math after fees. Scan a single item or a whole shelf.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--green)">8 sec</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:2px">FLIP or PASS</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:2px">Hot/List/Skip</div>
         </div>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--accent)">1 photo</div>
@@ -1296,23 +1291,9 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
         <input type="password" class="f-input" id="pa-removebg-key" placeholder="Your remove.bg API key" style="width:100%;box-sizing:border-box;margin-top:4px" oninput="S.removebgKey=this.value">
       </div>
     </div>
-    <div class="card mb-12">
-      <h3 class="card-title">Export Reminder</h3>
-      <div class="setting-row" style="border-bottom:1px solid var(--border)">
-        <div>
-          <span class="setting-name">Daily export reminder</span>
-          <span class="setting-desc">Email when you have items ready to export</span>
-        </div>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="setting-reminder-enabled" style="width:16px;height:16px;cursor:pointer" onchange="S.exportReminderEnabled=this.checked">
-          <span style="font-size:12px;color:var(--soft);font-family:'IBM Plex Mono',monospace">On</span>
-        </label>
-      </div>
-      <div class="setting-row" style="border-bottom:none">
-        <span class="setting-name">Reminder time</span>
-        <input type="time" id="setting-reminder-time" value="09:00" style="background:var(--input);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px" onchange="S.exportReminderTime=this.value">
-      </div>
-    </div>
+    <!-- hidden inputs to prevent JS errors from references to these IDs -->
+    <input type="checkbox" id="setting-reminder-enabled" style="display:none" onchange="S.exportReminderEnabled=this.checked">
+    <input type="time" id="setting-reminder-time" value="09:00" style="display:none" onchange="S.exportReminderTime=this.value">
     <div class="card mb-12">
       <h3 class="card-title">Tax &amp; Mileage</h3>
       <div class="setting-row">
@@ -1336,6 +1317,12 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
     <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
     <button class="btn btn-ghost" onclick="resetSettings()">↺ Reset to Defaults</button>
+    <div class="card mb-12" style="margin-top:12px">
+      <h3 class="card-title">Backup &amp; Restore</h3>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
+      <button class="btn btn-green" onclick="exportFlippdBackup()" style="margin-bottom:8px">Download Full Backup</button>
+      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px" onclick="document.getElementById('import-flippd-file').click()">Restore from Backup</button>
+    </div>
     <div id="ebay-connect-section" style="margin:16px 0;padding:14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px">
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">eBay Account</div>
       <div id="ebay-status-display" style="font-size:12px;color:var(--muted);margin-bottom:10px">Checking...</div>
@@ -1393,27 +1380,15 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <!-- INPUT -->
   <div id="src-view-input" style="display:none">
     <div style="padding:10px 0 18px">
-      <h1 style="font-family:'Syne',sans-serif;font-size:clamp(24px,7vw,32px);font-weight:900;letter-spacing:-0.02em;line-height:1.1;color:var(--text)">Flip or <span style="color:#007a3d">pass?</span></h1>
-      <p style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6;font-weight:500">Photo or describe any item. AI gives you a FLIP or PASS decision with profit math.</p>
+      <h1 style="font-family:'Syne',sans-serif;font-size:clamp(24px,7vw,32px);font-weight:900;letter-spacing:-0.02em;line-height:1.1;color:var(--text)">Profit <span style="color:#007a3d">Scanner</span></h1>
+      <p style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6;font-weight:500">Take a photo or describe any item. Get a Hot/List/Skip decision using eBay's live sold comp data.</p>
     </div>
     <div class="mode-tabs">
       <button class="mode-tab active-green" id="tab-single" onclick="setMode('single')"><span class="tab-icon"></span>SINGLE ITEM</button>
       <button class="mode-tab" id="tab-shelf" onclick="setMode('shelf')"><span class="tab-icon"></span>SHELF SCAN</button>
     </div>
-    <div id="hint-single" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Photo or describe one item → get full FLIP or PASS breakdown with profit math</div>
-    <div id="hint-shelf" class="shelf-hint-box" style="display:none">Wide photo of a full shelf. AI identifies every item and sorts by HOT / FLIP / PASS</div>
-    <div id="first-scan-prompt" style="background:var(--green-bg);border:1.5px solid var(--green-border);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px">
-        <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">Step 1 of 3</div>
-      </div>
-      <div style="font-size:11px;color:var(--soft);line-height:1.5;margin-bottom:8px">Take a photo of any item or describe it below. Get a FLIP or PASS in seconds.</div>
-      <div style="display:flex;gap:4px;align-items:center">
-        <div style="width:28px;height:3px;background:var(--green);border-radius:2px"></div>
-        <div style="width:28px;height:3px;background:var(--border);border-radius:2px"></div>
-        <div style="width:28px;height:3px;background:var(--border);border-radius:2px"></div>
-        <div style="font-size:10px;color:var(--muted);margin-left:4px">Scan → Inventory → List</div>
-      </div>
-    </div>
+    <div id="hint-single" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Take a photo or describe one item — get full Hot/List/Skip breakdown with profit math and listing tips.</div>
+    <div id="hint-shelf" class="shelf-hint-box" style="display:none">Take a photo of a full shelf. Get a full Hot/List/Skip breakdown with profit math and listing tips for every item.</div>
     <div class="cam-grid">
       <button class="cam-btn green" id="btn-camera" onclick="triggerImageInput('camera')"><span class="ci"><svg width="14" height="12" viewBox="0 0 14 12" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 3L5 1h4l1 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>TAKE PHOTO</button>
       <button class="cam-btn" onclick="triggerImageInput('gallery')"><span class="ci"><svg width="14" height="12" viewBox="0 0 14 12" fill="none"><rect x="1" y="1.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 8.5l3-3 2.5 2.5 2.5-2.5 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>PHOTO LIBRARY</button>
@@ -1430,11 +1405,11 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <div style="display:flex;align-items:center"><span class="cost-dollar">$</span><input class="cost-input" id="cost-input" aria-label="Your cost" type="number" placeholder="0.00" min="0" step="0.25"></div>
     </div>
     <div id="error-box" class="error-box" style="display:none"></div>
-    <button class="btn btn-green" id="analyze-btn" onclick="analyze()">FLIP OR PASS</button>
+    <button class="btn btn-green" id="analyze-btn" onclick="analyze()">Run Profit Scanner</button>
     <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-top:-8px;margin-bottom:12px" id="analyze-label">Run the Numbers</div>
-    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">Rank This Shelf</button>
-    <div class="bottom-hint" id="hint-b-single">Identifies item · Pulls sold comps · Calculates profit after fees<br><span id="hint-fee-line">13% eBay fee · $1.25 packaging · Buyer pays shipping</span></div>
-    <div class="bottom-hint" id="hint-b-shelf" style="display:none">Scans every visible item · Sorts by profit potential · Flags what to grab vs skip</div>
+    <button class="btn btn-purple" id="shelf-btn" onclick="analyzeShelf()" style="display:none">Run Profit Scanner</button>
+    <div class="bottom-hint" id="hint-b-single">Identifies item · Pulls sold comps · Calculates profit after fees<br><span id="hint-fee-line">13% eBay fee · $1.25 packaging</span></div>
+    <div class="bottom-hint" id="hint-b-shelf" style="display:none">Scans every visible item · Sorts by profit potential · Flags what to list vs skip</div>
   </div>
 
   <!-- RESULTS (single) -->
@@ -1462,11 +1437,10 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text)">Inventory</div>
       <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <button class="btn btn-green" id="inv-csv-nav-btn" onclick="switchTab('csv')" style="margin-bottom:0;font-size:12px;padding:10px 8px">Export CSV</button>
-      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">Import</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button class="btn" onclick="showEbaySyncPanel()" style="margin-bottom:0;font-size:12px;padding:10px 8px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)">Sync eBay Listings</button>
+      <button class="btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--soft);font-size:12px;padding:10px 8px;margin-bottom:0" onclick="switchTab('import')">Import eBay Listings</button>
     </div>
-    <button class="btn" onclick="showEbaySyncPanel()" style="width:100%;margin-bottom:12px;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)">eBay Sync</button>
     <div id="inv-home-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
     <input class="search-box" style="width:100%;margin-bottom:14px" placeholder="Quick search..." id="inv-search-home" aria-label="Quick search inventory" oninput="invHomeSearch(this.value)">
     <div style="font-size:10px;letter-spacing:0.18em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase">By Category</div>
@@ -1478,7 +1452,10 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <button class="back-btn" onclick="showInvView('home')">← Back</button>
     <div class="flex-between-center mb-10">
       <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text)" id="inv-list-title">Items</div>
-      <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="inv-list-export-btn" onclick="switchTab('csv')" style="display:none;background:var(--green);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Export CSV</button>
+        <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
+      </div>
     </div>
     <input class="search-box" style="width:100%;margin-bottom:10px" placeholder="Search..." id="inv-search-list" aria-label="Search inventory list" oninput="renderFilteredList()">
     <div class="count-row" id="inv-list-count"></div>
@@ -1572,11 +1549,11 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-      <button class="btn btn-green flex-1-mb0" onclick="saveInvItem()">Add to Inventory</button>
+      <button class="btn btn-green flex-1-mb0" onclick="saveInvItem()">Save to Inventory</button>
       <button class="btn btn-ghost flex-1-mb0" onclick="cancelInvForm()">Cancel</button>
     </div>
     <button style="width:100%;margin-top:8px;background:linear-gradient(135deg,#6b3fa0,#00e676);color:#fff;border:none;padding:13px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" onclick="saveAndGenerateListing()">
-      &#x1f680; Save + Write eBay Listing
+      Save + Generate eBay Listing
     </button>
   </div>
 
@@ -1827,41 +1804,15 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <!-- EBAY CSV MODE -->
   <div id="csv-mode-ebay">
     <div class="card mb-12">
-      <h3 class="card-title">Export Window</h3>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;font-weight:500">Only Unlisted items added within the selected window will be included. Already-exported items are skipped automatically.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <button class="csv-win-btn" id="csv-win-24" onclick="setCsvWindow(24)">Last 24h</button>
-        <button class="csv-win-btn" id="csv-win-48" onclick="setCsvWindow(48)">Last 48h</button>
-        <button class="csv-win-btn active" id="csv-win-168" onclick="setCsvWindow(168)">Last 7 days</button>
-      </div>
-      <div id="csv-preview-count" style="font-size:13px;font-weight:600;color:var(--soft);margin-bottom:4px"></div>
-      <div id="csv-last-export" style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></div>
-    </div>
-    <div class="card mb-12">
       <h3 class="card-title">Items Ready to Export</h3>
       <div id="csv-items-list"></div>
     </div>
     <button class="btn btn-green" id="csv-export-btn" onclick="generateAndDownloadCSV()">Download CSV for eBay</button>
     <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.7;font-weight:500">After downloading: eBay Seller Hub → Reports → Upload → select your CSV file</p>
-    <div class="card" style="margin-top:10px;background:var(--yellow-bg);border-color:#e8b840">
-      <h3 class="card-title text-yellow">Daily Reminder</h3>
-      <p style="font-size:12px;color:var(--yellow);line-height:1.7;font-weight:600;margin-bottom:10px">Set a time to remind yourself to export and upload new listings.</p>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="time" id="csv-reminder-time" aria-label="Reminder time" value="09:00" style="background:var(--input-bg);border:1.5px solid #e8b840;border-radius:8px;padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">
-        <button onclick="saveCsvReminder()" style="background:var(--yellow);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">Save</button>
-      </div>
-      <div id="csv-reminder-saved" style="font-size:11px;color:var(--yellow);margin-top:6px;font-family:'IBM Plex Mono',monospace"></div>
-    </div>
   </div>
 
   <!-- FLIPPD BACKUP MODE -->
-  <div id="csv-mode-backup" style="display:none">
-    <div class="card mb-12">
-      <h3 class="card-title">Export Full Backup</h3>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Save a full JSON backup of all inventory, expenses, and scan history. Keep this in iCloud, Google Drive, or email it to yourself.</p>
-      <button class="btn btn-green" onclick="exportFlippdBackup()" class="mb-0">Download Full Backup</button>
-    </div>
-  </div>
+  <div id="csv-mode-backup" style="display:none"></div>
 
 </div>
 
@@ -1872,40 +1823,21 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <!-- Change 7: Back button to return to inventory -->
   <button class="back-btn" onclick="switchTab('inventory')" class="mb-12">← Back</button>
   <div style="padding-top:4px;margin-bottom:16px">
-    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Import Inventory</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Restore from ScanForProfit backup · Import from spreadsheet</div>
+    <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text)">Import eBay Listings</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:500">Import from spreadsheet or eBay CSV</div>
   </div>
 
-  <!-- FORMAT SELECTOR -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-    <div class="mode-tab active-green" id="import-tab-flippd" onclick="setImportMode('flippd')" role="button" tabindex="0" class="cursor-ptr">
-      <div style="font-size:12px;font-weight:700">ScanForProfit Backup</div>
-      <div style="font-size:10px;margin-top:2px;opacity:0.8">Restore your data</div>
-    </div>
-    <div class="mode-tab" id="import-tab-manual" onclick="setImportMode('manual')" role="button" tabindex="0" class="cursor-ptr">
-      <div style="font-size:12px;font-weight:700">Spreadsheet CSV</div>
-      <div style="font-size:10px;margin-top:2px;opacity:0.8">Import from Excel/Sheets</div>
-    </div>
+  <!-- Keep hidden backup mode element so JS doesn't break -->
+  <div id="import-tab-flippd" style="display:none"></div>
+  <div id="import-tab-manual" style="display:none"></div>
+  <div id="import-mode-flippd" style="display:none">
+    <input type="file" id="import-flippd-file" accept=".json" style="display:none" onchange="handleFlippdImport(event)">
   </div>
 
-  <!-- FLIPPD BACKUP MODE -->
-  <div id="import-mode-flippd">
+  <!-- SPREADSHEET CSV MODE (always visible) -->
+  <div id="import-mode-manual">
     <div class="card mb-12">
-      <h3 class="card-title">Restore from ScanForProfit Backup</h3>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:14px">Upload a ScanForProfit JSON backup file to restore your inventory. New items will be added. Items with matching SKUs will be skipped to prevent duplicates.</p>
-      <div id="import-flippd-dropzone" onclick="document.getElementById('import-flippd-file').click()" role="button" tabindex="0" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color 0.15s;background:var(--bg)">
-        <div style="font-size:32px;margin-bottom:8px">↑</div>
-        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px">Tap to choose file</div>
-        <div class="text-xs-muted">ScanForProfit-backup-*.json</div>
-      </div>
-      <input type="file" id="import-flippd-file" accept=".json" style="display:none" onchange="handleFlippdImport(event)">
-    </div>
-  </div>
-
-  <!-- SPREADSHEET CSV MODE -->
-  <div id="import-mode-manual" style="display:none">
-    <div class="card mb-12">
-      <h3 class="card-title">Import from Spreadsheet</h3>
+      <h3 class="card-title">Import from Spreadsheet or eBay CSV</h3>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV or an eBay draft listings CSV. Duplicate SKUs are skipped automatically.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.8;word-break:break-all">
         nickname,cost,category,condition,status,sellPrice<br>
@@ -2109,11 +2041,11 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   </div>
 </div>
 
-<!-- AI POWER LISTING MODAL -->
+<!-- LISTING MODAL -->
 <div class="modal-overlay" id="listing-modal" style="display:none">
   <div class="modal-box" style="max-height:90vh;overflow-y:auto">
     <div class="flex-between-center mb-14">
-      <div class="modal-title">AI Power Listing</div>
+      <div class="modal-title">Generate eBay Listing</div>
       <button onclick="closeListingModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0"></button>
     </div>
     
@@ -2167,7 +2099,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div id="listing-preview-stage" style="display:none">
       <!-- Loading -->
       <div id="listing-loading" style="display:none;text-align:center;padding:20px;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:12px">
-        ⏳ Generating listing...
+        Generating listing...
       </div>
 
       <!-- Error -->
@@ -2200,13 +2132,13 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
     <!-- Buttons -->
     <div id="listing-selection-buttons" class="flex-gap-8">
-      <button class="btn btn-purple flex-1-mb0" onclick="proceedToPreview()">Next → Preview</button>
+      <button class="btn btn-purple flex-1-mb0" onclick="proceedToPreview()">Generate Listing</button>
       <button class="btn btn-ghost flex-1-mb0" onclick="closeListingModal()">Cancel</button>
     </div>
 
     <div id="listing-preview-buttons" style="display:none;gap:8px;flex-direction:column">
       <button class="btn btn-purple mb-0" onclick="regenerateListing()">Regenerate</button>
-      <button class="btn btn-green mb-0" onclick="saveListing(false)">Save to Item</button>
+      <button class="btn btn-green mb-0" onclick="handleListOnEbayFromModal()">List to eBay</button>
       <button class="btn btn-accent mb-0" onclick="saveListing(true)">Save + Export</button>
       <button class="btn btn-ghost mb-0" onclick="closeListingModal()">Cancel</button>
     </div>
@@ -2722,7 +2654,6 @@ function renderInventoryHome() {
     const unlistedC = ci.filter(i=>i.status==='Unlisted').length;
     return `<div class="inv-cat-card" onclick="openFilteredList('category','${cat}')" role="button" tabindex="0">
       <div style="display:flex;align-items:center;gap:var(--space-2)">
-        <div style="font-size:24px">${CAT_ICONS[cat]}</div>
         <div>
           <div class="inv-cat-name">${cat}</div>
           <div class="inv-cat-meta">${listedC} listed · ${unlistedC} unlisted</div>
@@ -2742,9 +2673,12 @@ function openFilteredList(type, value) {
   invListFilter = {type, value};
   document.getElementById('inv-list-title').textContent = type==='status'
     ? value + ' Items'
-    : (CAT_ICONS[value]||'') + ' ' + value;
+    : value;
   document.getElementById('inv-search-list').value = '';
   renderFilteredList();
+  // Show Export CSV button next to title only in Unlisted view
+  const exportBtn = document.getElementById('inv-list-export-btn');
+  if (exportBtn) exportBtn.style.display = (type==='status' && value==='Unlisted') ? 'inline-block' : 'none';
   showInvView('list');
 }
 
@@ -2780,16 +2714,14 @@ function renderFilteredList() {
               <div class="item-sku">${item.sku||''}</div>
               <div class="item-nick">${item.nickname}</div>
             </div>
-            <span class="status-badge status-${item.status}" style="flex-shrink:0;margin-left:var(--space-1)">${item.status}</span>
+            ${!(invListFilter.type==='status' && invListFilter.value==='Unlisted') ? `<span class="status-badge status-${item.status}" style="flex-shrink:0;margin-left:var(--space-1)">${item.status}</span>` : ''}
           </div>
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
             <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
             ${!isSold && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
             ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
-            ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();startEdit(${item.id})">Edit</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">Sold</button>` : ''}
-            ${!isSold ? `<button class="sm-btn" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openPhotoAgentFor(${item.id})">Enhance Photo</button>` : ''}
             ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
           </div>
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
@@ -3818,7 +3750,7 @@ async function paRemoveBg() {
   if (!key) { showToast('Add your remove.bg API key in Settings → Photo Tools to enable this'); return; }
   if (!paPhotos.length) { showToast('No photo loaded'); return; }
   const btn = document.getElementById('pa-removebg-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Removing...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Removing...'; }
   try {
     const canvas = document.getElementById('pa-canvas');
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
@@ -4901,7 +4833,7 @@ let _ebaySyncDays = 90;
 
 async function ebayConnect() {
   if (!isUnlocked()) { showToast('Log in to connect your eBay account'); return; }
-  showToast('⏳ Redirecting to eBay...');
+  showToast('Redirecting to eBay...');
   try {
     const res = await fetch(EBAY_BASE + '/authorize', { headers: getApiHeaders() });
     if (!res.ok) throw new Error('status ' + res.status);
@@ -5010,7 +4942,7 @@ async function ebayPullListings(days){
   const btn=document.getElementById('sync-start-btn');
   
   st.style.color='var(--soft)';
-  st.textContent='⏳ Syncing from eBay...';
+  st.textContent='Syncing from eBay...';
   btn.disabled=true;
   btn.style.opacity='0.5';
   
@@ -5059,7 +4991,7 @@ async function runEbaySyncPull(){
 
 async function handleListOnEbay(inventoryId) {
   if (!isUnlocked()) { showToast('Log in to push listings to eBay'); return; }
-  showToast('⏳ Pushing to eBay...');
+  showToast('Pushing to eBay...');
   try {
     const res = await fetch(EBAY_BASE + '/create-listing', {
       method: 'POST', headers: getApiHeaders(), body: JSON.stringify({ inventoryId })
@@ -5071,11 +5003,19 @@ async function handleListOnEbay(inventoryId) {
   } catch(e) { showToast(e.message); }
 }
 
+function handleListOnEbayFromModal() {
+  if (currentListingModal && currentListingModal.itemId) {
+    saveListing(false); // save listing data first
+    handleListOnEbay(currentListingModal.itemId);
+    closeListingModal();
+  }
+}
+
 async function handleSyncOrders() {
   if (!isUnlocked()) { showToast('Log in to sync sold orders'); return; }
   const st = document.getElementById('sync-progress');
   const btn = document.getElementById('sync-orders-btn');
-  if (st) { st.style.color = 'var(--soft)'; st.textContent = '⏳ Syncing sold orders from eBay...'; }
+  if (st) { st.style.color = 'var(--soft)'; st.textContent = 'Syncing sold orders from eBay...'; }
   if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
   try {
     const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
@@ -5461,7 +5401,7 @@ async function callScan(type, hint) {
     }
     if (res.status === 401 || res.status === 403) throw new Error('Session expired. Please log in again.');
     if (res.status === 429) throw new Error('Rate limited. Wait a moment and try again');
-    if (res.status >= 500) throw new Error('Server error. Try again in a moment');
+    if (res.status >= 500) throw new Error(errData.error || 'Server error. Try again in a moment');
     throw new Error(errData.error || 'API Error ' + res.status);
   }
   return res.json();
@@ -5788,7 +5728,7 @@ function renderSingle({item,cost,fin,dec}) {
     <div class="legend-row">
       <span class="legend-item">Min profit: $${S.minProfit}</span>
       <span class="legend-item">Target ROI: ${S.targetRoi}%+</span>
-      <span class="legend-item">⏱ Max: ${S.maxDays} days</span>
+      <span class="legend-item">Max: ${S.maxDays} days</span>
     </div>`;
   showSrcView('results');
 }
@@ -6387,32 +6327,23 @@ function markExported(ids) {
 }
 
 function getCsvCandidates() {
-  const cutoff = Date.now() - (csvWindowHours * 3600000);
   const exported = getExportedIds();
   return items.filter(i => {
     if (exported.has(String(i.id))) return false;
-    // Items explicitly queued via "Save + Export" are always candidates,
-    // regardless of the time window.
-    if (i.status === 'Ready to Export') return true;
-    return i.status === 'Unlisted' && new Date(i.createdAt||0).getTime() >= cutoff;
+    return i.status === 'Unlisted' || i.status === 'Ready to Export';
   });
 }
 
 function renderCsvPreview() {
-  const countEl  = document.getElementById('csv-preview-count');
-  const lastEl   = document.getElementById('csv-last-export');
   const listEl   = document.getElementById('csv-items-list');
   const btnEl    = document.getElementById('csv-export-btn');
-  if (!countEl) return;
-  _csvQueueLoad(); // Change 2: load persisted queue
+  if (!listEl) return;
+  _csvQueueLoad();
   const candidates = getCsvCandidates();
-  const lastExport = localStorage.getItem('sfp_last_csv_export');
-  countEl.textContent = `${candidates.length} item${candidates.length!==1?'s':''} available`;
-  lastEl.textContent  = lastExport ? 'Last export: ' + lastExport : 'No exports yet';
   if (btnEl) btnEl.disabled = _csvExportQueue.size === 0;
   if (!listEl) return;
   if (!candidates.length) {
-    listEl.innerHTML = '<div class="csv-empty">No new Unlisted items in the selected window.<br>Try a wider time range or add more items.</div>';
+    listEl.innerHTML = '<div class="csv-empty">No Unlisted items to export yet.<br>Add items and set their status to Unlisted to export them.</div>';
     return;
   }
   const unlistedCount = candidates.filter(i => i.status === 'Unlisted').length;
@@ -7010,19 +6941,19 @@ function updateTierBanner(user) {
   if (tier === 'trial' && user.trialEndsAt) {
     const daysLeft = Math.max(0, Math.ceil((new Date(user.trialEndsAt)-new Date())/(1000*60*60*24)));
     if (daysLeft > 0) {
-      text.textContent = '\ud83c\udf89 Free Trial: ' + daysLeft + ' day' + (daysLeft===1?'':'s') + ' left of full access';
+      text.textContent = 'Free Trial: ' + daysLeft + ' day' + (daysLeft===1?'':'s') + ' left of full access';
       banner.style.background = daysLeft<=2?'var(--yellow-bg)':'var(--green-bg)';
       banner.style.borderBottomColor = daysLeft<=2?'var(--yellow)':'var(--green-border)';
       banner.style.display = 'flex';
     } else {
-      text.textContent = '\u23f0 Trial ended \u2014 upgrade to keep premium features';
+      text.textContent = 'Trial ended \u2014 upgrade to keep premium features';
       banner.style.background = 'var(--yellow-bg)';
       banner.style.borderBottomColor = 'var(--yellow)';
       banner.style.display = 'flex';
     }
   } else if (tier === 'scout') {
     const used = (user&&user.scansThisMonth)||0;
-    text.textContent = '\ud83d\udcca Free Plan: ' + used + '/25 scans used this month';
+    text.textContent = 'Free Plan: ' + used + '/25 scans used this month';
     banner.style.background = used>=25?'var(--red-bg)':'var(--green-bg)';
     banner.style.borderBottomColor = used>=25?'var(--red)':'var(--green-border)';
     banner.style.display = 'flex';
@@ -7035,14 +6966,17 @@ function updateTierBanner(user) {
 // ADD ITEM — SAVE + GENERATE LISTING (v5.4)
 // ══════════════════════════════════════════════════
 async function saveAndGenerateListing() {
-  // Save item first (reuse existing save logic)
+  // Capture editingId before saveInvItem clears it
+  const wasEditingId = editingId;
   const saved = saveInvItem ? saveInvItem() : null;
   if (saved === false) return; // validation failed
-  // Get most recently added item
-  const newItem = items[items.length-1];
-  if (!newItem) return;
+  // Find the right item — edited item by ID, or newly added (last in array)
+  const targetItem = wasEditingId
+    ? items.find(i => i.id === wasEditingId)
+    : items[items.length - 1];
+  if (!targetItem) return;
   showInvView('list');
-  setTimeout(function(){ openListingModal(newItem.id); }, 400);
+  setTimeout(function(){ openListingModal(targetItem.id); }, 400);
 }
 
 // ══════════════════════════════════════════════════
@@ -7351,10 +7285,15 @@ function handleCsvImport(e) {
       if (!rows.length) { showToast('No rows found in CSV'); return; }
 
       // Detect eBay order/shipping CSV (Seller Hub Orders export — not importable)
-      const firstHeader = rows[0].map(h => h.trim().toLowerCase());
+      // Check first 3 rows in case first row is blank
       const ebayOrderHeaders = ['order number','buyer name','buyer username','sales record number','transaction id','ship to name'];
-      if (ebayOrderHeaders.some(h => firstHeader.includes(h))) {
-        showToast('This is an eBay order export — not importable. Use a ScanForProfit backup or spreadsheet CSV.');
+      const firstHeader = rows[0].map(h => h.trim().toLowerCase());
+      const isEbayOrderCsv = rows.slice(0, 3).some(row => {
+        const rowLower = row.map(h => h.trim().toLowerCase());
+        return ebayOrderHeaders.filter(h => rowLower.includes(h)).length >= 2;
+      });
+      if (isEbayOrderCsv) {
+        showToast('This is an eBay orders export — not importable here. Use Sync eBay Listings to import orders.');
         return;
       }
 
@@ -7745,14 +7684,10 @@ function sPnlMiles() {
 </script>
 <div id="ebay-sync-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:flex-end;justify-content:center;flex-direction:column">
 <div style="background:var(--surface);border-radius:12px 12px 0 0;padding:24px;width:100%;max-width:540px;border-top:1.5px solid var(--border)">
-<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:16px">Sync from eBay</div>
-<div style="display:flex;gap:8px;margin-bottom:16px">
-<button class="btn" id="sync-30" onclick="setSyncDays(30)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">30 days</button>
-<button class="btn" id="sync-60" onclick="setSyncDays(60)" style="flex:1;font-size:12px;padding:10px;background:var(--card);border:1.5px solid var(--border);color:var(--soft)">60 days</button>
-<button class="btn" id="sync-90" onclick="setSyncDays(90)" style="flex:1;font-size:12px;padding:10px;background:var(--accent);color:#000;border:none;font-weight:700">90 days</button>
-</div>
+<div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;margin-bottom:6px">Sync eBay Listings</div>
+<div style="font-size:12px;color:var(--muted);margin-bottom:16px;font-family:'IBM Plex Mono',monospace">Pulls your active listings, drafts, and sold orders from eBay.</div>
 <div id="sync-progress" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px;line-height:1.4"></div>
-<button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">⬇ Pull Listings from eBay</button>
+<button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">Sync Listings from eBay</button>
 <button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">Sync Sold Orders</button>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
@@ -7801,6 +7736,11 @@ function sPnlMiles() {
 
 <script>
 (function() {
+  function getObKey() {
+    var u = window._currentUser;
+    var uid = (u && (u.username || u.id)) || 'default';
+    return 'sfp_onboarding_complete_' + uid;
+  }
   var OB_KEY = 'sfp_onboarding_complete';
   var OB_SCREENS = [
     {
@@ -7843,14 +7783,14 @@ function sPnlMiles() {
   window.obSkip = function() { obFinish(false); };
 
   function obFinish(completed) {
-    try { localStorage.setItem(OB_KEY, '1'); } catch(e) {}
+    try { localStorage.setItem(getObKey(), '1'); } catch(e) {}
     var overlay = document.getElementById('onboarding-overlay');
     if (overlay) overlay.style.display = 'none';
   }
 
   function obMaybeShow() {
     try {
-      if (localStorage.getItem(OB_KEY)) return;
+      if (localStorage.getItem(getObKey())) return;
     } catch(e) { return; }
     var overlay = document.getElementById('onboarding-overlay');
     if (!overlay) return;
