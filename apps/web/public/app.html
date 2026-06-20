@@ -5369,9 +5369,9 @@ async function handleListOnEbay(inventoryId) {
 
 function handleListOnEbayFromModal() {
   if (currentListingModal && currentListingModal.itemId) {
-    saveListing(false); // save listing data first
-    handleListOnEbay(currentListingModal.itemId);
-    closeListingModal();
+    const itemId = currentListingModal.itemId; // capture before saveListing resets modal
+    saveListing(false);
+    handleListOnEbay(itemId);
   }
 }
 
