@@ -210,13 +210,13 @@ body::before{
 .tab-panel.active{display:block}
 
 @media (min-width: 600px) {
-  .app-header, .tab-bar { max-width: 540px; margin: 0 auto; }
+  .app-header, .tab-bar, #tier-banner { max-width: 540px; margin: 0 auto; }
 }
 @media (min-width: 860px) {
-  .tab-panel, .app-header, .tab-bar { max-width: 860px; }
+  .tab-panel, .app-header, .tab-bar, #tier-banner { max-width: 860px; }
 }
 @media (min-width: 1100px) {
-  .tab-panel, .app-header, .tab-bar { max-width: 1100px; }
+  .tab-panel, .app-header, .tab-bar, #tier-banner { max-width: 1100px; }
 }
 
 /* ══ CARDS ══ */
@@ -1166,7 +1166,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
 
 <!-- TAB BAR -->
 <div class="tab-bar">
-  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Scanner</button>
+  <button class="tab-btn active" id="tab-sourcing" onclick="switchTab('sourcing')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 9.5L13 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Profit Scanner</button>
   <button class="tab-btn" id="tab-inventory" onclick="switchTab('inventory')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>Inventory</button>
   <button class="tab-btn" id="tab-photo" onclick="switchTab('photo')"><span class="t-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="7.5" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 3.5L5.5 1.5h3l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Photos</button>
   <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')"><span class="t-icon"><svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="1,11 5,6 9,8 15,2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Profit Compass</button>
@@ -1672,7 +1672,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <button id="pa-removebg-btn" onclick="paRemoveBg()" style="padding:7px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;color:var(--soft);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600">Remove BG</button>
-          <span class="text-xs-muted">Needs remove.bg key in Settings</span>
+          <span class="text-xs-muted">Needs remove.bg key — add it in <button onclick="showSourcingSettings()" style="background:none;border:none;color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline">Scanner → Settings → Photo Tools</button></span>
         </div>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--soft);font-weight:600">
           <input type="checkbox" id="pa-apply-all" style="width:18px;height:18px;accent-color:var(--accent)"> Apply to all photos
@@ -1869,7 +1869,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <div id="import-mode-manual">
     <div class="card mb-12">
       <h3 class="card-title">Import from Spreadsheet or eBay CSV</h3>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV or an eBay draft listings CSV. Duplicate SKUs are skipped automatically.</p>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV, eBay active listings CSV, or eBay orders CSV. Orders import as Sold items. Duplicate SKUs are skipped automatically.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.8;word-break:break-all">
         nickname,cost,category,condition,status,sellPrice<br>
         "Xbox 360",8.00,Electronics,Good,Unlisted,45.00
@@ -1912,7 +1912,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px">Your numbers, your business.</div>
   </div>
   <div style="display:flex;gap:6px;margin-bottom:14px">
-    <button class="filter-btn active" id="stats-sub-pnl" onclick="statsSubTab('pnl')">P&amp;L</button>
+    <button class="filter-btn active" id="stats-sub-pnl" onclick="statsSubTab('pnl')">Dashboard</button>
+    <button class="filter-btn" id="stats-sub-expenses" onclick="statsSubTab('expenses')">Expenses</button>
     <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">Plan</button>
   </div>
   <div id="stats-view-dash" style="display:none">
@@ -5292,9 +5293,15 @@ async function ebayPullListings(days){
       return;
     }
     
-    st.style.color='var(--green)';
     const total = d.active + d.drafted + d.sold;
-    st.innerHTML=`Synced ${total} items<br>${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
+    let syncMsg = `Synced ${total} items — ${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
+    if (total === 0) {
+      st.style.color = 'var(--yellow)';
+      syncMsg = `0 items returned from eBay. If you have listings on eBay, disconnect and reconnect eBay to refresh your authorization (Settings → eBay). eBay's Inventory API only shows listings created via API.`;
+    } else {
+      st.style.color='var(--green)';
+    }
+    st.innerHTML = syncMsg;
     
     // Re-fetch inventory from server so newly synced items appear (was loadInventory — that function doesn't exist).
     await new Promise(r=>setTimeout(r,1000));
@@ -5302,18 +5309,15 @@ async function ebayPullListings(days){
 
     // Client-side dedup by ebay_item_id: if the server returned two rows with the same
     // ebay_item_id (can happen if pull-listings ran multiple times), keep only the newest.
-    const ebayIdSeen = new Map();
-    items = items.filter(item => {
-      if (!item.ebay_item_id) return true;
-      const existing = ebayIdSeen.get(item.ebay_item_id);
-      if (!existing) { ebayIdSeen.set(item.ebay_item_id, item); return true; }
-      // Keep the item with the more recent updatedAt/createdAt
-      if (new Date(item.updatedAt || item.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
-        ebayIdSeen.set(item.ebay_item_id, item);
-        return true;
+    const ebayIdBest = new Map();
+    for (const item of items) {
+      if (!item.ebay_item_id) continue;
+      const existing = ebayIdBest.get(item.ebay_item_id);
+      if (!existing || new Date(item.updatedAt || item.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
+        ebayIdBest.set(item.ebay_item_id, item);
       }
-      return false;
-    });
+    }
+    items = items.filter(item => !item.ebay_item_id || ebayIdBest.get(item.ebay_item_id) === item);
     saveItems();
     renderInventory();
 
@@ -5370,7 +5374,11 @@ async function handleSyncOrders() {
     const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
     const data = await res.json();
     if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = data.error || 'Sync failed'; } return; }
-    if (st) { st.style.color = 'var(--green)'; st.textContent = '' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    if (data.synced === 0 && data.debug && data.debug.ordersFound === 0) {
+      if (st) { st.style.color = 'var(--yellow)'; st.textContent = '0 orders found. If you have eBay sales, try disconnecting and reconnecting eBay to refresh the Fulfillment scope.'; }
+    } else {
+      if (st) { st.style.color = 'var(--green)'; st.textContent = '' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    }
     await syncFromServer();
   } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = e.message; } }
   finally { if (btn) { btn.disabled = false; btn.style.opacity = '1'; } }
@@ -5533,7 +5541,8 @@ function loadSrcSettings() {
 }
 function updateFeeHint() {
   const el = document.getElementById('hint-fee-line');
-  if (el) el.textContent = `${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} packaging · Buyer pays shipping`;
+  const shipLabel = S.shipping === 'seller' ? `Seller pays $${parseFloat(S.shipCost||6).toFixed(2)} shipping` : S.shipping === 'free' ? 'Free shipping included' : 'Buyer pays shipping';
+  if (el) el.textContent = `${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} packaging · ${shipLabel}`;
   // Also update the scan bottom hint dynamically
   const scanHint = document.getElementById('scan-fee-hint');
   if (scanHint) scanHint.textContent = `Identifies item · Pulls sold comps · ${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} pkg`;
@@ -6393,6 +6402,16 @@ function confirmBuyItem() {
   const cost     = parseFloat(document.getElementById('bc-cost').value)||0;
   const sellPrice= parseFloat(document.getElementById('bc-price').value)||0;
   const notes    = document.getElementById('bc-notes').value;
+
+  // Duplicate check — same as manual add form
+  const dupItem = findDuplicateItem(name, null);
+  if (dupItem) {
+    const proceed = confirm(
+      `"${dupItem.nickname}" already exists in ${dupItem.status}.\n\nAdd it again anyway?`
+    );
+    if (!proceed) return;
+  }
+
   // Photos always start empty — the scout photo is of the item in the thrift store
   // and should not transfer to the inventory record. User adds a clean photo later
   // from the inventory edit screen or Photos tab.
@@ -7658,8 +7677,7 @@ function handleCsvImport(e) {
       const rows = parseCsvRows(ev.target.result);
       if (!rows.length) { showToast('No rows found in CSV'); return; }
 
-      // Detect eBay order/shipping CSV (Seller Hub Orders export — not importable)
-      // Check first 3 rows in case first row is blank
+      // Detect eBay order CSV (Seller Hub Orders export) — parse it as Sold items
       const ebayOrderHeaders = ['order number','buyer name','buyer username','sales record number','transaction id','ship to name'];
       const firstHeader = rows[0].map(h => h.trim().toLowerCase());
       const isEbayOrderCsv = rows.slice(0, 3).some(row => {
@@ -7667,7 +7685,50 @@ function handleCsvImport(e) {
         return ebayOrderHeaders.filter(h => rowLower.includes(h)).length >= 2;
       });
       if (isEbayOrderCsv) {
-        showToast('This is an eBay orders export — not importable here. Use Sync eBay Listings to import orders.');
+        // Find header row (first row with 'item title' or 'order number')
+        let hIdx = -1;
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          const rh = rows[i].map(h => h.trim().toLowerCase());
+          if (rh.some(h => h.includes('item title') || h.includes('order number'))) { hIdx = i; break; }
+        }
+        if (hIdx === -1) { showToast('Could not parse eBay orders CSV — header row not found'); return; }
+        const oh = rows[hIdx].map(h => h.trim().toLowerCase());
+        const colTitle  = oh.findIndex(h => h.includes('item title'));
+        const colSku    = oh.findIndex(h => h === 'custom label' || h.includes('custom label'));
+        const colPrice  = oh.findIndex(h => h === 'sale price' || h.includes('sale price'));
+        const colDate   = oh.findIndex(h => h.includes('paid on date') || h.includes('payment date') || h.includes('shipped on date'));
+        const colItemNo = oh.findIndex(h => h === 'item number' || h.includes('item number'));
+        const existingSkus = new Set(items.map(i => i.sku).filter(Boolean));
+        let skippedCount = 0;
+        const parsed = [];
+        for (let i = hIdx + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row.some(c => c.trim())) continue;
+          const title    = colTitle  >= 0 ? (row[colTitle]  || '').trim() : '';
+          const sku      = colSku    >= 0 ? (row[colSku]    || '').trim() : '';
+          const priceStr = colPrice  >= 0 ? (row[colPrice]  || '').trim() : '';
+          const dateStr  = colDate   >= 0 ? (row[colDate]   || '').trim() : '';
+          const itemNo   = colItemNo >= 0 ? (row[colItemNo] || '').trim() : '';
+          if (!title && !itemNo) continue;
+          const soldPrice = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+          const effectiveSku = sku || (itemNo ? 'ebay-' + itemNo : '');
+          if (effectiveSku && existingSkus.has(effectiveSku)) { skippedCount++; continue; }
+          parsed.push(normaliseImportItem({
+            nickname:     title || ('eBay item ' + itemNo),
+            sku:          effectiveSku,
+            platform:     'eBay',
+            status:       'Sold',
+            sellPrice:    soldPrice ? String(soldPrice) : '',
+            soldPrice:    soldPrice ? String(soldPrice) : '',
+            sold_at:      dateStr || new Date().toISOString(),
+            ebay_item_id: itemNo || null,
+            created_from: 'ebay_orders_csv',
+          }));
+          if (effectiveSku) existingSkus.add(effectiveSku);
+        }
+        if (!parsed.length) { showToast(skippedCount ? `All ${skippedCount} orders already in inventory` : 'No orders found in eBay CSV'); return; }
+        pendingImportItems = parsed;
+        showImportPreview(pendingImportItems, skippedCount, 'csv');
         return;
       }
 
@@ -7702,7 +7763,7 @@ function handleCsvImport(e) {
           const price = priceCol >= 0 ? parseFloat(row[priceCol])||0 : 0;
           const photo = photoCol >= 0 ? (row[photoCol]||'').trim() : '';
           const desc = descCol >= 0 ? (row[descCol]||'').replace(/<[^>]+>/g,' ').trim() : '';
-          parsed.push(normaliseImportItem({ nickname: title, sku, sellPrice: String(price), notes: desc, photos: photo ? [photo] : [], image_url: photo || null, created_from: 'ebay_csv' }));
+          parsed.push(normaliseImportItem({ nickname: title, sku, sellPrice: String(price), notes: desc, photos: photo ? [photo] : [], image_url: photo || null, created_from: 'ebay_csv', status: 'Listed' }));
         }
         if (!parsed.length) { showToast(skippedCount ? `All ${skippedCount} items already in inventory (duplicate SKUs)` : 'No items found in eBay CSV'); return; }
         pendingImportItems = parsed;
@@ -7798,6 +7859,10 @@ function normaliseImportItem(raw) {
     image_url:    raw.image_url || null,
     createdAt:    raw.createdAt || new Date().toISOString(),
     created_from: raw.created_from || 'import',
+    soldPrice:    raw.soldPrice ? String(parseFloat(raw.soldPrice)||0) : (status === 'Sold' && raw.sellPrice ? String(parseFloat(raw.sellPrice)||0) : undefined),
+    sold_price:   raw.soldPrice ? parseFloat(raw.soldPrice)||null : null,
+    sold_at:      raw.sold_at || (status === 'Sold' ? new Date().toISOString() : undefined),
+    ebay_item_id: raw.ebay_item_id || null,
   };
 }
 
@@ -7950,14 +8015,29 @@ function statsSubTab(sub) {
   var pnl  = document.getElementById('stats-view-pnl');
   var subv = document.getElementById('stats-view-subscription');
   var bpnl  = document.getElementById('stats-sub-pnl');
+  var bexp  = document.getElementById('stats-sub-expenses');
   var bsub  = document.getElementById('stats-sub-subscription');
+  // Hide all views first
   if(dash) dash.style.display = 'none';
-  if(pnl)  pnl.style.display  = sub==='pnl'?'block':'none';
-  if(subv) subv.style.display = sub==='subscription'?'block':'none';
+  if(pnl)  pnl.style.display  = 'none';
+  if(subv) subv.style.display = 'none';
+  // Toggle active state on buttons
   if(bpnl)  bpnl.classList.toggle('active', sub==='pnl');
+  if(bexp)  bexp.classList.toggle('active', sub==='expenses');
   if(bsub)  bsub.classList.toggle('active', sub==='subscription');
-  if(sub==='pnl') { sPnlRender(); sPnlTab('sales'); }
-  if(sub==='subscription') renderSubscriptionPanel();
+  // Show correct view
+  if(sub==='pnl') {
+    if(dash) dash.style.display = 'block';
+    renderDashboard();
+  }
+  if(sub==='expenses') {
+    if(pnl) pnl.style.display = 'block';
+    sPnlRender(); sPnlTab('exp');
+  }
+  if(sub==='subscription') {
+    if(subv) subv.style.display = 'block';
+    renderSubscriptionPanel();
+  }
 }
 
 function sPnlTab(tab) {
@@ -8063,6 +8143,7 @@ function sPnlMiles() {
 <div id="sync-progress" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px;line-height:1.4"></div>
 <button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">Sync Listings from eBay</button>
 <button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">Sync Sold Orders</button>
+<div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-align:center;padding:4px 0 8px">Getting 0 results? <button onclick="closeEbaySync();showSourcingSettings();" style="background:none;border:none;color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:pointer;text-decoration:underline;padding:0">Disconnect &amp; reconnect eBay</button> in Settings</div>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
 

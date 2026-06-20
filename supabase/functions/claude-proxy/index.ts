@@ -126,12 +126,22 @@ function getDecision(roi: number, confidence: number, s: Settings): 'BUY' | 'HOT
   return 'PASS';
 }
 
+function detectImageMime(buf: ArrayBuffer): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+  const b = new Uint8Array(buf, 0, 12);
+  if (b[0] === 0xFF && b[1] === 0xD8) return 'image/jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'image/png';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+  if (b[4] === 0x57 && b[5] === 0x45 && b[6] === 0x42 && b[7] === 0x50) return 'image/webp';
+  return 'image/jpeg'; // fallback
+}
+
 async function callAnthropic(
   key: string, system: string, images: string[], maxTokens = 1024,
+  mimeTypes: ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[] = [],
 ): Promise<string> {
-  const imageBlocks = images.map(data => ({
+  const imageBlocks = images.map((data, i) => ({
     type: 'image' as const,
-    source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data },
+    source: { type: 'base64' as const, media_type: (mimeTypes[i] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data },
   }));
   const textPrompt = images.length > 1
     ? `Analyze these ${images.length} photos of the same item from different angles.`
@@ -204,8 +214,9 @@ async function handleSingleScan(
   userId: number,
   settings: Settings,
   images: string[],
+  mimeTypes: string[] = [],
 ) {
-  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), images);
+  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), images, undefined, mimeTypes as ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[]);
   let ai: Record<string, unknown>;
   try { ai = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
@@ -241,8 +252,9 @@ async function handleShelfScan(
   userId: number,
   settings: Settings,
   images: string[],
+  mimeTypes: string[] = [],
 ) {
-  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), images, 2048);
+  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), images, 2048, mimeTypes as ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[]);
   let aiItems: Record<string, unknown>[];
   try { aiItems = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
@@ -1156,12 +1168,19 @@ Deno.serve(async (req: Request) => {
     try {
       const form = await req.formData();
       const imageFile = form.get('image') as File | null;
-      const b64 = imageFile ? ab2b64(await imageFile.arrayBuffer()) : '';
+      let b64 = '';
+      let imageMime: string = 'image/jpeg';
+      if (imageFile) {
+        const buf = await imageFile.arrayBuffer();
+        b64 = ab2b64(buf);
+        imageMime = detectImageMime(buf);
+      }
       body = {
         type: form.get('type') as string,
         hint: form.get('hint') as string | null,
         imageBase64: b64,
         images: b64 ? [b64] : [],
+        imageMimeTypes: b64 ? [imageMime] : [],
       };
     } catch {
       return json({ error: 'Invalid form data' }, 400);
@@ -1224,14 +1243,16 @@ Deno.serve(async (req: Request) => {
       const imgs = Array.isArray(body.images) ? (body.images as string[])
         : body.imageBase64 ? [body.imageBase64 as string] : [];
       if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
-      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs));
+      const mimes = Array.isArray(body.imageMimeTypes) ? (body.imageMimeTypes as string[]) : [];
+      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
     }
     if (body.type === 'shelf_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
       const imgs = Array.isArray(body.images) ? (body.images as string[])
         : body.imageBase64 ? [body.imageBase64 as string] : [];
       if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
-      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs));
+      const mimes = Array.isArray(body.imageMimeTypes) ? (body.imageMimeTypes as string[]) : [];
+      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
     }
     if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));
