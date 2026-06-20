@@ -4,6 +4,39 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20h — Dashboard profit board root cause fix (PR #117)
+
+### What changed this session
+
+**PR #117 — open (draft)** (`claude/scan-memory-ebay-dashboard-fixes`)
+
+Root cause found for "profit board not syncing": `confirmSold()` only updated `localStorage` — it never pushed the sold status to the server. When `syncFromServer()` ran, the DB's version (still Unlisted/Listed) overwrote local state, wiping sold items from the P&L dashboard. Three targeted fixes:
+
+- **`apps/web/public/app.html` — `confirmSold()`**: Added fire-and-forget `fetch(API_BASE, { type: 'inventory_status', id, status: 'Sold', actualSellPrice })` so the sale is persisted to DB immediately after local update.
+- **`apps/web/public/app.html` — `renderDashboard()` timeframe filter**: Added `i.created_at` (snake_case) as date fallback alongside existing `i.created_at`. Server items never carry camelCase `createdAt`, so `new Date(undefined)` → `Invalid Date` → all items failed the timeframe filter. Fixed in 3 places (sold filter, monthly trend loop, recent sales sort).
+- **`supabase/functions/claude-proxy/index.ts` — `VALID_TRANSITIONS`**: Added `'Sold'` to valid transitions from `'Unlisted'` (was `['Listed']` only). Users skip listing stage at thrift stores; without this the status call returned a 400 and the sale never persisted.
+- **`supabase/functions/claude-proxy/index.ts` — `handleInventoryStatus`**: Now sets both `sell_price` and `sold_price` when marking Sold (mirrors eBay orders sync).
+
+**claude-proxy deployed as version 66** (MCP tool — already live in Supabase).
+
+### Files changed
+- `apps/web/public/app.html`
+- `supabase/functions/claude-proxy/index.ts`
+
+### Commits
+- `b14000f` — fix: dashboard profit board not showing sold items after sync
+
+### Next tasks
+1. **Merge PR #117** after CI passes — watch TypeScript Check
+2. **eBay active listings**: Still 0 in DB. Check Supabase Logs → `ebay-oauth` for `ebay finding-api http error` after next sync. Verify `commerce.identity.readonly` scope at eBay Developer Center.
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+
+### Blockers
+- None.
+
+---
+
 ## Session: 2026-06-20g — Shelf scan error fix, stitchPhotos OOM, eBay sync + dashboard (PRs #115 + #116 merged)
 
 ### What changed this session
