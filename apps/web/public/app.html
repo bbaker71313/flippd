@@ -888,11 +888,11 @@ body::before{
   background: linear-gradient(135deg,#00dd77 0%,#00b8a0 100%);
   color: #fff;
 }
-.decision-banner.is-buy {
+.decision-banner.is-list {
   background: linear-gradient(135deg,#1caa48 0%,#158a34 100%);
   color: #fff;
 }
-.decision-banner.is-pass {
+.decision-banner.is-skip {
   background: linear-gradient(135deg,#ee1111 0%,#bb0000 100%);
   color: #fff;
 }
@@ -956,12 +956,12 @@ body::before{
    (#e8fff2/#f0fff5/#fff0f0 → dark-theme-correct translucent tints).
    Also fixes same bug class as PR #46 Stats-tab fix.                     */
 .shelf-item.is-hot  { background: rgba(0,230,118,0.10); border-color: var(--green-border); }
-.shelf-item.is-buy  { background: var(--green-bg);      border-color: rgba(0,230,118,0.3); }
-.shelf-item.is-pass { background: var(--red-bg);        border-color: #550000; }
+.shelf-item.is-list { background: var(--green-bg);      border-color: rgba(0,230,118,0.3); }
+.shelf-item.is-skip { background: var(--red-bg);        border-color: #550000; }
 
 .shelf-item.is-hot  .s-badge { background: var(--green);  color: #000; }
-.shelf-item.is-buy  .s-badge { background: var(--green);   color: #000; }
-.shelf-item.is-pass .s-badge { background: var(--red);     color: #fff; }
+.shelf-item.is-list .s-badge { background: var(--green);   color: #000; }
+.shelf-item.is-skip .s-badge { background: var(--red);     color: #fff; }
 
 /* Buy button inside a shelf item */
 .shelf-buy-btn {
@@ -975,23 +975,23 @@ body::before{
 }
 .shelf-buy-btn:active { opacity: 0.85; }
 
-/* Shelf section headers (HOT / BUY / PASS section labels) */
+/* Shelf section headers (HOT / LIST / SKIP section labels) */
 .shelf-section-hdr {
   font-size: var(--text-xs); letter-spacing: 0.18em;
   font-weight: 800; margin-bottom: var(--space-2);
   text-transform: uppercase; font-family: 'IBM Plex Mono', monospace;
 }
 .shelf-section-hdr.is-hot  { color: var(--green-border); }
-.shelf-section-hdr.is-buy  { color: var(--green); }
-.shelf-section-hdr.is-pass { color: var(--red); }
+.shelf-section-hdr.is-list { color: var(--green); }
+.shelf-section-hdr.is-skip { color: var(--red); }
 
-/* Shelf summary stat cards (HOT/BUY/PASS counts at top) */
+/* Shelf summary stat cards (HOT/LIST/SKIP counts at top) */
 .shelf-stat-num {
   font-size: var(--text-2xl); font-family: 'Syne', sans-serif; font-weight: 900;
 }
 .shelf-stat-num.is-hot  { color: var(--green-border); }
-.shelf-stat-num.is-buy  { color: var(--green); }
-.shelf-stat-num.is-pass { color: var(--red); }
+.shelf-stat-num.is-list { color: var(--green); }
+.shelf-stat-num.is-skip { color: var(--red); }
 
 /* ══ GROUP D — INVENTORY DETAIL / STATUS CARD STATES ════════════════════
    showDetail() header structure + inv-status-card dark-theme variants.   */
@@ -1265,7 +1265,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
         </div>
       </div>
       <div class="setting-row">
-        <div class="flex-1"><span class="setting-name">Max Days to Sell</span><span class="setting-desc">Slower items get a PASS</span></div>
+        <div class="flex-1"><span class="setting-name">Max Days to Sell</span><span class="setting-desc">Slower items get a SKIP</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <div class="flex-center-6">
             <input type="number" id="num-max-days" min="14" max="120" step="7" value="60" style="width:60px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px" oninput="syncFromNum('max-days',this.value,'',' days')">
@@ -2456,6 +2456,7 @@ function loadItems() {
   } catch { items = SEED_ITEMS.map(i=>({...i, category: migrateCategory(i.category), photos: i.photos||[]})); }
 }
 
+let _pnlRefreshTimer = null;
 function saveItems() {
   try {
     // Save metadata only (no photos) to localStorage
@@ -2476,6 +2477,11 @@ function saveItems() {
       }
     }
   }
+  // Debounced P&L refresh so Profit Hub stays in sync after any inventory change
+  clearTimeout(_pnlRefreshTimer);
+  _pnlRefreshTimer = setTimeout(function() {
+    if (typeof renderDashboard === 'function') renderDashboard();
+  }, 400);
 }
 
 // ══════════════════════════════════════════════════
@@ -5380,6 +5386,7 @@ async function handleSyncOrders() {
       if (st) { st.style.color = 'var(--green)'; st.textContent = '' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
     }
     await syncFromServer();
+    if (typeof renderDashboard === 'function') renderDashboard();
   } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = e.message; } }
   finally { if (btn) { btn.disabled = false; btn.style.opacity = '1'; } }
 }
@@ -5891,12 +5898,13 @@ function calcMaxCost(avgSoldPrice) {
   return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit;
 }
 
-function getDecision(profit,roi,days,sellThrough) {
+function getDecision(profit,roi,days,sellThrough,demandLevel) {
   const sb={conservative:1.3,balanced:1.0,aggressive:0.75}[S.style]||1.0;
   const aMP=S.minProfit*sb,aMD=S.maxDays/sb,aMS=S.minStr*sb;
-  if(profit<aMP||days>aMD||sellThrough<aMS) return 'PASS';
-  if(roi>=S.targetRoi&&profit>=aMP*1.5&&days<=aMD*0.5) return 'HOT';
-  return 'BUY';
+  if(profit<aMP||days>aMD||sellThrough<aMS) return 'SKIP';
+  const isHot=(demandLevel==='HIGH'||demandLevel==='VERY HIGH')||profit>=aMP*2||roi>=S.targetRoi*2;
+  if(isHot) return 'HOT';
+  return 'LIST';
 }
 
 function setBtnLoading(id,txt,purple) {
@@ -5942,7 +5950,7 @@ async function analyze() {
       const fin={profit:r.estimatedProfit, roi:r.roi,
         fee:r.estimatedSell*(S.ebayFee/100),
         shipCost:S.shipping==='free'?S.shipCost:0};
-      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0);
+      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0,item.demand_level);
       logScan(dec, r.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
@@ -5957,7 +5965,7 @@ async function analyze() {
       setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
       const item=JSON.parse(raw);
       const fin=calcFinancials(cost,item.avg_sold_price);
-      const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate);
+      const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate,item.demand_level);
       logScan(dec, fin.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
@@ -5981,8 +5989,8 @@ For each distinct item visible:
 - Buyer always pays shipping. Min profit threshold for FLIP: $${S.minProfit}. Target ROI for HOT: ${S.targetRoi}%.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"BUY|HOT|PASS","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then BUY, then PASS.`;
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"LIST|HOT|SKIP","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
+Sort: HOT first, then LIST, then SKIP.`;
 }
 
 async function analyzeShelf() {
@@ -6001,7 +6009,7 @@ async function analyzeShelf() {
       return{
         item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
         estimated_profit:_profit, estimated_cost_at_thrift:i.estimatedCost,
-        demand_level:i.demandLevel, decision:getDecision(_profit,_roi,0,0),
+        demand_level:i.demandLevel, decision:getDecision(_profit,_roi,0,0,i.demandLevel),
         decision_reason:i.decisionReason||'', condition_notes:i.conditionNotes||'',
         category:i.category, confidence:i.confidence,
         sell_through_rate:0, avg_days_to_sell:0,
@@ -6035,8 +6043,8 @@ function renderSingle({item,cost,fin,dec}) {
   const shipLine=S.shipping==='free'
     ?`<span class="dv u-neg">-$${fin.shipCost.toFixed(2)}</span>`
     :`<span class="dv u-pos" style="font-weight:800">Buyer Pays</span>`;
-  const D_ICON={HOT:'[ HOT ]',BUY:'[ BUY ]',PASS:'[ PASS ]'};
-  const D_LBL={HOT:'HIGH PRIORITY: BUY NOW',BUY:'BUY IT',PASS:'PASS ON THIS ONE'};
+  const D_ICON={HOT:'[ HOT ]',LIST:'[ LIST ]',SKIP:'[ SKIP ]'};
+  const D_LBL={HOT:'HIGH DEMAND: BUY NOW',LIST:'WORTH LISTING',SKIP:'SKIP THIS ONE'};
   const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${k} ↗</a>`).join('');
   const tips=(item.listing_tips||[]).map(t=>`<li class="tip-item"><span class="tip-arrow">→</span>${t}</li>`).join('');
   const flags=(item.risk_flags||[]).filter(Boolean).map(f=>`<li class="tip-item u-neg"><span class="tip-arrow u-neg">!</span>${f}</li>`).join('');
@@ -6061,8 +6069,8 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="buy-action-title">What do you want to do?</div>
       <div class="buy-action-sub">Tap Buy to add this item to your inventory automatically.</div>
       <div class="buy-action-btns">
-        <button class="action-btn action-buy" onclick="buyItem()">BUY<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
-        <button class="action-btn action-pass" onclick="goSrcBack()">PASS<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Skip This One</span></button>
+        <button class="action-btn action-buy" onclick="buyItem()">LIST<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
+        <button class="action-btn action-pass" onclick="goSrcBack()">SKIP<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Move On</span></button>
       </div>
     </div>
 
@@ -6093,8 +6101,8 @@ function renderSingle({item,cost,fin,dec}) {
       </div>
     </div>
     <div class="two-col">
-      <div class="card"><h3 class="card-title">Listing Tips</div><ul class="tips-list">${tips}</ul></h3>
-      <div class="card"><h3 class="card-title">Check This</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.condition_notes}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</h3>
+      <div class="card"><h3 class="card-title">Listing Tips</h3><ul class="tips-list">${tips||'<li class="tip-item"><span class="tip-arrow">→</span>Search eBay sold listings to verify price before buying</li><li class="tip-item"><span class="tip-arrow">→</span>Use clear photos with neutral background</li><li class="tip-item"><span class="tip-arrow">→</span>Include brand, model, and condition in your title</li><li class="tip-item"><span class="tip-arrow">→</span>Check completed listings for accurate pricing</li>'}</ul></div>
+      <div class="card"><h3 class="card-title">Check This</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.condition_notes||'Inspect for cracks, missing parts, damage, and verify it powers on / functions correctly.'}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</div>
     </div>
     <div class="card">
       <h3 class="card-title">eBay Search Terms</h3>
@@ -6170,9 +6178,9 @@ function renderShelf(shelfItems) {
   resetBtn('shelf-btn','Rank This Shelf','purple');
   currentShelfItems = shelfItems; // Cache for buy button clicks
   const hot=shelfItems.filter(i=>i.decision==='HOT');
-  const buy=shelfItems.filter(i=>i.decision==='BUY');
-  const pass=shelfItems.filter(i=>i.decision==='PASS');
-  const icon={HOT:'',BUY:'',PASS:''};
+  const list=shelfItems.filter(i=>i.decision==='LIST');
+  const skip=shelfItems.filter(i=>i.decision==='SKIP');
+  const icon={HOT:'',LIST:'',SKIP:''};
   const ri=(i,idx)=>{
     const mc=calcMaxCost(i.avg_sold_price);
     const mcHint=mc>0?`<div class="s-max-cost">if item is under $${mc.toFixed(2)}</div>`:'';
@@ -6186,7 +6194,7 @@ function renderShelf(shelfItems) {
       </div>
       <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${i.decision_reason}</div>
       ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">${i.condition_notes}</div>`:''}
-      ${i.decision!=='PASS'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">Buy → Add to Inventory</button>`:''}
+      ${i.decision!=='SKIP'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">List → Add to Inventory</button>`:''}
     </div>`;
   };
   document.getElementById('shelf-content').innerHTML=`
@@ -6195,12 +6203,12 @@ function renderShelf(shelfItems) {
     <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+buy.length} worth buying · ${pass.length} to skip</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-bottom:var(--space-4)">
       <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-hot">${hot.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">HOT</div></div>
-      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-buy">${buy.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">BUY</div></div>
-      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-pass">${pass.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">PASS</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-list">${list.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">LIST</div></div>
+      <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-skip">${skip.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">SKIP</div></div>
     </div>
     ${hot.length?`<div class="shelf-section-hdr is-hot">Grab These First</div>${hot.map((i,idx)=>ri(i,idx)).join('')}`:''}
-    ${buy.length?`<div class="shelf-section-hdr is-buy u-mt-3">Worth Buying</div>${buy.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
-    ${pass.length?`<div class="shelf-section-hdr is-pass u-mt-3">Skip These</div>${pass.map((i,idx)=>ri(i,hot.length+buy.length+idx)).join('')}`:''}`;
+    ${list.length?`<div class="shelf-section-hdr is-list u-mt-3">Worth Listing</div>${list.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
+    ${skip.length?`<div class="shelf-section-hdr is-skip u-mt-3">Skip These</div>${skip.map((i,idx)=>ri(i,hot.length+list.length+idx)).join('')}`:''}`;
   showSrcView('shelf');
 }
 
@@ -6611,7 +6619,7 @@ function renderScanHistory() {
             <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name||'Unknown item'}</div>
             <div style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px">${new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
           </div>
-          <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px;${s.dec==='HOT'?'background:var(--green-bg);color:var(--green)':s.dec==='BUY'?'background:var(--green-bg);color:var(--green)':s.dec==='PASS'?'background:var(--red-bg);color:var(--red)':'background:var(--bg);color:var(--muted)'}">${s.dec||'—'}</span>
+          <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px;${s.dec==='HOT'?'background:var(--green-bg);color:var(--green)':s.dec==='LIST'?'background:var(--green-bg);color:var(--green)':s.dec==='SKIP'?'background:var(--red-bg);color:var(--red)':'background:var(--bg);color:var(--muted)'}">${s.dec||'—'}</span>
         </div>`).join('')}
     </div>`;
 }
@@ -7237,7 +7245,7 @@ function showSourcingDrillDown() {
       <div><div style="font-size:13px;font-weight:700;color:var(--text)">${s.item||'Unknown item'}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${new Date(s.ts).toLocaleTimeString()}</div></div>
       <div class="text-right">
-        <span style="background:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-bg)':'var(--red-bg)'};color:${s.dec==='BUY'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
+        <span style="background:${s.dec==='LIST'||s.dec==='HOT'?'var(--green-bg)':'var(--red-bg)'};color:${s.dec==='LIST'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
         ${s.roi ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${s.roi}% ROI</div>` : ''}
       </div>
     </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted)">No scans yet today</div>';
@@ -8204,7 +8212,7 @@ function sPnlMiles() {
     },
     {
       headline: 'Point. Scan. Decide.',
-      body: 'Aim your camera at any item. AI identifies it, pulls sold comps, and gives you a FLIP or PASS in seconds.'
+      body: 'Aim your camera at any item. AI identifies it, pulls sold comps, and gives you a HOT / LIST / SKIP decision in seconds.'
     },
     {
       headline: 'Set your eBay fee once.',

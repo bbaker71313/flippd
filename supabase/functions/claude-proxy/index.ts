@@ -118,12 +118,18 @@ function calcProfit(sell: number, cost: number, pkg: number, ship: number, fee: 
 }
 function r2(n: number) { return Math.round(n * 100) / 100; }
 
-function getDecision(roi: number, confidence: number, s: Settings): 'BUY' | 'HOT' | 'PASS' {
+function getDecision(roi: number, confidence: number, s: Settings, net?: number, demandLevel?: string): 'LIST' | 'HOT' | 'SKIP' {
   const mod = s.sourcing_style === 'conservative' ? 1.2 : s.sourcing_style === 'aggressive' ? 0.8 : 1.0;
   const target = s.target_roi * mod;
-  if (roi > 150 && confidence >= 80) return 'HOT';
-  if (roi > target && confidence >= 50) return 'BUY';
-  return 'PASS';
+  const minProfit = s.min_profit * mod;
+  if (net !== undefined && net < minProfit) return 'SKIP';
+  if (roi <= 0) return 'SKIP';
+  const isHot = demandLevel === 'HIGH' || demandLevel === 'VERY HIGH'
+    || (net !== undefined && net >= minProfit * 2)
+    || roi >= s.target_roi * 2;
+  if (isHot && confidence >= 70) return 'HOT';
+  if (roi > target && confidence >= 50) return 'LIST';
+  return 'SKIP';
 }
 
 function detectImageMime(buf: ArrayBuffer): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
@@ -204,8 +210,8 @@ For each distinct item visible:
 - Buyer always pays shipping. Min profit threshold for FLIP: $${s.min_profit}. Target ROI for HOT: ${s.target_roi}%.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"BUY|HOT|PASS","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then BUY, then PASS.`;
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"LIST|HOT|SKIP","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
+Sort: HOT first, then LIST, then SKIP.`;
 }
 
 async function handleSingleScan(
@@ -225,7 +231,7 @@ async function handleSingleScan(
   const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
   const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
   const confidence = (ai.confidence as number) ?? 50;
-  const decision = getDecision(roi, confidence, settings);
+  const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
 
   const { data: logRow } = await supabase.from('scan_log').insert({
     user_id: userId, scan_type: 'single', decision,
@@ -265,7 +271,7 @@ async function handleShelfScan(
     const cost = (ai.estimated_cost_at_thrift as number) ?? r2(sell * 0.10);
     const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
     const confidence = (ai.confidence as number) ?? 50;
-    const decision = getDecision(roi, confidence, settings);
+    const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
     return {
       decision, itemName: ai.item_name, estimatedProfit: net,
       avgSoldPrice: sell, estimatedCost: cost, roi, confidence,
