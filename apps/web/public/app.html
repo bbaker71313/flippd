@@ -6394,6 +6394,16 @@ function confirmBuyItem() {
   const cost     = parseFloat(document.getElementById('bc-cost').value)||0;
   const sellPrice= parseFloat(document.getElementById('bc-price').value)||0;
   const notes    = document.getElementById('bc-notes').value;
+
+  // Duplicate check — same as manual add form
+  const dupItem = findDuplicateItem(name, null);
+  if (dupItem) {
+    const proceed = confirm(
+      `"${dupItem.nickname}" already exists in ${dupItem.status}.\n\nAdd it again anyway?`
+    );
+    if (!proceed) return;
+  }
+
   // Photos always start empty — the scout photo is of the item in the thrift store
   // and should not transfer to the inventory record. User adds a clean photo later
   // from the inventory edit screen or Photos tab.
