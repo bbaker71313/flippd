@@ -5309,18 +5309,15 @@ async function ebayPullListings(days){
 
     // Client-side dedup by ebay_item_id: if the server returned two rows with the same
     // ebay_item_id (can happen if pull-listings ran multiple times), keep only the newest.
-    const ebayIdSeen = new Map();
-    items = items.filter(item => {
-      if (!item.ebay_item_id) return true;
-      const existing = ebayIdSeen.get(item.ebay_item_id);
-      if (!existing) { ebayIdSeen.set(item.ebay_item_id, item); return true; }
-      // Keep the item with the more recent updatedAt/createdAt
-      if (new Date(item.updatedAt || item.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
-        ebayIdSeen.set(item.ebay_item_id, item);
-        return true;
+    const ebayIdBest = new Map();
+    for (const item of items) {
+      if (!item.ebay_item_id) continue;
+      const existing = ebayIdBest.get(item.ebay_item_id);
+      if (!existing || new Date(item.updatedAt || item.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
+        ebayIdBest.set(item.ebay_item_id, item);
       }
-      return false;
-    });
+    }
+    items = items.filter(item => !item.ebay_item_id || ebayIdBest.get(item.ebay_item_id) === item);
     saveItems();
     renderInventory();
 
