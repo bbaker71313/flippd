@@ -5533,7 +5533,8 @@ function loadSrcSettings() {
 }
 function updateFeeHint() {
   const el = document.getElementById('hint-fee-line');
-  if (el) el.textContent = `${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} packaging · Buyer pays shipping`;
+  const shipLabel = S.shipping === 'seller' ? `Seller pays $${parseFloat(S.shipCost||6).toFixed(2)} shipping` : S.shipping === 'free' ? 'Free shipping included' : 'Buyer pays shipping';
+  if (el) el.textContent = `${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} packaging · ${shipLabel}`;
   // Also update the scan bottom hint dynamically
   const scanHint = document.getElementById('scan-fee-hint');
   if (scanHint) scanHint.textContent = `Identifies item · Pulls sold comps · ${S.ebayFee}% eBay fee · $${parseFloat(S.pkgCost).toFixed(2)} pkg`;
