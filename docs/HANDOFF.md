@@ -4,42 +4,56 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
-## Session: 2026-06-20d — Gallery "invalid JSON" fix: HEIC detection + JSON fallback (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
+## Session: 2026-06-20e — Android AVIF false-positive fix (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
 
 ### What changed this session
 
-**1 file changed: `supabase/functions/claude-proxy/index.ts`** — commit `b29a2a1` (deployed as version 64)
+**1 file changed: `supabase/functions/claude-proxy/index.ts`** — deployed as version 65
 
-**Root causes of "invalid JSON error when adding images from gallery":**
+**Root cause of "HEIC error message on Android":**
 
-1. **HEIC files from iOS gallery**: iPhone's default camera format (`image/heic`) has magic bytes `ftyp` at offset 4-7 (0x66 0x74 0x79 0x70). The server's `detectImageMime` function didn't recognize HEIC and fell back to `image/jpeg`. Anthropic received HEIC bytes mislabeled as JPEG → rejected or returned free text → `JSON.parse` failed.
+Android 12+ Pixel/Samsung phones save gallery photos as AVIF by default. AVIF is also an ISOBMFF container — it has the same `ftyp` magic bytes (0x66 0x74 0x79 0x70) at offset 4-7 as HEIC. The previous HEIC check only tested bytes 4-7, so Android AVIF photos were falsely rejected with the iPhone-specific HEIC error message.
 
-   **Fix**: Added early-reject in the multipart handler. After `imageFile.arrayBuffer()`, check bytes 4-7 for `ftyp`. If HEIC, return 415 immediately with message: "HEIC photos are not supported. On iPhone: Settings → Camera → Format → Most Compatible to save as JPEG." This surfaces to the user via `callScan` → `showError()`.
+**Fix**: After checking `ftyp` at bytes 4-7, also read the brand code at bytes 8-11. Only reject with the HEIC message if brand is one of `['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1']`. All other ISOBMFF containers (AVIF brand `avif`/`avis`, MP4, MOV) return a generic "This image format is not supported. Please use JPEG, PNG, or WebP." — which does NOT include the iPhone-specific instructions.
 
-2. **Claude returning preamble text before JSON**: Even for valid JPEG/PNG gallery images, Claude occasionally outputs a sentence before the JSON object (despite "Return ONLY valid JSON" in the prompt). This caused `JSON.parse(raw)` to throw.
-
-   **Fix**: Added regex fallback in `handleSingleScan`. After `JSON.parse` fails, try `raw.match(/\{[\s\S]*\}/)` to extract the embedded JSON object. If that also fails, throw a user-friendly "Could not analyze this photo. Try a clearer photo of a single item." instead of the developer-facing "AI returned invalid JSON".
+```typescript
+const hdr = new Uint8Array(buf, 0, 12);
+if (hdr[4] === 0x66 && hdr[5] === 0x74 && hdr[6] === 0x79 && hdr[7] === 0x70) {
+  const brand = String.fromCharCode(hdr[8], hdr[9], hdr[10], hdr[11]).toLowerCase();
+  const isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+  if (isHeic) {
+    return json({ error: 'HEIC photos are not supported. On iPhone: Settings → Camera → Format → Most Compatible to save as JPEG.' }, 415);
+  }
+  return json({ error: 'This image format is not supported. Please use JPEG, PNG, or WebP.' }, 415);
+}
+```
 
 ### Files changed
-- `supabase/functions/claude-proxy/index.ts` — HEIC early-reject (multipart handler) + JSON regex fallback (handleSingleScan)
-- `docs/HANDOFF.md` — this entry
+- `supabase/functions/claude-proxy/index.ts` — brand-specific HEIC detection at bytes 8-11
 
 ### Commit / PR
-- Commit `b29a2a1` on branch `claude/mobile-memory-profit-scanner-bt1rd9`
-- PR #112 (draft) — already open, this commit added to same PR
+- Deployed as Edge Function v65 (ACTIVE)
+- Committed and pushed on branch `claude/mobile-memory-profit-scanner-bt1rd9`
+- PR #112 (draft) — already open
+
+### Previous session (2026-06-20d) fixes also in PR #112
+1. **HEIC early-reject** (v64): iOS HEIC gallery photos → 415 with actionable message
+2. **JSON regex fallback** (v64): Claude preamble text before JSON object no longer crashes — regex extracts embedded JSON or shows user-friendly error
+3. **Android OOM fix** (v63, commit `bffd8df`): Removed `compressImageForDetect` from `analyze()` — single-item scan now uses multipart streaming path
 
 ### Next tasks
-1. **Merge PR #112** — fixes both Android OOM crash AND gallery invalid JSON errors
-2. **Test on iPhone**: User should go Settings → Camera → Format → Most Compatible and re-test gallery scan to confirm JPEG path works
-3. **Multi-photo stitchPhotos OOM** (deferred): `stitchPhotos` decodes images via `new Image()` — same OOM risk. Only affects multi-photo mode, which is rare. Fix if reported.
-4. Other deferred tasks: Stripe checkout verification, Unlisted items button cleanup, date picker
+1. **Merge PR #112** — all three fixes in one PR
+2. **Test on Android**: AVIF gallery photos should now work (no longer rejected). JPEG photos from camera should still work.
+3. **Test on iPhone with HEIC**: Settings → Camera → Format → HEIC mode → try gallery scan → should see actionable error
+4. Other deferred: Stripe checkout verification, Unlisted items button cleanup, date picker, multi-photo stitchPhotos OOM
 
 ### Decisions made (do not reverse)
-- Gallery invalid JSON has two fixes: server-side HEIC rejection (415) + JSON regex fallback in handleSingleScan
-- iPhone users with HEIC enabled will get a clear actionable error rather than a generic crash
+- HEIC detection uses brand bytes 8-11, not just the ftyp container marker at 4-7
+- AVIF/MP4/MOV get a generic "format not supported" message (no iPhone instructions)
+- HEIC gets iPhone-specific instructions to change camera format
 
 ### Blockers
-- None. Both fixes deployed (Edge Function v64 ACTIVE).
+- None. Fix deployed (Edge Function v65 ACTIVE).
 
 ---
 
