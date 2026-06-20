@@ -4,6 +4,45 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20d — Gallery "invalid JSON" fix: HEIC detection + JSON fallback (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
+
+### What changed this session
+
+**1 file changed: `supabase/functions/claude-proxy/index.ts`** — commit `b29a2a1` (deployed as version 64)
+
+**Root causes of "invalid JSON error when adding images from gallery":**
+
+1. **HEIC files from iOS gallery**: iPhone's default camera format (`image/heic`) has magic bytes `ftyp` at offset 4-7 (0x66 0x74 0x79 0x70). The server's `detectImageMime` function didn't recognize HEIC and fell back to `image/jpeg`. Anthropic received HEIC bytes mislabeled as JPEG → rejected or returned free text → `JSON.parse` failed.
+
+   **Fix**: Added early-reject in the multipart handler. After `imageFile.arrayBuffer()`, check bytes 4-7 for `ftyp`. If HEIC, return 415 immediately with message: "HEIC photos are not supported. On iPhone: Settings → Camera → Format → Most Compatible to save as JPEG." This surfaces to the user via `callScan` → `showError()`.
+
+2. **Claude returning preamble text before JSON**: Even for valid JPEG/PNG gallery images, Claude occasionally outputs a sentence before the JSON object (despite "Return ONLY valid JSON" in the prompt). This caused `JSON.parse(raw)` to throw.
+
+   **Fix**: Added regex fallback in `handleSingleScan`. After `JSON.parse` fails, try `raw.match(/\{[\s\S]*\}/)` to extract the embedded JSON object. If that also fails, throw a user-friendly "Could not analyze this photo. Try a clearer photo of a single item." instead of the developer-facing "AI returned invalid JSON".
+
+### Files changed
+- `supabase/functions/claude-proxy/index.ts` — HEIC early-reject (multipart handler) + JSON regex fallback (handleSingleScan)
+- `docs/HANDOFF.md` — this entry
+
+### Commit / PR
+- Commit `b29a2a1` on branch `claude/mobile-memory-profit-scanner-bt1rd9`
+- PR #112 (draft) — already open, this commit added to same PR
+
+### Next tasks
+1. **Merge PR #112** — fixes both Android OOM crash AND gallery invalid JSON errors
+2. **Test on iPhone**: User should go Settings → Camera → Format → Most Compatible and re-test gallery scan to confirm JPEG path works
+3. **Multi-photo stitchPhotos OOM** (deferred): `stitchPhotos` decodes images via `new Image()` — same OOM risk. Only affects multi-photo mode, which is rare. Fix if reported.
+4. Other deferred tasks: Stripe checkout verification, Unlisted items button cleanup, date picker
+
+### Decisions made (do not reverse)
+- Gallery invalid JSON has two fixes: server-side HEIC rejection (415) + JSON regex fallback in handleSingleScan
+- iPhone users with HEIC enabled will get a clear actionable error rather than a generic crash
+
+### Blockers
+- None. Both fixes deployed (Edge Function v64 ACTIVE).
+
+---
+
 ## Session: 2026-06-20c — Android OOM crash fix (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
 
 ### What changed this session
