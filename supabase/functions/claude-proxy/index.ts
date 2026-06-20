@@ -226,8 +226,17 @@ async function handleSingleScan(
 ) {
   const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), images, undefined, mimeTypes as ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[]);
   let ai: Record<string, unknown>;
-  try { ai = JSON.parse(raw); }
-  catch { throw new Error('AI returned invalid JSON'); }
+  try {
+    ai = JSON.parse(raw);
+  } catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { ai = JSON.parse(m[0]); }
+      catch { throw new Error('Could not analyze this photo. Try a clearer photo of a single item.'); }
+    } else {
+      throw new Error('Could not analyze this photo. Try a clearer photo of a single item.');
+    }
+  }
 
   const avgSell = (ai.avg_sold_price as number) ?? 0;
   const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
@@ -1180,6 +1189,11 @@ Deno.serve(async (req: Request) => {
       let imageMime: string = 'image/jpeg';
       if (imageFile) {
         const buf = await imageFile.arrayBuffer();
+        // Early-reject HEIC: bytes 4-7 are 'ftyp' (0x66 0x74 0x79 0x70)
+        const hdr = new Uint8Array(buf, 0, 12);
+        if (hdr[4] === 0x66 && hdr[5] === 0x74 && hdr[6] === 0x79 && hdr[7] === 0x70) {
+          return json({ error: 'HEIC photos are not supported. On iPhone: Settings → Camera → Format → Most Compatible to save as JPEG.' }, 415);
+        }
         b64 = ab2b64(buf);
         imageMime = detectImageMime(buf);
       }
