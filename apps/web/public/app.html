@@ -1912,7 +1912,8 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px">Your numbers, your business.</div>
   </div>
   <div style="display:flex;gap:6px;margin-bottom:14px">
-    <button class="filter-btn active" id="stats-sub-pnl" onclick="statsSubTab('pnl')">P&amp;L</button>
+    <button class="filter-btn active" id="stats-sub-pnl" onclick="statsSubTab('pnl')">Dashboard</button>
+    <button class="filter-btn" id="stats-sub-expenses" onclick="statsSubTab('expenses')">Expenses</button>
     <button class="filter-btn" id="stats-sub-subscription" onclick="statsSubTab('subscription')">Plan</button>
   </div>
   <div id="stats-view-dash" style="display:none">
@@ -8007,14 +8008,29 @@ function statsSubTab(sub) {
   var pnl  = document.getElementById('stats-view-pnl');
   var subv = document.getElementById('stats-view-subscription');
   var bpnl  = document.getElementById('stats-sub-pnl');
+  var bexp  = document.getElementById('stats-sub-expenses');
   var bsub  = document.getElementById('stats-sub-subscription');
+  // Hide all views first
   if(dash) dash.style.display = 'none';
-  if(pnl)  pnl.style.display  = sub==='pnl'?'block':'none';
-  if(subv) subv.style.display = sub==='subscription'?'block':'none';
+  if(pnl)  pnl.style.display  = 'none';
+  if(subv) subv.style.display = 'none';
+  // Toggle active state on buttons
   if(bpnl)  bpnl.classList.toggle('active', sub==='pnl');
+  if(bexp)  bexp.classList.toggle('active', sub==='expenses');
   if(bsub)  bsub.classList.toggle('active', sub==='subscription');
-  if(sub==='pnl') { sPnlRender(); sPnlTab('sales'); }
-  if(sub==='subscription') renderSubscriptionPanel();
+  // Show correct view
+  if(sub==='pnl') {
+    if(dash) dash.style.display = 'block';
+    renderDashboard();
+  }
+  if(sub==='expenses') {
+    if(pnl) pnl.style.display = 'block';
+    sPnlRender(); sPnlTab('exp');
+  }
+  if(sub==='subscription') {
+    if(subv) subv.style.display = 'block';
+    renderSubscriptionPanel();
+  }
 }
 
 function sPnlTab(tab) {
