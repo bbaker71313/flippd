@@ -4,6 +4,56 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20 — Merge PR #105 (branch: claude/merge-pr-103-0457dm)
+
+### What changed this session
+
+**PR #105 merged to main** — "fix: bug fixes round 2 — 10 UX/functionality issues"
+
+PR #105 was on branch `claude/cool-rubin-mka6bv` and had a merge conflict with main in `apps/web/public/app.html`. The conflict was in the `ebay_item_id` client-side dedup logic:
+
+- **main** had a single-pass dedup that kept both copies of a duplicate when the newer item was encountered first (buggy)
+- **PR #105** had a two-pass dedup: build a best-item map first (pass 1), then filter using that map (pass 2) — correct
+
+Resolved by keeping the PR's two-pass version, then squash-merged to main at commit `2c0f39d`.
+
+**10 fixes in PR #105:**
+1. Trial banner width overflow fix
+2. Shipping cost hint text
+3. Shelf scan MIME type — PNG support added (was JPEG-only)
+4. Scanner tab renamed to "Profit Scanner"
+5. eBay orders CSV import
+6. Active listings status → "Listed" (was "Unlisted")
+7. Duplicate scan warning
+8. Remove.bg discoverability improvement
+9. Profit Hub routing fix
+10. eBay sync diagnostics (reconnect prompt when 0 results)
+
+### Files changed
+- `apps/web/public/app.html` — all 10 bug fixes
+- `supabase/functions/claude-proxy/index.ts` — shelf scan PNG support
+- `supabase/functions/ebay-oauth/index.ts` — eBay sync diagnostics
+- `docs/superpowers/plans/2026-06-19-bug-fixes-round-2.md` — implementation plan (committed with PR)
+
+### Commit / PR
+- PR #105 squash-merged → main at `2c0f39d`
+- Session branch `claude/merge-pr-103-0457dm` fast-forwarded to match main
+
+### Next tasks
+1. **Multi-photo scanner** (audit item 5): Single item scan should accept up to 3 photos. Camera: take → add → repeat. Gallery: multi-select up to 3. Shelf scan stays at 1.
+2. **Desktop camera** (audit item 11): "Take Photo" on desktop should open webcam, not file picker.
+3. **Verify Stripe checkout** — still needs `STRIPE_PRICE_HUSTLE_MONTHLY`, `STRIPE_PRICE_STACK_MONTHLY`, `STRIPE_PRICE_EMPIRE_MONTHLY` in Supabase secrets (Dashboard → Edge Functions → Secrets).
+4. **Unlisted items button cleanup** (audit): Remove Enhance Photo, Edit, Unlisted status badge from item cards — keep only essential actions.
+5. **Date picker** (audit): Date Acquired field should open a calendar picker.
+
+### Decisions made (do not reverse)
+- `ebay_item_id` dedup uses two-pass logic (best-item map then filter) — single-pass was buggy and has been replaced
+
+### Blockers
+- None.
+
+---
+
 ## Session: 2026-06-19 — Audit pass + image compression fix (branch: claude/zealous-ritchie-yhxgqc → merged to main as PR #102)
 
 ### What changed this session
