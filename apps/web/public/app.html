@@ -5161,10 +5161,23 @@ function fileToBase64NoDecodeAndThumb(file) {
   });
 }
 
-// makeTinyThumb removed — createImageBitmap triggers full bitmap decode
-// on many Android WebView versions regardless of resizeWidth hint,
-// causing the same OOM crash we're trying to prevent. No preview is
-// generated; the scan works without one.
+// makeScanThumb: decode at 80x80 via createImageBitmap resize options.
+// On Chrome 85+/Android 10+ WebView, this decodes at the target size (~25KB raw)
+// rather than full resolution (~48MB), avoiding the OOM crash.
+// Returns a data URL string, or null on any failure (old WebView, unsupported).
+async function makeScanThumb(file) {
+  if (!file || typeof createImageBitmap === 'undefined') return null;
+  try {
+    const bm = await createImageBitmap(file, { resizeWidth: 80, resizeHeight: 80, resizeQuality: 'low' });
+    const cv = document.createElement('canvas');
+    cv.width = bm.width || 80; cv.height = bm.height || 80;
+    cv.getContext('2d').drawImage(bm, 0, 0);
+    bm.close();
+    return cv.toDataURL('image/jpeg', 0.7);
+  } catch(_) {
+    return null;
+  }
+}
 
 // ══════════════════════════════════════════════════
 // SOURCING — SETTINGS
@@ -5694,10 +5707,14 @@ function handleImage(e) {
   }
   const slotNum = scanImgFiles.length + 1;
   showToast(slotNum === 1 ? 'Photo attached...' : 'Photo ' + slotNum + '/3 added...');
-  fileToBase64NoDecodeAndThumb(file).then(function(res) {
+  fileToBase64NoDecodeAndThumb(file).then(async function(res) {
     const blobUrl = URL.createObjectURL(file);
     const f = res.file;
     try { Object.defineProperty(f, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
+    // Attempt a low-memory thumbnail (decodes at 80x80 on modern WebView).
+    // Falls back to null on old devices; renderPhotoStrip shows placeholder instead.
+    const thumb = await makeScanThumb(file);
+    try { Object.defineProperty(f, '_thumbUrl', { value: thumb, configurable: true }); } catch(_) {}
     scanImgFiles.push(f);
     imgFile = scanImgFiles[0];
     imgB64 = 'HAS_FILE';
@@ -5718,9 +5735,12 @@ function renderPhotoStrip() {
   if (scanImgFiles.length === 0) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
   strip.innerHTML = scanImgFiles.map(function(f, i) {
-    // No <img> — blob URL decode triggers full bitmap allocation on Android WebView
-    // regardless of CSS display size, causing OOM after 1-2 scans. Show a
-    // no-decode placeholder instead.
+    // Use the pre-generated 80x80 thumbnail if available (makeScanThumb decoded
+    // at target size on this device). Fall back to no-decode placeholder on old
+    // Android WebViews that don't support createImageBitmap resize options.
+    if (f._thumbUrl) {
+      return '<div class="scan-thumb" style="padding:0"><img src="' + f._thumbUrl + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:6px"><button class="scan-thumb-del" onclick="removePhoto(' + i + ')">×</button></div>';
+    }
     return '<div class="scan-thumb"><div style="font-size:20px;line-height:1">📷</div><div style="font-size:9px;font-family:\'IBM Plex Mono\',monospace;color:var(--accent);font-weight:700;letter-spacing:0.05em">PHOTO ' + (i+1) + '</div><button class="scan-thumb-del" onclick="removePhoto(' + i + ')">×</button></div>';
   }).join('');
   if (addBtn) {
