@@ -419,6 +419,10 @@ body::before{
 .tag:hover{border-color:var(--accent);color:var(--accent)}
 .tips-list{list-style:none}
 .tip-item{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--soft);line-height:1.6}
+.scan-thumb{position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)}
+.scan-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.scan-thumb-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.65);border:none;border-radius:50%;width:18px;height:18px;font-size:12px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.scan-add-btn{background:none;border:1px dashed var(--border);border-radius:8px;padding:8px 14px;font-size:11px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace;width:100%;margin-top:6px;letter-spacing:0.05em}
 .tip-item:last-child{border-bottom:none}
 .tip-arrow{color:var(--accent);font-weight:700;flex-shrink:0}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -1416,8 +1420,9 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     </div>
     <input class="file-input" id="input-camera" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" capture="environment" onchange="handleImage(event)">
     <input class="file-input" id="input-gallery" type="file" accept=".jpg,.jpeg,.png,.webp,.heic" onchange="handleImage(event)">
-    <div id="preview-container" style="display:none">
-      <div class="preview-box"><img id="preview-img" src="" alt="preview"><button class="preview-clear" onclick="clearImage()">Clear</button></div>
+    <div id="scan-photos-wrap" style="display:none;margin-bottom:4px">
+      <div id="scan-photos-strip" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px"></div>
+      <button id="scan-add-btn" class="scan-add-btn" style="display:none" onclick="triggerImageInput('gallery')">+ Add Another Photo (1/3)</button>
     </div>
     <div class="or-divider" id="or-div"><div class="or-line"></div><span class="or-text">OR DESCRIBE IT</span><div class="or-line"></div></div>
     <textarea class="text-input" id="text-input" placeholder='e.g. "Xbox 360 with games" or any item...'></textarea>
@@ -5635,6 +5640,7 @@ let imgB64 = null, imgType = 'image/jpeg', srcMode = 'single';
 // v5.17: hold the raw File object so we can upload via multipart/form-data
 // without ever base64-encoding on the phone (avoids OOM on low-RAM Android)
 let imgFile = null;
+let scanImgFiles = []; // multi-photo: up to 3 Files for single-item scan
 const MAX_IMG_SIZE = 500000; // 500KB limit for base64 image
 
 function showSrcView(n) {
@@ -5664,6 +5670,7 @@ function setMode(m) {
   document.getElementById('hint-b-shelf').style.display=s?'none':'block';
   document.getElementById('btn-camera').className='cam-btn '+(s?'green':'purple');
   document.getElementById('text-input').placeholder=s?'e.g. "Xbox 360 with games" or any item...':'Optional: describe store/section';
+  renderPhotoStrip();
 }
 
 // ── Trigger file input — clone+replace fixes iOS stale-input bug ──
@@ -5681,24 +5688,22 @@ function triggerImageInput(type) {
 function handleImage(e) {
   const file = (e.target || e).files && (e.target || e).files[0];
   if (!file) return;
-  showToast('Photo attached...');
+  // Shelf scan: single photo only — replace existing
+  if (srcMode === 'shelf' || scanImgFiles.length >= 3) {
+    scanImgFiles.forEach(function(f) { if (f && f._blobUrl) try { URL.revokeObjectURL(f._blobUrl); } catch(_) {} });
+    scanImgFiles = [];
+  }
+  const slotNum = scanImgFiles.length + 1;
+  showToast(slotNum === 1 ? 'Photo attached...' : 'Photo ' + slotNum + '/3 added...');
   fileToBase64NoDecodeAndThumb(file).then(function(res) {
-    // v5.17: store raw File reference for multipart upload
-    // v5.18: use URL.createObjectURL for the preview thumbnail — this is
-    // a native blob URL that the browser streams from disk at display
-    // resolution. No JS-heap allocation, no base64 in the DOM.
-    // Browser-side decode happens but is bounded by the <img> element's
-    // rendered size (a few hundred px), not the full 50MP source.
-    if (imgFile && imgFile._blobUrl) {
-      try { URL.revokeObjectURL(imgFile._blobUrl); } catch(_) {}
-    }
-    imgFile = res.file;
-    imgB64 = 'HAS_FILE'; // sentinel — never sent, only truthy-checked
-    imgType = res.mime;
     const blobUrl = URL.createObjectURL(file);
-    // Stash for later cleanup
-    try { Object.defineProperty(imgFile, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
-    showPreview(blobUrl);
+    const f = res.file;
+    try { Object.defineProperty(f, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
+    scanImgFiles.push(f);
+    imgFile = scanImgFiles[0];
+    imgB64 = 'HAS_FILE';
+    imgType = res.mime;
+    renderPhotoStrip();
   }).catch(function(err) {
     showToast(err.message || 'Could not load photo');
     console.error('handleImage failed:', err);
@@ -5706,25 +5711,76 @@ function handleImage(e) {
   try { (e.target || e).value = ''; } catch(_) {}
 }
 
-function showPreview(src) {
-  const img = document.getElementById('preview-img');
-  const container = document.getElementById('preview-container');
-  if (img) img.src = src;
-  if (container) container.style.display = 'block';
+function renderPhotoStrip() {
+  const wrap = document.getElementById('scan-photos-wrap');
+  const strip = document.getElementById('scan-photos-strip');
+  const addBtn = document.getElementById('scan-add-btn');
+  if (!wrap || !strip) return;
+  if (scanImgFiles.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  strip.innerHTML = scanImgFiles.map(function(f, i) {
+    return '<div class="scan-thumb"><img src="' + (f._blobUrl || '') + '" alt="photo"><button class="scan-thumb-del" onclick="removePhoto(' + i + ')">×</button></div>';
+  }).join('');
+  if (addBtn) {
+    const canAdd = srcMode === 'single' && scanImgFiles.length < 3;
+    addBtn.style.display = canAdd ? 'block' : 'none';
+    if (canAdd) addBtn.textContent = '+ Add Another Photo (' + scanImgFiles.length + '/3)';
+  }
+}
+
+function removePhoto(idx) {
+  const f = scanImgFiles[idx];
+  if (f && f._blobUrl) try { URL.revokeObjectURL(f._blobUrl); } catch(_) {}
+  scanImgFiles.splice(idx, 1);
+  if (scanImgFiles.length > 0) {
+    imgFile = scanImgFiles[0]; imgB64 = 'HAS_FILE';
+  } else {
+    imgFile = null; imgB64 = null; imgType = 'image/jpeg';
+  }
+  renderPhotoStrip();
 }
 
 function clearImage() {
-  // Revoke blob URL so the browser can release the file
-  if (imgFile && imgFile._blobUrl) {
-    try { URL.revokeObjectURL(imgFile._blobUrl); } catch(_) {}
-  }
+  scanImgFiles.forEach(function(f) { if (f && f._blobUrl) try { URL.revokeObjectURL(f._blobUrl); } catch(_) {} });
+  scanImgFiles = [];
   imgB64 = null;
   imgFile = null;
   imgType = 'image/jpeg';
-  const img = document.getElementById('preview-img');
-  if (img) img.src = '';
-  const container = document.getElementById('preview-container');
-  if (container) container.style.display = 'none';
+  const wrap = document.getElementById('scan-photos-wrap');
+  if (wrap) wrap.style.display = 'none';
+  const strip = document.getElementById('scan-photos-strip');
+  if (strip) strip.innerHTML = '';
+}
+
+async function stitchPhotos(files) {
+  const imgs = await Promise.all(files.map(function(f) {
+    return new Promise(function(res, rej) {
+      const img = new Image();
+      img.onload = function() { res(img); };
+      img.onerror = rej;
+      img.src = f._blobUrl || URL.createObjectURL(f);
+    });
+  }));
+  const SIZE = 800;
+  const GAP = 6;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE * imgs.length + GAP * (imgs.length - 1);
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  imgs.forEach(function(img, i) {
+    const x = i * (SIZE + GAP);
+    const scale = Math.max(SIZE / img.width, SIZE / img.height);
+    const sw = SIZE / scale, sh = SIZE / scale;
+    const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+    ctx.drawImage(img, sx, sy, sw, sh, x, 0, SIZE, SIZE);
+  });
+  return new Promise(function(res) {
+    canvas.toBlob(function(blob) {
+      res(new File([blob], 'scan-combined.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.92);
+  });
 }
 
 // restorePreviewAfterRotation REMOVED in v5.12.
@@ -5932,7 +5988,12 @@ async function analyze() {
       // Compress to ≤1568px JPEG before upload — prevents exceeding Anthropic's
       // 10MB base64 image limit when shooting on high-res phone cameras.
       setBtnLoading('analyze-btn','Compressing photo...',false);
-      const compressedB64 = await compressImageForDetect(imgFile, 1568, 0.85);
+      let primaryFile = scanImgFiles[0] || imgFile;
+      if (scanImgFiles.length > 1) {
+        setBtnLoading('analyze-btn','Combining photos...',false);
+        primaryFile = await stitchPhotos(scanImgFiles);
+      }
+      const compressedB64 = await compressImageForDetect(primaryFile, 1568, 0.85);
       setBtnLoading('analyze-btn','Analyzing eBay market...',false);
       const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
       const r=await callScan('single_scan', hint, compressedB64);
