@@ -5711,10 +5711,10 @@ function handleImage(e) {
     const blobUrl = URL.createObjectURL(file);
     const f = res.file;
     try { Object.defineProperty(f, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
-    // Attempt a low-memory thumbnail (decodes at 80x80 on modern WebView).
-    // Falls back to null on old devices; renderPhotoStrip shows placeholder instead.
-    const thumb = await makeScanThumb(file);
-    try { Object.defineProperty(f, '_thumbUrl', { value: thumb, configurable: true }); } catch(_) {}
+    // Skip thumbnail decode entirely — createImageBitmap can still OOM-kill
+    // the WebView on low-memory devices (e.g. when screen recording is active),
+    // even at 80×80. The text placeholder in renderPhotoStrip is sufficient.
+    try { Object.defineProperty(f, '_thumbUrl', { value: null, configurable: true }); } catch(_) {}
     scanImgFiles.push(f);
     imgFile = scanImgFiles[0];
     imgB64 = 'HAS_FILE';
@@ -6280,7 +6280,7 @@ function renderShelf(shelfItems) {
   document.getElementById('shelf-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Scan</button>
     <div class="u-syne u-bold9" style="font-size:var(--text-2xl);margin-bottom:var(--space-1);color:var(--text)">Shelf Report</div>
-    <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+buy.length} worth buying · ${pass.length} to skip</div>
+    <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+list.length} worth buying · ${skip.length} to skip</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-bottom:var(--space-4)">
       <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-hot">${hot.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">HOT</div></div>
       <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-list">${list.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">LIST</div></div>
