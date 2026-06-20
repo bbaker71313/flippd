@@ -2605,7 +2605,7 @@ function switchTab(tab) {
   if (tab === 'growth') initGrowthTab();
   if (tab === 'csv') { renderCsvPreview(); loadCsvReminder(); }
   if (tab === 'import') { resetImportUI(); }
-  if (tab === 'dashboard') { statsSubTab('pnl'); }
+  if (tab === 'dashboard') { statsSubTab('pnl'); syncFromServer().catch(function(){}); }
   
   // Cleanup memory when leaving scout tab.
   // NOTE: do NOT remove flippd_preview_src here — Android camera launches a new
@@ -5775,28 +5775,38 @@ function clearImage() {
 }
 
 async function stitchPhotos(files) {
-  const imgs = await Promise.all(files.map(function(f) {
-    return new Promise(function(res, rej) {
-      const img = new Image();
-      img.onload = function() { res(img); };
-      img.onerror = rej;
-      img.src = f._blobUrl || URL.createObjectURL(f);
-    });
-  }));
   const SIZE = 800;
   const GAP = 6;
+  // Use createImageBitmap with resize options to decode each photo at 800px
+  // instead of full resolution. new Image() + blobUrl decodes to full RGBA
+  // (~48MB for a 12MP JPEG) before drawImage scales it down — that full-res
+  // intermediate is what OOM-kills the WebView when screen recording is active.
+  const bitmaps = [];
+  for (let fi = 0; fi < files.length; fi++) {
+    const f = files[fi];
+    try {
+      const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeHeight: SIZE, resizeQuality: 'medium' });
+      bitmaps.push(bm);
+    } catch (_) {
+      // Fallback for browsers without resize-option support (rare; may OOM on very low-end devices)
+      const bm = await new Promise(function(res, rej) {
+        const img = new Image();
+        img.onload = function() { res(img); };
+        img.onerror = rej;
+        img.src = f._blobUrl || URL.createObjectURL(f);
+      });
+      bitmaps.push(bm);
+    }
+  }
   const canvas = document.createElement('canvas');
-  canvas.width = SIZE * imgs.length + GAP * (imgs.length - 1);
+  canvas.width = SIZE * bitmaps.length + GAP * (bitmaps.length - 1);
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  imgs.forEach(function(img, i) {
-    const x = i * (SIZE + GAP);
-    const scale = Math.max(SIZE / img.width, SIZE / img.height);
-    const sw = SIZE / scale, sh = SIZE / scale;
-    const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
-    ctx.drawImage(img, sx, sy, sw, sh, x, 0, SIZE, SIZE);
+  bitmaps.forEach(function(bm, i) {
+    ctx.drawImage(bm, i * (SIZE + GAP), 0, SIZE, SIZE);
+    if (bm.close) bm.close();
   });
   return new Promise(function(res) {
     canvas.toBlob(function(blob) {

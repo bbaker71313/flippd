@@ -344,7 +344,28 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       .select('ebay_username')
       .eq('user_id', userId)
       .maybeSingle();
-    const sellerName = conn?.ebay_username as string | null;
+    let sellerName = conn?.ebay_username as string | null;
+
+    // If username wasn't captured during OAuth (identity API may have failed),
+    // fetch it now using the already-valid access token and persist it so
+    // future syncs don't need this fallback.
+    if (!sellerName && accessToken) {
+      try {
+        const idRes = await fetch('https://apiz.ebay.com/commerce/identity/v1/user/', {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        if (idRes.ok) {
+          const identity = await idRes.json();
+          sellerName = identity.username ?? null;
+          if (sellerName) {
+            await supabase.from('ebay_connections').update({ ebay_username: sellerName }).eq('user_id', userId);
+          }
+        }
+      } catch (err) {
+        console.error('ebay identity lazy-fetch failed:', err);
+      }
+    }
+
     const appId = Deno.env.get('EBAY_CLIENT_ID');
     if (sellerName && appId) {
       let findingPage = 1;
