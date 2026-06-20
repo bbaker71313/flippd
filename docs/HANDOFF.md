@@ -4,6 +4,43 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20b — HOT/LIST/SKIP, empty cards fix, P&L refresh (branch: claude/merge-pr-103-0457dm → PR #107)
+
+### What changed this session
+
+**PR #107 (draft) on branch `claude/merge-pr-103-0457dm`** — commit `73fafe5`
+
+1. **HOT/LIST/SKIP decision rename** — BUY→LIST, PASS→SKIP throughout `app.html`: CSS classes (`is-buy`→`is-list`, `is-pass`→`is-skip`), decision banners, shelf section headers, shelf stat nums, shelf item classes, scan history badges, drill-down badge, `getDecision()` return values, `D_ICON`/`D_LBL` maps, action buttons, AI prompts in `getShelfSys()`.
+2. **HOT criteria expanded** — New `getDecision(profit, roi, days, sellThrough, demandLevel)` fires HOT when `demand_level` is HIGH/VERY HIGH, OR profit ≥ 2× minProfit, OR ROI ≥ 2× targetRoi.
+3. **Fix empty Listing Tips / Check This cards** — Critical HTML bug: `</div>` was closing the card immediately after the `<h3>` heading, leaving content rendered outside the card. Fixed to `</h3>` with fallback tip text.
+4. **P&L auto-refresh** — `saveItems()` now runs a debounced 400ms `renderDashboard()` call. `handleSyncOrders()` also explicitly calls `renderDashboard()` after eBay order sync.
+5. **claude-proxy Edge Function** — `getDecision()` updated to return `HOT | LIST | SKIP`, both callers pass `net` profit and `demandLevel`, shelf prompt uses new decision labels and sort order. Deployed as version 63, ACTIVE.
+
+### Files changed
+- `apps/web/public/app.html` — HOT/LIST/SKIP rename, HTML bug fix, P&L refresh, updated getDecision()
+- `supabase/functions/claude-proxy/index.ts` — updated getDecision() + shelf prompt
+
+### Commit / PR
+- Commit `73fafe5` pushed to `claude/merge-pr-103-0457dm`
+- Draft PR #107 created — needs merge to main for Vercel deploy
+
+### Next tasks
+1. **Merge PR #107 to main** — get Vercel to deploy updated app.html
+2. **Multi-photo scanner** (audit item 5): Single item scan should accept up to 3 photos.
+3. **Desktop camera** (audit item 11): "Take Photo" on desktop should open webcam, not file picker.
+4. **Verify Stripe checkout** — needs `STRIPE_PRICE_HUSTLE_MONTHLY`, `STRIPE_PRICE_STACK_MONTHLY`, `STRIPE_PRICE_EMPIRE_MONTHLY` in Supabase secrets.
+5. **Unlisted items button cleanup**: Remove Enhance Photo, Edit, Unlisted status badge from item cards.
+6. **Date picker**: Date Acquired field should open a calendar picker.
+
+### Decisions made (do not reverse)
+- HOT/LIST/SKIP replaces HOT/BUY/PASS — all CSS classes, AI prompts, and logic use new labels
+- HOT is demand-aware: fires on HIGH/VERY HIGH demand regardless of absolute profit thresholds
+
+### Blockers
+- None.
+
+---
+
 ## Session: 2026-06-20 — Merge PR #105 (branch: claude/merge-pr-103-0457dm)
 
 ### What changed this session
