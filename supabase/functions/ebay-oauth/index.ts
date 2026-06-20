@@ -334,7 +334,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     console.error('ebay pull-listings offers error:', err);
   }
 
-  // Pull ALL active listings via eBay Finding API (findItemsBySeller).
+  // Pull ALL active listings via eBay Finding API (findItemsAdvanced with Seller filter).
   // The Inventory API above only shows API-created items. The Finding API
   // returns ALL active listings regardless of how they were created — traditional
   // eBay.com listings show up here too. Uses EBAY_CLIENT_ID (app credentials).
@@ -350,11 +350,17 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       let findingPage = 1;
       let totalFindings = 0;
       while (findingPage <= 2) { // max 200 listings (2 pages × 100)
-        const findUrl = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsBySeller&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
+        const findUrl = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsAdvanced&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
         const findRes = await fetch(findUrl, { headers: { Accept: 'application/json' } });
-        if (!findRes.ok) break;
+        if (!findRes.ok) {
+          console.error('ebay finding-api http error:', findRes.status, await findRes.text().catch(() => ''));
+          break;
+        }
         const findData = await findRes.json();
-        const response = findData?.findItemsBySellerResponse?.[0];
+        // Check for API-level errors (eBay returns HTTP 200 even for invalid requests)
+        const apiError = findData?.errorMessage?.[0]?.error?.[0]?.message?.[0];
+        if (apiError) { console.error('ebay finding-api error response:', apiError); break; }
+        const response = findData?.findItemsAdvancedResponse?.[0];
         const foundItems: Record<string, unknown>[] = (response?.searchResult?.[0]?.item ?? []) as Record<string, unknown>[];
         if (foundItems.length === 0) break;
         for (const fi of foundItems) {
@@ -368,8 +374,8 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
           const { data: existing } = await supabase
             .from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', itemId).maybeSingle();
           if (existing) {
-            // Already imported via Inventory API — update status/price only
             await supabase.from('inventory').update({ status: 'Listed', ...(sellPrice ? { sell_price: sellPrice } : {}) }).eq('id', existing.id);
+            active++;
           } else {
             await supabase.from('inventory').insert({
               user_id: userId,
