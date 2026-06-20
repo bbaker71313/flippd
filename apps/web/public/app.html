@@ -5293,9 +5293,15 @@ async function ebayPullListings(days){
       return;
     }
     
-    st.style.color='var(--green)';
     const total = d.active + d.drafted + d.sold;
-    st.innerHTML=`Synced ${total} items<br>${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
+    let syncMsg = `Synced ${total} items — ${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
+    if (total === 0) {
+      st.style.color = 'var(--yellow)';
+      syncMsg = `0 items returned from eBay. If you have listings on eBay, disconnect and reconnect eBay to refresh your authorization (Settings → eBay). eBay's Inventory API only shows listings created via API.`;
+    } else {
+      st.style.color='var(--green)';
+    }
+    st.innerHTML = syncMsg;
     
     // Re-fetch inventory from server so newly synced items appear (was loadInventory — that function doesn't exist).
     await new Promise(r=>setTimeout(r,1000));
@@ -5371,7 +5377,11 @@ async function handleSyncOrders() {
     const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
     const data = await res.json();
     if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = data.error || 'Sync failed'; } return; }
-    if (st) { st.style.color = 'var(--green)'; st.textContent = '' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    if (data.synced === 0 && data.debug && data.debug.ordersFound === 0) {
+      if (st) { st.style.color = 'var(--yellow)'; st.textContent = '0 orders found. If you have eBay sales, try disconnecting and reconnecting eBay to refresh the Fulfillment scope.'; }
+    } else {
+      if (st) { st.style.color = 'var(--green)'; st.textContent = '' + data.synced + ' sold order' + (data.synced === 1 ? '' : 's') + ' synced'; }
+    }
     await syncFromServer();
   } catch(e) { if (st) { st.style.color = 'var(--red)'; st.textContent = e.message; } }
   finally { if (btn) { btn.disabled = false; btn.style.opacity = '1'; } }
@@ -8136,6 +8146,7 @@ function sPnlMiles() {
 <div id="sync-progress" style="font-size:12px;color:var(--muted);min-height:20px;margin-bottom:16px;line-height:1.4"></div>
 <button class="btn btn-green" onclick="runEbaySyncPull()" style="width:100%;margin-bottom:8px;font-size:13px;padding:12px" id="sync-start-btn">Sync Listings from eBay</button>
 <button class="btn" onclick="handleSyncOrders()" style="width:100%;margin-bottom:10px;font-size:13px;padding:12px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)" id="sync-orders-btn">Sync Sold Orders</button>
+<div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-align:center;padding:4px 0 8px">Getting 0 results? <button onclick="closeEbaySync();showSourcingSettings();" style="background:none;border:none;color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:pointer;text-decoration:underline;padding:0">Disconnect &amp; reconnect eBay</button> in Settings</div>
 <button class="btn" onclick="closeEbaySync()" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--muted);font-size:12px;padding:10px" id="sync-close-btn">Close</button>
 </div></div>
 

@@ -387,7 +387,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     console.error('ebay pull-listings orders error:', err);
   }
 
-  return json({ active, drafted, sold });
+  return json({ active, drafted, sold, debug: { totalOffers: active + drafted, totalOrders: sold } });
 }
 
 async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
@@ -519,6 +519,8 @@ async function handleSyncOrders(req: Request, supabase: ReturnType<typeof create
   const ordersRes = await fetch(`https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
   if (!ordersRes.ok) return json({ error: 'eBay orders API error: ' + ordersRes.status }, 502);
   const { orders = [] } = await ordersRes.json() as { orders?: Array<Record<string, unknown>> };
+  const ordersFound = orders.length;
+  console.log(`handleSyncOrders: userId=${userId} ordersFound=${ordersFound}`);
   let synced = 0;
   for (const order of orders) {
     for (const li of (order.lineItems ?? []) as Array<Record<string, unknown>>) {
@@ -550,5 +552,5 @@ async function handleSyncOrders(req: Request, supabase: ReturnType<typeof create
       }
     }
   }
-  return json({ synced });
+  return json({ synced, debug: { ordersFound, ordersApiStatus: ordersRes.status } });
 }
