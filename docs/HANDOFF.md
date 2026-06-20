@@ -4,6 +4,48 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20g — Shelf scan error fix, stitchPhotos OOM, eBay sync + dashboard (PRs #115 + #116 merged)
+
+### What changed this session
+
+**PR #115 — merged** (`claude/shelf-scan-errors-memory-40qbad`)
+- **`apps/web/public/app.html`**: Fixed `renderShelf()` ReferenceError — `buy.length`/`pass.length` → `list.length`/`skip.length` (the arrays are named `list` and `skip`, not `buy` and `pass`)
+- **`apps/web/public/app.html`**: Removed `makeScanThumb()` call from `handleImage()` — thumbnail now sets `_thumbUrl: null` directly. Eliminates OOM path during screen recording.
+
+**PR #116 — merged** (`claude/scan-memory-ebay-dashboard-fixes`)
+- **`apps/web/public/app.html`**: `stitchPhotos()` OOM fix — replaced `new Image() + img.src = blobUrl` (decodes full-res JPEG ~48MB to RGBA) with `createImageBitmap(f, { resizeWidth:800, resizeHeight:800, resizeQuality:'medium' })`. Falls back to `new Image()` if browser doesn't support resize options. `bm.close()` called after drawImage. Verified via Playwright: canvas 1606×800 for 2 photos, resize path confirmed.
+- **`apps/web/public/app.html`**: `switchTab('dashboard')` now calls `syncFromServer().catch(function(){})` on P&L tab open. Verified via Playwright intercept.
+- **`supabase/functions/ebay-oauth/index.ts`**: `handlePullListings()` lazy-fetches `ebay_username` from eBay Commerce Identity API if null in DB, persists to `ebay_connections`.
+- **`supabase/functions/ebay-oauth/index.ts`**: `handleCallback()` now logs HTTP status + response body when Identity API returns non-200 (was silently swallowed).
+
+### Live DB state confirmed (post-session)
+- `ebay_username = "fureverinframe"` saved in `ebay_connections` for user_id 2
+- 14 Sold items in inventory (Fulfillment API working), 0 Listed (Finding API ran but returned 0 active listings)
+- Check Supabase logs for `ebay finding-api http error` after next sync if active listings still missing
+
+### Files changed
+- `apps/web/public/app.html`
+- `supabase/functions/ebay-oauth/index.ts`
+
+### Commits
+- `19141bb` — fix: shelf scan 'buy is not defined' error and screen-record low memory crash (PR #115)
+- `89aa6ab` — fix: stitchPhotos OOM, eBay username lazy-fetch, dashboard sync on open (PR #116)
+- `0553e8b` — fix: log eBay Identity API HTTP status when username lookup fails (PR #116)
+
+### Decisions made (do not reverse)
+- `stitchPhotos` uses `createImageBitmap` with resize options — non-square photos stretched to 800×800 (not cropped). Acceptable trade-off for OOM fix.
+- No thumbnail generated for scan photos (`_thumbUrl: null`) — prevents OOM during screen recording.
+
+### Next tasks
+1. **eBay active listings**: If still 0, check Supabase → Logs → `ebay-oauth` for `ebay finding-api http error` lines. Also verify `commerce.identity.readonly` scope is enabled in eBay Developer Center app settings.
+2. **Stripe checkout verification** — still "not yet verified"
+3. **PostHog events** — still "not yet verified"
+
+### Blockers
+- None. Both PRs merged and deployed.
+
+---
+
 ## Session: 2026-06-20f — Thumbnail <img> OOM fix (branch: claude/fix-scanner-thumbnail-oom-decode)
 
 ### What changed this session
