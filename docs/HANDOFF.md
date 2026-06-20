@@ -4,6 +4,98 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20e — Android AVIF false-positive fix (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
+
+### What changed this session
+
+**1 file changed: `supabase/functions/claude-proxy/index.ts`** — deployed as version 65
+
+**Root cause of "HEIC error message on Android":**
+
+Android 12+ Pixel/Samsung phones save gallery photos as AVIF by default. AVIF is also an ISOBMFF container — it has the same `ftyp` magic bytes (0x66 0x74 0x79 0x70) at offset 4-7 as HEIC. The previous HEIC check only tested bytes 4-7, so Android AVIF photos were falsely rejected with the iPhone-specific HEIC error message.
+
+**Fix**: After checking `ftyp` at bytes 4-7, also read the brand code at bytes 8-11. Only reject with the HEIC message if brand is one of `['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1']`. All other ISOBMFF containers (AVIF brand `avif`/`avis`, MP4, MOV) return a generic "This image format is not supported. Please use JPEG, PNG, or WebP." — which does NOT include the iPhone-specific instructions.
+
+```typescript
+const hdr = new Uint8Array(buf, 0, 12);
+if (hdr[4] === 0x66 && hdr[5] === 0x74 && hdr[6] === 0x79 && hdr[7] === 0x70) {
+  const brand = String.fromCharCode(hdr[8], hdr[9], hdr[10], hdr[11]).toLowerCase();
+  const isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+  if (isHeic) {
+    return json({ error: 'HEIC photos are not supported. On iPhone: Settings → Camera → Format → Most Compatible to save as JPEG.' }, 415);
+  }
+  return json({ error: 'This image format is not supported. Please use JPEG, PNG, or WebP.' }, 415);
+}
+```
+
+### Files changed
+- `supabase/functions/claude-proxy/index.ts` — brand-specific HEIC detection at bytes 8-11
+
+### Commit / PR
+- Deployed as Edge Function v65 (ACTIVE)
+- Committed and pushed on branch `claude/mobile-memory-profit-scanner-bt1rd9`
+- PR #112 (draft) — already open
+
+### Previous session (2026-06-20d) fixes also in PR #112
+1. **HEIC early-reject** (v64): iOS HEIC gallery photos → 415 with actionable message
+2. **JSON regex fallback** (v64): Claude preamble text before JSON object no longer crashes — regex extracts embedded JSON or shows user-friendly error
+3. **Android OOM fix** (v63, commit `bffd8df`): Removed `compressImageForDetect` from `analyze()` — single-item scan now uses multipart streaming path
+
+### Next tasks
+1. **Merge PR #112** — all three fixes in one PR
+2. **Test on Android**: AVIF gallery photos should now work (no longer rejected). JPEG photos from camera should still work.
+3. **Test on iPhone with HEIC**: Settings → Camera → Format → HEIC mode → try gallery scan → should see actionable error
+4. Other deferred: Stripe checkout verification, Unlisted items button cleanup, date picker, multi-photo stitchPhotos OOM
+
+### Decisions made (do not reverse)
+- HEIC detection uses brand bytes 8-11, not just the ftyp container marker at 4-7
+- AVIF/MP4/MOV get a generic "format not supported" message (no iPhone instructions)
+- HEIC gets iPhone-specific instructions to change camera format
+
+### Blockers
+- None. Fix deployed (Edge Function v65 ACTIVE).
+
+---
+
+## Session: 2026-06-20c — Android OOM crash fix (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
+
+### What changed this session
+
+**1 file changed: `apps/web/public/app.html`** — commit `bffd8df`
+
+**Root cause of persistent "low memory" crash:**
+`analyze()` called `compressImageForDetect(primaryFile, 1568, 0.85)` before every single-item scan. This function:
+1. `FileReader.readAsDataURL` — reads entire file as base64 string in JS heap
+2. `new Image(); img.src = dataUrl` — **fully decodes JPEG to raw RGBA pixels (~48MB for 12MP)**
+3. Canvas draw + `toDataURL` — another full-size allocation
+
+On Android WebViews (low-RAM devices like Moto G), step 2 OOM-kills the WebView process → black screen (WebView restarts) → "unable to process due to low memory" error.
+
+**Fix:** Removed `compressImageForDetect` call entirely from `analyze()`. Single-item scan now calls `callScan('single_scan', hint)` without the `imageB64` argument, routing to the multipart/form-data path — browser streams raw File bytes with zero JS-heap decode. Server converts to base64 where memory is unconstrained. **Shelf scan already used this exact path successfully (analyzeShelf() line 6064).**
+
+For multi-photo mode: `imgFile = await stitchPhotos(scanImgFiles)` updates the global so multipart path picks up the stitched file.
+
+### Files changed
+- `apps/web/public/app.html` — removed `compressImageForDetect` from `analyze()` (-8 lines, +5 lines)
+- `docs/HANDOFF.md` — this entry
+
+### Commit / PR
+- Commit `bffd8df` on branch `claude/mobile-memory-profit-scanner-bt1rd9`
+- Draft PR #112 — waiting for CI / merge
+
+### Next tasks
+1. **Merge PR #112** once CI passes — fixes the persistent Android low-memory crash
+2. **Multi-photo stitchPhotos OOM** (separate issue): `stitchPhotos` also decodes images via `new Image()`. For single photo (the reported bug) this is never called — but if multi-photo mode ever crashes, same root cause applies. Fix: upload all files separately and let server stitch, OR only trigger stitchPhotos for small images.
+3. Other deferred tasks from PR #107 (multi-photo scanner, desktop camera, Stripe checkout verification, etc.)
+
+### Decisions made (do not reverse)
+- Single-item scan uses multipart/form-data upload path — same as shelf scan — no client-side JPEG decode
+
+### Blockers
+- None.
+
+---
+
 ## Session: 2026-06-20b — HOT/LIST/SKIP, empty cards fix, P&L refresh (branch: claude/merge-pr-103-0457dm → PR #107)
 
 ### What changed this session

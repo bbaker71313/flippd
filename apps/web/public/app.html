@@ -5984,19 +5984,16 @@ async function analyze() {
   try {
     await sleep(300); setBtnLoading('analyze-btn','Analyzing eBay market...',false);
     if (imgFile) {
-      // Photo scan: use typed endpoint — full business logic on server.
-      // Compress to ≤1568px JPEG before upload — prevents exceeding Anthropic's
-      // 10MB base64 image limit when shooting on high-res phone cameras.
-      setBtnLoading('analyze-btn','Compressing photo...',false);
-      let primaryFile = scanImgFiles[0] || imgFile;
+      // Photo scan: stream raw file via multipart — zero client-side decode,
+      // eliminates Android WebView OOM. Server converts to base64. Same path
+      // analyzeShelf() uses successfully.
       if (scanImgFiles.length > 1) {
         setBtnLoading('analyze-btn','Combining photos...',false);
-        primaryFile = await stitchPhotos(scanImgFiles);
+        imgFile = await stitchPhotos(scanImgFiles);
       }
-      const compressedB64 = await compressImageForDetect(primaryFile, 1568, 0.85);
       setBtnLoading('analyze-btn','Analyzing eBay market...',false);
       const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
-      const r=await callScan('single_scan', hint, compressedB64);
+      const r=await callScan('single_scan', hint);
       setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
       // Map camelCase server response → snake_case for renderSingle
       const item={
