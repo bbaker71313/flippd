@@ -4,6 +4,41 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20c — Multi-photo scanner, eBay Finding API, HOT/LIST/SKIP merge (branch: claude/merge-pr-103-0457dm → PR #108)
+
+### What changed this session
+
+**PR #108 merged to main** — commit `61baa1e` (squashed to `29c9004` on main)
+
+1. **Multi-photo scanner** — Single-item scan accepts up to 3 photos. First photo creates a thumbnail strip with X buttons. "Add Another Photo (N/3)" button appears for single-item mode only. Shelf scan still 1 photo only. When 2+ photos selected, `stitchPhotos()` draws them side-by-side on an 800px-per-slot canvas before compressing and sending to AI. `renderPhotoStrip()`, `removePhoto(idx)`, `stitchPhotos()` added. `handleImage()`, `clearImage()` rewritten to use `scanImgFiles[]` array.
+2. **eBay sync — Finding API** — `handlePullListings` in `ebay-oauth` edge function now calls eBay Finding API (`findItemsBySeller`) after the Inventory API call, to pull ALL active traditional eBay listings. Uses `EBAY_CLIENT_ID` (app credentials) + `ebay_username` from `ebay_connections`. Deployed as version 48, ACTIVE.
+3. **HOT/LIST/SKIP + P&L refresh + empty cards fix** — Same changes from prior session (73fafe5) that were never merged; all now live on main via this PR.
+
+### Files changed
+- `apps/web/public/app.html` — multi-photo scanner UI + stitch logic + all prior session changes
+- `supabase/functions/ebay-oauth/index.ts` — Finding API call in handlePullListings
+
+### Commit / PR
+- Branch commit: `61baa1e` → PR #108 merged to main at `29c9004`
+- ebay-oauth edge function: version 48, ACTIVE
+- Vercel deploy: triggered automatically on main merge
+
+### Next tasks
+1. **Desktop camera** (audit item 11): "Take Photo" on desktop should open webcam, not file picker. Need to detect if `window.isSecureContext && navigator.mediaDevices?.getUserMedia` is available; if so, open a camera modal with canvas capture instead of `<input type="file">`.
+2. **Verify Stripe checkout** — needs `STRIPE_PRICE_HUSTLE_MONTHLY`, `STRIPE_PRICE_STACK_MONTHLY`, `STRIPE_PRICE_EMPIRE_MONTHLY` in Supabase secrets (Dashboard → Edge Functions → Secrets).
+3. **Unlisted items button cleanup**: Remove Enhance Photo, Edit, Unlisted status badge from item cards — keep only essential actions.
+4. **Date picker**: Date Acquired field should open a calendar picker.
+
+### Decisions made (do not reverse)
+- `scanImgFiles[]` array is the source of truth for scanner photos; `imgFile`/`imgB64` remain as compatibility sentinels synced from `scanImgFiles[0]`
+- Finding API uses public app credentials (no user token needed) — works for any seller
+- eBay sync fallback message updated: if 0 items, shows disconnect/reconnect guidance
+
+### Blockers
+- eBay Finding API requires `ebay_username` stored in `ebay_connections`; users who connected eBay before username was stored (pre-session 2026-06-17) will need to disconnect + reconnect to populate it
+
+---
+
 ## Session: 2026-06-20b — HOT/LIST/SKIP, empty cards fix, P&L refresh (branch: claude/merge-pr-103-0457dm → PR #107)
 
 ### What changed this session
