@@ -416,9 +416,11 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
             existing = data;
           }
           if (existing) {
+            const orderSoldPrice = parseFloat((item.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
             await supabase.from('inventory').update({
               status: 'Sold',
               sold_at: order.creationDate ?? new Date().toISOString(),
+              ...(orderSoldPrice ? { sold_price: orderSoldPrice } : {}),
             }).eq('id', existing.id);
             sold++;
           } else {

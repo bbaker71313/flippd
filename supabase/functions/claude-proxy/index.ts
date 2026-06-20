@@ -171,7 +171,9 @@ async function callAnthropic(
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message ?? 'Anthropic error');
-  return data.content[0].text as string;
+  const raw = data.content[0].text as string;
+  // Strip markdown code fences Claude sometimes adds despite "no markdown" instructions
+  return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 }
 
 // Verbatim from FEATURE_TRIAGE.md P-03 (getSingleSys L4644–4663)
