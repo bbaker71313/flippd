@@ -4,6 +4,44 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20f — Thumbnail <img> OOM fix (branch: claude/fix-scanner-thumbnail-oom-decode)
+
+### What changed this session
+
+**1 file changed: `apps/web/public/app.html`**
+
+**Root cause of OOM crash after 1-2 scans (residual bug after PR #112):**
+
+The `renderPhotoStrip()` function displayed thumbnails using `<img src="blob:...">`. Even though the thumbnail is displayed at 80×80px, many Android WebView versions decode the full-resolution source image into a raw bitmap (~48MB for a 12MP camera photo) before scaling for display. CSS display size does not prevent the full-resolution decode.
+
+Memory accumulates across scans because:
+1. User takes photo → `<img>` loads → 48MB decoded in WebView memory
+2. User taps "← New Analysis" → `clearImage()` revokes the blob URL and clears the DOM
+3. User takes another photo → another 48MB decode before GC has freed the first
+4. By scan 2-3 → 96-144MB of raw bitmap data → Android kills the WebView process
+
+**Fix:** Replaced the `<img>` element in `renderPhotoStrip()` with a no-decode placeholder div (📷 camera icon + "PHOTO N" label). No `<img>` = no browser image decode = zero memory accumulation between scans. Consistent with the broader no-decode philosophy documented at line 5165-5168 (`createImageBitmap` was also removed for the same reason).
+
+Updated `.scan-thumb` CSS: removed `overflow:hidden` (no longer needed without an img), added `display:flex`, `flex-direction:column`, `align-items:center`, `justify-content:center`, `gap:3px`, and brand-tinted background.
+
+### Files changed
+- `apps/web/public/app.html` — `renderPhotoStrip()` + `.scan-thumb` CSS
+
+### Next tasks
+1. **Test on Android** — take 3+ scans in a row, confirm no OOM crash
+2. **`invFormDetectItem` OOM** (inventory form "Detect Item from Photo" button, line 3166): still calls `compressImageForDetect` — same decode risk, lower frequency. Fix if reported.
+3. **`stitchPhotos` OOM** (multi-photo mode, 2-3 photos, line 5755): decodes all photos via `new Image()` + canvas. Only affects multi-photo mode. Fix if reported.
+4. Other deferred: Stripe checkout verification, Unlisted items button cleanup, date picker
+
+### Decisions made (do not reverse)
+- Scan photo strip shows a no-decode placeholder, not an image preview
+- The no-decode principle applies to all scanner paths: no `<img>` elements loading camera photos, no `createImageBitmap`, no `compressImageForDetect` in the scanner flow
+
+### Blockers
+- None.
+
+---
+
 ## Session: 2026-06-20e — Android AVIF false-positive fix (branch: claude/mobile-memory-profit-scanner-bt1rd9 → PR #112)
 
 ### What changed this session

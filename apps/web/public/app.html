@@ -419,8 +419,7 @@ body::before{
 .tag:hover{border-color:var(--accent);color:var(--accent)}
 .tips-list{list-style:none}
 .tip-item{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--soft);line-height:1.6}
-.scan-thumb{position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)}
-.scan-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.scan-thumb{position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--green-border);background:rgba(45,107,82,0.10);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
 .scan-thumb-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.65);border:none;border-radius:50%;width:18px;height:18px;font-size:12px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
 .scan-add-btn{background:none;border:1px dashed var(--border);border-radius:8px;padding:8px 14px;font-size:11px;color:var(--soft);cursor:pointer;font-family:'IBM Plex Mono',monospace;width:100%;margin-top:6px;letter-spacing:0.05em}
 .tip-item:last-child{border-bottom:none}
@@ -5719,7 +5718,10 @@ function renderPhotoStrip() {
   if (scanImgFiles.length === 0) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
   strip.innerHTML = scanImgFiles.map(function(f, i) {
-    return '<div class="scan-thumb"><img src="' + (f._blobUrl || '') + '" alt="photo"><button class="scan-thumb-del" onclick="removePhoto(' + i + ')">×</button></div>';
+    // No <img> — blob URL decode triggers full bitmap allocation on Android WebView
+    // regardless of CSS display size, causing OOM after 1-2 scans. Show a
+    // no-decode placeholder instead.
+    return '<div class="scan-thumb"><div style="font-size:20px;line-height:1">📷</div><div style="font-size:9px;font-family:\'IBM Plex Mono\',monospace;color:var(--accent);font-weight:700;letter-spacing:0.05em">PHOTO ' + (i+1) + '</div><button class="scan-thumb-del" onclick="removePhoto(' + i + ')">×</button></div>';
   }).join('');
   if (addBtn) {
     const canAdd = srcMode === 'single' && scanImgFiles.length < 3;
