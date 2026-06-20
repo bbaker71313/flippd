@@ -171,6 +171,10 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     if (identityRes.ok) {
       const identity = await identityRes.json();
       ebayUsername = identity.username ?? null;
+      console.log('eBay identity lookup success, username:', ebayUsername);
+    } else {
+      const errBody = await identityRes.text().catch(() => '');
+      console.error('eBay identity lookup non-ok:', identityRes.status, errBody);
     }
   } catch (err) {
     console.error('eBay identity lookup failed:', err);
