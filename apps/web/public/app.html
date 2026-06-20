@@ -1869,7 +1869,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <div id="import-mode-manual">
     <div class="card mb-12">
       <h3 class="card-title">Import from Spreadsheet or eBay CSV</h3>
-      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV or an eBay draft listings CSV. Duplicate SKUs are skipped automatically.</p>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;font-weight:500;margin-bottom:12px">Upload a spreadsheet CSV, eBay active listings CSV, or eBay orders CSV. Orders import as Sold items. Duplicate SKUs are skipped automatically.</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;line-height:1.8;word-break:break-all">
         nickname,cost,category,condition,status,sellPrice<br>
         "Xbox 360",8.00,Electronics,Good,Unlisted,45.00
@@ -7659,8 +7659,7 @@ function handleCsvImport(e) {
       const rows = parseCsvRows(ev.target.result);
       if (!rows.length) { showToast('No rows found in CSV'); return; }
 
-      // Detect eBay order/shipping CSV (Seller Hub Orders export — not importable)
-      // Check first 3 rows in case first row is blank
+      // Detect eBay order CSV (Seller Hub Orders export) — parse it as Sold items
       const ebayOrderHeaders = ['order number','buyer name','buyer username','sales record number','transaction id','ship to name'];
       const firstHeader = rows[0].map(h => h.trim().toLowerCase());
       const isEbayOrderCsv = rows.slice(0, 3).some(row => {
@@ -7668,7 +7667,50 @@ function handleCsvImport(e) {
         return ebayOrderHeaders.filter(h => rowLower.includes(h)).length >= 2;
       });
       if (isEbayOrderCsv) {
-        showToast('This is an eBay orders export — not importable here. Use Sync eBay Listings to import orders.');
+        // Find header row (first row with 'item title' or 'order number')
+        let hIdx = -1;
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          const rh = rows[i].map(h => h.trim().toLowerCase());
+          if (rh.some(h => h.includes('item title') || h.includes('order number'))) { hIdx = i; break; }
+        }
+        if (hIdx === -1) { showToast('Could not parse eBay orders CSV — header row not found'); return; }
+        const oh = rows[hIdx].map(h => h.trim().toLowerCase());
+        const colTitle  = oh.findIndex(h => h.includes('item title'));
+        const colSku    = oh.findIndex(h => h === 'custom label' || h.includes('custom label'));
+        const colPrice  = oh.findIndex(h => h === 'sale price' || h.includes('sale price'));
+        const colDate   = oh.findIndex(h => h.includes('paid on date') || h.includes('payment date') || h.includes('shipped on date'));
+        const colItemNo = oh.findIndex(h => h === 'item number' || h.includes('item number'));
+        const existingSkus = new Set(items.map(i => i.sku).filter(Boolean));
+        let skippedCount = 0;
+        const parsed = [];
+        for (let i = hIdx + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row.some(c => c.trim())) continue;
+          const title    = colTitle  >= 0 ? (row[colTitle]  || '').trim() : '';
+          const sku      = colSku    >= 0 ? (row[colSku]    || '').trim() : '';
+          const priceStr = colPrice  >= 0 ? (row[colPrice]  || '').trim() : '';
+          const dateStr  = colDate   >= 0 ? (row[colDate]   || '').trim() : '';
+          const itemNo   = colItemNo >= 0 ? (row[colItemNo] || '').trim() : '';
+          if (!title && !itemNo) continue;
+          const soldPrice = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+          const effectiveSku = sku || (itemNo ? 'ebay-' + itemNo : '');
+          if (effectiveSku && existingSkus.has(effectiveSku)) { skippedCount++; continue; }
+          parsed.push(normaliseImportItem({
+            nickname:     title || ('eBay item ' + itemNo),
+            sku:          effectiveSku,
+            platform:     'eBay',
+            status:       'Sold',
+            sellPrice:    soldPrice ? String(soldPrice) : '',
+            soldPrice:    soldPrice ? String(soldPrice) : '',
+            sold_at:      dateStr || new Date().toISOString(),
+            ebay_item_id: itemNo || null,
+            created_from: 'ebay_orders_csv',
+          }));
+          if (effectiveSku) existingSkus.add(effectiveSku);
+        }
+        if (!parsed.length) { showToast(skippedCount ? `All ${skippedCount} orders already in inventory` : 'No orders found in eBay CSV'); return; }
+        pendingImportItems = parsed;
+        showImportPreview(pendingImportItems, skippedCount, 'csv');
         return;
       }
 
@@ -7703,7 +7745,7 @@ function handleCsvImport(e) {
           const price = priceCol >= 0 ? parseFloat(row[priceCol])||0 : 0;
           const photo = photoCol >= 0 ? (row[photoCol]||'').trim() : '';
           const desc = descCol >= 0 ? (row[descCol]||'').replace(/<[^>]+>/g,' ').trim() : '';
-          parsed.push(normaliseImportItem({ nickname: title, sku, sellPrice: String(price), notes: desc, photos: photo ? [photo] : [], image_url: photo || null, created_from: 'ebay_csv' }));
+          parsed.push(normaliseImportItem({ nickname: title, sku, sellPrice: String(price), notes: desc, photos: photo ? [photo] : [], image_url: photo || null, created_from: 'ebay_csv', status: 'Listed' }));
         }
         if (!parsed.length) { showToast(skippedCount ? `All ${skippedCount} items already in inventory (duplicate SKUs)` : 'No items found in eBay CSV'); return; }
         pendingImportItems = parsed;
@@ -7799,6 +7841,10 @@ function normaliseImportItem(raw) {
     image_url:    raw.image_url || null,
     createdAt:    raw.createdAt || new Date().toISOString(),
     created_from: raw.created_from || 'import',
+    soldPrice:    raw.soldPrice ? String(parseFloat(raw.soldPrice)||0) : (status === 'Sold' && raw.sellPrice ? String(parseFloat(raw.sellPrice)||0) : undefined),
+    sold_price:   raw.soldPrice ? parseFloat(raw.soldPrice)||null : null,
+    sold_at:      raw.sold_at || (status === 'Sold' ? new Date().toISOString() : undefined),
+    ebay_item_id: raw.ebay_item_id || null,
   };
 }
 
