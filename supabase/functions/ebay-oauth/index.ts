@@ -334,6 +334,67 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     console.error('ebay pull-listings offers error:', err);
   }
 
+  // Pull ALL active listings via eBay Finding API (findItemsBySeller).
+  // The Inventory API above only shows API-created items. The Finding API
+  // returns ALL active listings regardless of how they were created — traditional
+  // eBay.com listings show up here too. Uses EBAY_CLIENT_ID (app credentials).
+  try {
+    const { data: conn } = await supabase
+      .from('ebay_connections')
+      .select('ebay_username')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const sellerName = conn?.ebay_username as string | null;
+    const appId = Deno.env.get('EBAY_CLIENT_ID');
+    if (sellerName && appId) {
+      let findingPage = 1;
+      let totalFindings = 0;
+      while (findingPage <= 2) { // max 200 listings (2 pages × 100)
+        const findUrl = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsBySeller&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
+        const findRes = await fetch(findUrl, { headers: { Accept: 'application/json' } });
+        if (!findRes.ok) break;
+        const findData = await findRes.json();
+        const response = findData?.findItemsBySellerResponse?.[0];
+        const foundItems: Record<string, unknown>[] = (response?.searchResult?.[0]?.item ?? []) as Record<string, unknown>[];
+        if (foundItems.length === 0) break;
+        for (const fi of foundItems) {
+          const itemId = ((fi.itemId as string[]) ?? [])[0] ?? null;
+          const title = ((fi.title as string[]) ?? [])[0] ?? null;
+          const priceVal = (fi.sellingStatus as Record<string, unknown>[] | null)?.[0];
+          const currentPrice = (priceVal?.currentPrice as Record<string, string>[] | null)?.[0];
+          const sellPrice = currentPrice ? parseFloat(currentPrice['__value__'] ?? '0') || null : null;
+          if (!itemId) continue;
+          // Skip if already imported via Inventory API (would already be in inventory)
+          const { data: existing } = await supabase
+            .from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', itemId).maybeSingle();
+          if (existing) {
+            // Already imported via Inventory API — update status/price only
+            await supabase.from('inventory').update({ status: 'Listed', ...(sellPrice ? { sell_price: sellPrice } : {}) }).eq('id', existing.id);
+          } else {
+            await supabase.from('inventory').insert({
+              user_id: userId,
+              item_id: `ebay-${itemId}`,
+              nickname: (title ?? `eBay item ${itemId}`).slice(0, 255),
+              listing_title: (title ?? `eBay item ${itemId}`).slice(0, 80),
+              sell_price: sellPrice,
+              status: 'Listed',
+              ebay_item_id: itemId,
+              platform: 'eBay',
+              created_from: 'ebay_sync',
+            });
+            active++;
+          }
+          totalFindings++;
+        }
+        const totalEntries = parseInt(String(response?.paginationOutput?.[0]?.totalEntries?.[0] ?? '0'), 10);
+        if (totalFindings >= totalEntries || foundItems.length < 100) break;
+        findingPage++;
+      }
+    }
+  } catch (err) {
+    console.error('ebay finding-api error:', err);
+  }
+
   // Pull fulfilled orders (mark matching inventory items as Sold)
   try {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
