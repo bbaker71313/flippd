@@ -4885,10 +4885,10 @@ function renderDashboard() {
   const Sv = S;
 
   // KPI computation
-  const totalSales  = sold.reduce((s, i) => s + parseFloat(i.soldPrice || i.sold_price || 0), 0);
+  const totalSales  = sold.reduce((s, i) => s + parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0), 0);
   const totalCosts  = sold.reduce((s, i) => s + parseFloat(i.cost || 0), 0);
   const totalFees   = sold.reduce((s, i) => {
-    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
     return s + sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
   }, 0);
   const netProfit   = totalSales - totalCosts - totalFees;
@@ -4905,7 +4905,7 @@ function renderDashboard() {
   sold.forEach(i => {
     const cat = i.category || 'Other';
     if (!catMap[cat]) catMap[cat] = { sales: 0, profit: 0, count: 0 };
-    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
     const cost = parseFloat(i.cost || 0);
     const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
     catMap[cat].sales += sp; catMap[cat].profit += sp - cost - fee; catMap[cat].count++;
@@ -4921,18 +4921,18 @@ function renderDashboard() {
     const mEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
     const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.createdAt); return dt >= mStart && dt <= mEnd; });
     const mProfit = mSold.reduce((s, i) => {
-      const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+      const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
       const cost = parseFloat(i.cost || 0);
       const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
       return s + sp - cost - fee;
     }, 0);
-    months.push({ label, profit: mProfit, sales: mSold.reduce((s,i)=>s+parseFloat(i.soldPrice||i.sold_price||0),0) });
+    months.push({ label, profit: mProfit, sales: mSold.reduce((s,i)=>s+parseFloat(i.soldPrice||i.sold_price||i.sell_price||0),0) });
   }
   const maxMonthVal = Math.max(...months.map(m => Math.max(m.profit, m.sales)), 1);
 
   // Top performers / underperformers
   const soldWithProfit = sold.map(i => {
-    const sp = parseFloat(i.soldPrice || i.sold_price || 0);
+    const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
     const cost = parseFloat(i.cost || 0);
     const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
     return { ...i, _profit: sp - cost - fee };
