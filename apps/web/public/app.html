@@ -3219,7 +3219,22 @@ async function invFormDetectItem() {
 }
 
 async function compressImageForDetect(file, maxPx, quality) {
-  return new Promise((resolve, reject) => {
+  // Use createImageBitmap with resizeWidth — decodes at target size, avoiding
+  // the ~48MB full-res RGBA allocation that OOM-kills the WebView on low-RAM
+  // Android phones. Same fix applied to stitchPhotos and handleImage.
+  if (typeof createImageBitmap !== 'undefined') {
+    try {
+      const bm = await createImageBitmap(file, { resizeWidth: maxPx, resizeQuality: 'medium' });
+      const canvas = document.createElement('canvas');
+      canvas.width = bm.width; canvas.height = bm.height;
+      canvas.getContext('2d').drawImage(bm, 0, 0);
+      bm.close();
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      return dataUrl.split(',')[1];
+    } catch(_) { /* fall through to legacy path */ }
+  }
+  // Fallback for browsers without createImageBitmap (rare; may OOM on very low-end devices)
+  return new Promise(function(resolve, reject) {
     const reader = new FileReader();
     reader.onload = function(e) {
       const img = new Image();
@@ -3233,7 +3248,7 @@ async function compressImageForDetect(file, maxPx, quality) {
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve(dataUrl.split(',')[1]); // return base64 only
+        resolve(dataUrl.split(',')[1]);
       };
       img.onerror = reject;
       img.src = e.target.result;
@@ -5326,9 +5341,12 @@ async function ebayPullListings(days){
     
     const total = d.active + d.drafted + d.sold;
     let syncMsg = `Synced ${total} items — ${d.active} active, ${d.drafted} drafts, ${d.sold} sold`;
-    if (total === 0) {
+    if (d.clientIdMissing) {
       st.style.color = 'var(--yellow)';
-      syncMsg = `0 items returned from eBay. If you have listings on eBay, disconnect and reconnect eBay to refresh your authorization (Settings → eBay). eBay's Inventory API only shows listings created via API.`;
+      syncMsg = `${d.sold} sold order${d.sold !== 1 ? 's' : ''} synced. Active listings require EBAY_CLIENT_ID in Supabase secrets — add your eBay App ID from developer.ebay.com to Supabase → Functions → ebay-oauth → Secrets.`;
+    } else if (total === 0) {
+      st.style.color = 'var(--yellow)';
+      syncMsg = `0 items returned from eBay. If you have active listings, ensure EBAY_CLIENT_ID is configured in Supabase and reconnect eBay (Settings → eBay → Disconnect → Reconnect).`;
     } else {
       st.style.color='var(--green)';
     }
