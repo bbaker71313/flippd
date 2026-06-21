@@ -4,6 +4,81 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-20h — Dashboard profit board root cause fix (PR #117)
+
+### What changed this session
+
+**PR #117 — open (draft)** (`claude/scan-memory-ebay-dashboard-fixes`)
+
+Root cause found for "profit board not syncing": `confirmSold()` only updated `localStorage` — it never pushed the sold status to the server. When `syncFromServer()` ran, the DB's version (still Unlisted/Listed) overwrote local state, wiping sold items from the P&L dashboard. Three targeted fixes:
+
+- **`apps/web/public/app.html` — `confirmSold()`**: Added fire-and-forget `fetch(API_BASE, { type: 'inventory_status', id, status: 'Sold', actualSellPrice })` so the sale is persisted to DB immediately after local update.
+- **`apps/web/public/app.html` — `renderDashboard()` timeframe filter**: Added `i.created_at` (snake_case) as date fallback alongside existing `i.created_at`. Server items never carry camelCase `createdAt`, so `new Date(undefined)` → `Invalid Date` → all items failed the timeframe filter. Fixed in 3 places (sold filter, monthly trend loop, recent sales sort).
+- **`supabase/functions/claude-proxy/index.ts` — `VALID_TRANSITIONS`**: Added `'Sold'` to valid transitions from `'Unlisted'` (was `['Listed']` only). Users skip listing stage at thrift stores; without this the status call returned a 400 and the sale never persisted.
+- **`supabase/functions/claude-proxy/index.ts` — `handleInventoryStatus`**: Now sets both `sell_price` and `sold_price` when marking Sold (mirrors eBay orders sync).
+
+**claude-proxy deployed as version 66** (MCP tool — already live in Supabase).
+
+### Files changed
+- `apps/web/public/app.html`
+- `supabase/functions/claude-proxy/index.ts`
+
+### Commits
+- `b14000f` — fix: dashboard profit board not showing sold items after sync
+
+### Next tasks
+1. **Merge PR #117** after CI passes — watch TypeScript Check
+2. **eBay active listings**: Still 0 in DB. Check Supabase Logs → `ebay-oauth` for `ebay finding-api http error` after next sync. Verify `commerce.identity.readonly` scope at eBay Developer Center.
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+
+### Blockers
+- None.
+
+---
+
+## Session: 2026-06-20g — Shelf scan error fix, stitchPhotos OOM, eBay sync + dashboard (PRs #115 + #116 merged)
+
+### What changed this session
+
+**PR #115 — merged** (`claude/shelf-scan-errors-memory-40qbad`)
+- **`apps/web/public/app.html`**: Fixed `renderShelf()` ReferenceError — `buy.length`/`pass.length` → `list.length`/`skip.length` (the arrays are named `list` and `skip`, not `buy` and `pass`)
+- **`apps/web/public/app.html`**: Removed `makeScanThumb()` call from `handleImage()` — thumbnail now sets `_thumbUrl: null` directly. Eliminates OOM path during screen recording.
+
+**PR #116 — merged** (`claude/scan-memory-ebay-dashboard-fixes`)
+- **`apps/web/public/app.html`**: `stitchPhotos()` OOM fix — replaced `new Image() + img.src = blobUrl` (decodes full-res JPEG ~48MB to RGBA) with `createImageBitmap(f, { resizeWidth:800, resizeHeight:800, resizeQuality:'medium' })`. Falls back to `new Image()` if browser doesn't support resize options. `bm.close()` called after drawImage. Verified via Playwright: canvas 1606×800 for 2 photos, resize path confirmed.
+- **`apps/web/public/app.html`**: `switchTab('dashboard')` now calls `syncFromServer().catch(function(){})` on P&L tab open. Verified via Playwright intercept.
+- **`supabase/functions/ebay-oauth/index.ts`**: `handlePullListings()` lazy-fetches `ebay_username` from eBay Commerce Identity API if null in DB, persists to `ebay_connections`.
+- **`supabase/functions/ebay-oauth/index.ts`**: `handleCallback()` now logs HTTP status + response body when Identity API returns non-200 (was silently swallowed).
+
+### Live DB state confirmed (post-session)
+- `ebay_username = "fureverinframe"` saved in `ebay_connections` for user_id 2
+- 14 Sold items in inventory (Fulfillment API working), 0 Listed (Finding API ran but returned 0 active listings)
+- Check Supabase logs for `ebay finding-api http error` after next sync if active listings still missing
+
+### Files changed
+- `apps/web/public/app.html`
+- `supabase/functions/ebay-oauth/index.ts`
+
+### Commits
+- `19141bb` — fix: shelf scan 'buy is not defined' error and screen-record low memory crash (PR #115)
+- `89aa6ab` — fix: stitchPhotos OOM, eBay username lazy-fetch, dashboard sync on open (PR #116)
+- `0553e8b` — fix: log eBay Identity API HTTP status when username lookup fails (PR #116)
+
+### Decisions made (do not reverse)
+- `stitchPhotos` uses `createImageBitmap` with resize options — non-square photos stretched to 800×800 (not cropped). Acceptable trade-off for OOM fix.
+- No thumbnail generated for scan photos (`_thumbUrl: null`) — prevents OOM during screen recording.
+
+### Next tasks
+1. **eBay active listings**: If still 0, check Supabase → Logs → `ebay-oauth` for `ebay finding-api http error` lines. Also verify `commerce.identity.readonly` scope is enabled in eBay Developer Center app settings.
+2. **Stripe checkout verification** — still "not yet verified"
+3. **PostHog events** — still "not yet verified"
+
+### Blockers
+- None. Both PRs merged and deployed.
+
+---
+
 ## Session: 2026-06-20f — Thumbnail <img> OOM fix (branch: claude/fix-scanner-thumbnail-oom-decode)
 
 ### What changed this session

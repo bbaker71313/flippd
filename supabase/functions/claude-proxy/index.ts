@@ -450,7 +450,7 @@ async function handleInventoryDelete(
 }
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  'Unlisted':        ['Listed'],
+  'Unlisted':        ['Listed', 'Sold'],
   'Listed':          ['Sold', 'Unlisted'],
   'Sold':            [],
   'Ready to Export': ['Listed'],
@@ -478,7 +478,10 @@ async function handleInventoryStatus(
   if (newStatus === 'Listed') updates.listed_at = new Date().toISOString();
   if (newStatus === 'Sold') {
     updates.sold_at = new Date().toISOString();
-    if (body.actualSellPrice != null) updates.sell_price = body.actualSellPrice;
+    if (body.actualSellPrice != null) {
+      updates.sell_price = body.actualSellPrice;
+      updates.sold_price = body.actualSellPrice;
+    }
   }
 
   const { data: item, error } = await supabase.from('inventory')

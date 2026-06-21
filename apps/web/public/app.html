@@ -4570,6 +4570,14 @@ function confirmSold() {
   });
   pnlSave();
   logActivity('', `Sold "${soldModalItem.nickname}" for $${price} (profit: $${profit.toFixed(2)})`);
+  // Persist sold status + sale price to server so syncFromServer reflects the sale
+  var soldId = soldModalItem.id;
+  var soldPrice = parseFloat(price);
+  fetch(API_BASE, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    body: JSON.stringify({ type: 'inventory_status', id: soldId, status: 'Sold', actualSellPrice: soldPrice })
+  }).catch(function() {});
   closeSoldModal();
   renderInventory();
   showToast('Sale recorded! +$' + profit.toFixed(2));
@@ -4878,7 +4886,7 @@ function renderDashboard() {
 
   const tfStart   = getTimeframeStart(dashTimeframe);
   const allSold   = items.filter(i => i.status === 'Sold');
-  const sold      = allSold.filter(i => new Date(i.soldDate || i.sold_at || i.createdAt) >= tfStart);
+  const sold      = allSold.filter(i => new Date(i.soldDate || i.sold_at || i.created_at || i.createdAt) >= tfStart);
   const listed    = items.filter(i => i.status === 'Listed');
   const unlisted  = items.filter(i => i.status === 'Unlisted');
   const Sv = S;
@@ -4918,7 +4926,7 @@ function renderDashboard() {
     const label = d.toLocaleDateString('en-US', { month: 'short' });
     const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
     const mEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.createdAt); return dt >= mStart && dt <= mEnd; });
+    const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.created_at || i.createdAt); return dt >= mStart && dt <= mEnd; });
     const mProfit = mSold.reduce((s, i) => {
       const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
       const cost = parseFloat(i.cost || 0);
@@ -5063,7 +5071,7 @@ function renderDashboard() {
     <div class="ph-card">
       ${sold.length ? `<table class="ph-table">
         <thead><tr><th>Item</th><th>Sold $</th><th>Profit</th></tr></thead>
-        <tbody>${[...sold].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.createdAt)).slice(0,10).map(i => {
+        <tbody>${[...sold].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.created_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.created_at||a.createdAt)).slice(0,10).map(i => {
           const sp=parseFloat(i.soldPrice||i.sold_price||0),c=parseFloat(i.cost||0),f=sp*((Sv.ebayFee||13)/100)+(Sv.pkgCost||1.25),p=sp-c-f;
           return `<tr>
             <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
