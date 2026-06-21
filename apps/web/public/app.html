@@ -1460,7 +1460,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   <div id="inv-view-home">
     <div class="flex-between-center mb-14" style="padding-top:4px">
       <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--text)">Inventory</div>
-      <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
+      <button onclick="openAddForm()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer">+ Add Item</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <button class="btn" onclick="showEbaySyncPanel()" style="margin-bottom:0;font-size:12px;padding:10px 8px;background:var(--card);border:1.5px solid var(--accent);color:var(--accent)">Sync eBay Listings</button>
@@ -1479,7 +1479,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text)" id="inv-list-title">Items</div>
       <div style="display:flex;gap:6px;align-items:center">
         <button id="inv-list-export-btn" onclick="switchTab('csv')" style="display:none;background:var(--green);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer">Export CSV</button>
-        <button onclick="showInvView('add')" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
+        <button onclick="openAddForm()" style="background:var(--accent);color:#000;border:none;border-radius:8px;padding:6px 12px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;cursor:pointer">+ Add</button>
       </div>
     </div>
     <input class="search-box" style="width:100%;margin-bottom:10px" placeholder="Search..." id="inv-search-list" aria-label="Search inventory list" oninput="renderFilteredList()">
@@ -1924,6 +1924,12 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
     <div class="mb-14">
       <div id="dash-greeting" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--text);line-height:1.2"></div>
       <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:3px" id="dash-date"></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="dash-tf-btn" data-tf="week" onclick="setDashTimeframe('week')" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;background:var(--card);color:var(--soft)">7 Days</button>
+      <button class="dash-tf-btn" data-tf="month" onclick="setDashTimeframe('month')" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;background:var(--card);color:var(--soft)">This Month</button>
+      <button class="dash-tf-btn" data-tf="year" onclick="setDashTimeframe('year')" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;background:var(--card);color:var(--soft)">This Year</button>
+      <button class="dash-tf-btn" data-tf="all" onclick="setDashTimeframe('all')" style="border:1.5px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;background:var(--card);color:var(--soft)">All Time</button>
     </div>
     <div id="dash-content"></div>
   </div>
@@ -2666,7 +2672,7 @@ function renderInventoryHome() {
         <div class="empty-icon"></div>
         <div class="empty-title">Nothing here yet</div>
         <div class="empty-body">Scan an item in SCOUT and tap FLIP to add it here, or add one manually.</div>
-        <button class="btn btn-amber" onclick="showInvView('add')">+ Add Your First Item</button>
+        <button class="btn btn-amber" onclick="openAddForm()">+ Add Your First Item</button>
       </div>`;
     return;
   }
@@ -4309,7 +4315,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   "advisor_message": "3-4 sentences of direct actionable advice using their actual numbers. Be specific. Tell them exactly what to do differently this week."
 }`;
 
-    const raw = await callClaude('', prompt, 2500);
+    const raw = await callClaude('', prompt, 4096);
     let result;
     try {
       let cleaned = raw.replace(/```json|```/g, '').trim();
@@ -4898,6 +4904,11 @@ function toggleListingDetail(itemId) {
 // ══════════════════════════════════════════════════
 function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.querySelectorAll('.dash-tf-btn').forEach(b => {
+    b.style.background = b.dataset.tf === dashTimeframe ? 'var(--accent)' : 'var(--card)';
+    b.style.color = b.dataset.tf === dashTimeframe ? '#000' : 'var(--soft)';
+    b.style.borderColor = b.dataset.tf === dashTimeframe ? 'var(--accent)' : 'var(--border)';
+  });
 
   const tfStart   = getTimeframeStart(dashTimeframe);
   const allSold   = items.filter(i => i.status === 'Sold');
@@ -5375,7 +5386,8 @@ async function ebayPullListings(days){
     // with no eBay ID whose nickname is similar to a newly pulled eBay listing.
     setTimeout(()=>{ runEbayDedupeScan(); }, 200);
 
-    // Close panel after 2 seconds
+    // Close panel after 2 seconds and show confirmation toast
+    showToast(syncMsg.replace(/<[^>]+>/g, '').substring(0, 80));
     setTimeout(()=>{closeEbaySync();},2000);
     
   }catch(e){
@@ -5608,11 +5620,18 @@ function saveSettings() {
     }).catch(() => {});
   }
   if (window.posthog) posthog.capture('settings_saved');
-  updateFeeHint(); updateStaleBadge(); showSrcView('input'); showToast('Settings saved');
+  updateFeeHint(); updateStaleBadge(); showToast('Settings saved');
 }
 function resetSettings() { S={...DEFAULTS}; localStorage.removeItem('fif_settings'); populateSettingsUI(); }
 
 function showSourcingSettings() {
+  // Close activity panel if open before navigating to Settings
+  const actPanel = document.getElementById('activity-panel');
+  const actOverlay = document.getElementById('activity-overlay');
+  if (actPanel && actPanel.style.display !== 'none') {
+    actPanel.style.display = 'none';
+    if (actOverlay) actOverlay.style.display = 'none';
+  }
   if (activeTab !== 'sourcing') switchTab('sourcing');
   populateSettingsUI();
   populateAccountUI();
@@ -7285,7 +7304,7 @@ async function loadUserInfo() {
 // ══════════════════════════════════════════════════
 // DASHBOARD — TIMEFRAME + DRILL-DOWNS (v5.4)
 // ══════════════════════════════════════════════════
-let dashTimeframe = 'week';
+let dashTimeframe = localStorage.getItem('sfp_dash_timeframe') || 'all';
 
 function getTimeframeStart(tf) {
   const now = new Date();
@@ -7304,6 +7323,12 @@ function getTimeframeLabel(tf) {
 
 function setDashTimeframe(tf) {
   dashTimeframe = tf;
+  localStorage.setItem('sfp_dash_timeframe', tf);
+  document.querySelectorAll('.dash-tf-btn').forEach(b => {
+    b.style.background = b.dataset.tf === tf ? 'var(--accent)' : 'var(--card)';
+    b.style.color = b.dataset.tf === tf ? '#000' : 'var(--soft)';
+    b.style.borderColor = b.dataset.tf === tf ? 'var(--accent)' : 'var(--border)';
+  });
   renderDashboard();
 }
 
