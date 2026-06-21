@@ -272,7 +272,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
 
   const ebayHeaders = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
-  let active = 0, drafted = 0, sold = 0;
+  let active = 0, drafted = 0, sold = 0, clientIdMissing = false;
 
   // Build sku→title map from inventory items
   const titleMap: Record<string, string> = {};
@@ -371,6 +371,10 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     }
 
     const appId = Deno.env.get('EBAY_CLIENT_ID');
+    if (!appId) {
+      clientIdMissing = true;
+      console.warn('ebay finding-api: EBAY_CLIENT_ID not set — active listings will not sync');
+    }
     if (sellerName && appId) {
       let findingPage = 1;
       let totalFindings = 0;
@@ -481,7 +485,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     console.error('ebay pull-listings orders error:', err);
   }
 
-  return json({ active, drafted, sold, debug: { totalOffers: active + drafted, totalOrders: sold } });
+  return json({ active, drafted, sold, clientIdMissing, debug: { totalOffers: active + drafted, totalOrders: sold } });
 }
 
 async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
