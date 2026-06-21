@@ -240,7 +240,10 @@ async function handleSingleScan(
 
   const avgSell = (ai.avg_sold_price as number) ?? 0;
   const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
-  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+  // Only charge shipping when seller pays ('free' shipping offer). When buyer
+  // pays ('buyer'), ship_cost is not a seller expense — always was $0.
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
   const confidence = (ai.confidence as number) ?? 50;
   const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
 
@@ -277,10 +280,11 @@ async function handleShelfScan(
   catch { throw new Error('AI returned invalid JSON'); }
   if (!Array.isArray(aiItems)) throw new Error('AI returned non-array for shelf scan');
 
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
   const items = aiItems.map((ai) => {
     const sell = (ai.avg_sold_price as number) ?? 0;
     const cost = (ai.estimated_cost_at_thrift as number) ?? r2(sell * 0.10);
-    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
     const confidence = (ai.confidence as number) ?? 50;
     const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
     return {

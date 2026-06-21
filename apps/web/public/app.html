@@ -5833,14 +5833,11 @@ async function stitchPhotos(files) {
       const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeQuality: 'medium' });
       bitmaps.push(bm);
     } catch (_) {
-      // Fallback for browsers without resize-option support (rare; may OOM on very low-end devices)
-      const bm = await new Promise(function(res, rej) {
-        const img = new Image();
-        img.onload = function() { res(img); };
-        img.onerror = rej;
-        img.src = f._blobUrl || URL.createObjectURL(f);
-      });
-      bitmaps.push(bm);
+      // createImageBitmap resize options unsupported (old WebView) — the only
+      // fallback (new Image + full-res decode) is the 48MB OOM-kill path.
+      // Abort stitching and upload just the first photo instead.
+      bitmaps.forEach(function(bm) { if (bm && bm.close) bm.close(); });
+      return files[0];
     }
   }
   const canvas = document.createElement('canvas');
@@ -6086,11 +6083,14 @@ async function analyze() {
         listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
         condition_notes:r.conditionNotes||'', category:r.category,
       };
-      const fin={profit:r.estimatedProfit, roi:r.roi,
-        fee:r.estimatedSell*(S.ebayFee/100),
-        shipCost:S.shipping==='free'?S.shipCost:0};
+      // Recalculate profit client-side using the user's actual entered cost and
+      // their configured shipping setting. The server uses an estimated cost
+      // (avgSell×10%) and always deducts ship_cost regardless of who pays —
+      // both cause items to show SKIP when they should be LIST.
+      const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
+      const fin = calcFinancials(useCost, r.estimatedSell || 0);
       const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0,item.demand_level);
-      logScan(dec, r.roi, cost, false);
+      logScan(dec, fin.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
         if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}

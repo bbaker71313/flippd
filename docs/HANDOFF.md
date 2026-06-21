@@ -4,6 +4,88 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-21b — Scanner SKIP bug fix + OOM stitchPhotos fallback (branch: claude/scanner-skip-memory-mlm4tb)
+
+### What changed this session
+
+**Bug 1: Everything showing SKIP — root cause was two compounding issues**
+
+Root cause 1 (server): `handleSingleScan` and `handleShelfScan` in `claude-proxy/index.ts` always subtracted `settings.ship_cost` ($6.00 default) from profit even when `settings.shipping === 'buyer'` (buyer pays, so $0 cost to seller). This silently stole $6 from every scan's profit calculation.
+
+Root cause 2 (client): `analyze()` in `app.html` used `r.estimatedProfit` from the server directly, which was calculated with `avgSell * 0.10` as the estimated cost — not the user's actual entered cost. So a $25 item with user's $4 cost was evaluated as if they paid $2.50.
+
+Combined effect on a $25 item (user paid $4, buyer pays shipping):
+- Server computed: `$25 - $3.25(fee) - $1.25(pkg) - $6(ship) - $2.50(est.cost) = $12` → SKIP
+- Correct client recalc: `$25 - $3.25 - $1.25 - $0(buyer pays) - $4 = $16.50` → LIST
+
+**Fix 1A — `supabase/functions/claude-proxy/index.ts` `handleSingleScan` (line 245):**
+```typescript
+// Before
+const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+
+// After
+const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
+```
+
+**Fix 1B — `supabase/functions/claude-proxy/index.ts` `handleShelfScan` (line 283):**
+Same `shipForCalc` fix, computed before the `.map()` call.
+
+**Fix 1C — `apps/web/public/app.html` `analyze()` (line 6090):**
+```javascript
+// Before
+const fin={profit:r.estimatedProfit, roi:r.roi,
+  fee:r.estimatedSell*(S.ebayFee/100),
+  shipCost:S.shipping==='free'?S.shipCost:0};
+
+// After — recalculate client-side using user's actual cost + correct shipping
+const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
+const fin = calcFinancials(useCost, r.estimatedSell || 0);
+```
+
+**Bug 2: "unable to process due to low memory" — stitchPhotos OOM fallback**
+
+Old fallback in `stitchPhotos()` catch block used `new Image()` which fully decodes JPEG to ~48MB RGBA on old Android WebViews when `createImageBitmap` resize options throw. This OOM-kills the WebView.
+
+**Fix 2 — `apps/web/public/app.html` `stitchPhotos()` catch block (line 5839):**
+```javascript
+// Before — OOM path
+const bm = await new Promise(function(res, rej) {
+  const img = new Image();
+  img.onload = function() { res(img); };
+  img.onerror = rej;
+  img.src = f._blobUrl || URL.createObjectURL(f);
+});
+bitmaps.push(bm);
+
+// After — safe-fail: use just the first photo instead of crashing
+bitmaps.forEach(function(bm) { if (bm && bm.close) bm.close(); });
+return files[0];
+```
+
+**Edge Function deployment:** claude-proxy deployed as v67 (ACTIVE) via Supabase MCP — server-side shipping fix is live.
+
+### Files changed
+- `apps/web/public/app.html` — `analyze()` client-side recalc + `stitchPhotos()` OOM fallback
+- `supabase/functions/claude-proxy/index.ts` — `shipForCalc` in `handleSingleScan` + `handleShelfScan`
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. **Verify scanner on device** — scan a known-good item (e.g., item worth $25, paid $4, buyer pays shipping). Should show LIST or HOT, not SKIP.
+2. **Connect eBay sandbox credentials** — 0 rows in `ebay_connections`, required for listing sync
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+5. **Sentry zero-error audit** — still "not yet verified"
+
+### Decisions made (do not reverse)
+- Client-side `analyze()` always recalculates profit via `calcFinancials(useCost, r.estimatedSell)` — never trusts server's `estimatedProfit` for the final decision
+- `stitchPhotos()` fails gracefully on old WebViews: returns `files[0]` (first photo only) instead of OOM-killing the WebView
+
+### Blockers
+- None. Server fix deployed, client fix committed.
+
+---
+
 ## Session: 2026-06-21a — Bug fixes: F1 hardcoded fees + F2 center-crop (branch: claude/debug-verify-4671k1)
 
 ### What changed this session
