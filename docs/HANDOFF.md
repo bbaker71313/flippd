@@ -4,6 +4,44 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-21 — OOM compressImageForDetect fix + eBay clientIdMissing diagnostic
+
+### What changed this session
+
+**PR #117 (dashboard profit board) — confirmed merged via GitHub webhook.**
+
+**Fix 1: `compressImageForDetect` OOM — `apps/web/public/app.html`**
+
+The inventory form's "Detect Item from Photo" button called `compressImageForDetect()` which used `FileReader.readAsDataURL()` + `new Image()` — the exact path that decodes the full-resolution JPEG (~48MB RGBA) before resizing. Previous PRs #115/#116 fixed `handleImage`, `stitchPhotos`, and the scan thumb but missed this function. Fixed by replacing with `createImageBitmap({ resizeWidth: maxPx, resizeQuality: 'medium' })` — decodes only to the target size. Legacy `FileReader` fallback kept for browsers without resize option support.
+
+**Fix 2: eBay `clientIdMissing` diagnostic — `supabase/functions/ebay-oauth/index.ts`**
+
+When `EBAY_CLIENT_ID` is not set in Supabase secrets, the Finding API block (`if (sellerName && appId)`) is silently skipped and the function returns `active: 0`. The UI showed a misleading "disconnect/reconnect" message. Fixed by:
+- Tracking `clientIdMissing = !appId` before the Finding API block
+- Returning `clientIdMissing` in the JSON response
+- UI now shows: "Active listings require EBAY_CLIENT_ID in Supabase secrets — add your eBay App ID from developer.ebay.com to Supabase → Functions → ebay-oauth → Secrets."
+
+Deployed as `ebay-oauth` v49 (ACTIVE) via Supabase MCP.
+
+### Files changed
+- `apps/web/public/app.html` — `compressImageForDetect` OOM fix + `ebayPullListings` UI message
+- `supabase/functions/ebay-oauth/index.ts` — `clientIdMissing` flag in `handlePullListings`
+- `docs/HANDOFF.md` — this file
+
+### Commits
+- `7a1ee40` — fix: compressImageForDetect OOM + eBay clientIdMissing diagnostic
+
+### Next tasks
+1. **Set `EBAY_CLIENT_ID` in Supabase** → Dashboard → Edge Functions → ebay-oauth → Secrets. Value = eBay App ID from developer.ebay.com. This is required for active listings sync. Once set, run "Pull eBay Listings" — should return active listing count > 0.
+2. **Verify OOM fix on Android**: Take a photo in Inventory → Add Item → "Detect Item from Photo". Should not crash/OOM on low-RAM Android devices.
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+
+### Blockers
+- `EBAY_CLIENT_ID` not set in Supabase secrets (operational — user must add it from developer.ebay.com). Code is ready; just needs the secret.
+
+---
+
 ## Session: 2026-06-20h — Dashboard profit board root cause fix (PR #117)
 
 ### What changed this session
