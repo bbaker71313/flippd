@@ -5819,6 +5819,30 @@ function clearImage() {
   if (strip) strip.innerHTML = '';
 }
 
+// Compress a single file to max 1600px wide via createImageBitmap resize.
+// A 12MP JPEG raw-decodes to ~48MB; at 1600px it's ~7MB — safe for the
+// WebView renderer. The compressed blob is uploaded via FormData, cutting
+// the network buffer from 8-15MB down to ~1-2MB. Falls back to the raw
+// file if createImageBitmap resize options are unsupported (old WebView).
+async function compressForUpload(file) {
+  if (!file || typeof createImageBitmap === 'undefined') return file;
+  try {
+    const MAX_PX = 1600;
+    const bm = await createImageBitmap(file, { resizeWidth: MAX_PX, resizeQuality: 'medium' });
+    const cv = document.createElement('canvas');
+    cv.width = bm.width; cv.height = bm.height;
+    cv.getContext('2d').drawImage(bm, 0, 0);
+    bm.close();
+    return await new Promise(function(res) {
+      cv.toBlob(function(blob) {
+        res(blob ? new File([blob], 'scan.jpg', { type: 'image/jpeg' }) : file);
+      }, 'image/jpeg', 0.85);
+    });
+  } catch(_) {
+    return file;
+  }
+}
+
 async function stitchPhotos(files) {
   const SIZE = 800;
   const GAP = 6;
@@ -6068,6 +6092,13 @@ async function analyze() {
       if (scanImgFiles.length > 1) {
         setBtnLoading('analyze-btn','Combining photos...',false);
         imgFile = await stitchPhotos(scanImgFiles);
+      } else {
+        // Compress single photo to ~1600px before upload. Raw camera JPEGs
+        // can be 8-15MB; the FormData network buffer for that size pushes the
+        // Android WebView renderer over its memory limit → OOM crash → "low
+        // memory" error. createImageBitmap resize decodes at target size only
+        // (~7MB raw vs ~48MB full-res). Falls back to raw file on old WebViews.
+        imgFile = await compressForUpload(imgFile);
       }
       setBtnLoading('analyze-btn','Analyzing eBay market...',false);
       const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
