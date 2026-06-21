@@ -2674,8 +2674,8 @@ function renderInventoryHome() {
   const listedCount = items.filter(i=>i.status==='Listed').length;
   const soldCount = items.filter(i=>i.status==='Sold').length;
   // Est.Profit: Unlisted + Listed only (not Sold) — uses user settings, never hardcoded
-  const ebayFee = S.ebayFee || 13;
-  const pkgCost = S.pkgCost || 1.25;
+  const ebayFee = S.ebayFee != null ? S.ebayFee : DEFAULTS.ebayFee;
+  const pkgCost = S.pkgCost != null ? S.pkgCost : DEFAULTS.pkgCost;
   const estProfit = items
     .filter(i => i.status === 'Unlisted' || i.status === 'Listed')
     .reduce((sum, i) => {
@@ -5793,7 +5793,7 @@ async function stitchPhotos(files) {
   for (let fi = 0; fi < files.length; fi++) {
     const f = files[fi];
     try {
-      const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeHeight: SIZE, resizeQuality: 'medium' });
+      const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeQuality: 'medium' });
       bitmaps.push(bm);
     } catch (_) {
       // Fallback for browsers without resize-option support (rare; may OOM on very low-end devices)
@@ -5813,7 +5813,11 @@ async function stitchPhotos(files) {
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   bitmaps.forEach(function(bm, i) {
-    ctx.drawImage(bm, i * (SIZE + GAP), 0, SIZE, SIZE);
+    const x = i * (SIZE + GAP);
+    const scale = Math.max(SIZE / bm.width, SIZE / bm.height);
+    const sw = SIZE / scale, sh = SIZE / scale;
+    const sx = (bm.width - sw) / 2, sy = (bm.height - sh) / 2;
+    ctx.drawImage(bm, sx, sy, sw, sh, x, 0, SIZE, SIZE);
     if (bm.close) bm.close();
   });
   return new Promise(function(res) {

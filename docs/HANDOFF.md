@@ -4,6 +4,83 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-21a — Bug fixes: F1 hardcoded fees + F2 center-crop (branch: claude/debug-verify-4671k1)
+
+### What changed this session
+
+**Code changes — 3 edits to `apps/web/public/app.html`:**
+
+**F1 fixed (line 2677-2678):** Replaced hardcoded fee fallbacks with DEFAULTS references:
+```js
+// Before (violated CLAUDE.md — hardcoded values)
+const ebayFee = S.ebayFee || 13;
+const pkgCost = S.pkgCost || 1.25;
+
+// After (correct — uses configurable DEFAULTS)
+const ebayFee = S.ebayFee != null ? S.ebayFee : DEFAULTS.ebayFee;
+const pkgCost = S.pkgCost != null ? S.pkgCost : DEFAULTS.pkgCost;
+```
+
+**F2 fixed (lines 5788, 5807-5813):** Removed `resizeHeight: SIZE` from `createImageBitmap` (was squishing portrait photos to squares). Added center-crop math back:
+```js
+// Before: squish
+const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeHeight: SIZE, resizeQuality: 'medium' });
+// ...
+ctx.drawImage(bm, i * (SIZE + GAP), 0, SIZE, SIZE);
+
+// After: preserve aspect ratio + center-crop
+const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeQuality: 'medium' });
+// ...
+const scale = Math.max(SIZE / bm.width, SIZE / bm.height);
+const sw = SIZE / scale, sh = SIZE / scale;
+const sx = (bm.width - sw) / 2, sy = (bm.height - sh) / 2;
+ctx.drawImage(bm, sx, sy, sw, sh, x, 0, SIZE, SIZE);
+```
+NOTE: `resizeHeight: 80` in `makeScanThumb` (line 5171) was intentionally left — that's an 80×80 UI thumbnail, not the OOM path.
+
+### Playwright test results (35 targeted checks)
+
+33/35 passed. 2 false negatives confirmed to be test logic issues (not production bugs):
+- F2 `resizeHeight` check: scanned entire pageHtml instead of only `stitchPhotos.toString()`; makeScanThumb legitimately uses resizeHeight
+- F2 `new Image()` ordering: `indexOf` found the comment mentioning `new Image()` (idx 184) before the catch block (idx 611); `lastIndexOf` confirms real usage at idx 800 — inside catch, correct
+
+### eBay sync verified (static analysis)
+
+All 5 eBay sync functions confirmed present and correctly implemented:
+- `ebayConnect()` → EBAY_BASE/authorize → redirects to eBay OAuth
+- `ebayDisconnect()` → EBAY_BASE/disconnect → resets UI
+- `checkEbayStatus()` → EBAY_BASE/status → updates connect/disconnect button state
+- `ebayPullListings(days)` → EBAY_BASE/pull-listings → syncs eBay→local + dedupes by `ebay_item_id` + calls `syncFromServer()`
+- `handleListOnEbay(id)` → EBAY_BASE/create-listing → pushes item to eBay + calls `syncFromServer()`
+
+**Cannot test live** — 0 rows in `ebay_connections`. Requires eBay Developer sandbox credentials connected via Settings → eBay.
+
+### Dashboard sync verified (static analysis)
+
+- `switchTab('dashboard')` calls `syncFromServer().catch()` — confirmed
+- `syncFromServer()` posts `{type:'inventory_list'}` to API_BASE — confirmed
+- `syncFromServer()` calls `renderDashboard()` on success — confirmed
+
+**Cannot test live** — requires logged-in session with inventory data in this environment.
+
+### F3 (NaN cost) — deferred
+
+`calcProfit(NaN, price)` silently returns a valid-looking number. Low priority — no user path produces NaN cost in normal flow. Deferred.
+
+### Next tasks
+1. **Connect eBay sandbox credentials** — so listing sync can be tested end-to-end (0 rows in ebay_connections)
+2. **Test dashboard sync live** — logged-in session, confirm P&L totals re-render on tab switch
+3. Deferred: Stripe checkout verification, PostHog events, Sentry zero-error audit
+
+### Decisions (do not reverse)
+- `S` is `let`-scoped at line 5186 via `loadSrcSettings()` — never reference as `window.S`
+- `makeScanThumb` intentionally uses `resizeWidth:80, resizeHeight:80` for 80×80 square UI thumbnail — NOT the OOM path, correct as-is
+
+### Blockers
+- Dashboard sync and eBay listing sync require live auth + inventory data — not available in remote CI environment
+
+---
+
 ## Session: 2026-06-20h — Dashboard profit board root cause fix (PR #117)
 
 ### What changed this session
