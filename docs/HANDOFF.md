@@ -4,6 +4,40 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-22c — GitHub sync + skills cheat sheet (commit: 11d009e)
+
+### What changed this session
+
+**GitHub sync (source-of-truth reconciliation):**
+- Discovered local main had diverged from GitHub main — 6 local UI commits vs PRs #112-#122 merged on GitHub
+- Merged `origin/main` into local: brought in all scanner fixes, OOM patches, eBay/dashboard fixes
+- Resolved 5 merge conflicts: `_layout.tsx`, `scout.tsx`, `nativewind-env.d.ts`, `next.config.js`, `tailwind.config.ts`
+  - Conflict resolution: GitHub functional versions kept; local icon enhancements retained for visible tabs
+  - Added P&L tab icon (`stats-chart-outline`) since it was visible but had `() => null`
+  - "Trends" tab renamed to "Pulse" per GitHub decision
+  - `next.config.js` restored to GitHub version (includes `/` → `/index.html` rewrite + cache headers)
+  - `tailwind.config.ts` colors reverted to GitHub dark theme (dropped local warm/light palette from `37d2341`)
+- Cleaned up untracked files: deleted root mp4 duplicates (originals in `apps/video/public/footage/`)
+- Updated `.gitignore` to exclude local-only files: `Audit Findings/`, `Sample Photos/`, `Dashboard.html`, `cover-profile/`, `n8n workflows/`, root `*.mp4`
+- Committed `.npmrc` (`node-linker=hoisted` — pnpm monorepo config)
+
+**Skills cheat sheet:**
+- Created `docs/skills-and-tools.md` — 174 entries across 11 categories covering all skills, MCPs, and tools
+- Pushed to GitHub: `d414bd9..11d009e`
+
+### Next task
+Resume feature development — check `docs/FEATURE_TRIAGE.md` for the next item to build. The mobile app is the priority.
+
+### Decisions made this session
+- "Trends" tab is now called "Pulse" — don't revert
+- `next.config.js` keeps the `/` → `/index.html` rewrite — GitHub decision, don't remove
+- Web color tokens: dark theme (GitHub version) — not the warm/light theme from local commit `37d2341`
+
+### Blockers
+None — clean working tree, branch synced with GitHub.
+
+---
+
 ## Session: 2026-06-22b — Scanner math audit + settings sync + confidence gate (branch: claude/scanner-skip-memory-mlm4tb)
 
 ### What changed this session
