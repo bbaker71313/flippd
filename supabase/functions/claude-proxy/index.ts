@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Item limits per tier ────────────────────────────────────────────────────
 const ITEM_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 10, hustle: 500, stack: null, empire: null,
+  trial: null, scout: 10, hustle: 250, stack: null, empire: null,
 };
 
 const CATEGORY_SKU_PREFIX: Record<string, string> = {
@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const SCAN_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 25, hustle: null, stack: null, empire: null,
+  trial: null, scout: 25, hustle: 250, stack: null, empire: null,
 };
 
 type Settings = typeof DEFAULT_SETTINGS;
@@ -118,17 +118,40 @@ function calcProfit(sell: number, cost: number, pkg: number, ship: number, fee: 
 }
 function r2(n: number) { return Math.round(n * 100) / 100; }
 
-function getDecision(roi: number, confidence: number, s: Settings): 'BUY' | 'HOT' | 'PASS' {
+function getDecision(roi: number, confidence: number, s: Settings, net?: number, demandLevel?: string): 'LIST' | 'HOT' | 'SKIP' {
   const mod = s.sourcing_style === 'conservative' ? 1.2 : s.sourcing_style === 'aggressive' ? 0.8 : 1.0;
   const target = s.target_roi * mod;
-  if (roi > 150 && confidence >= 80) return 'HOT';
-  if (roi > target && confidence >= 50) return 'BUY';
-  return 'PASS';
+  const minProfit = s.min_profit * mod;
+  if (net !== undefined && net < minProfit) return 'SKIP';
+  if (roi <= 0) return 'SKIP';
+  const isHot = demandLevel === 'HIGH' || demandLevel === 'VERY HIGH'
+    || (net !== undefined && net >= minProfit * 2)
+    || roi >= s.target_roi * 2;
+  if (isHot && confidence >= 70) return 'HOT';
+  if (roi > target && confidence >= 50) return 'LIST';
+  return 'SKIP';
+}
+
+function detectImageMime(buf: ArrayBuffer): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+  const b = new Uint8Array(buf, 0, 12);
+  if (b[0] === 0xFF && b[1] === 0xD8) return 'image/jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'image/png';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+  if (b[4] === 0x57 && b[5] === 0x45 && b[6] === 0x42 && b[7] === 0x50) return 'image/webp';
+  return 'image/jpeg'; // fallback
 }
 
 async function callAnthropic(
-  key: string, system: string, imageBase64: string, maxTokens = 1024,
+  key: string, system: string, images: string[], maxTokens = 1024,
+  mimeTypes: ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[] = [],
 ): Promise<string> {
+  const imageBlocks = images.map((data, i) => ({
+    type: 'image' as const,
+    source: { type: 'base64' as const, media_type: (mimeTypes[i] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data },
+  }));
+  const textPrompt = images.length > 1
+    ? `Analyze these ${images.length} photos of the same item from different angles.`
+    : 'Analyze this image.';
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -142,16 +165,15 @@ async function callAnthropic(
       system,
       messages: [{
         role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: 'Analyze this image.' },
-        ],
+        content: [...imageBlocks, { type: 'text', text: textPrompt }],
       }],
     }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message ?? 'Anthropic error');
-  return data.content[0].text as string;
+  const raw = data.content[0].text as string;
+  // Strip markdown code fences Claude sometimes adds despite "no markdown" instructions
+  return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 }
 
 // Verbatim from FEATURE_TRIAGE.md P-03 (getSingleSys L4644–4663)
@@ -190,8 +212,8 @@ For each distinct item visible:
 - Buyer always pays shipping. Min profit threshold for FLIP: $${s.min_profit}. Target ROI for HOT: ${s.target_roi}%.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"BUY|HOT|PASS","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then BUY, then PASS.`;
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"LIST|HOT|SKIP","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
+Sort: HOT first, then LIST, then SKIP.`;
 }
 
 async function handleSingleScan(
@@ -199,18 +221,31 @@ async function handleSingleScan(
   anthropicKey: string,
   userId: number,
   settings: Settings,
-  imageBase64: string,
+  images: string[],
+  mimeTypes: string[] = [],
 ) {
-  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), imageBase64);
+  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), images, undefined, mimeTypes as ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[]);
   let ai: Record<string, unknown>;
-  try { ai = JSON.parse(raw); }
-  catch { throw new Error('AI returned invalid JSON'); }
+  try {
+    ai = JSON.parse(raw);
+  } catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { ai = JSON.parse(m[0]); }
+      catch { throw new Error('Could not analyze this photo. Try a clearer photo of a single item.'); }
+    } else {
+      throw new Error('Could not analyze this photo. Try a clearer photo of a single item.');
+    }
+  }
 
   const avgSell = (ai.avg_sold_price as number) ?? 0;
   const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
-  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+  // Only charge shipping when seller pays ('free' shipping offer). When buyer
+  // pays ('buyer'), ship_cost is not a seller expense — always was $0.
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
   const confidence = (ai.confidence as number) ?? 50;
-  const decision = getDecision(roi, confidence, settings);
+  const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
 
   const { data: logRow } = await supabase.from('scan_log').insert({
     user_id: userId, scan_type: 'single', decision,
@@ -223,11 +258,15 @@ async function handleSingleScan(
     decision, itemName: ai.item_name, estimatedProfit: net,
     estimatedSell: avgSell, estimatedCost, confidence, roi,
     reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
-    category: ai.category, searchKeywords: ai.search_keywords ?? [],
+    category: ai.category, brand: (ai.brand as string) ?? null,
+    searchKeywords: ai.search_keywords ?? [],
     priceLow: ai.price_low, priceHigh: ai.price_high,
+    sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
     avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
     listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
-    conditionNotes: ai.condition_notes ?? '', scanLogId: logRow?.id ?? null,
+    conditionNotes: ai.condition_notes ?? '',
+    notes: (ai.notes as string) ?? '',
+    scanLogId: logRow?.id ?? null,
   };
 }
 
@@ -236,20 +275,22 @@ async function handleShelfScan(
   anthropicKey: string,
   userId: number,
   settings: Settings,
-  imageBase64: string,
+  images: string[],
+  mimeTypes: string[] = [],
 ) {
-  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), imageBase64, 2048);
+  const raw = await callAnthropic(anthropicKey, buildShelfPrompt(settings), images, 2048, mimeTypes as ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[]);
   let aiItems: Record<string, unknown>[];
   try { aiItems = JSON.parse(raw); }
   catch { throw new Error('AI returned invalid JSON'); }
   if (!Array.isArray(aiItems)) throw new Error('AI returned non-array for shelf scan');
 
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
   const items = aiItems.map((ai) => {
     const sell = (ai.avg_sold_price as number) ?? 0;
     const cost = (ai.estimated_cost_at_thrift as number) ?? r2(sell * 0.10);
-    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
     const confidence = (ai.confidence as number) ?? 50;
-    const decision = getDecision(roi, confidence, settings);
+    const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
     return {
       decision, itemName: ai.item_name, estimatedProfit: net,
       avgSoldPrice: sell, estimatedCost: cost, roi, confidence,
@@ -417,7 +458,7 @@ async function handleInventoryDelete(
 }
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  'Unlisted':        ['Listed'],
+  'Unlisted':        ['Listed', 'Sold'],
   'Listed':          ['Sold', 'Unlisted'],
   'Sold':            [],
   'Ready to Export': ['Listed'],
@@ -445,7 +486,10 @@ async function handleInventoryStatus(
   if (newStatus === 'Listed') updates.listed_at = new Date().toISOString();
   if (newStatus === 'Sold') {
     updates.sold_at = new Date().toISOString();
-    if (body.actualSellPrice != null) updates.sell_price = body.actualSellPrice;
+    if (body.actualSellPrice != null) {
+      updates.sell_price = body.actualSellPrice;
+      updates.sold_price = body.actualSellPrice;
+    }
   }
 
   const { data: item, error } = await supabase.from('inventory')
@@ -855,7 +899,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
 {
   "business_score": number (0-100),
   "score_label": "Strong/Growing/Steady/Needs Attention",
-  "score_color": "#00bb66 or #c47800 or #dd0000",
+  "score_color": "#00e676 or #f5a623 or #ff3333",
   "score_summary": "one sentence on overall business health using their actual numbers",
   "top_categories": [
     {"name":"string","profit":"$X","insight":"one sentence specific to their data","bar_pct":number}
@@ -893,7 +937,7 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
   const report = {
     business_score: Number(ai.business_score ?? 50),
     score_label:    String(ai.score_label ?? 'Steady'),
-    score_color:    String(ai.score_color ?? '#c47800'),
+    score_color:    String(ai.score_color ?? '#f5a623'),
     score_summary:  String(ai.score_summary ?? ''),
     top_categories: ((ai.top_categories as unknown[]) ?? []).slice(0, 3).map((c: unknown) => {
       const cat = c as Record<string, unknown>;
@@ -991,7 +1035,7 @@ function validateSettingsInput(s: SettingsInput): string | null {
   if (s.minProfit < 0)                     return 'minProfit must be ≥ 0';
   if (s.targetRoi < 0 || s.targetRoi > 1000) return 'targetRoi must be 0–1000';
   if (s.maxDays < 1 || s.maxDays > 999)   return 'maxDays must be 1–999';
-  if (s.minStr < 1 || s.minStr > 100)     return 'minStr must be 1–100';
+  if (s.minStr < 0 || s.minStr > 100)     return 'minStr must be 0–100';
   const validSourcing = ['conservative', 'balanced', 'aggressive'];
   if (!validSourcing.includes(s.sourcingStyle)) return 'Invalid sourcingStyle';
   const validShipping = ['buyer', 'seller'];
@@ -1005,7 +1049,6 @@ async function handleSettingsUpdate(
   tier: string,
   body: Record<string, unknown>,
 ) {
-  if (tier === 'scout') throw new HttpError('Upgrade to Hustle+ to edit settings.', 403);
   const s = body.settings as SettingsInput;
   if (!s) throw new HttpError('Missing settings payload', 400);
   const validationError = validateSettingsInput(s);
@@ -1047,7 +1090,7 @@ async function handleSettingsUpdate(
 function buildFallbackReport(itemCount: number): Record<string, unknown> {
   return {
     business_score: 0, score_label: 'Needs Attention',
-    score_color: '#dd0000',
+    score_color: '#ff3333',
     score_summary: 'Could not generate report — add more sold items for analysis.',
     top_categories: [], stale_actions: [], hunt_list: [], market_trends: [],
     advisor_message: 'List and sell a few items to unlock your weekly brief.',
@@ -1070,13 +1113,121 @@ const STATIC_KEYWORDS = [
 const STATIC_CATEGORIES = ['Electronics', 'Clothing', 'Collectibles', 'Home & Garden'];
 const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always include if available.';
 
+// ── Legacy proxy: handles old Replit-style /v1/messages endpoints ──────────
+function ab2b64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 8192;
+  let s = '';
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(s);
+}
+
+async function handleLegacyProxy(req: Request, hasImage: boolean): Promise<Response> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
+  const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
+  try { await verifyJWT(authHeader.slice(7), jwtSecret); }
+  catch { return json({ error: 'Unauthorized' }, 401); }
+
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
+  if (!anthropicKey) return json({ error: 'Anthropic key not configured' }, 500);
+
+  let model: string, system: string, messages: unknown[], maxTokens: number;
+
+  if (hasImage) {
+    const form = await req.formData();
+    model     = (form.get('model') as string) ?? 'claude-sonnet-4-6';
+    system    = (form.get('system') as string) ?? '';
+    maxTokens = parseInt((form.get('max_tokens') as string) ?? '1500', 10);
+    messages  = JSON.parse((form.get('messages') as string) ?? '[]');
+    const imageFile = form.get('image') as File | null;
+    if (imageFile) {
+      const b64 = ab2b64(await imageFile.arrayBuffer());
+      if (Array.isArray(messages) && messages.length > 0) {
+        const content = (messages[0] as Record<string, unknown>).content as Array<Record<string, unknown>>;
+        const imgBlock = content?.find(b => b.type === 'image');
+        if (imgBlock) (imgBlock.source as Record<string, unknown>).data = b64;
+      }
+    }
+  } else {
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    model     = (body.model as string) ?? 'claude-sonnet-4-6';
+    system    = (body.system as string) ?? '';
+    maxTokens = (body.max_tokens as number) ?? 1500;
+    messages  = (body.messages as unknown[]) ?? [];
+  }
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
+  });
+  const data = await res.json();
+  return new Response(JSON.stringify(data), {
+    status: res.ok ? 200 : res.status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  // Route old /v1/messages* endpoints to legacy transparent proxy
+  const path = new URL(req.url).pathname;
+  if (req.method === 'POST' && (path.endsWith('/v1/messages') || path.endsWith('/v1/messages-with-image'))) {
+    return await handleLegacyProxy(req, path.endsWith('/v1/messages-with-image'));
+  }
+
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); }
-  catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const contentType = req.headers.get('Content-Type') ?? '';
+  if (contentType.includes('multipart/form-data')) {
+    // Mobile clients upload the raw camera file directly (no client-side
+    // base64/decode — avoids OOM on low-RAM Android WebViews). Convert to
+    // base64 here, server-side, where memory isn't constrained.
+    try {
+      const form = await req.formData();
+      const imageFile = form.get('image') as File | null;
+      let b64 = '';
+      let imageMime: string = 'image/jpeg';
+      if (imageFile) {
+        const buf = await imageFile.arrayBuffer();
+        // Detect ISOBMFF container: bytes 4-7 are 'ftyp' (0x66 0x74 0x79 0x70).
+        // Shared by HEIC, AVIF, MP4, MOV. Check bytes 8-11 for the actual brand.
+        const hdr = new Uint8Array(buf, 0, 12);
+        if (hdr[4] === 0x66 && hdr[5] === 0x74 && hdr[6] === 0x79 && hdr[7] === 0x70) {
+          const brand = String.fromCharCode(hdr[8], hdr[9], hdr[10], hdr[11]).toLowerCase();
+          const isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+          if (isHeic) {
+            return json({ error: 'HEIC photos are not supported. On iPhone: Settings → Camera → Format → Most Compatible to save as JPEG.' }, 415);
+          }
+          // AVIF, MP4, MOV and other unsupported container formats
+          return json({ error: 'This image format is not supported. Please use JPEG, PNG, or WebP.' }, 415);
+        }
+        b64 = ab2b64(buf);
+        imageMime = detectImageMime(buf);
+      }
+      body = {
+        type: form.get('type') as string,
+        hint: form.get('hint') as string | null,
+        imageBase64: b64,
+        images: b64 ? [b64] : [],
+        imageMimeTypes: b64 ? [imageMime] : [],
+      };
+    } catch {
+      return json({ error: 'Invalid form data' }, 400);
+    }
+  } else {
+    try { body = await req.json(); }
+    catch { return json({ error: 'Invalid JSON body' }, 400); }
+  }
 
   if (body.type === 'health') {
     return json({ status: 'ok', function: 'claude-proxy', ts: new Date().toISOString() });
@@ -1128,11 +1279,19 @@ Deno.serve(async (req: Request) => {
   try {
     if (body.type === 'single_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+      const imgs = Array.isArray(body.images) ? (body.images as string[])
+        : body.imageBase64 ? [body.imageBase64 as string] : [];
+      if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
+      const mimes = Array.isArray(body.imageMimeTypes) ? (body.imageMimeTypes as string[]) : [];
+      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
     }
     if (body.type === 'shelf_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, body.imageBase64 as string));
+      const imgs = Array.isArray(body.images) ? (body.images as string[])
+        : body.imageBase64 ? [body.imageBase64 as string] : [];
+      if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
+      const mimes = Array.isArray(body.imageMimeTypes) ? (body.imageMimeTypes as string[]) : [];
+      return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
     }
     if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));

@@ -1,18 +1,47 @@
-# Feature Triage — Flippd v5.23 → ScanForProfit RN
+# Feature Triage — ScanForProfit v5.24
 
-Source file: `Flippd_v5_23.html` (6,642 lines)
+Source file: `ScanForProfit_v5_24.html` (6,642 lines)
 Analysis date: 2026-05-24
+Last status update: 2026-06-16
+
+## Phase 4 Build Status (as of 2026-06-16)
+
+**Phase 4 is complete.** All 8 mobile build steps are done. Features below that are now live in the ScanForProfit RN app:
+
+| Feature area | Status | Where implemented |
+|---|---|---|
+| Auth (register / verify / login) | ✅ Built | `apps/mobile/app/(auth)/`, `supabase/functions/auth` |
+| Scanner tab — single item scan (F-01, F-03, F-07, F-08) | ✅ Built | `apps/mobile/app/(tabs)/scout.tsx`, `supabase/functions/claude-proxy` |
+| Scanner tab — shelf scan (F-02, F-04) | ✅ Built | same as above |
+| Inventory CRUD + photos + status (F-09 to F-18) | ✅ Built | `apps/mobile/app/(tabs)/inventory.tsx`, claude-proxy |
+| Listing generator + CSV export + trending keywords (F-28, F-29, F-31) | ✅ Built | `apps/mobile/app/(tabs)/listing.tsx`, claude-proxy |
+| Growth Agent / Trends tab (F-27) | ✅ Built | `apps/mobile/app/(tabs)/trends.tsx`, claude-proxy |
+| Stats / P&L dashboard + expenses (F-22 to F-26) | ✅ Built | `apps/mobile/app/(tabs)/stats.tsx`, claude-proxy |
+| Settings screen (F-06) | ✅ Built | `apps/mobile/app/(tabs)/settings.tsx`, claude-proxy |
+| Onboarding flow | ✅ Built | `apps/mobile/app/(onboarding)/` |
+| Profit calculation (P-02, P-12) | ✅ Built | `packages/shared/src/utils/calcProfit.ts`, `calcPnl.ts` |
+| AI prompts (P-03, P-04, P-05, P-06, P-07, P-08) | ✅ Built | `supabase/functions/claude-proxy/index.ts` |
+| eBay OAuth (F-32 area) | ✅ Built | `supabase/functions/ebay-oauth/index.ts` |
+| Stripe payments | ✅ Built | `supabase/functions/stripe-webhook`, `stripe-checkout` |
+
+Features **not yet built** (deferred to Phase 5 / future):
+- eBay listing push via API (F-30) — `apps/web` or future mobile
+- Backup / restore import (P-17, P-18) — deferred
+- Watch / Save for Later (F-05) — dead stub, low priority
+- eBay CSV export from mobile (P-19) — web app handles this via app.html
+
+The sections below remain the authoritative reference for **what to port and how**. Use them when implementing any feature from scratch. Do not rewrite prompts (P-03 through P-08) — they are verbatim from the source file.
 
 ---
 
 ## Section 1 — Full Feature Inventory
 
-Every distinct feature, exhaustive and ungrouped. Line numbers reference `Flippd_v5_23.html`.
+Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanForProfit_v5_24.html`.
 
 ---
 
-### F-01 — Single Item Scan (FLIP OR PASS)
-- **Tab:** Sourcing (Scout)
+### F-01 — Single Item Scan (Hot / List / Skip)
+- **Tab:** Scanner
 - **Functions:** `analyze()` (L4694), `getSingleSys()` (L4644), `callClaude()` (L4536), `calcFinancials()` (L4666), `getDecision()` (L4673)
 - **Data reads:** `S.ebayFee`, `S.pkgCost`, `S.minProfit`, `S.targetRoi`, `S.maxDays`, `S.style`, `imgFile` (raw File ref), `text-input` DOM
 - **Data writes:** `fef_scan_log` (localStorage), item name patched back into scan log entry
@@ -215,9 +244,10 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `Flippd
 - **~Lines:** 5313–5324
 
 ### F-27 — Growth Agent
-- **Tab:** Trends (Growth)
+- **Status:** ✅ Implemented (inline) — prompt lives inline in `apps/web/public/app.html` at ~line 4342. This is the canonical version. Do NOT replace with the prompt below. Update the prompt below to match app.html if they diverge.
+- **Tab:** Trends / PULSE (Growth)
 - **Functions:** `runGrowthAgent()` (L3214), `initGrowthTab()` (L3179), `renderGrowthResults()` (L3338), `loadGrowthCache()` (L3172), `saveGrowthCache()` (L3175)
-- **Cache key:** `fef_growth_cache`, stale after 24 hours (`GROWTH_STALE_HOURS = 24`)
+- **Cache key:** `sfp_growth_cache`, stale after 24 hours (`GROWTH_STALE_HOURS = 24`)
 - **Auto-run:** on tab open if cache is missing or stale AND user is logged in
 - **AI Prompt (verbatim, L3279–3307):**
   ```
@@ -234,7 +264,7 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `Flippd
   {
     "business_score": number (0-100),
     "score_label": "Strong/Growing/Steady/Needs Attention",
-    "score_color": "#00bb66 or #c47800 or #dd0000",
+    "score_color": "#00e676 or #f5a623 or #ff3333",
     "score_summary": "one sentence on overall business health using their actual numbers",
     "top_categories": [
       {"name":"string","profit":"$X","insight":"one sentence specific to their data","bar_pct":number}
@@ -558,6 +588,7 @@ Sort: HOT first, then BUY, then PASS.
 ```
 
 ### P-05 — Growth Agent AI Prompt
+**Status:** ✅ Implemented (inline) — canonical prompt is in `apps/web/public/app.html` at ~line 4342, NOT this file. See F-27 note above.
 **Port from:** `runGrowthAgent()` (L3279–3307) — full prompt in Section 1 F-27 above.
 All variables injected: `inventorySummary` JSON, `S.ebayFee`, `S.pkgCost`, `S.minProfit`, `S.targetRoi`, `S.maxDays`, today's date.
 

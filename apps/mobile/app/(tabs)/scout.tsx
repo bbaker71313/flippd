@@ -1,11 +1,13 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, TextInput,
-  ActivityIndicator, ScrollView, Alert, Pressable, Platform,
+  ActivityIndicator, ScrollView, Alert, Pressable, Animated, Image,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@sfp/shared';
 import { ScanResult } from '../../components/ui/ScanResult';
+import { OnboardingSheet, shouldShowOnboarding } from '../../components/ui/OnboardingSheet';
 import { takePicture } from '../../lib/camera';
 import { supabase } from '../../lib/supabase';
 
@@ -23,6 +25,8 @@ interface SingleResult {
   reasoning: string;
   category: string;
   searchKeywords: string[];
+  listingTips: string[];
+  riskFlags: string[];
   scanLogId: number | null;
 }
 
@@ -39,37 +43,35 @@ interface ShelfItem {
 }
 
 const DECISION_COLOR: Record<'BUY' | 'HOT' | 'PASS', string> = {
-  BUY: '#00bb66', HOT: '#e6850a', PASS: '#5c5248',
+  BUY: '#00e676', HOT: '#f5a623', PASS: '#8a8070',
 };
 const DECISION_LABEL: Record<'BUY' | 'HOT' | 'PASS', string> = {
   BUY: 'FLIP', HOT: 'HOT', PASS: 'PASS',
 };
 
-function ShelfItemRow({ item, onBuy }: { item: ShelfItem; onBuy: (item: ShelfItem) => void }) {
+function ShelfItemRow({ item, onBuy }: { item: ShelfItem; onBuy: () => void }) {
   const color = DECISION_COLOR[item.decision];
   const label = DECISION_LABEL[item.decision];
   return (
-    <View className="flex-row items-center bg-white rounded-xl mx-4 mb-3 p-4 border border-stone-200">
-      <View className="w-14 h-14 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: color + '20' }}>
-        <Text className="font-bold text-base" style={{ color }}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border }}>
+      <View style={{ width: 56, height: 56, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginRight: SPACING.sm, backgroundColor: color + '20' }}>
+        <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '700', fontSize: TYPOGRAPHY.label.fontSize, color }}>{label}</Text>
       </View>
-      <View className="flex-1 mr-2">
-        <Text className="text-stone-900 font-semibold text-sm" numberOfLines={2}>{item.itemName as string}</Text>
-        <Text className="text-stone-500 text-xs mt-0.5">{item.decisionReason as string}</Text>
+      <View style={{ flex: 1, marginRight: SPACING.sm }}>
+        <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, fontWeight: '600', color: COLORS.textPrimary }} numberOfLines={2}>{item.itemName as string}</Text>
+        <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted, marginTop: 2 }}>{item.decisionReason as string}</Text>
       </View>
-      <View className="items-end">
-        <Text className="font-bold text-base" style={{ color: item.estimatedProfit >= 0 ? '#00bb66' : '#dd0000' }}>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontFamily: TYPOGRAPHY.mono.fontFamily, fontSize: TYPOGRAPHY.mono.fontSize, fontWeight: '700', color: item.estimatedProfit >= 0 ? COLORS.profit : COLORS.loss }}>
           {item.estimatedProfit >= 0 ? '+' : ''}${Math.abs(item.estimatedProfit).toFixed(0)}
         </Text>
-        <Text className="text-stone-400 text-xs">{item.roi.toFixed(0)}% ROI</Text>
+        <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted }}>{item.roi.toFixed(0)}% ROI</Text>
         {item.decision !== 'PASS' && (
           <TouchableOpacity
-            className="mt-1 bg-emerald-500 rounded-lg px-3 py-2.5"
-            onPress={() => onBuy(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`Buy ${item.itemName}`}
+            style={{ marginTop: 4, backgroundColor: COLORS.accent, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 4 }}
+            onPress={() => onBuy()}
           >
-            <Text className="text-white font-semibold text-xs">Buy It</Text>
+            <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.inverse }}>Buy It</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -85,6 +87,26 @@ export default function ScoutScreen() {
   const [singleResult, setSingleResult] = useState<SingleResult | null>(null);
   const [shelfResults, setShelfResults] = useState<ShelfItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
+
+  // Change 2: Animated logo pulse — 2s loop, opacity 0.7→1.0→0.7, brand green
+  const logoOpacity = useRef(new Animated.Value(0.7)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoOpacity, { toValue: 1.0, duration: 1000, useNativeDriver: true }),
+        Animated.timing(logoOpacity, { toValue: 0.7, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  // Change 5: show onboarding sheet once on first launch
+  useEffect(() => {
+    shouldShowOnboarding().then(show => { if (show) setOnboardingVisible(true); }).catch(() => {});
+  }, []);
 
   // Buy modal state
   const [buyVisible, setBuyVisible] = useState(false);
@@ -96,6 +118,7 @@ export default function ScoutScreen() {
     setSingleResult(null);
     setShelfResults([]);
     setErrorMsg(null);
+    setPhotos([]);
     setStatus('idle');
   }, []);
 
@@ -129,7 +152,6 @@ export default function ScoutScreen() {
 
   async function handleCapture() {
     if (status !== 'idle') return;
-    setStatus('analyzing');
     setErrorMsg(null);
 
     let imageBase64: string;
@@ -141,16 +163,39 @@ export default function ScoutScreen() {
       return;
     }
 
+    if (mode === 'single') {
+      // Change 4: accumulate up to 4 photos before analyzing
+      setPhotos((prev: string[]) => [...prev, imageBase64].slice(0, 4));
+      return;
+    }
+
+    // Shelf mode: single shot → immediate analyze
+    setStatus('analyzing');
     try {
-      if (mode === 'single') {
-        const result = await callProxy({ type: 'single_scan', imageBase64 }) as unknown as SingleResult;
-        setSingleResult(result);
-        setStatus('result_single');
+      const result = await callProxy({ type: 'shelf_scan', images: [imageBase64] }) as { items: ShelfItem[] };
+      setShelfResults(result.items ?? []);
+      setStatus('result_shelf');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Scan failed. Try again.';
+      if (msg.startsWith('LIMIT_REACHED:')) {
+        Alert.alert('Scan Limit Reached', msg.slice(14) + '\n\nUpgrade to Hustle for unlimited scans.', [
+          { text: 'Not now', style: 'cancel', onPress: reset },
+          { text: 'Upgrade', onPress: reset },
+        ]);
       } else {
-        const result = await callProxy({ type: 'shelf_scan', imageBase64 }) as { items: ShelfItem[] };
-        setShelfResults(result.items ?? []);
-        setStatus('result_shelf');
+        setErrorMsg(msg);
       }
+      setStatus('error');
+    }
+  }
+
+  async function handleAnalyze() {
+    if (photos.length === 0 || status !== 'idle') return;
+    setStatus('analyzing');
+    try {
+      const result = await callProxy({ type: 'single_scan', images: photos }) as unknown as SingleResult;
+      setSingleResult(result);
+      setStatus('result_single');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Scan failed. Try again.';
       if (msg.startsWith('LIMIT_REACHED:')) {
@@ -210,16 +255,18 @@ export default function ScoutScreen() {
 
   if (!permission.granted) {
     return (
-      <SafeAreaView className="flex-1 bg-stone-950 items-center justify-center px-8">
-        <Text className="text-white text-2xl font-bold text-center mb-3">Camera Access Needed</Text>
-        <Text className="text-stone-400 text-base text-center mb-8">
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl }}>
+        <Text style={{ fontFamily: TYPOGRAPHY.h2.fontFamily, fontSize: TYPOGRAPHY.h2.fontSize, fontWeight: TYPOGRAPHY.h2.fontWeight, color: COLORS.textPrimary, textAlign: 'center', marginBottom: SPACING.sm }}>
+          Camera Access Needed
+        </Text>
+        <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, color: COLORS.textMuted, textAlign: 'center', marginBottom: SPACING.xl }}>
           ScanForProfit needs your camera to scan items. Your photos are never stored on our servers.
         </Text>
         <TouchableOpacity
-          className="bg-emerald-500 rounded-xl px-8 py-4"
+          style={{ backgroundColor: COLORS.profit, borderRadius: RADIUS.lg, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md }}
           onPress={requestPermission}
         >
-          <Text className="text-white font-bold text-base">Allow Camera</Text>
+          <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '700', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.inverse }}>ALLOW CAMERA</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -227,28 +274,33 @@ export default function ScoutScreen() {
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <View className="flex-1 bg-black">
+    <View style={{ flex: 1, backgroundColor: COLORS.inverse }}>
       {/* Camera — always mounted, stays behind overlays */}
       <CameraView ref={cameraRef} facing="back" style={{ flex: 1 }} />
 
       {/* Top bar */}
-      <SafeAreaView className="absolute top-0 left-0 right-0" edges={['top']} pointerEvents="box-none">
-        <View className="mx-4 mt-2">
-          <Text className="text-white text-center font-bold text-xs tracking-widest mb-3 opacity-80">
-            SCAN FOR PROFIT
-          </Text>
+      <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0 }} edges={['top']} pointerEvents="box-none">
+        <View style={{ marginHorizontal: SPACING.md, marginTop: SPACING.sm }}>
+          {/* Change 2: Animated logo placeholder — pulse animation shell
+              TODO: replace with actual logo asset — LOGO_ASSET_PATH */}
+          <Animated.View style={{ opacity: logoOpacity, alignItems: 'center', marginBottom: SPACING.sm }}>
+            {/* Fallback: "SFP" in Syne 800 brand green until logo asset is provided */}
+            <Text style={{ fontFamily: TYPOGRAPHY.display.fontFamily, fontSize: 18, fontWeight: '800', color: COLORS.profit, letterSpacing: 4 }}>
+              SFP
+            </Text>
+          </Animated.View>
           {/* Mode toggle */}
-          <View className="flex-row bg-black/50 rounded-xl p-1 self-center">
+          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: RADIUS.lg, padding: 4, alignSelf: 'center' }}>
             {(['single', 'shelf'] as ScanMode[]).map((m) => (
               <TouchableOpacity
                 key={m}
-                className={`px-5 py-2 rounded-lg ${mode === m ? 'bg-emerald-500' : ''}`}
+                style={{ paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, borderRadius: RADIUS.md, backgroundColor: mode === m ? COLORS.accent : 'transparent' }}
                 onPress={() => { if (status === 'idle') setMode(m); }}
                 accessibilityRole="button"
                 accessibilityLabel={m === 'single' ? 'Single item scan mode' : 'Shelf scan mode — scan a whole shelf at once'}
                 accessibilityState={{ selected: mode === m }}
               >
-                <Text className={`text-xs font-semibold tracking-wider ${mode === m ? 'text-white' : 'text-stone-400'}`}>
+                <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.label.fontSize, color: mode === m ? COLORS.inverse : COLORS.textMuted }}>
                   {m === 'single' ? 'SINGLE ITEM' : 'SHELF SCAN'}
                 </Text>
               </TouchableOpacity>
@@ -257,31 +309,57 @@ export default function ScoutScreen() {
         </View>
       </SafeAreaView>
 
-      {/* Bottom capture button — pb-20 on Android clears the 64px tab bar */}
+      {/* Bottom capture button + photo strip */}
       {status === 'idle' && (
-        <View
-          className="absolute bottom-0 left-0 right-0 items-center"
-          style={{ paddingBottom: Platform.OS === 'ios' ? 48 : 80 }}
-          pointerEvents="box-none"
-        >
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 48, alignItems: 'center' }} pointerEvents="box-none">
+          {/* Change 4: photo strip for single mode */}
+          {mode === 'single' && photos.length > 0 && (
+            <View style={{ flexDirection: 'row', marginBottom: SPACING.md, paddingHorizontal: SPACING.md }}>
+              {photos.map((uri: string, i: number) => (
+                <View key={i} style={{ marginHorizontal: 4 }}>
+                  <Image source={{ uri: `data:image/jpeg;base64,${uri}` }} style={{ width: 52, height: 52, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border }} />
+                  <TouchableOpacity
+                    onPress={() => setPhotos((prev: string[]) => prev.filter((_: string, idx: number) => idx !== i))}
+                    style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.lossText, alignItems: 'center', justifyContent: 'center' }}
+                    hitSlop={8}
+                  >
+                    <Text style={{ color: COLORS.elevated, fontSize: 10, fontWeight: '700', lineHeight: 12 }}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {photos.length < 4 && (
+                <View style={{ width: 52, height: 52, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 }}>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 20, lineHeight: 24 }}>+</Text>
+                </View>
+              )}
+            </View>
+          )}
           <TouchableOpacity
             onPress={handleCapture}
-            className="w-20 h-20 rounded-full bg-white items-center justify-center"
-            style={{ shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 }}
-            accessibilityLabel="Capture photo to scan item"
-            accessibilityRole="button"
+            style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.textPrimary, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 }}
           >
-            <View className="w-16 h-16 rounded-full border-4 border-stone-800 bg-white" />
+            <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: COLORS.background, backgroundColor: COLORS.textPrimary }} />
           </TouchableOpacity>
+          <Text style={{ fontFamily: TYPOGRAPHY.mono.fontFamily, fontSize: 11, color: COLORS.textMuted, letterSpacing: 2, marginTop: SPACING.sm }}>
+            {mode === 'single' && photos.length > 0 ? `${photos.length}/4 PHOTOS` : 'RUN THE NUMBERS'}
+          </Text>
+          {mode === 'single' && photos.length > 0 && (
+            <TouchableOpacity
+              onPress={() => void handleAnalyze()}
+              style={{ marginTop: SPACING.md, backgroundColor: COLORS.profit, borderRadius: RADIUS.md, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm }}
+            >
+              <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '700', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.inverse }}>ANALYZE</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       {/* Analyzing overlay */}
       {status === 'analyzing' && (
-        <View className="absolute inset-0 bg-black/70 items-center justify-center">
-          <ActivityIndicator size="large" color="#00bb66" />
-          <Text className="text-white font-semibold text-base mt-4">Analyzing...</Text>
-          <Text className="text-stone-400 text-sm mt-1">
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.profit} />
+          <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.body.fontSize, color: COLORS.textPrimary, marginTop: SPACING.md }}>Analyzing...</Text>
+          <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted, marginTop: SPACING.xs }}>
             {mode === 'single' ? 'Identifying item and pulling sold comps' : 'Scanning shelf for flip opportunities'}
           </Text>
         </View>
@@ -289,20 +367,20 @@ export default function ScoutScreen() {
 
       {/* Error overlay */}
       {status === 'error' && errorMsg && (
-        <View className="absolute bottom-0 left-0 right-0 px-4" style={{ paddingBottom: Platform.OS === 'ios' ? 48 : 80 }}>
-          <View className="bg-red-950 border border-red-700 rounded-xl p-4 mb-4">
-            <Text className="text-red-400 font-semibold mb-1">Scan failed</Text>
-            <Text className="text-red-300 text-sm">{errorMsg}</Text>
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 48, paddingHorizontal: SPACING.md }}>
+          <View style={{ backgroundColor: COLORS.loss + '18', borderWidth: 1, borderColor: COLORS.loss, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md }}>
+            <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.body.fontSize, color: COLORS.lossText, marginBottom: 4 }}>Scan failed</Text>
+            <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.lossText }}>{errorMsg}</Text>
           </View>
-          <TouchableOpacity className="bg-stone-800 rounded-xl py-4 items-center" onPress={reset}>
-            <Text className="text-white font-semibold">Try Again</Text>
+          <TouchableOpacity style={{ backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, paddingVertical: SPACING.md, alignItems: 'center' }} onPress={reset}>
+            <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.textPrimary }}>TRY AGAIN</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {/* Single result card */}
       {status === 'result_single' && singleResult && (
-        <View className="absolute bottom-0 left-0 right-0 px-4" style={{ paddingBottom: Platform.OS === 'ios' ? 32 : 72 }}>
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: SPACING.md, paddingBottom: SPACING.xl }}>
           <ScanResult
             decision={singleResult.decision}
             itemName={singleResult.itemName as string}
@@ -312,6 +390,8 @@ export default function ScoutScreen() {
             confidence={singleResult.confidence}
             roi={singleResult.roi}
             reasoning={singleResult.reasoning as string}
+            listingTips={singleResult.listingTips}
+            riskFlags={singleResult.riskFlags}
             onBuy={() => openBuyModal({
               itemName: singleResult.itemName as string,
               category: singleResult.category as string,
@@ -325,23 +405,23 @@ export default function ScoutScreen() {
 
       {/* Shelf results */}
       {status === 'result_shelf' && (
-        <View className="absolute bottom-0 left-0 right-0" style={{ maxHeight: '70%' }}>
-          <View className="bg-stone-950/95 rounded-t-2xl pt-4 flex-1">
-            <View className="flex-row items-center justify-between px-4 mb-3">
-              <Text className="text-white font-bold text-base">
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '70%' }}>
+          <View style={{ backgroundColor: COLORS.background + 'f5', borderTopLeftRadius: RADIUS.lg, borderTopRightRadius: RADIUS.lg, paddingTop: SPACING.md, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, marginBottom: SPACING.sm }}>
+              <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontWeight: '700', fontSize: TYPOGRAPHY.body.fontSize, color: COLORS.textPrimary }}>
                 {shelfResults.length} {shelfResults.length === 1 ? 'item' : 'items'} found
               </Text>
               <TouchableOpacity onPress={reset}>
-                <Text className="text-stone-400 text-sm">Done</Text>
+                <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted }}>Done</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
               {shelfResults.length === 0 ? (
-                <View className="items-center py-12 px-8">
-                  <Text className="text-stone-400 text-center">No items identified. Try better lighting or a closer shot.</Text>
+                <View style={{ alignItems: 'center', paddingVertical: 48, paddingHorizontal: SPACING.xl }}>
+                  <Text style={{ fontFamily: TYPOGRAPHY.body.fontFamily, fontSize: TYPOGRAPHY.body.fontSize, color: COLORS.textMuted, textAlign: 'center' }}>No items identified. Try better lighting or a closer shot.</Text>
                 </View>
               ) : (
-                shelfResults.map((item, i) => (
+                shelfResults.map((item: ShelfItem, i: number) => (
                   <ShelfItemRow
                     key={i}
                     item={item}
@@ -354,49 +434,48 @@ export default function ScoutScreen() {
                   />
                 ))
               )}
-              <View className="h-8" />
+              <View style={{ height: SPACING.xl }} />
             </ScrollView>
           </View>
         </View>
       )}
 
+      {/* Change 5: First-time onboarding */}
+      <OnboardingSheet visible={onboardingVisible} onDone={() => setOnboardingVisible(false)} />
+
       {/* Buy modal */}
       <Modal visible={buyVisible} transparent animationType="slide" onRequestClose={() => setBuyVisible(false)}>
-        <View className="flex-1 justify-end bg-black/60">
-          <View className="bg-stone-950 rounded-t-2xl px-6 pt-6 pb-10">
-            <Text className="text-white font-bold text-lg mb-1">What did you pay?</Text>
-            <Text className="text-stone-400 text-sm mb-6" numberOfLines={1}>{pendingBuy?.itemName}</Text>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: COLORS.inverse + '99' }}>
+          <View style={{ backgroundColor: COLORS.elevated, borderTopLeftRadius: RADIUS.lg, borderTopRightRadius: RADIUS.lg, paddingHorizontal: SPACING.xl, paddingTop: SPACING.xl, paddingBottom: 40 }}>
+            <Text style={{ fontFamily: TYPOGRAPHY.h3.fontFamily, fontSize: TYPOGRAPHY.h3.fontSize, fontWeight: TYPOGRAPHY.h3.fontWeight, color: COLORS.textPrimary, marginBottom: 4 }}>What did you pay?</Text>
+            <Text style={{ fontFamily: TYPOGRAPHY.caption.fontFamily, fontSize: TYPOGRAPHY.caption.fontSize, color: COLORS.textMuted, marginBottom: SPACING.xl }} numberOfLines={1}>{pendingBuy?.itemName}</Text>
 
-            <Text className="text-stone-300 text-xs font-medium mb-2 uppercase tracking-wider">Your Cost</Text>
-            <View className="flex-row items-center bg-stone-800 rounded-xl px-4 mb-6">
-              <Text className="text-stone-400 text-2xl font-bold mr-1">$</Text>
-              <TextInput
-                className="flex-1 text-white py-4 text-2xl font-bold"
-                placeholder="0.00"
-                placeholderTextColor="#64748b"
-                keyboardType="decimal-pad"
-                value={buyCost}
-                onChangeText={setBuyCost}
-                autoFocus
-                accessibilityLabel="Item cost in dollars"
-              />
-            </View>
+            <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.textMuted, marginBottom: 6 }}>YOUR COST</Text>
+            <TextInput
+              style={{ backgroundColor: COLORS.surface, color: COLORS.textPrimary, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, fontSize: 28, fontWeight: '700', marginBottom: SPACING.xl, borderWidth: 1, borderColor: COLORS.border }}
+              placeholder="0.00"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="decimal-pad"
+              value={buyCost}
+              onChangeText={setBuyCost}
+              autoFocus
+            />
 
-            <View className="flex-row gap-3">
+            <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
               <TouchableOpacity
-                className="flex-1 bg-stone-800 rounded-xl py-4 items-center"
+                style={{ flex: 1, backgroundColor: COLORS.surface, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' }}
                 onPress={() => setBuyVisible(false)}
               >
-                <Text className="text-stone-300 font-semibold">Cancel</Text>
+                <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '600', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.textSecondary }}>CANCEL</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="flex-1 bg-emerald-500 rounded-xl py-4 items-center"
+                style={{ flex: 1, backgroundColor: COLORS.profit, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' }}
                 onPress={handleConfirmBuy}
                 disabled={buyLoading}
               >
                 {buyLoading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text className="text-white font-bold">Add to Inventory</Text>
+                  ? <ActivityIndicator color={COLORS.inverse} />
+                  : <Text style={{ fontFamily: TYPOGRAPHY.label.fontFamily, fontWeight: '700', fontSize: TYPOGRAPHY.label.fontSize, color: COLORS.inverse }}>ADD TO INVENTORY</Text>
                 }
               </TouchableOpacity>
             </View>

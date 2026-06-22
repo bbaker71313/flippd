@@ -17,7 +17,7 @@ ScanForProfit is the AI-powered sourcing and business tool for solo eBay reselle
 
 ### For Users (Early Access)
 
-1. Go to [flippd.com](https://flippd.com)
+1. Go to [scanforprofit.com](https://scanforprofit.com)
 2. Enter your early access code (sent via email)
 3. Take a photo of any item or a shelf
 4. Get your FLIP or PASS decision with profit breakdown
@@ -61,7 +61,7 @@ See [legal/PRIVACY.md](legal/PRIVACY.md) for full details.
 
 ## Support
 
-- Questions? Email: support@flippd.com
+- Questions? Email: support@scanforprofit.com
 - Found a bug? Open an [issue](https://github.com/yourusername/ScanForProfit/issues)
 - Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md)
 

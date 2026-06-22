@@ -4,10 +4,10 @@
  * All values sourced from docs/BRAND_IDENTITY.md.
  *
  * Assumptions documented inline where BRAND_IDENTITY.md was silent:
- *   - border / borderStrong: derived warm grays (#ddd6c8 / #b8b0a4), not in brand doc
+ *   - border / borderStrong: from §2 Borders (#383838 / #4a4a4a)
  *   - scanFlip/scanPass/scanHot: mapped from ScanDecision + semantic palette
  *   - RADIUS: anchored to card-radius=8px from brand doc, scale derived
- *   - SHADOWS: not in brand doc; warm #1c1712 shadow from palette
+ *   - SHADOWS: not in brand doc; pure-black (#000000) shadow, matches bg.inverse
  *   - lineHeight: converted from multipliers to px (React Native requires px)
  *   - ICONS size keys remapped: sm=16, md=20, lg=24, xl=32 (brand doc: xs/sm/md/lg)
  */
@@ -18,40 +18,40 @@
 
 export const COLORS = {
   // Backgrounds — from §2 Backgrounds
-  background:   '#f2ece0', // color.bg.base       — Warm Parchment
-  surface:      '#f8f5ee', // color.bg.surface     — Off-White
-  elevated:     '#ffffff', // color.bg.elevated    — Pure White
-  inverse:      '#1c1712', // color.bg.inverse     — Deep Espresso
+  background:   '#0a0a0a', // color.bg.base       — Near Black
+  surface:      '#161616', // color.bg.surface     — Charcoal
+  elevated:     '#1c1c1c', // color.bg.elevated    — Raised Charcoal
+  inverse:      '#000000', // color.bg.inverse     — Pure Black
 
   // Brand — from §2 Brand Colors
-  brand:        '#00bb66', // color.brand.green    — Profit Green (display/icon only)
-  brandDim:     '#00663a', // color.brand.green.text — Deep Profit (AA text on light)
-  accent:       '#8B6A3E', // color.brand.gold     — Scout Gold
-  accentDim:    '#c9a468', // color.brand.gold.light — Aged Bronze (on dark bg)
+  brand:        '#00e676', // color.brand.green    — Signal Green
+  brandDim:     '#00e676', // color.brand.green    — AAA on dark, no dim variant needed
+  accent:       '#d4a843', // color.brand.gold     — Money Gold
+  accentDim:    '#8a6c28', // color.brand.gold.dim — Deep Gold (large text only)
 
   // Semantic — from §2 Semantic Colors
-  profit:       '#00bb66', // color.semantic.profit      — display/badges
-  profitText:   '#00663a', // color.semantic.profit.text — body text (AA)
-  loss:         '#dd0000', // color.semantic.loss        — display/badges
-  lossText:     '#b80000', // color.semantic.loss.text   — body text (AA)
-  warning:      '#e6850a', // color.semantic.warning     — display/dark-bg
-  warningText:  '#945200', // color.semantic.warning.text — body text (AA)
-  neutral:      '#5c5248', // color.semantic.neutral     — Pass states, inactive
+  profit:       '#00e676', // color.semantic.profit      — display/badges
+  profitText:   '#00e676', // color.semantic.profit      — AAA on dark, body text ok
+  loss:         '#ff3333', // color.semantic.loss        — display/badges
+  lossText:     '#ff3333', // color.semantic.loss        — AA on dark, body text ok
+  warning:      '#f5a623', // color.semantic.warning     — display/badges
+  warningText:  '#f5a623', // color.semantic.warning     — AAA on dark, body text ok
+  neutral:      '#8a8070', // color.semantic.neutral     — Pass states, inactive
 
   // Text — from §2 Text Colors
-  textPrimary:   '#1c1712', // color.text.primary   — 13.9:1 AAA
-  textSecondary: '#5c5248', // color.text.secondary — 5.7:1 AA
-  textMuted:     '#6a5f54', // color.text.muted     — 4.6:1 AA
-  textInverse:   '#f2ece0', // color.text.inverse   — on bg.inverse
+  textPrimary:   '#f0ead8', // color.text.primary   — 16.5:1 AAA
+  textSecondary: '#c8bfb0', // color.text.secondary — 10.9:1 AAA
+  textMuted:     '#8a8070', // color.text.muted     — 5.1:1 AA
+  textInverse:   '#f0ead8', // color.text.inverse   — on bg.inverse (#000000), 18.0:1 AAA
 
-  // Borders — derived from warm palette (not in BRAND_IDENTITY.md, see file header)
-  border:       '#ddd6c8', // subtle warm divider
-  borderStrong: '#b8b0a4', // visible warm divider
+  // Borders — from §2 Borders
+  border:       '#383838', // subtle divider
+  borderStrong: '#4a4a4a', // visible divider, input outlines
 
   // Scan decision card colors — mapped from ScanDecision + semantic palette
-  scanFlip:  '#00bb66', // BUY  → profit green
-  scanHot:   '#e6850a', // HOT  → warning amber
-  scanPass:  '#5c5248', // PASS → neutral warm stone
+  scanFlip:  '#00e676', // BUY  → profit green
+  scanHot:   '#f5a623', // HOT  → warning amber
+  scanPass:  '#8a8070', // PASS → neutral muted stone
 } as const
 
 // ─────────────────────────────────────────
@@ -142,26 +142,26 @@ export const RADIUS = {
 // ─────────────────────────────────────────
 // SHADOWS
 // ─────────────────────────────────────────
-// Not in BRAND_IDENTITY.md. Derived with warm #1c1712 shadow (palette: bg.inverse)
+// Not in BRAND_IDENTITY.md. Derived with pure-black #000000 shadow (palette: bg.inverse)
 // Each entry supports both iOS (shadow*) and Android (elevation)
 
 export const SHADOWS = {
   sm: {
-    shadowColor:   '#1c1712',
+    shadowColor:   '#000000',
     shadowOffset:  { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius:  2,
     elevation:     2,
   },
   md: {
-    shadowColor:   '#1c1712',
+    shadowColor:   '#000000',
     shadowOffset:  { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius:  4,
     elevation:     4,
   },
   lg: {
-    shadowColor:   '#1c1712',
+    shadowColor:   '#000000',
     shadowOffset:  { width: 0, height: 4 },
     shadowOpacity: 0.10,
     shadowRadius:  8,

@@ -20,13 +20,14 @@ cat packages/shared/package.json | grep '"name"'
 
 # Expected: "name": "@sfp/shared"
 
-# 2. Confirm all 10 UI component files exist
+# 2. Confirm all 12 UI component files exist
 
-Get-ChildItem apps/mobile/components/ui/ | Select-Object Name
+ls apps/mobile/components/ui/
 
 # Expected: BottomSheet.tsx, Button.tsx, Card.tsx, EmptyState.tsx,
-#           index.ts, Input.tsx, ItemCard.tsx, ProfitBadge.tsx,
-#           ScanResult.tsx, TabBar.tsx (10 files total)
+#           index.ts, Input.tsx, ItemCard.tsx, PaywallModal.tsx,
+#           ProfitBadge.tsx, ScanResult.tsx, SettingsForm.tsx,
+#           TabBar.tsx (12 files total)
 
 # 3. Confirm git is initialized and has a clean working tree
 
@@ -44,10 +45,10 @@ git ls-files .env
 
 # 5. Confirm docs folder structure exists
 
-Get-ChildItem docs/
+ls docs/
 
-# Expected: decisions/ strategy/ marketing/ folders present
-# If missing → create them before starting work (mkdir docs/decisions docs/strategy docs/marketing)
+# Expected: marketing/ and files/ folders present, plus HANDOFF.md, FEATURE_TRIAGE.md, BRAND_IDENTITY.md
+# If marketing/ or files/ are missing → create them: mkdir -p docs/marketing docs/files
 
 STOP RULE: If any check produces unexpected output, do not continue. Document the failure in docs/HANDOFF.md and wait for instruction. Do not guess. Do not self-fix without reporting first.
 
@@ -59,7 +60,7 @@ Target user: Solo reseller sourcing from thrift stores, garage sales, estate sal
 
 Primary platform: eBay. Future: Poshmark, Mercari, Facebook Marketplace.
 
-Source of truth for business logic: Flippd_v5_23.html (6,642 lines). All AI prompts, calculations, and business rules are ported from this file — never rewritten.
+Source of truth for business logic: docs/ScanForProfit_v5_24.html. All AI prompts, calculations, and business rules are ported from this file — never rewritten.
 
 
 📁 Monorepo Structure
@@ -71,7 +72,13 @@ scanforprofit/
 
 │   │   ├── app/                   # Expo Router screens
 
-│   │   │   ├── (auth)/            # login.tsx, register.tsx
+│   │   │   ├── (auth)/            # _layout.tsx, login.tsx, register.tsx, verify.tsx
+
+│   │   │   ├── (onboarding)/      # _layout.tsx, how-it-works.tsx,
+
+│   │   │   │                      # identity.tsx, permission.tsx,
+
+│   │   │   │                      # result.tsx, upgrade.tsx
 
 │   │   │   └── (tabs)/            # scout.tsx, inventory.tsx,
 
@@ -91,15 +98,31 @@ scanforprofit/
 
 │   │   └── eas.json
 
-│   └── web/                       # Next.js 14 App Router (after mobile)
+│   ├── web/                       # Next.js 14 App Router
 
-│       ├── app/
+│   │   ├── public/                # LIVE static files served by Vercel
 
-│       │   ├── (dashboard)/       # auth-gated web app
+│   │   │   ├── index.html         # Marketing homepage — served at / via next.config.js rewrite
 
-│       │   └── page.tsx           # marketing homepage
+│   │   │   ├── app.html           # Web app — rebranded Flippd HTML; live at /app.html
 
-│       └── lib/                   # supabase-server.ts, supabase-client.ts
+│   │   │   ├── privacy.html, terms.html
+
+│   │   │   └── robots.txt, favicon.png, apple-touch-icon.png
+
+│   │   ├── app/                   # Next.js App Router — IN PROGRESS, not yet live
+
+│   │   │   ├── (dashboard)/       # auth-gated web app (future)
+
+│   │   │   └── page.tsx           # placeholder — / is currently served by public/index.html
+
+│   │   └── lib/                   # supabase-server.ts, supabase-client.ts
+
+│   └── video/                     # Remotion (@sfp/video) — ad video generation
+
+│       └── src/compositions/      # HeroVideo, SquareAd, StoryAd,
+
+│                                  # TikTokAd, YouTubePreroll
 
 ├── packages/
 
@@ -117,15 +140,24 @@ scanforprofit/
 
 │   ├── functions/                 # Edge Functions (Deno/TypeScript)
 
-│   └── migrations/                # 001_extend_schema.sql, 002_align_to_flippd.sql
+│   └── migrations/                # timestamped — see "Migrations Applied" section below
 
 ├── docs/
 
-│   ├── decisions/             # Every locked decision as a .md file — source of truth
-
-│   ├── strategy/              # Pricing, positioning, roadmap docs
-
 │   ├── marketing/             # Ad copy, hooks, content calendar, creator outreach
+
+│   │   ├── directory-copy.md
+
+│   │   ├── submission-readiness.md
+
+│   │   └── video-assets/
+
+│   ├── files/                 # Session artifacts and reference docs
+│   │   ├── CHATS.md           # Index of the 6 specialized Claude chat sessions
+│   │   ├── DECISIONS.md       # Locked product/tech decisions — do not relitigate
+│   │   ├── LAUNCH_CHECKLIST.md # Phase 6 launch checklist
+│   │   ├── SCOPE_TEMPLATES.md # Reusable scope/task templates
+│   │   └── product-marketing-context.md # Marketing positioning reference
 
 │   ├── HANDOFF.md             # Session context — update every session
 
@@ -133,19 +165,15 @@ scanforprofit/
 
 │   ├── BRAND_IDENTITY.md      # Logo, colors, typography, spacing
 
-│   ├── prototype.html         # Phase 3 Step 5 test artifact
+│   ├── GITHUB_SECRETS.md      # Secret names reference (no values)
 
-│   ├── prototype-test-script.md
+│   ├── ScanForProfit_v5_24.html  # Source of truth for all business logic
 
-│   ├── directory-tracker.csv
-
-│   ├── directory-copy.md
-
-│   └── submission-readiness.md
+│   └── directory-tracker.csv
 
 ├── .github/
 
-│   └── workflows/                 # mobile.yml (EAS), web.yml (Vercel)
+│   └── workflows/                 # mobile.yml (EAS build), web.yml (TypeScript check)
 
 ├── .env                           # Never commit — all keys from env
 
@@ -171,12 +199,18 @@ Analytics: PostHog RN
 Errors: Sentry RN
 Payments: Stripe React Native
 Web
-Framework: Next.js 14 App Router
+ARCHITECTURE DECISION (locked): The React Native rebuild was abandoned. The old Flippd HTML
+was rebranded as ScanForProfit and is now the live web app at /app.html. The mobile app
+will be rebuilt using app.html as its source reference. The Next.js App Router components
+(apps/web/app/) are in-progress shells — not yet live. Do not treat page.tsx as the
+source of truth for any UI or business logic. Use apps/web/public/app.html instead.
+
+Framework: Next.js 14 App Router (shell only — / served by public/index.html via rewrite)
 Language: TypeScript (strict mode)
 Styling: Tailwind CSS + shadcn/ui
 Auth: @supabase/ssr (cookie-based)
 Backend / Database
-Platform: Supabase (project: gymuhbscxmmcbqoovvud)
+Platform: Supabase (project: dqgfpchkheznvanfgsmx)
 Database: PostgreSQL 17
 Edge Functions: Deno / TypeScript (replacing Replit backend)
 Auth: Supabase Auth — email verification + username/password
@@ -184,6 +218,10 @@ AI proxy: Edge Function calls Anthropic API server-side
 Payments
 Platform: Stripe
 Tiers: Scout (free) · Hustle ($19/mo) · Stack ($49/mo) · Empire ($199/mo)
+Billing: Monthly only — annual plans not yet available. Do not show annual toggle or yearly pricing anywhere.
+Video Ads
+Framework: Remotion 4 (@sfp/video)
+Compositions: HeroVideo, SquareAd, StoryAd, TikTokAd, YouTubePreroll
 Infrastructure
 Monorepo: pnpm 11 workspaces + Turborepo
 Deploy mobile: EAS Build
@@ -206,7 +244,7 @@ Dead endpoints — never reference: /auth/request-link, /auth/verify-link
 
 
 🧱 Data Model
-All types defined in packages/shared/src/types/index.ts. All values from Supabase project gymuhbscxmmcbqoovvud.
+All types defined in packages/shared/src/types/index.ts. All values from Supabase project dqgfpchkheznvanfgsmx.
 Core Types
 type UserTier = 'trial' | 'scout' | 'hustle' | 'stack' | 'empire'
 
@@ -228,8 +266,8 @@ scout
 25
 10
 hustle
-Unlimited
-500
+250
+250
 stack
 Unlimited
 Unlimited
@@ -260,7 +298,16 @@ mileageRate: 0.67  // IRS rate — configurable — never hardcode
 Supabase Tables
 users, inventory, scan_log, settings, pnl_expenses, growth_cache
 
-Migrations applied: 001_extend_schema.sql, 002_align_to_flippd.sql
+Migrations applied (9 total — timestamped naming):
+20260529010000_initial_schema.sql
+20260529010001_rls_enable_tables.sql
+20260529010002_rls_auto_enable_trigger.sql
+20260530132149_003_rls_policies_users_inventory.sql
+20260531123241_create_waitlist_table.sql
+20260601143533_waitlist_rls_insert_policy.sql
+20260602164748_003_add_waitlist_source.sql
+20260602224043_004_rename_min_roi_to_target_roi.sql
+20260603000000_005_add_ebay_oauth_columns.sql
 
 
 💰 Business Logic Rules
@@ -298,18 +345,12 @@ Display: convert to local time at UI layer only
 
 
 📱 Mobile Tab Structure (5 tabs — never add, rename, or remove)
-Tab
-Feature
-Scout
-AI shelf scanner — single item + shelf mode
-Inventory
-Add/edit/delete items, status tracking, photos
-Listing
-AI listing generator, CSV export
-Trends
-Growth Agent — weekly business brief
-Stats
-P&L dashboard, expenses, mileage
+Tab | Label in App (display) | Tab ID | Feature
+Scanner | SCANNER | tab-scanner | Profit Scanner — single item + shelf scan mode
+Inventory | INVENTORY | tab-inventory | Add/edit/delete items, status tracking, photos
+Photos | PHOTOS | tab-photo | AI listing generator, photo management, CSV export
+Trends | PULSE | tab-pulse | Growth Agent — weekly business brief
+Dash | P&L | tab-pnl | P&L dashboard, expenses, mileage
 
 
 🤖 AI Prompts (port verbatim from Flippd — never rewrite)
@@ -338,11 +379,15 @@ auth
 /auth/register, /auth/verify, /auth/login, /auth/me
 stripe-webhook
 Stripe event handling
+stripe-checkout
+Stripe Checkout session creation (returns { url })
+ebay-oauth
+eBay OAuth flow — /authorize, /callback, /status, /disconnect
 
 Rules:
 
 Anthropic API key in Supabase secrets — never in client
-eBay client ID in Supabase secrets: was Brittany-Flippd-PRD-67b75c3f4-fb4ff30c — move to EBAY_CLIENT_ID env var
+eBay client ID in Supabase secrets — set EBAY_CLIENT_ID env var (get new credential from developer.ebay.com)
 All keys read from env — never hardcoded
 
 
@@ -436,7 +481,7 @@ Hardcoding fee percentages — always from user settings via ebayFee param
 Hardcoding mileage rate or tax reserve — always configurable in settings
 Using magic link auth — it was removed. Email verification + password only
 Rewriting AI prompts — port them verbatim from FEATURE_TRIAGE.md
-Adding a 6th tab — 5 tabs only: Scout, Inventory, Listing, Trends, Stats
+Adding a 6th tab — 5 tabs only: Scanner (SCANNER), Inventory (INVENTORY), Photos (PHOTOS), Trends (PULSE), Dash (P&L)
 Calling Anthropic API from client — always via Supabase Edge Function
 Using StyleSheet in React Native — NativeWind classes only
 Using <form> tags — use onClick/onChange handlers
@@ -480,6 +525,13 @@ eBay Developer Portal: https://developer.ebay.com/develop/apis
 
 
 🚀 Current Build Status
+
+ARCHITECTURE NOTE (2026-06-17): The React Native mobile app built in Phase 04 was
+scrapped — the output was unusable. The live product is apps/web/public/app.html
+(rebranded Flippd HTML, live at scanforprofit.com/app.html). This is the source of
+truth for all business logic. The mobile app will be rebuilt using app.html as reference.
+See docs/playbook.html for the full master playbook and current task status.
+
 Phase
 Name
 Status
@@ -491,13 +543,13 @@ Brand & Architecture
 ✅ Complete
 03
 Design
-🔄 Step 3 in progress
+🔄 In progress (brand/tokens done; mobile components unused)
 04
-Build Mobile
-⬜ Not started
+Build Web App (app.html)
+✅ Live on Vercel — 5 Edge Functions active, RLS on all tables
 05
-Build Web
-⬜ Not started
+Build Mobile App
+⬜ Not started — will be rebuilt from app.html reference
 06
 Launch
 ⬜ Not started
@@ -505,22 +557,34 @@ Launch
 Monetize / Marketing / Scale
 ⬜ Not started
 
-Phase 3 Progress
-Step
-Task
+Web App Status (apps/web/public/app.html — the live product)
+Feature
 Status
-1
-Brand Identity → docs/BRAND_IDENTITY.md
-✅ Done
-2
-Design System → packages/shared/src/constants/theme.ts
-✅ Done
-3
-Component Library → apps/mobile/components/ui/
-🔄 Redo with frontend-design skill
-4
-Screen Flows → Figma (Claude.ai + Figma MCP)
-⬜ Pending
-5
-Prototype → docs/prototype.html
-⬜ Pending
+Auth (register, login, verify, password reset)
+✅ Live (Edge Function: auth)
+AI scan via claude-proxy Edge Function
+✅ Live (17 scan_log rows confirmed)
+Inventory CRUD
+✅ Live (Supabase: inventory table)
+Listing generator
+✅ Live
+Trends / Growth Agent
+✅ Live (Pulse tab)
+P&L / Stats
+✅ Live
+Settings (fee, tax, mileage — all configurable)
+✅ Live
+eBay OAuth Edge Function
+✅ Active (ebay-oauth deployed)
+Landing page (index.html)
+✅ Live on Vercel
+Waitlist capture
+✅ Live (1 row confirmed in waitlist table)
+Stripe upgrade flow end-to-end
+⬜ Not yet verified
+PostHog events confirmed
+⬜ Not yet verified
+Sentry zero-error audit
+⬜ Not yet verified
+eBay Developer sandbox credentials connected
+⬜ Not yet done (0 rows in ebay_connections)

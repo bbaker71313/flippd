@@ -11,7 +11,7 @@ Adapt the task description. Keep the file list — it orients Claude to the righ
 We are working on the ScanForProfit mobile app.
 
 Read before starting: CLAUDE.md, HANDOFF.md, FEATURE_TRIAGE.md, BRAND_IDENTITY.md
-Source of truth for business logic and AI prompts: Flippd_v5_23.html
+Source of truth for business logic and AI prompts: docs/ScanForProfit_v5_24.html
 
 Current task: [describe what you want to build]
 
@@ -40,7 +40,7 @@ Read before starting: CLAUDE.md, HANDOFF.md, BACKEND_INTEGRATION.md
 Current task: [describe what you want to build]
 
 Supabase project: dqgfpchkheznvanfgsmx
-Edge Functions: claude-proxy, auth, stripe-webhook (these three only)
+Edge Functions: claude-proxy, auth, stripe-webhook, stripe-checkout, ebay-oauth
 Auth: email verification + password — NO magic link, NO /auth/request-link
 
 Rules:

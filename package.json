@@ -1,7 +1,7 @@
 {
-  "name": "flippd-backend",
+  "name": "scanforprofit",
   "version": "3.0.0",
-  "description": "Flippd reseller app backend — username/password auth, Supabase PostgreSQL, Stripe, AI proxy",
+  "description": "ScanForProfit — AI-powered sourcing and profit intelligence tool for solo eBay resellers",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -19,8 +19,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "packageManager": "pnpm@10.33.0",
   "keywords": [
-    "flippd",
+    "scanforprofit",
     "reseller",
     "saas",
     "stripe",

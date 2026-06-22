@@ -56,15 +56,23 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trends"
         options={{
-          title: "Trends",
+          title: "Pulse",
           tabBarIcon: tabIcon("trending-up-outline", "trending-up"),
         }}
       />
       <Tabs.Screen
+        name="pnl"
+        options={{
+          title: "P&L",
+          tabBarIcon: tabIcon("stats-chart-outline", "stats-chart"),
+        }}
+      />
+      {/* Stats tab hidden — content migrated to pnl.tsx (Change 9) */}
+      <Tabs.Screen
         name="stats"
         options={{
+          href: null,
           title: "Stats",
-          tabBarIcon: tabIcon("bar-chart-outline", "bar-chart"),
         }}
       />
       <Tabs.Screen
