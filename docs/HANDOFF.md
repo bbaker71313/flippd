@@ -55,7 +55,7 @@ return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit - shipCost;
 **Edge Function:** claude-proxy deployed as v69 (ACTIVE) via Supabase MCP.
 
 ### Commit
-`(pending — see below)`
+`1007528`
 
 ### Files changed
 - `apps/web/public/app.html` — saveSettings() settings sync, getDecision() confidence gate, calcMaxCost() shipping fix, 3 getDecision call sites updated
