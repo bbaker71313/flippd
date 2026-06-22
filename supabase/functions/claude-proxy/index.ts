@@ -258,11 +258,15 @@ async function handleSingleScan(
     decision, itemName: ai.item_name, estimatedProfit: net,
     estimatedSell: avgSell, estimatedCost, confidence, roi,
     reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
-    category: ai.category, searchKeywords: ai.search_keywords ?? [],
+    category: ai.category, brand: (ai.brand as string) ?? null,
+    searchKeywords: ai.search_keywords ?? [],
     priceLow: ai.price_low, priceHigh: ai.price_high,
+    sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
     avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
     listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
-    conditionNotes: ai.condition_notes ?? '', scanLogId: logRow?.id ?? null,
+    conditionNotes: ai.condition_notes ?? '',
+    notes: (ai.notes as string) ?? '',
+    scanLogId: logRow?.id ?? null,
   };
 }
 

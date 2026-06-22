@@ -6108,11 +6108,12 @@ async function analyze() {
       const item={
         item_name:r.itemName, avg_sold_price:r.estimatedSell,
         price_low:r.priceLow, price_high:r.priceHigh,
-        sell_through_rate:0, avg_days_to_sell:r.avgDaysToSell,
+        sell_through_rate:r.sellThroughRate||0, avg_days_to_sell:r.avgDaysToSell,
         demand_level:r.demandLevel, confidence:r.confidence,
         confidence_reason:r.reasoning, search_keywords:r.searchKeywords||[],
         listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
         condition_notes:r.conditionNotes||'', category:r.category,
+        brand:r.brand||null, notes:r.notes||'',
       };
       // Recalculate profit client-side using the user's actual entered cost and
       // their configured shipping setting. The server uses an estimated cost
@@ -6120,7 +6121,7 @@ async function analyze() {
       // both cause items to show SKIP when they should be LIST.
       const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
       const fin = calcFinancials(useCost, r.estimatedSell || 0);
-      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0,item.demand_level);
+      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,item.sell_through_rate,item.demand_level);
       logScan(dec, fin.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
@@ -6278,7 +6279,7 @@ function renderSingle({item,cost,fin,dec}) {
       <h3 class="card-title">eBay Search Terms</h3>
       <div class="tags-wrap">${kw}</div>
     </div>
-    ${item.notes?`<div class="card"><h3 class="card-title">Notes</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
+    ${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></div>`:''}
     <div class="legend-row">
       <span class="legend-item">Min profit: $${S.minProfit}</span>
       <span class="legend-item">Target ROI: ${S.targetRoi}%+</span>
