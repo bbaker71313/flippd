@@ -4,6 +4,81 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-22b — Scanner math audit + settings sync + confidence gate (branch: claude/scanner-skip-memory-mlm4tb)
+
+### What changed this session
+
+**Math audit scope:** Verified the full scanner data pipeline: AI response → server `handleSingleScan` return → client `analyze()` item mapping → `renderSingle()` display → profit math displayed to user.
+
+**Bug 7: Settings never synced to server (critical)**
+
+`saveSettings()` in `app.html` only sent display settings (`exportReminderEnabled`, `exportReminderTime`) to the AUTH endpoint. The `settings_update` endpoint on `claude-proxy` existed but was NEVER called from the client. This meant the AI prompt in `buildSinglePrompt()` always used whatever was in the Supabase `settings` table — which defaulted to 13% eBay fee, $1.25 pkg, etc., regardless of what the user had configured.
+
+**Fix 7 — `apps/web/public/app.html` `saveSettings()`:**
+Added `settings_update` POST to `API_BASE` after saving to localStorage, syncing: `ebayFee`, `pkgCost`, `shipCost`, `minProfit`, `targetRoi`, `maxDays`, `minStr`, `sourcingStyle`, `shipping`.
+
+**Bug 8: `validateSettingsInput` rejected `minStr=0` (the default)**
+
+Server's `validateSettingsInput()` had `if (s.minStr < 1 || s.minStr > 100)` — blocked the default value of 0. This meant Bug 7's fix would have silently failed with a 400 error.
+
+**Fix 8 — `supabase/functions/claude-proxy/index.ts` line 1038:**
+Changed `< 1` to `< 0`.
+
+**Bug 9: Scout tier blocked from settings_update**
+
+Server had `if (tier === 'scout') throw new HttpError('Upgrade to Hustle+ to edit settings.', 403)`. Not in CLAUDE.md tier table — scout users can change their settings.
+
+**Fix 9 — `supabase/functions/claude-proxy/index.ts` `handleSettingsUpdate()`:**
+Removed the scout tier restriction entirely.
+
+**Bug 10: No confidence gate in client `getDecision()`**
+
+Server's `getDecision()` required `confidence >= 50` for LIST and `>= 70` for HOT. Client's `getDecision()` had no confidence parameter at all — low-confidence scans could show HOT or LIST.
+
+**Fix 10 — `apps/web/public/app.html` `getDecision()`:**
+Added `confidence` parameter (fallback 100 = backward-compatible). Returns SKIP if `conf < 50`. HOT requires `conf >= 70`. Updated all 3 call sites to pass `item.confidence` / `i.confidence`.
+
+**Bug 11: `calcMaxCost()` ignored shipping cost**
+
+When seller offers free shipping (`S.shipping === 'free'`), max cost hint was too high because ship cost wasn't subtracted.
+
+**Fix 11 — `apps/web/public/app.html` `calcMaxCost()`:**
+```javascript
+const shipCost = S.shipping === 'free' ? (S.shipCost || 0) : 0;
+return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit - shipCost;
+```
+
+**eBay sold comp data confirmed:** AI prompt explicitly asks for "median of recent actual eBay SOLD listings, not asking price or retail." AI uses training data (no live internet in `callAnthropic`). App correctly discloses with "[ AI ] Estimated · Verify with real eBay data" badge.
+
+**Profit math verified correct:** `calcFinancials()` formula: `profit = soldPrice - (cost + pkgCost + shipCost + fee)`. For default settings (buyer pays), `shipCost = 0`. `roi = (profit / cost) * 100`. All correct.
+
+**Edge Function:** claude-proxy deployed as v69 (ACTIVE) via Supabase MCP.
+
+### Commit
+`(pending — see below)`
+
+### Files changed
+- `apps/web/public/app.html` — saveSettings() settings sync, getDecision() confidence gate, calcMaxCost() shipping fix, 3 getDecision call sites updated
+- `supabase/functions/claude-proxy/index.ts` — validateSettingsInput minStr fix (0→100), scout restriction removed
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. **Merge PR #122** — all scanner fixes are in claude/scanner-skip-memory-mlm4tb; CI is green
+2. **Connect eBay sandbox credentials** — 0 rows in `ebay_connections`
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+5. **Sentry zero-error audit** — still "not yet verified"
+
+### Decisions made (do not reverse)
+- Client `getDecision()` now gates on confidence (same logic as server): SKIP < 50%, HOT requires >= 70%
+- `saveSettings()` always syncs fee/shipping settings to server via `settings_update` endpoint
+- Scout tier can update settings (no restriction)
+
+### Blockers
+- None. All fixes committed, v69 deployed.
+
+---
+
 ## Session: 2026-06-22 — Scanner results full audit + OOM single-photo fix (branch: claude/scanner-skip-memory-mlm4tb)
 
 ### What changed this session

@@ -1035,7 +1035,7 @@ function validateSettingsInput(s: SettingsInput): string | null {
   if (s.minProfit < 0)                     return 'minProfit must be ≥ 0';
   if (s.targetRoi < 0 || s.targetRoi > 1000) return 'targetRoi must be 0–1000';
   if (s.maxDays < 1 || s.maxDays > 999)   return 'maxDays must be 1–999';
-  if (s.minStr < 1 || s.minStr > 100)     return 'minStr must be 1–100';
+  if (s.minStr < 0 || s.minStr > 100)     return 'minStr must be 0–100';
   const validSourcing = ['conservative', 'balanced', 'aggressive'];
   if (!validSourcing.includes(s.sourcingStyle)) return 'Invalid sourcingStyle';
   const validShipping = ['buyer', 'seller'];
@@ -1049,7 +1049,6 @@ async function handleSettingsUpdate(
   tier: string,
   body: Record<string, unknown>,
 ) {
-  if (tier === 'scout') throw new HttpError('Upgrade to Hustle+ to edit settings.', 403);
   const s = body.settings as SettingsInput;
   if (!s) throw new HttpError('Missing settings payload', 400);
   const validationError = validateSettingsInput(s);
