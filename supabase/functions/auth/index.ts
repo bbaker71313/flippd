@@ -16,6 +16,18 @@ function randomHex(bytes: number): string {
   return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function parseCookies(req: Request): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const part of (req.headers.get('Cookie') ?? '').split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 1) continue;
+    const k = part.slice(0, eq).trim();
+    const v = part.slice(eq + 1).trim();
+    result[k] = decodeURIComponent(v);
+  }
+  return result;
+}
+
 function b64url(s: string): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -336,7 +348,11 @@ async function handleEbayConnect(req: Request, jwtSecret: string) {
   const ruName = Deno.env.get('EBAY_RUNAME');
   if (!clientId || !ruName) return json({ error: 'eBay integration is not configured' }, 500);
 
-  const state = await signJWT({ sub: userId }, jwtSecret, 600);
+  // Nonce binds this OAuth flow to the browser that initiated it.
+  // The callback verifies the cookie nonce matches the JWT nonce,
+  // preventing an attacker from sharing their authUrl to link a victim's eBay account.
+  const nonce = randomHex(16);
+  const state = await signJWT({ sub: userId, nonce }, jwtSecret, 600);
   const authUrl = 'https://auth.ebay.com/oauth2/authorize'
     + '?client_id=' + encodeURIComponent(clientId)
     + '&response_type=code'
@@ -344,7 +360,14 @@ async function handleEbayConnect(req: Request, jwtSecret: string) {
     + '&scope=' + encodeURIComponent(EBAY_SCOPES)
     + '&state=' + encodeURIComponent(state);
 
-  return json({ authUrl });
+  return new Response(JSON.stringify({ authUrl }), {
+    status: 200,
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json',
+      'Set-Cookie': `ebay_nonce=${nonce}; HttpOnly; SameSite=Lax; Max-Age=600; Path=/; Secure`,
+    },
+  });
 }
 
 async function handleEbayCallback(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
@@ -360,6 +383,11 @@ async function handleEbayCallback(req: Request, supabase: ReturnType<typeof crea
   let userId: number;
   try {
     const payload = await verifyJWT(state, jwtSecret);
+    // Verify the nonce matches the cookie set at connect time, preventing OAuth CSRF
+    const cookieNonce = parseCookies(req)['ebay_nonce'];
+    if (!cookieNonce || cookieNonce !== (payload.nonce as string)) {
+      return Response.redirect(`${frontendUrl}/app.html?ebay_error=state_mismatch`, 302);
+    }
     userId = payload.sub as number;
   } catch {
     return Response.redirect(`${frontendUrl}/app.html?ebay_error=invalid_state`, 302);
@@ -412,7 +440,14 @@ async function handleEbayCallback(req: Request, supabase: ReturnType<typeof crea
     ebay_username: ebayUsername,
   }).eq('id', userId);
 
-  return Response.redirect(`${frontendUrl}/app.html?ebay_connected=true`, 302);
+  // Clear the nonce cookie after successful use (single-use)
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location': `${frontendUrl}/app.html?ebay_connected=true`,
+      'Set-Cookie': 'ebay_nonce=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/; Secure',
+    },
+  });
 }
 
 async function handleEbayStatus(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
@@ -461,7 +496,8 @@ async function handleResetRequest(req: Request, supabase: ReturnType<typeof crea
 
   const resetToken = await signJWT({ sub: user.id, purpose: 'password_reset' }, jwtSecret, 3600);
   const frontendUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
-  const resetLink = `${frontendUrl}/app.html?reset=${resetToken}`;
+  // Fragment (#) keeps the token out of server logs, Referer headers, and proxy access logs
+  const resetLink = `${frontendUrl}/app.html#reset=${resetToken}`;
 
   const resendKey = Deno.env.get('RESEND_API_KEY');
   if (resendKey) {
