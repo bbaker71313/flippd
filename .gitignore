@@ -66,3 +66,13 @@ apps/video/out/
 
 # Claude Code session data
 .claude/
+
+# Local-only working files (not part of source)
+Audit Findings/
+Dashboard.html
+Sample Photos/
+cover-profile/
+n8n workflows/
+
+# Root mp4 recordings (belong in apps/video/public/footage/)
+*.mp4
