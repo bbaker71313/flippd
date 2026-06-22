@@ -4,6 +4,241 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-22b — Scanner math audit + settings sync + confidence gate (branch: claude/scanner-skip-memory-mlm4tb)
+
+### What changed this session
+
+**Math audit scope:** Verified the full scanner data pipeline: AI response → server `handleSingleScan` return → client `analyze()` item mapping → `renderSingle()` display → profit math displayed to user.
+
+**Bug 7: Settings never synced to server (critical)**
+
+`saveSettings()` in `app.html` only sent display settings (`exportReminderEnabled`, `exportReminderTime`) to the AUTH endpoint. The `settings_update` endpoint on `claude-proxy` existed but was NEVER called from the client. This meant the AI prompt in `buildSinglePrompt()` always used whatever was in the Supabase `settings` table — which defaulted to 13% eBay fee, $1.25 pkg, etc., regardless of what the user had configured.
+
+**Fix 7 — `apps/web/public/app.html` `saveSettings()`:**
+Added `settings_update` POST to `API_BASE` after saving to localStorage, syncing: `ebayFee`, `pkgCost`, `shipCost`, `minProfit`, `targetRoi`, `maxDays`, `minStr`, `sourcingStyle`, `shipping`.
+
+**Bug 8: `validateSettingsInput` rejected `minStr=0` (the default)**
+
+Server's `validateSettingsInput()` had `if (s.minStr < 1 || s.minStr > 100)` — blocked the default value of 0. This meant Bug 7's fix would have silently failed with a 400 error.
+
+**Fix 8 — `supabase/functions/claude-proxy/index.ts` line 1038:**
+Changed `< 1` to `< 0`.
+
+**Bug 9: Scout tier blocked from settings_update**
+
+Server had `if (tier === 'scout') throw new HttpError('Upgrade to Hustle+ to edit settings.', 403)`. Not in CLAUDE.md tier table — scout users can change their settings.
+
+**Fix 9 — `supabase/functions/claude-proxy/index.ts` `handleSettingsUpdate()`:**
+Removed the scout tier restriction entirely.
+
+**Bug 10: No confidence gate in client `getDecision()`**
+
+Server's `getDecision()` required `confidence >= 50` for LIST and `>= 70` for HOT. Client's `getDecision()` had no confidence parameter at all — low-confidence scans could show HOT or LIST.
+
+**Fix 10 — `apps/web/public/app.html` `getDecision()`:**
+Added `confidence` parameter (fallback 100 = backward-compatible). Returns SKIP if `conf < 50`. HOT requires `conf >= 70`. Updated all 3 call sites to pass `item.confidence` / `i.confidence`.
+
+**Bug 11: `calcMaxCost()` ignored shipping cost**
+
+When seller offers free shipping (`S.shipping === 'free'`), max cost hint was too high because ship cost wasn't subtracted.
+
+**Fix 11 — `apps/web/public/app.html` `calcMaxCost()`:**
+```javascript
+const shipCost = S.shipping === 'free' ? (S.shipCost || 0) : 0;
+return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit - shipCost;
+```
+
+**eBay sold comp data confirmed:** AI prompt explicitly asks for "median of recent actual eBay SOLD listings, not asking price or retail." AI uses training data (no live internet in `callAnthropic`). App correctly discloses with "[ AI ] Estimated · Verify with real eBay data" badge.
+
+**Profit math verified correct:** `calcFinancials()` formula: `profit = soldPrice - (cost + pkgCost + shipCost + fee)`. For default settings (buyer pays), `shipCost = 0`. `roi = (profit / cost) * 100`. All correct.
+
+**Edge Function:** claude-proxy deployed as v69 (ACTIVE) via Supabase MCP.
+
+### Commit
+`1007528`
+
+### Files changed
+- `apps/web/public/app.html` — saveSettings() settings sync, getDecision() confidence gate, calcMaxCost() shipping fix, 3 getDecision call sites updated
+- `supabase/functions/claude-proxy/index.ts` — validateSettingsInput minStr fix (0→100), scout restriction removed
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. **Merge PR #122** — all scanner fixes are in claude/scanner-skip-memory-mlm4tb; CI is green
+2. **Connect eBay sandbox credentials** — 0 rows in `ebay_connections`
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+5. **Sentry zero-error audit** — still "not yet verified"
+
+### Decisions made (do not reverse)
+- Client `getDecision()` now gates on confidence (same logic as server): SKIP < 50%, HOT requires >= 70%
+- `saveSettings()` always syncs fee/shipping settings to server via `settings_update` endpoint
+- Scout tier can update settings (no restriction)
+
+### Blockers
+- None. All fixes committed, v69 deployed.
+
+---
+
+## Session: 2026-06-22 — Scanner results full audit + OOM single-photo fix (branch: claude/scanner-skip-memory-mlm4tb)
+
+### What changed this session
+
+**Bug 3: OOM with single photos (not just multi-photo)**
+
+Raw JPEG from Android camera (~8-15MB) uploaded via FormData still pushed Android WebView renderer process over memory limit even with no JS decode. The "Preview" indicator briefly showing (Vercel toolbar) during the error was the WebView crash/reload cycle.
+
+**Fix 3 — `apps/web/public/app.html` `analyze()` single-photo path:**
+Added `compressForUpload()` call before upload. New function resizes to 1600px via `createImageBitmap` (decodes to target size only, no full-res RGBA decode in JS heap) → `canvas.toBlob` → JPEG @ 85% quality. Reduces upload from 8-15MB to ~1-2MB.
+
+**Bug 4: sell_through_rate showing 0 for every scan**
+
+Server's `handleSingleScan` return object didn't include `sellThroughRate`. Client `analyze()` hardcoded `sell_through_rate:0` in item mapping. `getDecision()` was called with hardcoded `0` as 4th param instead of `item.sell_through_rate`.
+
+**Fix 4A — `supabase/functions/claude-proxy/index.ts` line 264:**
+```typescript
+sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
+```
+
+**Fix 4B — `apps/web/public/app.html` analyze() item mapping:**
+```javascript
+sell_through_rate: r.sellThroughRate||0,
+```
+
+**Fix 4C — `apps/web/public/app.html` getDecision() call:**
+```javascript
+const dec = getDecision(fin.profit, fin.roi, r.avgDaysToSell||0, item.sell_through_rate, item.demand_level);
+```
+
+**Bug 5: brand never showing**
+
+Server didn't return `brand`, client didn't map it.
+
+**Fix 5A — server:** `brand: (ai.brand as string) ?? null`
+**Fix 5B — client item mapping:** `brand: r.brand||null`
+
+**Bug 6: notes never showing**
+
+Server didn't return `notes` separately, client didn't map it. Notes card HTML also had mismatched closing tags: `</div>` was closing `<h3>` and `</h3>` was closing the outer `<div>`.
+
+**Fix 6A — server:** `notes: (ai.notes as string) ?? ''`
+**Fix 6B — client item mapping:** `notes: r.notes||''`
+**Fix 6C — `apps/web/public/app.html` line 6282 (Notes card HTML):**
+```javascript
+// Before (broken — mismatched tags)
+${item.notes?`<div class="card"><h3 class="card-title">Notes</div><div ...>${item.notes}</div></h3>`:''}
+// After (correct)
+${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div ...>${item.notes}</div></div>`:''}
+```
+
+**Edge Function:** claude-proxy deployed as v68 (ACTIVE) via Supabase MCP.
+
+### Commit
+`469022a` — fix(scanner): pass sellThroughRate/brand/notes through server→client pipeline
+
+### Files changed
+- `apps/web/public/app.html` — compressForUpload(), item mapping fixes, getDecision fix, Notes HTML fix
+- `supabase/functions/claude-proxy/index.ts` — sellThroughRate, brand, notes in handleSingleScan return
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. **Verify scanner on device** — check that sell_through_rate, brand, notes now show real values
+2. **Merge PR #122** — all fixes for scanner SKIP + OOM + results audit are in claude/scanner-skip-memory-mlm4tb
+3. **Connect eBay sandbox credentials** — 0 rows in `ebay_connections`
+4. **Stripe checkout verification** — still "not yet verified"
+5. **PostHog events** — still "not yet verified"
+6. **Sentry zero-error audit** — still "not yet verified"
+
+### Decisions made (do not reverse)
+- `compressForUpload()` always runs on single-photo path before FormData upload
+- Server always passes `sellThroughRate`, `brand`, `notes` in `handleSingleScan` return
+
+### Blockers
+- None. All fixes committed and server deployed.
+
+---
+
+## Session: 2026-06-21b — Scanner SKIP bug fix + OOM stitchPhotos fallback (branch: claude/scanner-skip-memory-mlm4tb)
+
+### What changed this session
+
+**Bug 1: Everything showing SKIP — root cause was two compounding issues**
+
+Root cause 1 (server): `handleSingleScan` and `handleShelfScan` in `claude-proxy/index.ts` always subtracted `settings.ship_cost` ($6.00 default) from profit even when `settings.shipping === 'buyer'` (buyer pays, so $0 cost to seller). This silently stole $6 from every scan's profit calculation.
+
+Root cause 2 (client): `analyze()` in `app.html` used `r.estimatedProfit` from the server directly, which was calculated with `avgSell * 0.10` as the estimated cost — not the user's actual entered cost. So a $25 item with user's $4 cost was evaluated as if they paid $2.50.
+
+Combined effect on a $25 item (user paid $4, buyer pays shipping):
+- Server computed: `$25 - $3.25(fee) - $1.25(pkg) - $6(ship) - $2.50(est.cost) = $12` → SKIP
+- Correct client recalc: `$25 - $3.25 - $1.25 - $0(buyer pays) - $4 = $16.50` → LIST
+
+**Fix 1A — `supabase/functions/claude-proxy/index.ts` `handleSingleScan` (line 245):**
+```typescript
+// Before
+const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+
+// After
+const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
+```
+
+**Fix 1B — `supabase/functions/claude-proxy/index.ts` `handleShelfScan` (line 283):**
+Same `shipForCalc` fix, computed before the `.map()` call.
+
+**Fix 1C — `apps/web/public/app.html` `analyze()` (line 6090):**
+```javascript
+// Before
+const fin={profit:r.estimatedProfit, roi:r.roi,
+  fee:r.estimatedSell*(S.ebayFee/100),
+  shipCost:S.shipping==='free'?S.shipCost:0};
+
+// After — recalculate client-side using user's actual cost + correct shipping
+const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
+const fin = calcFinancials(useCost, r.estimatedSell || 0);
+```
+
+**Bug 2: "unable to process due to low memory" — stitchPhotos OOM fallback**
+
+Old fallback in `stitchPhotos()` catch block used `new Image()` which fully decodes JPEG to ~48MB RGBA on old Android WebViews when `createImageBitmap` resize options throw. This OOM-kills the WebView.
+
+**Fix 2 — `apps/web/public/app.html` `stitchPhotos()` catch block (line 5839):**
+```javascript
+// Before — OOM path
+const bm = await new Promise(function(res, rej) {
+  const img = new Image();
+  img.onload = function() { res(img); };
+  img.onerror = rej;
+  img.src = f._blobUrl || URL.createObjectURL(f);
+});
+bitmaps.push(bm);
+
+// After — safe-fail: use just the first photo instead of crashing
+bitmaps.forEach(function(bm) { if (bm && bm.close) bm.close(); });
+return files[0];
+```
+
+**Edge Function deployment:** claude-proxy deployed as v67 (ACTIVE) via Supabase MCP — server-side shipping fix is live.
+
+### Files changed
+- `apps/web/public/app.html` — `analyze()` client-side recalc + `stitchPhotos()` OOM fallback
+- `supabase/functions/claude-proxy/index.ts` — `shipForCalc` in `handleSingleScan` + `handleShelfScan`
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. **Verify scanner on device** — scan a known-good item (e.g., item worth $25, paid $4, buyer pays shipping). Should show LIST or HOT, not SKIP.
+2. **Connect eBay sandbox credentials** — 0 rows in `ebay_connections`, required for listing sync
+3. **Stripe checkout verification** — still "not yet verified"
+4. **PostHog events** — still "not yet verified"
+5. **Sentry zero-error audit** — still "not yet verified"
+
+### Decisions made (do not reverse)
+- Client-side `analyze()` always recalculates profit via `calcFinancials(useCost, r.estimatedSell)` — never trusts server's `estimatedProfit` for the final decision
+- `stitchPhotos()` fails gracefully on old WebViews: returns `files[0]` (first photo only) instead of OOM-killing the WebView
+
+### Blockers
+- None. Server fix deployed, client fix committed.
+
+---
+
 ## Session: 2026-06-21a — Bug fixes: F1 hardcoded fees + F2 center-crop (branch: claude/debug-verify-4671k1)
 
 ### What changed this session

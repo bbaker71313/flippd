@@ -240,7 +240,10 @@ async function handleSingleScan(
 
   const avgSell = (ai.avg_sold_price as number) ?? 0;
   const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
-  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+  // Only charge shipping when seller pays ('free' shipping offer). When buyer
+  // pays ('buyer'), ship_cost is not a seller expense — always was $0.
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
   const confidence = (ai.confidence as number) ?? 50;
   const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
 
@@ -255,11 +258,15 @@ async function handleSingleScan(
     decision, itemName: ai.item_name, estimatedProfit: net,
     estimatedSell: avgSell, estimatedCost, confidence, roi,
     reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
-    category: ai.category, searchKeywords: ai.search_keywords ?? [],
+    category: ai.category, brand: (ai.brand as string) ?? null,
+    searchKeywords: ai.search_keywords ?? [],
     priceLow: ai.price_low, priceHigh: ai.price_high,
+    sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
     avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
     listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
-    conditionNotes: ai.condition_notes ?? '', scanLogId: logRow?.id ?? null,
+    conditionNotes: ai.condition_notes ?? '',
+    notes: (ai.notes as string) ?? '',
+    scanLogId: logRow?.id ?? null,
   };
 }
 
@@ -277,10 +284,11 @@ async function handleShelfScan(
   catch { throw new Error('AI returned invalid JSON'); }
   if (!Array.isArray(aiItems)) throw new Error('AI returned non-array for shelf scan');
 
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
   const items = aiItems.map((ai) => {
     const sell = (ai.avg_sold_price as number) ?? 0;
     const cost = (ai.estimated_cost_at_thrift as number) ?? r2(sell * 0.10);
-    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, settings.ship_cost, settings.ebay_fee);
+    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
     const confidence = (ai.confidence as number) ?? 50;
     const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
     return {
@@ -1027,7 +1035,7 @@ function validateSettingsInput(s: SettingsInput): string | null {
   if (s.minProfit < 0)                     return 'minProfit must be ≥ 0';
   if (s.targetRoi < 0 || s.targetRoi > 1000) return 'targetRoi must be 0–1000';
   if (s.maxDays < 1 || s.maxDays > 999)   return 'maxDays must be 1–999';
-  if (s.minStr < 1 || s.minStr > 100)     return 'minStr must be 1–100';
+  if (s.minStr < 0 || s.minStr > 100)     return 'minStr must be 0–100';
   const validSourcing = ['conservative', 'balanced', 'aggressive'];
   if (!validSourcing.includes(s.sourcingStyle)) return 'Invalid sourcingStyle';
   const validShipping = ['buyer', 'seller'];
@@ -1041,7 +1049,6 @@ async function handleSettingsUpdate(
   tier: string,
   body: Record<string, unknown>,
 ) {
-  if (tier === 'scout') throw new HttpError('Upgrade to Hustle+ to edit settings.', 403);
   const s = body.settings as SettingsInput;
   if (!s) throw new HttpError('Missing settings payload', 400);
   const validationError = validateSettingsInput(s);

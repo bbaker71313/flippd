@@ -5618,6 +5618,25 @@ function saveSettings() {
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ exportReminderEnabled: S.exportReminderEnabled, exportReminderTime: S.exportReminderTime })
     }).catch(() => {});
+    // Sync scanner settings to server so AI prompt uses user's actual fee structure
+    fetch(API_BASE, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({
+        type: 'settings_update',
+        settings: {
+          ebayFee:      S.ebayFee,
+          pkgCost:      S.pkgCost,
+          shipCost:     S.shipCost,
+          minProfit:    S.minProfit,
+          targetRoi:    S.targetRoi,
+          maxDays:      S.maxDays,
+          minStr:       S.minStr || 0,
+          sourcingStyle: S.style,
+          shipping:     S.shipping,
+        }
+      })
+    }).catch(() => {});
   }
   if (window.posthog) posthog.capture('settings_saved');
   updateFeeHint(); updateStaleBadge(); showToast('Settings saved');
@@ -5819,6 +5838,30 @@ function clearImage() {
   if (strip) strip.innerHTML = '';
 }
 
+// Compress a single file to max 1600px wide via createImageBitmap resize.
+// A 12MP JPEG raw-decodes to ~48MB; at 1600px it's ~7MB — safe for the
+// WebView renderer. The compressed blob is uploaded via FormData, cutting
+// the network buffer from 8-15MB down to ~1-2MB. Falls back to the raw
+// file if createImageBitmap resize options are unsupported (old WebView).
+async function compressForUpload(file) {
+  if (!file || typeof createImageBitmap === 'undefined') return file;
+  try {
+    const MAX_PX = 1600;
+    const bm = await createImageBitmap(file, { resizeWidth: MAX_PX, resizeQuality: 'medium' });
+    const cv = document.createElement('canvas');
+    cv.width = bm.width; cv.height = bm.height;
+    cv.getContext('2d').drawImage(bm, 0, 0);
+    bm.close();
+    return await new Promise(function(res) {
+      cv.toBlob(function(blob) {
+        res(blob ? new File([blob], 'scan.jpg', { type: 'image/jpeg' }) : file);
+      }, 'image/jpeg', 0.85);
+    });
+  } catch(_) {
+    return file;
+  }
+}
+
 async function stitchPhotos(files) {
   const SIZE = 800;
   const GAP = 6;
@@ -5833,14 +5876,11 @@ async function stitchPhotos(files) {
       const bm = await createImageBitmap(f, { resizeWidth: SIZE, resizeQuality: 'medium' });
       bitmaps.push(bm);
     } catch (_) {
-      // Fallback for browsers without resize-option support (rare; may OOM on very low-end devices)
-      const bm = await new Promise(function(res, rej) {
-        const img = new Image();
-        img.onload = function() { res(img); };
-        img.onerror = rej;
-        img.src = f._blobUrl || URL.createObjectURL(f);
-      });
-      bitmaps.push(bm);
+      // createImageBitmap resize options unsupported (old WebView) — the only
+      // fallback (new Image + full-res decode) is the 48MB OOM-kill path.
+      // Abort stitching and upload just the first photo instead.
+      bitmaps.forEach(function(bm) { if (bm && bm.close) bm.close(); });
+      return files[0];
     }
   }
   const canvas = document.createElement('canvas');
@@ -6032,15 +6072,17 @@ function calcFinancials(cost,soldPrice) {
 }
 function calcMaxCost(avgSoldPrice) {
   const p = parseFloat(avgSoldPrice) || 0;
-  return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit;
+  const shipCost = S.shipping === 'free' ? (S.shipCost || 0) : 0;
+  return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit - shipCost;
 }
 
-function getDecision(profit,roi,days,sellThrough,demandLevel) {
+function getDecision(profit,roi,days,sellThrough,demandLevel,confidence) {
   const sb={conservative:1.3,balanced:1.0,aggressive:0.75}[S.style]||1.0;
   const aMP=S.minProfit*sb,aMD=S.maxDays/sb,aMS=S.minStr*sb;
-  if(profit<aMP||days>aMD||sellThrough<aMS) return 'SKIP';
+  const conf=confidence!=null?confidence:100;
+  if(profit<aMP||days>aMD||sellThrough<aMS||conf<50) return 'SKIP';
   const isHot=(demandLevel==='HIGH'||demandLevel==='VERY HIGH')||profit>=aMP*2||roi>=S.targetRoi*2;
-  if(isHot) return 'HOT';
+  if(isHot&&conf>=70) return 'HOT';
   return 'LIST';
 }
 
@@ -6071,6 +6113,13 @@ async function analyze() {
       if (scanImgFiles.length > 1) {
         setBtnLoading('analyze-btn','Combining photos...',false);
         imgFile = await stitchPhotos(scanImgFiles);
+      } else {
+        // Compress single photo to ~1600px before upload. Raw camera JPEGs
+        // can be 8-15MB; the FormData network buffer for that size pushes the
+        // Android WebView renderer over its memory limit → OOM crash → "low
+        // memory" error. createImageBitmap resize decodes at target size only
+        // (~7MB raw vs ~48MB full-res). Falls back to raw file on old WebViews.
+        imgFile = await compressForUpload(imgFile);
       }
       setBtnLoading('analyze-btn','Analyzing eBay market...',false);
       const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
@@ -6080,17 +6129,21 @@ async function analyze() {
       const item={
         item_name:r.itemName, avg_sold_price:r.estimatedSell,
         price_low:r.priceLow, price_high:r.priceHigh,
-        sell_through_rate:0, avg_days_to_sell:r.avgDaysToSell,
+        sell_through_rate:r.sellThroughRate||0, avg_days_to_sell:r.avgDaysToSell,
         demand_level:r.demandLevel, confidence:r.confidence,
         confidence_reason:r.reasoning, search_keywords:r.searchKeywords||[],
         listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
         condition_notes:r.conditionNotes||'', category:r.category,
+        brand:r.brand||null, notes:r.notes||'',
       };
-      const fin={profit:r.estimatedProfit, roi:r.roi,
-        fee:r.estimatedSell*(S.ebayFee/100),
-        shipCost:S.shipping==='free'?S.shipCost:0};
-      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,0,item.demand_level);
-      logScan(dec, r.roi, cost, false);
+      // Recalculate profit client-side using the user's actual entered cost and
+      // their configured shipping setting. The server uses an estimated cost
+      // (avgSell×10%) and always deducts ship_cost regardless of who pays —
+      // both cause items to show SKIP when they should be LIST.
+      const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
+      const fin = calcFinancials(useCost, r.estimatedSell || 0);
+      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,item.sell_through_rate,item.demand_level,item.confidence);
+      logScan(dec, fin.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
         if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
@@ -6104,7 +6157,7 @@ async function analyze() {
       setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
       const item=JSON.parse(raw);
       const fin=calcFinancials(cost,item.avg_sold_price);
-      const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate,item.demand_level);
+      const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate,item.demand_level,item.confidence);
       logScan(dec, fin.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
@@ -6148,7 +6201,7 @@ async function analyzeShelf() {
       return{
         item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
         estimated_profit:_profit, estimated_cost_at_thrift:i.estimatedCost,
-        demand_level:i.demandLevel, decision:getDecision(_profit,_roi,0,0,i.demandLevel),
+        demand_level:i.demandLevel, decision:getDecision(_profit,_roi,0,0,i.demandLevel,i.confidence),
         decision_reason:i.decisionReason||'', condition_notes:i.conditionNotes||'',
         category:i.category, confidence:i.confidence,
         sell_through_rate:0, avg_days_to_sell:0,
@@ -6247,7 +6300,7 @@ function renderSingle({item,cost,fin,dec}) {
       <h3 class="card-title">eBay Search Terms</h3>
       <div class="tags-wrap">${kw}</div>
     </div>
-    ${item.notes?`<div class="card"><h3 class="card-title">Notes</div><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></h3>`:''}
+    ${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></div>`:''}
     <div class="legend-row">
       <span class="legend-item">Min profit: $${S.minProfit}</span>
       <span class="legend-item">Target ROI: ${S.targetRoi}%+</span>
