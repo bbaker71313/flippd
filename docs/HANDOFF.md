@@ -4,6 +4,84 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-22 — Scanner results full audit + OOM single-photo fix (branch: claude/scanner-skip-memory-mlm4tb)
+
+### What changed this session
+
+**Bug 3: OOM with single photos (not just multi-photo)**
+
+Raw JPEG from Android camera (~8-15MB) uploaded via FormData still pushed Android WebView renderer process over memory limit even with no JS decode. The "Preview" indicator briefly showing (Vercel toolbar) during the error was the WebView crash/reload cycle.
+
+**Fix 3 — `apps/web/public/app.html` `analyze()` single-photo path:**
+Added `compressForUpload()` call before upload. New function resizes to 1600px via `createImageBitmap` (decodes to target size only, no full-res RGBA decode in JS heap) → `canvas.toBlob` → JPEG @ 85% quality. Reduces upload from 8-15MB to ~1-2MB.
+
+**Bug 4: sell_through_rate showing 0 for every scan**
+
+Server's `handleSingleScan` return object didn't include `sellThroughRate`. Client `analyze()` hardcoded `sell_through_rate:0` in item mapping. `getDecision()` was called with hardcoded `0` as 4th param instead of `item.sell_through_rate`.
+
+**Fix 4A — `supabase/functions/claude-proxy/index.ts` line 264:**
+```typescript
+sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
+```
+
+**Fix 4B — `apps/web/public/app.html` analyze() item mapping:**
+```javascript
+sell_through_rate: r.sellThroughRate||0,
+```
+
+**Fix 4C — `apps/web/public/app.html` getDecision() call:**
+```javascript
+const dec = getDecision(fin.profit, fin.roi, r.avgDaysToSell||0, item.sell_through_rate, item.demand_level);
+```
+
+**Bug 5: brand never showing**
+
+Server didn't return `brand`, client didn't map it.
+
+**Fix 5A — server:** `brand: (ai.brand as string) ?? null`
+**Fix 5B — client item mapping:** `brand: r.brand||null`
+
+**Bug 6: notes never showing**
+
+Server didn't return `notes` separately, client didn't map it. Notes card HTML also had mismatched closing tags: `</div>` was closing `<h3>` and `</h3>` was closing the outer `<div>`.
+
+**Fix 6A — server:** `notes: (ai.notes as string) ?? ''`
+**Fix 6B — client item mapping:** `notes: r.notes||''`
+**Fix 6C — `apps/web/public/app.html` line 6282 (Notes card HTML):**
+```javascript
+// Before (broken — mismatched tags)
+${item.notes?`<div class="card"><h3 class="card-title">Notes</div><div ...>${item.notes}</div></h3>`:''}
+// After (correct)
+${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div ...>${item.notes}</div></div>`:''}
+```
+
+**Edge Function:** claude-proxy deployed as v68 (ACTIVE) via Supabase MCP.
+
+### Commit
+`469022a` — fix(scanner): pass sellThroughRate/brand/notes through server→client pipeline
+
+### Files changed
+- `apps/web/public/app.html` — compressForUpload(), item mapping fixes, getDecision fix, Notes HTML fix
+- `supabase/functions/claude-proxy/index.ts` — sellThroughRate, brand, notes in handleSingleScan return
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. **Verify scanner on device** — check that sell_through_rate, brand, notes now show real values
+2. **Merge PR #122** — all fixes for scanner SKIP + OOM + results audit are in claude/scanner-skip-memory-mlm4tb
+3. **Connect eBay sandbox credentials** — 0 rows in `ebay_connections`
+4. **Stripe checkout verification** — still "not yet verified"
+5. **PostHog events** — still "not yet verified"
+6. **Sentry zero-error audit** — still "not yet verified"
+
+### Decisions made (do not reverse)
+- `compressForUpload()` always runs on single-photo path before FormData upload
+- Server always passes `sellThroughRate`, `brand`, `notes` in `handleSingleScan` return
+
+### Blockers
+- None. All fixes committed and server deployed.
+
+---
+
 ## Session: 2026-06-21b — Scanner SKIP bug fix + OOM stitchPhotos fallback (branch: claude/scanner-skip-memory-mlm4tb)
 
 ### What changed this session
