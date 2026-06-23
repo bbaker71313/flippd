@@ -76,6 +76,15 @@ function ebayUrls() {
   };
 }
 
+function ebayCreds() {
+  const sandbox = Deno.env.get('EBAY_SANDBOX') === 'true';
+  return {
+    clientId:     Deno.env.get(sandbox ? 'EBAY_SANDBOX_CLIENT_ID'     : 'EBAY_CLIENT_ID'),
+    clientSecret: Deno.env.get(sandbox ? 'EBAY_SANDBOX_CLIENT_SECRET' : 'EBAY_CLIENT_SECRET'),
+    ruName:       Deno.env.get(sandbox ? 'EBAY_SANDBOX_RUNAME'        : 'EBAY_RUNAME'),
+  };
+}
+
 async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
@@ -120,8 +129,7 @@ async function handleAuthorize(req: Request, supabase: ReturnType<typeof createC
   const userId = await getAuthedUserId(req, jwtSecret);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
-  const clientId = Deno.env.get('EBAY_CLIENT_ID');
-  const ruName = Deno.env.get('EBAY_RUNAME');
+  const { clientId, ruName } = ebayCreds();
   if (!clientId || !ruName) return json({ error: 'eBay integration is not configured' }, 500);
 
   // Nonce is stored server-side (DB) rather than in a cookie. Cookies set via
@@ -189,9 +197,7 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     return Response.redirect(`${frontendUrl}/app.html?ebay_error=invalid_state`, 302);
   }
 
-  const clientId = Deno.env.get('EBAY_CLIENT_ID');
-  const clientSecret = Deno.env.get('EBAY_CLIENT_SECRET');
-  const ruName = Deno.env.get('EBAY_RUNAME');
+  const { clientId, clientSecret, ruName } = ebayCreds();
   if (!clientId || !clientSecret || !ruName) {
     return Response.redirect(`${frontendUrl}/app.html?ebay_error=not_configured`, 302);
   }
@@ -288,8 +294,7 @@ async function getValidEbayToken(
   if (expiresAt > new Date(Date.now() + 60_000)) return conn.access_token;
 
   // Token expired — refresh it
-  const clientId = Deno.env.get('EBAY_CLIENT_ID');
-  const clientSecret = Deno.env.get('EBAY_CLIENT_SECRET');
+  const { clientId, clientSecret } = ebayCreds();
   if (!clientId || !clientSecret || !conn.refresh_token) return null;
 
   const refreshRes = await fetch(ebayUrls().token, {
@@ -424,10 +429,10 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       }
     }
 
-    const appId = Deno.env.get('EBAY_CLIENT_ID');
+    const appId = ebayCreds().clientId;
     if (!appId) {
       clientIdMissing = true;
-      console.warn('ebay finding-api: EBAY_CLIENT_ID not set — active listings will not sync');
+      console.warn('ebay finding-api: client ID not set — active listings will not sync');
     }
     if (sellerName && appId) {
       let findingPage = 1;
