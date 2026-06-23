@@ -29,9 +29,13 @@ Replaced cookie nonce with a server-side nonce stored in Supabase:
 - **Migration `20260623000000_008_ebay_oauth_nonce.sql`**: Adds `oauth_nonce VARCHAR(64)` and
   `oauth_nonce_expires_at TIMESTAMPTZ` to `ebay_connections` and `users` tables.
 
-### ⚠️ DEPLOYMENT REQUIRED (cannot auto-apply — Supabase MCP was unavailable)
+### ✅ DEPLOYMENT STATUS (Supabase Preview Branch — PR #123)
 
-**Do these in order:**
+Supabase Preview Branch `wijbcdkygodbaatiznfk` fully deployed on commit `e78f430`:
+- Database ✅, Services ✅, APIs ✅
+- Configurations ✅, Migrations ✅, Seeding ✅, Edge Functions ✅
+
+**Still needed: apply to PRODUCTION** (project `dqgfpchkheznvanfgsmx`):
 
 1. **Apply migration** via Supabase MCP:
    ```
@@ -52,26 +56,43 @@ Replaced cookie nonce with a server-side nonce stored in Supabase:
 4. **Test**: Go to Settings → eBay → Connect eBay Account. Should redirect to eBay auth,
    and after authorizing come back with `?ebay_connected=true`.
 
+### ✅ Vercel build fixed (commit e78f430)
+
+Removed `node-linker=hoisted` from `.npmrc`. Root cause: pnpm hoisted mode caused dual
+React instances (Next.js 15 bundled React 19 + web package declared React 18), breaking
+SSR prerender with "Cannot read properties of null (reading 'useRef')" on /404.
+Vercel deployment `6voMmhnZJarvPtHg2ZPPyRaNWfUs` is now Ready ✅.
+
 ### Files changed
 - `supabase/functions/ebay-oauth/index.ts` — DB nonce in handleAuthorize + handleCallback, removed parseCookies
 - `supabase/functions/auth/index.ts` — DB nonce in handleEbayConnect + handleEbayCallback, removed parseCookies
 - `supabase/migrations/20260623000000_008_ebay_oauth_nonce.sql` — new migration
+- `.npmrc` — removed `node-linker=hoisted` (fixed Vercel build)
 - `docs/HANDOFF.md` — this file
 
+### Commits on this branch
+- `737a7f9` — fix(ebay): replace cookie nonce with DB nonce for CSRF protection
+- `e78f430` — fix(build): remove node-linker=hoisted to fix Vercel React prerender crash
+
 ### Next tasks
-1. Apply migration + deploy both edge functions (see above)
-2. Test eBay connect end-to-end
-3. Stripe checkout verification — still "not yet verified"
-4. PostHog events — still "not yet verified"
-5. Sentry zero-error audit — still "not yet verified"
+1. Merge PR #123 (Vercel ✅, Supabase Preview ✅, Railway pre-existing failure)
+2. Apply migration `008` to production Supabase (`dqgfpchkheznvanfgsmx`) — see above
+3. Deploy `ebay-oauth` and `auth` edge functions to production
+4. Test eBay connect end-to-end on production
+5. Stripe checkout verification — still "not yet verified"
+6. PostHog events — still "not yet verified"
+7. Sentry zero-error audit — still "not yet verified"
 
 ### Decisions made (do not reverse)
 - OAuth nonces MUST be stored in Supabase DB, not cookies. Cookies from cross-origin
   fetch() are blocked by browsers under CORS * mode. This is a fundamental browser
   security policy, not a bug we can work around.
+- `node-linker=hoisted` must NOT be in `.npmrc`. pnpm default isolated mode is required
+  for correct React singleton resolution in Next.js SSR builds.
 
 ### Blockers
-- Migration and function deployment pending Supabase MCP availability.
+- Railway failure is pre-existing (started before this PR); investigate separately.
+- Production migration + function deployment still needed after PR merge.
 
 ---
 
