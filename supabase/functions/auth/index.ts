@@ -16,17 +16,6 @@ function randomHex(bytes: number): string {
   return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function parseCookies(req: Request): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const part of (req.headers.get('Cookie') ?? '').split(';')) {
-    const eq = part.indexOf('=');
-    if (eq < 1) continue;
-    const k = part.slice(0, eq).trim();
-    const v = part.slice(eq + 1).trim();
-    result[k] = decodeURIComponent(v);
-  }
-  return result;
-}
 
 function b64url(s: string): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -142,7 +131,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'GET'  && path.endsWith('/verify'))   return await handleVerify(req, supabase);
     if (req.method === 'POST' && path.endsWith('/login'))    return await handleLogin(req, supabase, jwtSecret);
     if (req.method === 'GET'  && path.endsWith('/me'))       return await handleMe(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/ebay/connect'))    return await handleEbayConnect(req, jwtSecret);
+    if (req.method === 'GET'  && path.endsWith('/ebay/connect'))    return await handleEbayConnect(req, supabase, jwtSecret);
     if (req.method === 'GET'  && path.endsWith('/ebay-callback'))   return await handleEbayCallback(req, supabase, jwtSecret);
     if (req.method === 'GET'  && path.endsWith('/ebay/status'))     return await handleEbayStatus(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/ebay/disconnect')) return await handleEbayDisconnect(req, supabase, jwtSecret);
@@ -340,7 +329,7 @@ async function handleSaveSettings(req: Request, supabase: ReturnType<typeof crea
   return json({ ok: true });
 }
 
-async function handleEbayConnect(req: Request, jwtSecret: string) {
+async function handleEbayConnect(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserId(req, jwtSecret);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -348,10 +337,17 @@ async function handleEbayConnect(req: Request, jwtSecret: string) {
   const ruName = Deno.env.get('EBAY_RUNAME');
   if (!clientId || !ruName) return json({ error: 'eBay integration is not configured' }, 500);
 
-  // Nonce binds this OAuth flow to the browser that initiated it.
-  // The callback verifies the cookie nonce matches the JWT nonce,
-  // preventing an attacker from sharing their authUrl to link a victim's eBay account.
+  // Nonce stored server-side (users table). Cookie-based nonces cannot be
+  // used here because the /ebay/connect fetch is cross-origin and browsers
+  // block Set-Cookie from * CORS responses.
   const nonce = randomHex(16);
+  const nonceExpiresAt = new Date(Date.now() + 600_000).toISOString();
+
+  await supabase.from('users').update({
+    ebay_oauth_nonce: nonce,
+    ebay_oauth_nonce_expires_at: nonceExpiresAt,
+  }).eq('id', userId);
+
   const state = await signJWT({ sub: userId, nonce }, jwtSecret, 600);
   const authUrl = 'https://auth.ebay.com/oauth2/authorize'
     + '?client_id=' + encodeURIComponent(clientId)
@@ -360,14 +356,7 @@ async function handleEbayConnect(req: Request, jwtSecret: string) {
     + '&scope=' + encodeURIComponent(EBAY_SCOPES)
     + '&state=' + encodeURIComponent(state);
 
-  return new Response(JSON.stringify({ authUrl }), {
-    status: 200,
-    headers: {
-      ...CORS,
-      'Content-Type': 'application/json',
-      'Set-Cookie': `ebay_nonce=${nonce}; HttpOnly; SameSite=Lax; Max-Age=600; Path=/; Secure`,
-    },
-  });
+  return json({ authUrl });
 }
 
 async function handleEbayCallback(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
@@ -383,12 +372,28 @@ async function handleEbayCallback(req: Request, supabase: ReturnType<typeof crea
   let userId: number;
   try {
     const payload = await verifyJWT(state, jwtSecret);
-    // Verify the nonce matches the cookie set at connect time, preventing OAuth CSRF
-    const cookieNonce = parseCookies(req)['ebay_nonce'];
-    if (!cookieNonce || cookieNonce !== (payload.nonce as string)) {
+    userId = payload.sub as number;
+    const jwtNonce = payload.nonce as string;
+
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('ebay_oauth_nonce, ebay_oauth_nonce_expires_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const storedNonce = userRow?.ebay_oauth_nonce;
+    const nonceExpiry = userRow?.ebay_oauth_nonce_expires_at
+      ? new Date(userRow.ebay_oauth_nonce_expires_at)
+      : new Date(0);
+
+    if (!storedNonce || storedNonce !== jwtNonce || nonceExpiry < new Date()) {
       return Response.redirect(`${frontendUrl}/app.html?ebay_error=state_mismatch`, 302);
     }
-    userId = payload.sub as number;
+
+    await supabase.from('users').update({
+      ebay_oauth_nonce: null,
+      ebay_oauth_nonce_expires_at: null,
+    }).eq('id', userId);
   } catch {
     return Response.redirect(`${frontendUrl}/app.html?ebay_error=invalid_state`, 302);
   }
@@ -440,14 +445,7 @@ async function handleEbayCallback(req: Request, supabase: ReturnType<typeof crea
     ebay_username: ebayUsername,
   }).eq('id', userId);
 
-  // Clear the nonce cookie after successful use (single-use)
-  return new Response(null, {
-    status: 302,
-    headers: {
-      'Location': `${frontendUrl}/app.html?ebay_connected=true`,
-      'Set-Cookie': 'ebay_nonce=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/; Secure',
-    },
-  });
+  return Response.redirect(`${frontendUrl}/app.html?ebay_connected=true`, 302);
 }
 
 async function handleEbayStatus(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {

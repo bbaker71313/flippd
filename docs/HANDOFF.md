@@ -4,6 +4,77 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-23 — eBay connect CSRF nonce fix (branch: claude/ebay-connect-issue-jf5i2c)
+
+### Root cause identified
+
+The previous commit (`2576ee3`) added CSRF nonce protection using HTTP cookies, but the approach
+was fundamentally broken due to browser CORS restrictions:
+
+1. `app.html` (on `scanforprofit.com`) calls `fetch(EBAY_BASE + '/authorize')` — this is a
+   **cross-origin fetch** to `supabase.co`.
+2. The server responded with `Set-Cookie: ebay_nonce=...; HttpOnly; SameSite=Lax`.
+3. Browsers **block** storing cookies from cross-origin fetch responses when
+   `Access-Control-Allow-Origin: *` is used (credentials are disallowed in that CORS mode).
+4. When eBay redirected back to the callback, the browser had no `ebay_nonce` cookie →
+   callback returned `ebay_error=state_mismatch` → eBay connect failed every time.
+
+### Fix: Database-stored nonce (CSRF protection preserved)
+
+Replaced cookie nonce with a server-side nonce stored in Supabase:
+- **`ebay-oauth/index.ts`**: At `/authorize`, upsert nonce into `ebay_connections.oauth_nonce`.
+  At `/callback`, read nonce from DB, verify it matches the JWT nonce, clear after use.
+- **`auth/index.ts`**: Same fix for `/ebay/connect` + `/ebay-callback` (stores nonce in
+  `users.ebay_oauth_nonce`). `parseCookies()` helper removed from both files.
+- **Migration `20260623000000_008_ebay_oauth_nonce.sql`**: Adds `oauth_nonce VARCHAR(64)` and
+  `oauth_nonce_expires_at TIMESTAMPTZ` to `ebay_connections` and `users` tables.
+
+### ⚠️ DEPLOYMENT REQUIRED (cannot auto-apply — Supabase MCP was unavailable)
+
+**Do these in order:**
+
+1. **Apply migration** via Supabase MCP:
+   ```
+   mcp__Supabase__apply_migration  (project: dqgfpchkheznvanfgsmx)
+   file: supabase/migrations/20260623000000_008_ebay_oauth_nonce.sql
+   ```
+
+2. **Deploy `ebay-oauth`** edge function:
+   ```
+   mcp__Supabase__deploy_edge_function  function: ebay-oauth
+   ```
+
+3. **Deploy `auth`** edge function:
+   ```
+   mcp__Supabase__deploy_edge_function  function: auth
+   ```
+
+4. **Test**: Go to Settings → eBay → Connect eBay Account. Should redirect to eBay auth,
+   and after authorizing come back with `?ebay_connected=true`.
+
+### Files changed
+- `supabase/functions/ebay-oauth/index.ts` — DB nonce in handleAuthorize + handleCallback, removed parseCookies
+- `supabase/functions/auth/index.ts` — DB nonce in handleEbayConnect + handleEbayCallback, removed parseCookies
+- `supabase/migrations/20260623000000_008_ebay_oauth_nonce.sql` — new migration
+- `docs/HANDOFF.md` — this file
+
+### Next tasks
+1. Apply migration + deploy both edge functions (see above)
+2. Test eBay connect end-to-end
+3. Stripe checkout verification — still "not yet verified"
+4. PostHog events — still "not yet verified"
+5. Sentry zero-error audit — still "not yet verified"
+
+### Decisions made (do not reverse)
+- OAuth nonces MUST be stored in Supabase DB, not cookies. Cookies from cross-origin
+  fetch() are blocked by browsers under CORS * mode. This is a fundamental browser
+  security policy, not a bug we can work around.
+
+### Blockers
+- Migration and function deployment pending Supabase MCP availability.
+
+---
+
 ## Session: 2026-06-22c — GitHub sync + skills cheat sheet (commit: 11d009e)
 
 ### What changed this session
