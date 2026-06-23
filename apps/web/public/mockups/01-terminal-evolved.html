@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SFP Mockup 1 — Terminal Evolved</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:         #0A0A0A;
+  --surface:    #111111;
+  --card:       #151515;
+  --hover:      #1C1C1C;
+  --border:     #1F1F1F;
+  --border-hi:  #2D2D2D;
+  --header:     #080808;
+  --gold:       #D4A843;
+  --gold-dim:   rgba(212,168,67,0.12);
+  --profit:     #00C853;
+  --profit-bg:  rgba(0,200,83,0.07);
+  --profit-hi:  rgba(0,200,83,0.18);
+  --loss:       #FF3D3D;
+  --hot:        #FFB300;
+  --hot-bg:     rgba(255,179,0,0.07);
+  --text:       #EDE8DC;
+  --text-soft:  #A89E90;
+  --text-muted: #5A5450;
+  --text-dim:   #2E2C2A;
+  --font-mono:  'IBM Plex Mono', 'Courier New', monospace;
+  --font-disp:  'Syne', system-ui, sans-serif;
+  --ease-out:   cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-io:    cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spr:   cubic-bezier(0.34, 1.4, 0.64, 1);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s7:32px;--s8:48px;
+}
+
+html { height: 100%; }
+
+body {
+  min-height: 100dvh;
+  background: #060606;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px 80px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  position: relative;
+}
+
+/* SVG grain — replaces banned repeating-gradient scanline */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ambient rings */
+body::after {
+  content: '';
+  position: fixed;
+  width: 800px; height: 800px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(212,168,67,0.03);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Design label */
+.design-label {
+  position: fixed;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: rgba(212,168,67,0.4);
+  text-transform: uppercase;
+  z-index: 100;
+  white-space: nowrap;
+}
+
+/* Phone frame */
+.phone {
+  width: 100%;
+  max-width: 412px;
+  background: var(--bg);
+  border-radius: 40px;
+  border: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.8),
+    0 64px 128px rgba(0,0,0,0.9),
+    0 32px 64px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  min-height: 820px;
+}
+
+/* Notch */
+.notch {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 28px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 20;
+}
+
+/* Header */
+.hdr {
+  background: var(--header);
+  border-bottom: 1px solid var(--border);
+  padding: 54px var(--s5) var(--s3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-family: var(--font-disp);
+  font-size: 1.3125rem;
+  font-weight: 900;
+  color: var(--gold);
+  letter-spacing: -0.025em;
+  /* Gold glow: intentional, only on logo */
+  text-shadow: 0 0 24px rgba(212,168,67,0.45);
+}
+
+.hdr-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.tier {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 1px solid rgba(212,168,67,0.22);
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+
+.hdr-btn {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition:
+    transform 0.12s var(--ease-out),
+    border-color 0.15s var(--ease-out),
+    color 0.15s var(--ease-out);
+}
+.hdr-btn:active { transform: scale(0.92); }
+.hdr-btn:hover { border-color: var(--border-hi); color: var(--text-soft); }
+
+/* Main scroll */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 80px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scanner view */
+.scan-view {
+  padding: var(--s4) var(--s4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* Image area */
+.img-wrap {
+  width: 100%;
+  aspect-ratio: 16/10;
+  background: #0D0D0D;
+  border-radius: 14px;
+  border: 1px solid var(--border-hi);
+  overflow: hidden;
+  position: relative;
+}
+
+.img-scan-bg {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #121212 0%, #0a0a0a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Scan grid overlay */
+.scan-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(212,168,67,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212,168,67,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Corner brackets */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: absolute;
+  width: 20px; height: 20px;
+  border-color: var(--gold);
+  border-style: solid;
+  opacity: 0.6;
+}
+.corner-tl { top:12px; left:12px; border-width: 2px 0 0 2px; }
+.corner-tr { top:12px; right:12px; border-width: 2px 2px 0 0; }
+.corner-bl { bottom:12px; left:12px; border-width: 0 0 2px 2px; }
+.corner-br { bottom:12px; right:12px; border-width: 0 2px 2px 0; }
+
+/* Scan beam */
+.scan-beam {
+  position: absolute;
+  left: 12px; right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  top: 30%;
+  animation: scanBeam 3s var(--ease-io) infinite;
+  opacity: 0.5;
+}
+
+@keyframes scanBeam {
+  0%, 100% { top: 15%; opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.6; }
+  0% { top: 15%; }
+  100% { top: 85%; }
+}
+
+.item-found {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.item-icon {
+  font-size: 36px;
+  display: block;
+  margin-bottom: var(--s2);
+  filter: grayscale(1) brightness(0.6);
+}
+
+.item-detected {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  opacity: 0.7;
+}
+
+.img-overlay-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 55%, rgba(10,10,10,0.75));
+}
+
+.scan-tag {
+  position: absolute;
+  bottom: var(--s2);
+  left: var(--s3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  background: rgba(8,8,8,0.9);
+  border: 1px solid rgba(212,168,67,0.25);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+/* ─── RESULT CARD ─── */
+.result-card {
+  background: var(--card);
+  border-top: 2px solid var(--hot); /* Fixed: border-top not border-left */
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: cardIn 0.55s var(--ease-out) 0.1s both;
+}
+
+.result-card.buy { border-top-color: var(--profit); }
+.result-card.pass { border-top-color: var(--loss); }
+
+@keyframes cardIn {
+  from { opacity:0; transform: translateY(16px); }
+  to { opacity:1; transform: translateY(0); }
+}
+
+/* Decision row */
+.decision-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s3) var(--s4);
+  background: var(--hot-bg);
+  border-bottom: 1px solid var(--border);
+}
+.result-card.buy .decision-row { background: var(--profit-bg); }
+
+.decision-badge {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--hot);
+  animation: badgePop 0.5s var(--ease-spr) 0.2s both;
+}
+.result-card.buy .decision-badge { color: var(--profit); }
+
+@keyframes badgePop {
+  from { opacity:0; transform: scale(0.65) translateX(-6px); }
+  to { opacity:1; transform: scale(1) translateX(0); }
+}
+
+.conf-chip {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--hot);
+  background: rgba(255,179,0,0.1);
+  border: 1px solid rgba(255,179,0,0.22);
+  border-radius: 4px;
+  padding: 4px 9px;
+}
+.result-card.buy .conf-chip { color:var(--profit); background:rgba(0,200,83,0.1); border-color:rgba(0,200,83,0.22); }
+
+.pulse-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulseDot 1.8s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%,100% { opacity:1; transform:scale(1); }
+  50% { opacity:0.4; transform:scale(0.7); }
+}
+
+/* Item name */
+.item-name {
+  padding: var(--s4) var(--s4) var(--s2);
+  font-family: var(--font-disp);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/* Profit hero — no glow, size+color do the work */
+.profit-hero {
+  padding: 0 var(--s4) var(--s2);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.profit-num {
+  font-family: var(--font-disp);
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--hot);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.result-card.buy .profit-num { color: var(--profit); }
+
+.profit-suffix {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.roi-row {
+  padding: 0 var(--s4) var(--s3);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.roi-val {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--hot);
+  font-variant-numeric: tabular-nums;
+}
+.result-card.buy .roi-val { color: var(--profit); }
+
+.roi-label {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* ─── BREAKDOWN ─── */
+.breakdown {
+  border-top: 1px solid var(--border);
+  padding: var(--s3) var(--s4);
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid rgba(255,255,255,0.035);
+  animation: rowSlide 0.4s var(--ease-out) both;
+}
+.data-row:last-child { border-bottom: none; }
+.data-row:nth-child(1){animation-delay:.18s}
+.data-row:nth-child(2){animation-delay:.23s}
+.data-row:nth-child(3){animation-delay:.28s}
+.data-row:nth-child(4){animation-delay:.33s}
+.data-row:nth-child(5){animation-delay:.38s}
+
+@keyframes rowSlide {
+  from { opacity:0; transform:translateX(-10px); }
+  to { opacity:1; transform:translateX(0); }
+}
+
+.data-row.total {
+  border-top: 1px solid var(--border);
+  margin-top: var(--s2);
+  padding-top: var(--s3);
+  border-bottom: none;
+  animation-delay: .45s;
+}
+
+.dk { color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.03em; }
+.dv { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text-soft); }
+.dv.neg { color: var(--loss); }
+.dv.pos { color: var(--hot); }
+.result-card.buy .dv.pos { color: var(--profit); }
+
+/* Days badge */
+.days-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+/* ─── ACTIONS ─── */
+.actions {
+  border-top: 1px solid var(--border);
+  padding: var(--s3) var(--s4);
+  display: flex;
+  gap: var(--s2);
+  animation: actUp 0.4s var(--ease-out) 0.5s both;
+}
+
+@keyframes actUp {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.btn {
+  flex: 1;
+  height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  transition:
+    transform 0.12s var(--ease-out),
+    filter 0.12s var(--ease-out),
+    opacity 0.12s var(--ease-out);
+}
+
+.btn:active { transform: scale(0.96) translateY(1px); }
+
+.btn-add {
+  background: var(--hot);
+  color: #000;
+  /* Fixed: directional shadow, not outer glow */
+  box-shadow: 0 4px 14px rgba(255,179,0,0.2), 0 1px 3px rgba(0,0,0,0.4);
+}
+.result-card.buy .btn-add { background: var(--profit); box-shadow: 0 4px 14px rgba(0,200,83,0.2), 0 1px 3px rgba(0,0,0,0.4); }
+.btn-add:hover { filter: brightness(1.08); }
+
+.btn-list {
+  background: var(--surface);
+  color: var(--text-soft);
+  border: 1px solid var(--border-hi);
+}
+.btn-list:hover { filter: brightness(1.25); }
+
+/* ─── SKELETON ─── */
+.skel-wrap {
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.skel {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 20%,
+    var(--hover) 38%,
+    var(--surface) 62%
+  );
+  background-size: 600px 100%;
+  border-radius: 6px;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 600px 0; }
+  100% { background-position: -600px 0; }
+}
+
+/* ─── RESCAN ─── */
+.rescan-wrap { padding: 0 var(--s4) var(--s4); }
+
+.btn-rescan {
+  width: 100%;
+  height: 40px;
+  display: flex; align-items: center; justify-content: center; gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 0.12s var(--ease-out),
+    color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
+}
+.btn-rescan:hover { color:var(--text-soft); border-color:var(--text-dim); }
+.btn-rescan:active { transform: scale(0.97); }
+
+/* ─── TAB BAR ─── */
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  background: rgba(8,8,8,0.97);
+  border-top: 1px solid var(--border);
+  display: flex;
+  height: 60px;
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  transition:
+    color 0.15s var(--ease-out),
+    transform 0.1s var(--ease-out);
+}
+
+.tab:active { transform: scale(0.88); }
+
+.tab.active { color: var(--gold); }
+
+.tab-ico {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.tab-active-line {
+  display: none;
+}
+.tab.active .tab-active-line {
+  display: block;
+  position: absolute;
+  top: 0;
+  width: 24px;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 0 0 2px 2px;
+}
+
+.tab { position: relative; }
+
+/* ─── REDUCED MOTION (selective) ─── */
+@media (prefers-reduced-motion: reduce) {
+  .decision-badge, .data-row, .actions, .result-card { animation: none; opacity: 1; transform: none; }
+  .skel { animation: none; opacity: 0.5; }
+  .scan-beam { animation: none; }
+  .pulse-dot { animation: none; }
+  /* color, opacity, border transitions preserved */
+}
+</style>
+</head>
+<body>
+
+<div class="design-label">MOCKUP 01 — TERMINAL EVOLVED &nbsp;·&nbsp; SCANFORPROFIT</div>
+
+<div class="phone">
+  <div class="notch"></div>
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="logo">[ SFP ]</div>
+    <div class="hdr-right">
+      <span class="tier">HUSTLE</span>
+      <button class="hdr-btn" aria-label="History">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
+      <button class="hdr-btn" aria-label="Settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.1 4.9L17 7M4.9 4.9L7 7M4.9 19.1L7 17M19.1 19.1L17 17"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="scan-view">
+
+      <!-- Image area -->
+      <div class="img-wrap">
+        <div class="img-scan-bg">
+          <div class="scan-grid"></div>
+          <div class="corner-tl"></div>
+          <div class="corner-tr"></div>
+          <div class="corner-bl"></div>
+          <div class="corner-br"></div>
+          <div class="scan-beam"></div>
+          <div class="item-found">
+            <span class="item-icon">📼</span>
+            <span class="item-detected">SONY TC-FX170 · CONFIRMED</span>
+          </div>
+        </div>
+        <div class="img-overlay-gradient"></div>
+        <div class="scan-tag">SINGLE SCAN · ELECTRONICS</div>
+      </div>
+
+      <!-- Skeleton (hidden by default, shown during rescan) -->
+      <div id="skel" style="display:none; background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+        <div style="padding:12px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border);">
+          <div class="skel" style="height:22px;width:100px;"></div>
+        </div>
+        <div class="skel-wrap">
+          <div class="skel" style="height:14px;width:90%;"></div>
+          <div class="skel" style="height:46px;width:55%;"></div>
+          <div class="skel" style="height:11px;width:40%;"></div>
+          <div style="height:8px;"></div>
+          <div class="skel" style="height:10px;width:100%;"></div>
+          <div class="skel" style="height:10px;width:100%;"></div>
+          <div class="skel" style="height:10px;width:100%;"></div>
+          <div class="skel" style="height:10px;width:100%;"></div>
+        </div>
+      </div>
+
+      <!-- Result card -->
+      <div id="result" class="result-card hot">
+        <div class="decision-row">
+          <span class="decision-badge">[ HOT ]</span>
+          <div class="conf-chip">
+            <div class="pulse-dot"></div>
+            HIGH CONF
+          </div>
+        </div>
+
+        <div class="item-name">Sony TC-FX170 Cassette Deck</div>
+
+        <div class="profit-hero">
+          <div class="profit-num" id="pnum">$0.00</div>
+          <div class="profit-suffix">PROFIT</div>
+        </div>
+
+        <div class="roi-row">
+          <span class="roi-val" id="roi">0%</span>
+          <span class="roi-label">ROI · AVG 14 DAYS SOLD</span>
+        </div>
+
+        <div class="breakdown">
+          <div class="data-row">
+            <span class="dk">SELL PRICE (eBay AVG)</span>
+            <span class="dv">$52.00</span>
+          </div>
+          <div class="data-row">
+            <span class="dk">eBay FEE (13%)</span>
+            <span class="dv neg">−$6.76</span>
+          </div>
+          <div class="data-row">
+            <span class="dk">SHIPPING EST</span>
+            <span class="dv neg">−$9.50</span>
+          </div>
+          <div class="data-row">
+            <span class="dk">PACKAGING</span>
+            <span class="dv neg">−$1.25</span>
+          </div>
+          <div class="data-row total">
+            <span class="dk" style="color:var(--hot); font-weight:600;">NET PROFIT</span>
+            <span class="dv pos" style="font-size:1.0625rem; font-weight:700;">$35.49</span>
+          </div>
+        </div>
+
+        <div style="padding:0 16px 12px;">
+          <div class="days-badge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            AVG 14 DAYS TO SELL · STR 68%
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-add">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            ADD ITEM
+          </button>
+          <button class="btn btn-list">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.375-9.375z"/></svg>
+            LISTING
+          </button>
+          <button class="btn btn-list">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+            SHARE
+          </button>
+        </div>
+      </div>
+
+      <!-- Rescan -->
+      <div class="rescan-wrap">
+        <button class="btn-rescan" id="rescan">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15"/></svg>
+          SCAN NEXT ITEM
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Tab bar -->
+  <nav class="tabbar">
+    <button class="tab active" onclick="setTab(this)">
+      <div class="tab-active-line"></div>
+      <span class="tab-ico">⊕</span>
+      SCANNER
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <div class="tab-active-line"></div>
+      <span class="tab-ico">⊞</span>
+      INVENTORY
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <div class="tab-active-line"></div>
+      <span class="tab-ico">◫</span>
+      PHOTOS
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <div class="tab-active-line"></div>
+      <span class="tab-ico">◈</span>
+      PULSE
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <div class="tab-active-line"></div>
+      <span class="tab-ico">⊗</span>
+      P&amp;L
+    </button>
+  </nav>
+</div>
+
+<script>
+// Smooth counter with ease-out-expo
+function counter(el, target, ms, prefix='$', dec=2) {
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / ms, 1);
+    const e = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+    el.textContent = prefix + (target * e).toFixed(dec);
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function pctCounter(el, target, ms) {
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / ms, 1);
+    const e = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+    el.textContent = Math.round(target * e) + '%';
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// Run counters on load
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    counter(document.getElementById('pnum'), 35.49, 1400);
+    pctCounter(document.getElementById('roi'), 444, 1400);
+  }, 400);
+});
+
+// Re-scan simulation
+document.getElementById('rescan').addEventListener('click', () => {
+  const skel = document.getElementById('skel');
+  const result = document.getElementById('result');
+
+  document.getElementById('pnum').textContent = '$0.00';
+  document.getElementById('roi').textContent = '0%';
+  result.style.display = 'none';
+  skel.style.display = 'block';
+
+  setTimeout(() => {
+    skel.style.display = 'none';
+    result.style.display = 'block';
+    // Force animation replay
+    result.style.animation = 'none';
+    result.offsetHeight;
+    result.style.animation = '';
+    const badge = result.querySelector('.decision-badge');
+    badge.style.animation = 'none';
+    badge.offsetHeight;
+    badge.style.animation = '';
+    result.querySelectorAll('.data-row').forEach(r => {
+      r.style.animation = 'none'; r.offsetHeight; r.style.animation = '';
+    });
+    setTimeout(() => {
+      counter(document.getElementById('pnum'), 35.49, 1400);
+      pctCounter(document.getElementById('roi'), 444, 1400);
+    }, 100);
+  }, 2000);
+});
+
+// Tab switching
+function setTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

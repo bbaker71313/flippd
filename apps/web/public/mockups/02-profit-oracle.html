@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SFP Mockup 2 — Profit Oracle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:       #0D1117;
+  --surf:     #131B2A;
+  --surf2:    #192233;
+  --surf3:    #1E2B40;
+  --border:   #1E2D40;
+  --border-hi:#253550;
+  --amber:    #F59E0B;
+  --amber-hi: #FCD34D;
+  --amber-bg: rgba(245,158,11,0.07);
+  --profit:   #10B981;
+  --profit-bg:rgba(16,185,129,0.07);
+  --loss:     #EF4444;
+  --loss-bg:  rgba(239,68,68,0.07);
+  --neutral:  #6B7280;
+  --text:     #E2E8F0;
+  --text-soft:#94A3B8;
+  --text-mute:#4B5E72;
+  --text-dim: #2A3A50;
+  --font-sans:'Space Grotesk', system-ui, sans-serif;
+  --font-mono:'Space Mono', 'Courier New', monospace;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-spr: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s7:32px;
+}
+
+html { height: 100%; }
+
+body {
+  min-height: 100dvh;
+  background: #070D14;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px 80px;
+  font-family: var(--font-sans);
+  color: var(--text);
+}
+
+/* Starfield bg */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(245,158,11,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(16,185,129,0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.design-label {
+  position: fixed;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: rgba(245,158,11,0.35);
+  z-index: 100;
+  white-space: nowrap;
+}
+
+.phone {
+  width: 100%;
+  max-width: 412px;
+  background: var(--bg);
+  border-radius: 40px;
+  border: 1px solid rgba(255,255,255,0.05);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.7),
+    0 64px 128px rgba(0,0,0,0.85),
+    0 0 80px rgba(245,158,11,0.03);
+  display: flex;
+  flex-direction: column;
+  min-height: 820px;
+}
+
+.notch {
+  position: absolute;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  width: 110px; height: 26px;
+  background: #000;
+  border-radius: 18px;
+  z-index: 20;
+}
+
+/* Header — financial dashboard style */
+.hdr {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 52px var(--s5) var(--s3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.logo-mark {
+  width: 28px; height: 28px;
+  background: var(--amber);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-mark svg { display: block; }
+
+.logo-text {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.logo-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-mute);
+  letter-spacing: 0.08em;
+}
+
+.hdr-right { display: flex; align-items: center; gap: var(--s3); }
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--profit);
+  background: var(--profit-bg);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 4px;
+  padding: 4px 9px;
+}
+
+.live-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--profit);
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.hdr-ico {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-mute);
+  background: var(--surf);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s var(--ease-out), transform 0.1s var(--ease-out);
+}
+.hdr-ico:active { transform: scale(0.9); }
+.hdr-ico:hover { color: var(--text-soft); }
+
+/* Ticker strip */
+.ticker {
+  background: var(--surf);
+  border-bottom: 1px solid var(--border);
+  padding: var(--s2) var(--s5);
+  display: flex;
+  gap: var(--s6);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.tick-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+  animation: tickerScroll 20s linear infinite;
+}
+
+.tick-sym { color: var(--text-soft); font-weight: 700; letter-spacing: 0.05em; }
+.tick-val { color: var(--amber); font-weight: 400; }
+.tick-chg { color: var(--profit); }
+.tick-chg.down { color: var(--loss); }
+
+@keyframes tickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker { animation: none; }
+.ticker-inner {
+  display: flex;
+  gap: var(--s6);
+  animation: tickerMove 25s linear infinite;
+}
+
+@keyframes tickerMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Main */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 80px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Oracle result view */
+.oracle-view {
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* Item header card */
+.item-card {
+  background: var(--surf);
+  border: 1px solid var(--border-hi);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.item-meta {
+  padding: var(--s4);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  border-bottom: 1px solid var(--border);
+}
+
+.item-thumb {
+  width: 52px; height: 52px;
+  background: var(--surf2);
+  border-radius: 8px;
+  border: 1px solid var(--border-hi);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.item-info { flex: 1; min-width: 0; }
+
+.item-cat {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-mute);
+  margin-bottom: 3px;
+}
+
+.item-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  margin-top: 2px;
+}
+
+.verdict-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #000;
+  background: var(--amber);
+  border-radius: 6px;
+  padding: 5px 10px;
+  animation: verdictIn 0.5s var(--ease-spr) 0.15s both;
+  flex-shrink: 0;
+}
+
+@keyframes verdictIn {
+  from { opacity: 0; transform: scale(0.7) rotate(-3deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* KPI row */
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--border);
+}
+
+.kpi {
+  padding: var(--s3) var(--s4);
+  border-right: 1px solid var(--border);
+  animation: kpiIn 0.4s var(--ease-out) both;
+}
+.kpi:last-child { border-right: none; }
+.kpi:nth-child(1){animation-delay:.2s}
+.kpi:nth-child(2){animation-delay:.26s}
+
+@keyframes kpiIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kpi-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+  margin-bottom: 4px;
+}
+
+.kpi-val {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.kpi-val.green { color: var(--profit); }
+
+.kpi-delta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--profit);
+  margin-top: 3px;
+}
+
+/* Fee breakdown — compact */
+.fee-table {
+  padding: var(--s3) var(--s4);
+}
+
+.fee-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  animation: feeIn 0.35s var(--ease-out) both;
+}
+.fee-row:last-child { border-bottom: none; }
+.fee-row:nth-child(1){animation-delay:.3s}
+.fee-row:nth-child(2){animation-delay:.35s}
+.fee-row:nth-child(3){animation-delay:.4s}
+.fee-row:nth-child(4){animation-delay:.45s}
+.fee-row:nth-child(5){animation-delay:.5s}
+
+@keyframes feeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fee-row.divider { border-top: 1px solid var(--border-hi); margin-top: var(--s2); padding-top: var(--s2); }
+
+.fk { color: var(--text-mute); }
+.fv { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-soft); }
+.fv.neg { color: var(--loss); }
+.fv.pos.amber { color: var(--amber-hi); font-size: 13px; }
+
+/* ─── SOLD COMPS ─── */
+.comps-card {
+  background: var(--surf);
+  border: 1px solid var(--border-hi);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: slideUp 0.4s var(--ease-out) 0.5s both;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card-hdr {
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+}
+
+.card-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 3px;
+  padding: 2px 6px;
+  letter-spacing: 0.08em;
+}
+
+.comp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  animation: compIn 0.35s var(--ease-out) both;
+}
+.comp-row:last-child { border-bottom: none; }
+.comp-row:nth-child(2){animation-delay:.55s}
+.comp-row:nth-child(3){animation-delay:.62s}
+.comp-row:nth-child(4){animation-delay:.69s}
+
+@keyframes compIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.comp-bar {
+  width: 3px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--profit);
+  flex-shrink: 0;
+}
+.comp-bar.med { background: var(--amber); }
+.comp-bar.low { background: var(--neutral); }
+
+.comp-info { flex: 1; min-width: 0; }
+
+.comp-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comp-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  margin-top: 2px;
+}
+
+.comp-price {
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Mini sparkline */
+.sparkline-card {
+  background: var(--surf);
+  border: 1px solid var(--border-hi);
+  border-radius: 12px;
+  padding: var(--s3) var(--s4);
+  animation: slideUp 0.4s var(--ease-out) 0.6s both;
+}
+
+.spark-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s3);
+}
+
+.spark-svg {
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: drawLine 1.2s var(--ease-out) 0.8s forwards;
+}
+
+.spark-area {
+  fill: url(#sparkGrad);
+  opacity: 0;
+  animation: fadeArea 0.6s var(--ease-out) 1.8s forwards;
+}
+
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeArea {
+  to { opacity: 1; }
+}
+
+.spark-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-mute);
+  letter-spacing: 0.08em;
+}
+
+.spark-val { color: var(--amber); font-weight: 700; }
+
+/* Actions */
+.oracle-actions {
+  display: flex;
+  gap: var(--s2);
+  animation: slideUp 0.4s var(--ease-out) 0.7s both;
+}
+
+.obtn {
+  flex: 1;
+  height: 46px;
+  display: flex; align-items: center; justify-content: center; gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.12s var(--ease-out), filter 0.12s var(--ease-out);
+}
+.obtn:active { transform: scale(0.96) translateY(1px); }
+
+.obtn-primary {
+  background: var(--amber);
+  color: #000;
+  box-shadow: 0 4px 16px rgba(245,158,11,0.18);
+}
+.obtn-primary:hover { filter: brightness(1.08); }
+
+.obtn-sec {
+  background: var(--surf2);
+  color: var(--text-soft);
+  border: 1px solid var(--border-hi);
+}
+.obtn-sec:hover { filter: brightness(1.3); }
+
+/* Tab bar */
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  background: rgba(13,17,23,0.97);
+  border-top: 1px solid var(--border);
+  display: flex;
+  height: 60px;
+  flex-shrink: 0;
+  backdrop-filter: blur(12px);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  transition: color 0.15s var(--ease-out), transform 0.1s var(--ease-out);
+  position: relative;
+}
+.tab:active { transform: scale(0.88); }
+.tab.active { color: var(--amber); }
+.tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 20px; height: 2px;
+  background: var(--amber);
+  border-radius: 0 0 2px 2px;
+}
+.tab-ico { font-size: 16px; line-height: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .verdict-badge, .kpi, .fee-row, .comp-row, .comps-card, .sparkline-card, .oracle-actions {
+    animation: none; opacity: 1; transform: none;
+  }
+  .spark-line { animation: none; stroke-dashoffset: 0; }
+  .spark-area { animation: none; opacity: 1; }
+  .live-dot { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="design-label">MOCKUP 02 — PROFIT ORACLE &nbsp;·&nbsp; SCANFORPROFIT</div>
+
+<div class="phone">
+  <div class="notch"></div>
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="logo-wrap">
+      <div class="logo-mark">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2 12L7 2l5 10H2z" fill="#000" stroke="#000" stroke-width="0.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">ScanForProfit</div>
+        <div class="logo-sub">PROFIT INTELLIGENCE</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        LIVE
+      </div>
+      <button class="hdr-ico" aria-label="Notifications">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Ticker strip -->
+  <div class="ticker">
+    <div class="ticker-inner">
+      <div class="tick-item"><span class="tick-sym">CASS</span><span class="tick-val">$52.00</span><span class="tick-chg">+$4.50</span></div>
+      <div class="tick-item"><span class="tick-sym">ELEC</span><span class="tick-val">$38.75</span><span class="tick-chg down">−$2.00</span></div>
+      <div class="tick-item"><span class="tick-sym">VTG</span><span class="tick-val">$89.00</span><span class="tick-chg">+$12.00</span></div>
+      <div class="tick-item"><span class="tick-sym">GAME</span><span class="tick-val">$23.50</span><span class="tick-chg">+$1.25</span></div>
+      <div class="tick-item"><span class="tick-sym">BOOK</span><span class="tick-val">$18.00</span><span class="tick-chg down">−$0.50</span></div>
+      <!-- repeat for seamless loop -->
+      <div class="tick-item"><span class="tick-sym">CASS</span><span class="tick-val">$52.00</span><span class="tick-chg">+$4.50</span></div>
+      <div class="tick-item"><span class="tick-sym">ELEC</span><span class="tick-val">$38.75</span><span class="tick-chg down">−$2.00</span></div>
+      <div class="tick-item"><span class="tick-sym">VTG</span><span class="tick-val">$89.00</span><span class="tick-chg">+$12.00</span></div>
+      <div class="tick-item"><span class="tick-sym">GAME</span><span class="tick-val">$23.50</span><span class="tick-chg">+$1.25</span></div>
+      <div class="tick-item"><span class="tick-sym">BOOK</span><span class="tick-val">$18.00</span><span class="tick-chg down">−$0.50</span></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="oracle-view">
+
+      <!-- Item card -->
+      <div class="item-card">
+        <div class="item-meta">
+          <div class="item-thumb">📼</div>
+          <div class="item-info">
+            <div class="item-cat">ELECTRONICS · AUDIO</div>
+            <div class="item-title">Sony TC-FX170 Cassette Deck</div>
+            <div class="item-sub">Cost basis: $8.00 · Scanned 2 min ago</div>
+          </div>
+          <div class="verdict-badge">BUY ↑</div>
+        </div>
+
+        <!-- KPI row -->
+        <div class="kpi-row">
+          <div class="kpi">
+            <div class="kpi-label">NET PROFIT</div>
+            <div class="kpi-val" id="kpi-profit">$0</div>
+            <div class="kpi-delta">+<span id="kpi-roi">0</span>% ROI</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">SELL PRICE (AVG)</div>
+            <div class="kpi-val green" id="kpi-sell">$0</div>
+            <div class="kpi-delta" style="color:var(--text-mute);">68% sell-thru · 14d avg</div>
+          </div>
+        </div>
+
+        <!-- Fee table -->
+        <div class="fee-table">
+          <div class="fee-row">
+            <span class="fk">Sell price</span>
+            <span class="fv">$52.00</span>
+          </div>
+          <div class="fee-row">
+            <span class="fk">eBay fee (13%)</span>
+            <span class="fv neg">−$6.76</span>
+          </div>
+          <div class="fee-row">
+            <span class="fk">Shipping est.</span>
+            <span class="fv neg">−$9.50</span>
+          </div>
+          <div class="fee-row">
+            <span class="fk">Packaging</span>
+            <span class="fv neg">−$1.25</span>
+          </div>
+          <div class="fee-row divider">
+            <span class="fk" style="color:var(--amber); font-weight:700;">Net profit</span>
+            <span class="fv pos amber">$35.49</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sold comps -->
+      <div class="comps-card">
+        <div class="card-hdr">
+          <span class="card-title">SOLD COMPARABLES · LAST 30D</span>
+          <span class="card-badge">eBay DATA</span>
+        </div>
+        <div class="comp-row">
+          <div class="comp-bar"></div>
+          <div class="comp-info">
+            <div class="comp-name">Sony TC-FX170 Cassette Deck</div>
+            <div class="comp-meta">SOLD 3d ago · GD condition · Free ship</div>
+          </div>
+          <div class="comp-price">$58.00</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-bar med"></div>
+          <div class="comp-info">
+            <div class="comp-name">Sony TC-FX170 — tested works</div>
+            <div class="comp-meta">SOLD 8d ago · VG condition · Buyer ship</div>
+          </div>
+          <div class="comp-price">$49.99</div>
+        </div>
+        <div class="comp-row">
+          <div class="comp-bar low"></div>
+          <div class="comp-info">
+            <div class="comp-name">Sony Cassette Deck FX series</div>
+            <div class="comp-meta">SOLD 18d ago · FR condition · $9 ship</div>
+          </div>
+          <div class="comp-price">$35.00</div>
+        </div>
+      </div>
+
+      <!-- Sparkline -->
+      <div class="sparkline-card">
+        <div class="spark-hdr">
+          <span class="spark-label">PRICE TREND · <span class="spark-val">ELECTRONICS 90D</span></span>
+          <span class="spark-label spark-val">↑ +8.4%</span>
+        </div>
+        <svg class="spark-svg" viewBox="0 0 360 48" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path class="spark-area" d="M0,38 L20,35 L50,32 L80,30 L110,28 L140,24 L170,26 L200,20 L230,18 L260,14 L290,12 L320,8 L360,6 L360,48 L0,48 Z"/>
+          <path class="spark-line" d="M0,38 L20,35 L50,32 L80,30 L110,28 L140,24 L170,26 L200,20 L230,18 L260,14 L290,12 L320,8 L360,6"/>
+        </svg>
+      </div>
+
+      <!-- Actions -->
+      <div class="oracle-actions">
+        <button class="obtn obtn-primary" onclick="">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          ADD TO PORTFOLIO
+        </button>
+        <button class="obtn obtn-sec">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          LIST NOW
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Tab bar -->
+  <nav class="tabbar">
+    <button class="tab active" onclick="setTab(this)">
+      <span class="tab-ico">⊕</span>SCANNER
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <span class="tab-ico">⊞</span>INVENTORY
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <span class="tab-ico">◫</span>PHOTOS
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <span class="tab-ico">◈</span>PULSE
+    </button>
+    <button class="tab" onclick="setTab(this)">
+      <span class="tab-ico">⊗</span>P&amp;L
+    </button>
+  </nav>
+</div>
+
+<script>
+function easeOutExpo(x) { return x === 1 ? 1 : 1 - Math.pow(2, -10 * x); }
+
+function animNum(el, target, ms, prefix='$', dec=0) {
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / ms, 1);
+    const v = target * easeOutExpo(p);
+    el.textContent = prefix + (dec ? v.toFixed(dec) : Math.round(v));
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    animNum(document.getElementById('kpi-profit'), 35.49, 1200, '$', 2);
+    animNum(document.getElementById('kpi-sell'), 52, 900, '$', 0);
+    animNum(document.getElementById('kpi-roi'), 444, 1200, '', 0);
+  }, 500);
+});
+
+function setTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>
