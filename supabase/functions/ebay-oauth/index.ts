@@ -65,6 +65,17 @@ const EBAY_SCOPES = [
   'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly',
 ].join(' ');
 
+function ebayUrls() {
+  const sandbox = Deno.env.get('EBAY_SANDBOX') === 'true';
+  return {
+    auth:     sandbox ? 'https://auth.sandbox.ebay.com/oauth2/authorize'          : 'https://auth.ebay.com/oauth2/authorize',
+    token:    sandbox ? 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'   : 'https://api.ebay.com/identity/v1/oauth2/token',
+    api:      sandbox ? 'https://api.sandbox.ebay.com'                             : 'https://api.ebay.com',
+    identity: sandbox ? 'https://apiz.sandbox.ebay.com/commerce/identity/v1/user/': 'https://apiz.ebay.com/commerce/identity/v1/user/',
+    finding:  sandbox ? 'https://svcs.sandbox.ebay.com/services/search/FindingService/v1' : 'https://svcs.ebay.com/services/search/FindingService/v1',
+  };
+}
+
 async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
@@ -125,7 +136,7 @@ async function handleAuthorize(req: Request, supabase: ReturnType<typeof createC
   );
 
   const state = await signJWT({ sub: userId, nonce }, jwtSecret, 600);
-  const authUrl = 'https://auth.ebay.com/oauth2/authorize'
+  const authUrl = ebayUrls().auth
     + '?client_id=' + encodeURIComponent(clientId)
     + '&response_type=code'
     + '&redirect_uri=' + encodeURIComponent(ruName)
@@ -186,7 +197,7 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
   }
 
   const basicAuth = btoa(`${clientId}:${clientSecret}`);
-  const tokenRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+  const tokenRes = await fetch(ebayUrls().token, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -207,7 +218,7 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
 
   let ebayUsername: string | null = null;
   try {
-    const identityRes = await fetch('https://apiz.ebay.com/commerce/identity/v1/user/', {
+    const identityRes = await fetch(ebayUrls().identity, {
       headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
     });
     if (identityRes.ok) {
@@ -281,7 +292,7 @@ async function getValidEbayToken(
   const clientSecret = Deno.env.get('EBAY_CLIENT_SECRET');
   if (!clientId || !clientSecret || !conn.refresh_token) return null;
 
-  const refreshRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+  const refreshRes = await fetch(ebayUrls().token, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -313,13 +324,14 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   const accessToken = await getValidEbayToken(userId, supabase);
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
 
+  const { api: apiBase, identity: identityUrl, finding: findingUrl } = ebayUrls();
   const ebayHeaders = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
   let active = 0, drafted = 0, sold = 0, clientIdMissing = false;
 
   // Build sku→title map from inventory items
   const titleMap: Record<string, string> = {};
   try {
-    const itemsRes = await fetch('https://api.ebay.com/sell/inventory/v1/inventory_item?limit=200', { headers: ebayHeaders });
+    const itemsRes = await fetch(`${apiBase}/sell/inventory/v1/inventory_item?limit=200`, { headers: ebayHeaders });
     if (itemsRes.ok) {
       const itemsData = await itemsRes.json();
       for (const item of (itemsData.inventoryItems ?? [])) {
@@ -330,7 +342,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
 
   // Pull offers (active + draft listings) and upsert to inventory
   try {
-    const offersRes = await fetch('https://api.ebay.com/sell/inventory/v1/offer?limit=200', { headers: ebayHeaders });
+    const offersRes = await fetch(`${apiBase}/sell/inventory/v1/offer?limit=200`, { headers: ebayHeaders });
     if (offersRes.ok) {
       const offersData = await offersRes.json();
       for (const offer of (offersData.offers ?? [])) {
@@ -397,7 +409,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     // future syncs don't need this fallback.
     if (!sellerName && accessToken) {
       try {
-        const idRes = await fetch('https://apiz.ebay.com/commerce/identity/v1/user/', {
+        const idRes = await fetch(identityUrl, {
           headers: { 'Authorization': `Bearer ${accessToken}` },
         });
         if (idRes.ok) {
@@ -421,7 +433,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       let findingPage = 1;
       let totalFindings = 0;
       while (findingPage <= 2) { // max 200 listings (2 pages × 100)
-        const findUrl = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsAdvanced&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
+        const findUrl = `${findingUrl}?OPERATION-NAME=findItemsAdvanced&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
         const findRes = await fetch(findUrl, { headers: { Accept: 'application/json' } });
         if (!findRes.ok) {
           console.error('ebay finding-api http error:', findRes.status, await findRes.text().catch(() => ''));
@@ -476,7 +488,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   try {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const ordersRes = await fetch(
-      `https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`,
+      `${apiBase}/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`,
       { headers: ebayHeaders },
     );
     if (ordersRes.ok) {
@@ -544,8 +556,9 @@ async function handlePriceChange(req: Request, supabase: ReturnType<typeof creat
   if (!accessToken) return json({ error: 'eBay not connected' }, 400);
 
   // Find offer by SKU
+  const { api: priceApiBase } = ebayUrls();
   const offersRes = await fetch(
-    `https://api.ebay.com/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
+    `${priceApiBase}/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}`,
     { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } },
   );
 
@@ -570,7 +583,7 @@ async function handlePriceChange(req: Request, supabase: ReturnType<typeof creat
   };
 
   const updateRes = await fetch(
-    `https://api.ebay.com/sell/inventory/v1/offer/${offerId}`,
+    `${priceApiBase}/sell/inventory/v1/offer/${offerId}`,
     {
       method: 'PUT',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -597,31 +610,32 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
   if (!item.sell_price) return json({ error: 'Set a sell price before listing on eBay' }, 400);
   const accessToken = await getValidEbayToken(userId, supabase);
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
+  const { api: createApiBase } = ebayUrls();
   const h = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'en-US' };
   const sku = (item.sku as string | null) || `sfp-${item.id}`;
   const title = ((item.listing_title || item.nickname || 'Item for sale') as string).slice(0, 80);
   const desc  = ((item.listing_description || item.notes || title) as string).slice(0, 4000);
   const cond  = EBAY_COND[(item.condition as string) ?? ''] ?? 'USED_GOOD';
   const imgs  = (Array.isArray(item.photos) ? (item.photos as string[]) : []).slice(0, 12);
-  await fetch(`https://api.ebay.com/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
+  await fetch(`${createApiBase}/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
     method: 'PUT', headers: h,
     body: JSON.stringify({ product: { title, description: desc, ...(imgs.length ? { imageUrls: imgs } : {}) }, condition: cond, availability: { shipToLocationAvailability: { quantity: 1 } } }),
   });
-  const locR = await (await fetch('https://api.ebay.com/sell/inventory/v1/location', { headers: h })).json() as Record<string, unknown>;
+  const locR = await (await fetch(`${createApiBase}/sell/inventory/v1/location`, { headers: h })).json() as Record<string, unknown>;
   let locKey = (locR.locations as Array<Record<string, unknown>>)?.[0]?.merchantLocationKey as string | undefined;
   if (!locKey) {
-    await fetch('https://api.ebay.com/sell/inventory/v1/location/sfp-default', { method: 'POST', headers: h, body: JSON.stringify({ merchantLocationStatus: 'ENABLED', name: 'ScanForProfit', location: { address: { country: 'US' } } }) });
+    await fetch(`${createApiBase}/sell/inventory/v1/location/sfp-default`, { method: 'POST', headers: h, body: JSON.stringify({ merchantLocationStatus: 'ENABLED', name: 'ScanForProfit', location: { address: { country: 'US' } } }) });
     locKey = 'sfp-default';
   }
-  const offerListR = await (await fetch('https://api.ebay.com/sell/inventory/v1/offer?limit=1', { headers: h })).json() as Record<string, unknown>;
+  const offerListR = await (await fetch(`${createApiBase}/sell/inventory/v1/offer?limit=1`, { headers: h })).json() as Record<string, unknown>;
   let policies = (offerListR.offers as Array<Record<string, unknown>>)?.[0]?.listingPolicies as Record<string, unknown> | undefined;
 
   if (!policies) {
     // No existing offer to borrow from — fetch policies from Account API directly
     const [ffR, pmR, rtR] = await Promise.all([
-      fetch('https://api.ebay.com/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US', { headers: h }).then(r => r.json()).catch(() => ({})),
-      fetch('https://api.ebay.com/sell/account/v1/payment_policy?marketplace_id=EBAY_US', { headers: h }).then(r => r.json()).catch(() => ({})),
-      fetch('https://api.ebay.com/sell/account/v1/return_policy?marketplace_id=EBAY_US', { headers: h }).then(r => r.json()).catch(() => ({})),
+      fetch(`${createApiBase}/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_US`, { headers: h }).then(r => r.json()).catch(() => ({})),
+      fetch(`${createApiBase}/sell/account/v1/payment_policy?marketplace_id=EBAY_US`, { headers: h }).then(r => r.json()).catch(() => ({})),
+      fetch(`${createApiBase}/sell/account/v1/return_policy?marketplace_id=EBAY_US`, { headers: h }).then(r => r.json()).catch(() => ({})),
     ]) as [Record<string, unknown>, Record<string, unknown>, Record<string, unknown>];
     const ffId = (ffR.fulfillmentPolicies as Array<Record<string, unknown>>)?.[0]?.fulfillmentPolicyId as string | undefined;
     const pmId = (pmR.paymentPolicies as Array<Record<string, unknown>>)?.[0]?.paymentPolicyId as string | undefined;
@@ -631,7 +645,7 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
 
   if (!policies) return json({ error: 'eBay Business Policies not found. In eBay Seller Hub → Account → Business Policies, create at least one Shipping, Payment, and Return policy, then try again.' }, 400);
   const catId = item.ebay_category_id ? String(item.ebay_category_id) : '20082';
-  const offerRes = await fetch('https://api.ebay.com/sell/inventory/v1/offer', {
+  const offerRes = await fetch(`${createApiBase}/sell/inventory/v1/offer`, {
     method: 'POST', headers: h,
     body: JSON.stringify({ sku, marketplaceId: 'EBAY_US', format: 'FIXED_PRICE', availableQuantity: 1, categoryId: catId, listingDescription: desc, listingPolicies: policies, merchantLocationKey: locKey, pricingSummary: { price: { currency: 'USD', value: Number(item.sell_price).toFixed(2) } } }),
   });
@@ -640,7 +654,7 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
     return json({ error: (e.errors as Array<Record<string, unknown>>)?.[0]?.message ?? 'Failed to create eBay offer' }, 502);
   }
   const { offerId } = await offerRes.json() as { offerId: string };
-  const pubRes = await fetch(`https://api.ebay.com/sell/inventory/v1/offer/${offerId}/publish`, { method: 'POST', headers: h });
+  const pubRes = await fetch(`${createApiBase}/sell/inventory/v1/offer/${offerId}/publish`, { method: 'POST', headers: h });
   if (!pubRes.ok) {
     const e = await pubRes.json().catch(() => ({})) as Record<string, unknown>;
     return json({ error: (e.errors as Array<Record<string, unknown>>)?.[0]?.message ?? 'Failed to publish eBay listing' }, 502);
@@ -656,7 +670,8 @@ async function handleSyncOrders(req: Request, supabase: ReturnType<typeof create
   const accessToken = await getValidEbayToken(userId, supabase);
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  const ordersRes = await fetch(`https://api.ebay.com/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
+  const { api: syncApiBase } = ebayUrls();
+  const ordersRes = await fetch(`${syncApiBase}/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
   if (!ordersRes.ok) return json({ error: 'eBay orders API error: ' + ordersRes.status }, 502);
   const { orders = [] } = await ordersRes.json() as { orders?: Array<Record<string, unknown>> };
   const ordersFound = orders.length;
