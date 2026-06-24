@@ -132,16 +132,22 @@ async function handleAuthorize(req: Request, supabase: ReturnType<typeof createC
   const { clientId, ruName } = ebayCreds();
   if (!clientId || !ruName) return json({ error: 'eBay integration is not configured' }, 500);
 
-  // Nonce is stored server-side (DB) rather than in a cookie. Cookies set via
-  // cross-origin fetch() responses are blocked by browsers when CORS uses
-  // Access-Control-Allow-Origin: * (credentials are disallowed in that mode).
+  // Nonce stored in users table — always has a row for any authenticated user.
+  // ebay_connections may not have a row yet (first connect), and its access_token/
+  // refresh_token columns are NOT NULL with no default, so a nonce-only INSERT fails.
+  // users.ebay_oauth_nonce was added in migration 008 and is always safe to UPDATE.
   const nonce = randomHex(16);
   const nonceExpiresAt = new Date(Date.now() + 600_000).toISOString();
 
-  await supabase.from('ebay_connections').upsert(
-    { user_id: userId, oauth_nonce: nonce, oauth_nonce_expires_at: nonceExpiresAt },
-    { onConflict: 'user_id' }
-  );
+  const { error: nonceErr } = await supabase.from('users').update({
+    ebay_oauth_nonce: nonce,
+    ebay_oauth_nonce_expires_at: nonceExpiresAt,
+  }).eq('id', userId);
+
+  if (nonceErr) {
+    console.error('ebay-oauth: nonce store failed', nonceErr);
+    return json({ error: 'Failed to initiate eBay connection. Try again.' }, 500);
+  }
 
   const state = await signJWT({ sub: userId, nonce }, jwtSecret, 600);
   const authUrl = ebayUrls().auth
@@ -170,29 +176,34 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     userId = payload.sub as number;
     const jwtNonce = payload.nonce as string;
 
-    // Verify nonce from DB (CSRF protection). Cookie-based nonces cannot be
-    // used here because the /authorize fetch is cross-origin and browsers
-    // block Set-Cookie from * CORS responses.
-    const { data: nonceRow } = await supabase
-      .from('ebay_connections')
-      .select('oauth_nonce, oauth_nonce_expires_at')
-      .eq('user_id', userId)
+    // Verify nonce from users table (same table used in handleAuthorize).
+    // ebay_connections may not exist yet for this user; users row always exists.
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('ebay_oauth_nonce, ebay_oauth_nonce_expires_at')
+      .eq('id', userId)
       .maybeSingle();
 
-    const storedNonce = nonceRow?.oauth_nonce;
-    const nonceExpiry = nonceRow?.oauth_nonce_expires_at
-      ? new Date(nonceRow.oauth_nonce_expires_at)
+    const storedNonce = userRow?.ebay_oauth_nonce;
+    const nonceExpiry = userRow?.ebay_oauth_nonce_expires_at
+      ? new Date(userRow.ebay_oauth_nonce_expires_at)
       : new Date(0);
 
     if (!storedNonce || storedNonce !== jwtNonce || nonceExpiry < new Date()) {
+      console.error('ebay-oauth: state_mismatch', {
+        hasNonce: !!storedNonce,
+        matches: storedNonce === jwtNonce,
+        expired: nonceExpiry < new Date(),
+        userId,
+      });
       return Response.redirect(`${frontendUrl}/app.html?ebay_error=state_mismatch`, 302);
     }
 
     // Clear nonce — single use only
-    await supabase
-      .from('ebay_connections')
-      .update({ oauth_nonce: null, oauth_nonce_expires_at: null })
-      .eq('user_id', userId);
+    await supabase.from('users').update({
+      ebay_oauth_nonce: null,
+      ebay_oauth_nonce_expires_at: null,
+    }).eq('id', userId);
   } catch {
     return Response.redirect(`${frontendUrl}/app.html?ebay_error=invalid_state`, 302);
   }
@@ -239,8 +250,9 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     console.error('eBay identity lookup failed:', err);
   }
 
-  // Tokens live in ebay_connections, not users
-  await supabase.from('ebay_connections').upsert({
+  // Tokens live in ebay_connections. All NOT NULL columns supplied so INSERT succeeds
+  // for first-time connections (no prior row). username may be null if identity lookup failed.
+  const { error: tokenUpsertErr } = await supabase.from('ebay_connections').upsert({
     user_id: userId,
     access_token: tokenData.access_token,
     refresh_token: tokenData.refresh_token,
@@ -249,6 +261,11 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     ebay_username: ebayUsername,
     connected_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
+
+  if (tokenUpsertErr) {
+    console.error('ebay-oauth: token upsert failed', tokenUpsertErr);
+    return Response.redirect(`${frontendUrl}/app.html?ebay_error=token_save_failed`, 302);
+  }
 
   return Response.redirect(`${frontendUrl}/app.html?ebay_connected=true`, 302);
 }
