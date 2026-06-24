@@ -155,13 +155,9 @@ scanforprofit/
 
 │   │   └── video-assets/          # Rendered mp4s — hosted externally, NOT in git
 
-│   ├── n8n/                   # n8n workflow exports (7 JSONs) — source of truth is n8n.cloud
-
 │   ├── files/                 # Session artifacts and reference docs
-│   │   ├── CHATS.md           # Index of the 6 specialized Claude chat sessions
 │   │   ├── DECISIONS.md       # Locked product/tech decisions — do not relitigate
 │   │   ├── LAUNCH_CHECKLIST.md # Phase 6 launch checklist
-│   │   ├── SCOPE_TEMPLATES.md # Reusable scope/task templates
 │   │   └── product-marketing-context.md # Marketing positioning reference
 
 │   ├── archive/               # Legacy reference docs — do not edit
@@ -232,7 +228,7 @@ Monorepo: pnpm 11 workspaces + Turborepo
 Deploy mobile: EAS Build
 Deploy web: Vercel
 Email: Resend + React Email
-Automation: n8n Cloud (scanforprofit.app.n8n.cloud) — workflow exports in docs/n8n/
+Automation: Supabase Edge Functions (cron + export-reminder) — no n8n
 DNS: Cloudflare
 Design
 Fonts: Syne (headers, numbers) + IBM Plex Mono (labels, data, meta)
