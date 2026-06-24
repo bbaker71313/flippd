@@ -194,6 +194,7 @@ Full agent/dev rules: [`CLAUDE.md`](../CLAUDE.md)
 | [`HANDOFF.md`](HANDOFF.md) | Session log for AI agents |
 | [`BRAND_IDENTITY.md`](BRAND_IDENTITY.md) | Logo, colors, typography |
 | [`CLAUDE.md`](../CLAUDE.md) | Monorepo rules + session protocol |
+| [`files/DOC_PROCESS.md`](files/DOC_PROCESS.md) | Feature PR DoD + monthly doc hygiene checklist |
 
 ---
 
@@ -212,3 +213,4 @@ Full agent/dev rules: [`CLAUDE.md`](../CLAUDE.md)
 | Date | Change |
 |------|--------|
 | 2026-06-24 | Initial version — Phase 2 doc cleanup |
+| 2026-06-24 | Phase 4–5 complete: ARCHITECTURE.md created, marketing docs corrected, DOC_PROCESS.md added |

@@ -4,6 +4,45 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-24 — Doc review Phases 4 & 5 complete
+
+### What changed
+
+- **`docs/files/product-marketing-context.md`** — full rewrite: all FLIP→HOT/LIST/SKIP, web-first platform, correct tier limits (Hustle 250/250), hard WARNING block on speculative metrics, glossary updated
+- **`docs/marketing/directory-copy.md`** — 8 surgical fixes: tier limits, stack description, unverified metrics removed ("47s", "156% ROI"), tab display names corrected
+- **`docs/files/DECISIONS.md`** — 2 fixes: dead research file ref removed, Android/iOS decision marked deferred
+- **`docs/ARCHITECTURE.md`** — new ~1-page standalone architecture reference (live product, stack, edge functions, DB tables, routing, key constraints)
+- **`docs/HANDOFF.md`** — trimmed from 3,310 → 3,082 lines (June 2026 sessions only)
+- **`docs/archive/handoff-pre-june-2026.md`** — new: May 2026 sessions archived
+- **`docs/files/DOC_PROCESS.md`** — new: Phase 5 deliverable — feature PR DoD checklist, monthly hygiene steps (stale-keyword grep, README link check, launch checklist sync), optional CI yaml snippet, file ownership table
+- **`docs/CURRENT_STATE.md`** — added DOC_PROCESS.md to doc index, added Phase 4–5 changelog row
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| `a0f9c36` | chore: remove n8n workflows, CHATS.md, SCOPE_TEMPLATES.md (also captured all Phase 4 doc edits) |
+| (pending) | docs: Phase 5 — DOC_PROCESS.md + CURRENT_STATE update |
+
+### Decisions made (do not reverse)
+
+- HANDOFF.md trim boundary: June 2026 only in active file; May 2026 archived to `docs/archive/handoff-pre-june-2026.md`
+- DOC_PROCESS.md is the canonical home for PR DoD checklist and monthly hygiene — do not duplicate in CLAUDE.md
+
+### Next tasks
+
+1. **Commit Phase 5 files** — `docs/files/DOC_PROCESS.md` + `docs/CURRENT_STATE.md` + `docs/HANDOFF.md`
+2. **Merge PR #125** (eBay state_mismatch fix) — deployed to prod, awaiting CI
+3. **Test eBay connect in sandbox** after merge
+4. **Stripe checkout E2E** — still unverified
+5. **Fix FLIP strings in app.html** — ~5 locations (separate code PR; P1 from DOC_AUDIT)
+
+### Blockers
+
+None for doc work. PR #125 awaiting CI before merge.
+
+---
+
 ## Session: 2026-06-24 — eBay state_mismatch root cause fix (branch: claude/ebay-state-mismatch-fix-gw1pbb)
 
 ### Root causes found and fixed
