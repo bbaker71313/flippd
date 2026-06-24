@@ -1,0 +1,213 @@
+{
+  "name": "SFP — New User Welcome",
+  "nodes": [
+    {
+      "id": "8294ef6e-9c59-4b87-8962-2cd5adec4f2f",
+      "name": "Stripe — New Subscription",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sfp-new-user-welcome",
+        "responseMode": "onReceived"
+      },
+      "webhookId": "b17ea9ff-b879-49a8-86c0-7e1e24ed7b17"
+    },
+    {
+      "id": "319507f6-4f8a-4e64-8c89-7cca01c10dd7",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "evt-type",
+              "name": "eventType",
+              "value": "={{ $json.body?.type ?? $json.type }}",
+              "type": "string"
+            },
+            {
+              "id": "customer-id",
+              "name": "customerId",
+              "value": "={{ $json.body?.data?.object?.customer ?? $json.data?.object?.customer }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f928a997-4045-433e-a963-e35ad244f7a2",
+      "name": "Is Subscription Created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.eventType }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "customer.subscription.created"
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "25450a57-0289-42d4-931b-af715b7d6f08",
+      "name": "Wait 5 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "webhookId": "7c9ce45e-3abc-447c-897e-e36508887509"
+    },
+    {
+      "id": "1ec4f171-a84d-4ffa-a13d-a5a94e483047",
+      "name": "Get Customer from Stripe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.stripe.com/v1/customers/{{ $('Normalize Payload').item.json.customerId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HTKM0UdfK2hTx2hn",
+          "name": "Header Auth account 3"
+        }
+      }
+    },
+    {
+      "id": "b31510c7-caef-46cf-82bb-667ee51101de",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "={{ \"json\" }}",
+        "jsonBody": "={\"from\":\"ScanForProfit <hello@scanforprofit.com>\",\"to\":[\"{{ $json.email }}\"],\"subject\":\"Your ScanForProfit trial starts now\",\"html\":\"<h2>You are in.</h2><p>Your 7-day trial gives you unlimited scans and inventory. Start here:</p><ol><li>Open ScanForProfit and tap Scout</li><li>Point your camera at any shelf item</li><li>Get a FLIP or PASS with profit math in 8 seconds</li></ol><p>After 7 days you drop to the free Scout tier — 25 scans and 10 items per month, no charge. Upgrade any time for unlimited.</p><p>Questions? Reply here.</p>\"}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rKGIJ2QkZqnU0Sjx",
+          "name": "Header Auth account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Stripe — New Subscription": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Is Subscription Created?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Subscription Created?": {
+      "main": [
+        [
+          {
+            "node": "Wait 5 Minutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get Customer from Stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer from Stripe": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

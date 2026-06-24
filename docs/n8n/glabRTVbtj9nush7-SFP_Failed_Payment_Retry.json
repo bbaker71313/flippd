@@ -1,0 +1,469 @@
+{
+  "name": "SFP — Failed Payment Retry",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sfp-failed-payment",
+        "options": {}
+      },
+      "id": "5fbb4073-fe0d-4503-a786-df6f6b625d71",
+      "name": "Stripe — Payment Failed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "d99cd559-1c21-4acf-84d7-30bf50f87b3c"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "evt-type",
+              "name": "eventType",
+              "value": "={{ $json.body?.type ?? $json.type }}",
+              "type": "string"
+            },
+            {
+              "id": "inv-id",
+              "name": "invoiceId",
+              "value": "={{ $json.body?.data?.object?.id ?? $json.data?.object?.id }}",
+              "type": "string"
+            },
+            {
+              "id": "cust-id",
+              "name": "customerId",
+              "value": "={{ $json.body?.data?.object?.customer ?? $json.data?.object?.customer }}",
+              "type": "string"
+            },
+            {
+              "id": "cust-email",
+              "name": "customerEmail",
+              "value": "={{ $json.body?.data?.object?.customer_email ?? $json.data?.object?.customer_email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3eef71fd-331a-4a43-bcbe-f2f4339afe8e",
+      "name": "Normalize Payment Failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.eventType }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "invoice.payment_failed"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f4e7da5f-de67-4f3c-b2e3-879e5b6a2946",
+      "name": "Is Payment Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "={{ \"json\" }}",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={\"from\":\"ScanForProfit <hello@scanforprofit.com>\",\"to\":[\"{{ $json.customerEmail }}\"],\"subject\":\"Payment failed — update your card to keep access\",\"html\":\"<p>Your last payment did not go through. Update your card to keep full access to ScanForProfit.</p><p><a href=\\\"https://billing.stripe.com/p/login/your_portal_link\\\">Update payment method</a></p><p>If you have questions, reply to this email.</p>\"}",
+        "options": {}
+      },
+      "id": "75e6407b-d8f5-424d-85b1-f245b0b981f1",
+      "name": "Send Payment Failed Email 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        672,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rKGIJ2QkZqnU0Sjx",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "days"
+      },
+      "id": "135de6c0-87ba-4a1b-bba4-dc1d5be3764f",
+      "name": "Wait 3 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        0
+      ],
+      "webhookId": "ebea23b3-9c26-44d4-af87-e0b7b41bf6cd"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.stripe.com/v1/invoices/{{ $('Normalize Payment Failed').item.json.invoiceId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "33c017f6-2996-4814-98ab-a8f415ac56fe",
+      "name": "Check Invoice Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1120,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HTKM0UdfK2hTx2hn",
+          "name": "Header Auth account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "open"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e6edfc0d-145e-49d1-ab2e-fb9ddbe159de",
+      "name": "Still Unpaid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "={{ \"json\" }}",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={\"from\":\"ScanForProfit <hello@scanforprofit.com>\",\"to\":[\"{{ $json.customer_email }}\"],\"subject\":\"Still having trouble with your payment\",\"html\":\"<p>Your payment still has not gone through. Your account will be downgraded to the free Scout tier in 4 days if we cannot process payment.</p><p><a href=\\\"https://billing.stripe.com/p/login/your_portal_link\\\">Update payment method</a></p>\"}",
+        "options": {}
+      },
+      "id": "1788f03a-f807-42fe-bc10-f99aed51f429",
+      "name": "Send Payment Failed Email 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1568,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rKGIJ2QkZqnU0Sjx",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "days"
+      },
+      "id": "fa970f50-5060-4c2a-a51c-0afd621e4694",
+      "name": "Wait 4 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        0
+      ],
+      "webhookId": "87bfed85-0ee8-4521-8129-d2f4bbeb236a"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.stripe.com/v1/invoices/{{ $('Normalize Payment Failed').item.json.invoiceId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "9e53b35d-fe31-45eb-a443-aec054ce08a6",
+      "name": "Check Invoice Final",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2016,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rKGIJ2QkZqnU0Sjx",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "open"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "95f34741-c996-40cd-953a-8b3d83af3d91",
+      "name": "Still Unpaid Final?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://dqgfpchkheznvanfgsmx.supabase.co/rest/v1/users?email=eq.{{ $json.customer_email }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "={{ \"json\" }}",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "{\"tier\":\"scout\"}",
+        "options": {}
+      },
+      "id": "9a46a244-efec-4811-8535-04be4f8894a7",
+      "name": "Downgrade to Scout",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2464,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HTKM0UdfK2hTx2hn",
+          "name": "Header Auth account 3"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Stripe — Payment Failed": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payment Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payment Failed": {
+      "main": [
+        [
+          {
+            "node": "Is Payment Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Payment Failed?": {
+      "main": [
+        [
+          {
+            "node": "Send Payment Failed Email 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Payment Failed Email 1": {
+      "main": [
+        [
+          {
+            "node": "Wait 3 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 Days": {
+      "main": [
+        [
+          {
+            "node": "Check Invoice Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Invoice Status": {
+      "main": [
+        [
+          {
+            "node": "Still Unpaid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Unpaid?": {
+      "main": [
+        [
+          {
+            "node": "Send Payment Failed Email 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Payment Failed Email 2": {
+      "main": [
+        [
+          {
+            "node": "Wait 4 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 4 Days": {
+      "main": [
+        [
+          {
+            "node": "Check Invoice Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Invoice Final": {
+      "main": [
+        [
+          {
+            "node": "Still Unpaid Final?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Unpaid Final?": {
+      "main": [
+        [
+          {
+            "node": "Downgrade to Scout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
