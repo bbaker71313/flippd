@@ -1,0 +1,241 @@
+{
+  "name": "SFP — Churn Re-engagement",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "15a47149-dbc0-4c06-88de-813755b95c45",
+      "name": "Daily Churn Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://dqgfpchkheznvanfgsmx.supabase.co/rest/v1/users?tier=in.(hustle,stack,empire)&select=id,email,name,tier",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "13a63603-9ba1-43d0-8e91-eb8888fd0098",
+      "name": "Get Paid Users",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        224,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mamo9gyI6frT6OWz",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "uid",
+              "name": "userId",
+              "value": "={{ $json.id }}",
+              "type": "number"
+            },
+            {
+              "id": "uemail",
+              "name": "userEmail",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "uname",
+              "name": "userName",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "utier",
+              "name": "userTier",
+              "value": "={{ $json.tier }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "15337eec-7a50-4640-b01b-b0bf57cf2a5c",
+      "name": "Preserve User Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://dqgfpchkheznvanfgsmx.supabase.co/rest/v1/scan_log?user_id=eq.{{ $json.userId }}&created_at=gte.{{ $now.minus(14, \"days\").toISO() }}&select=id&limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "1a824d15-6ea5-4ea9-a1a1-5e0e86273df4",
+      "name": "Check Recent Scans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        896,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mamo9gyI6frT6OWz",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $input.all().length }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4a48e33d-f159-4d94-b38f-490bca18fc6c",
+      "name": "No Scans in 14 Days?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "eb20ab5a-e7d3-4b98-bcde-f90bfece2aeb",
+      "name": "Each Paid User",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        80
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Churn Check": {
+      "main": [
+        [
+          {
+            "node": "Get Paid Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Paid Users": {
+      "main": [
+        [
+          {
+            "node": "Each Paid User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preserve User Data": {
+      "main": [
+        [
+          {
+            "node": "Check Recent Scans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Recent Scans": {
+      "main": [
+        [
+          {
+            "node": "No Scans in 14 Days?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Scans in 14 Days?": {
+      "main": [
+        [
+          {
+            "node": "Each Paid User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Each Paid User": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Preserve User Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Daily Churn Check": {
+      "recurrenceRules": []
+    }
+  },
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
