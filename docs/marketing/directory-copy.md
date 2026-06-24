@@ -1,6 +1,6 @@
 # ScanForProfit — Directory Submission Copy
 
-> Source of truth for all directory submissions. Last updated: 2026-05-26.
+> Source of truth for all directory submissions. Last updated: 2026-06-24.
 > Do not invent claims. Do not reuse copy verbatim across tiers.
 > Check forbidden words list before submitting anywhere.
 
@@ -13,7 +13,7 @@
 | App name | ScanForProfit |
 | Domain | scanforprofit.com |
 | Tagline | Scan the shelf. Know what to buy. |
-| Category tags | reseller app, eBay, AI tools, profit calculator, thrift store, inventory tracker, shelf scanner, mobile app, sourcing tool |
+| Category tags | reseller app, eBay, AI tools, profit calculator, thrift store, inventory tracker, shelf scanner, web app, sourcing tool |
 
 ---
 
@@ -31,9 +31,9 @@ AI shelf scanner for eBay resellers. 47s per scan.
 
 Every thrift store trip is a gamble. You pick up an item, guess what it sells for on eBay, and hope you got it right. Most resellers are wrong often enough to leave real money behind.
 
-ScanForProfit fixes that. Point your phone at a shelf. The AI returns a BUY, HOT, or PASS call with profit math done in 47 seconds. Average ROI on BUY decisions: 156%.
+ScanForProfit fixes that. Point your phone at a shelf. The AI returns a HOT, LIST, or SKIP call with profit math in seconds.
 
-Five features cover the full reseller workflow. Scout handles sourcing decisions at the shelf. Inventory tracks everything across categories with status filtering. Listing generates eBay-optimized titles and descriptions from a photo. Trends surfaces stale inventory and hunt list targets. Stats shows your P&L, revenue, and sell-through rate.
+Five features cover the full reseller workflow. Profit Scanner handles sourcing decisions at the shelf. Inventory tracks everything across categories with status filtering. Photos generates eBay-optimized titles and descriptions from a photo. Profit Compass surfaces stale inventory and hunt list targets. Profit Hub shows your P&L, revenue, and sell-through rate.
 
 Free 7-day trial. Scout tier is free forever (25 scans/month). Paid plans start at $19/month. Built for solo eBay resellers sourcing at thrift stores, estate sales, and garage sales.
 
@@ -53,11 +53,11 @@ AI replaces manual eBay price research for resellers.
 
 Before ScanForProfit, sourcing for eBay meant opening the app, searching each item, filtering to sold listings, averaging prices, calculating fees, and repeating that for every item on a shelf. Five minutes per item. One hundred items on a shelf.
 
-ScanForProfit replaces that workflow. The AI handles sold comp research, fee math, and profit calculation in 47 seconds. Average ROI on confirmed BUY decisions is 156%. You get a ranked buy list, not a spreadsheet to interpret.
+ScanForProfit replaces that workflow. The AI handles sold comp research, fee math, and profit calculation in seconds. You get a ranked HOT / LIST / SKIP buy list, not a spreadsheet to interpret.
 
-The app covers five areas most resellers manage across separate tools: sourcing decisions (Scout), inventory tracking (Inventory), listing copy (Listing), stale item detection (Trends), and P&L reporting (Stats).
+The app covers five areas most resellers manage across separate tools: sourcing decisions (Profit Scanner), inventory tracking (Inventory), listing copy (Photos), stale item detection (Profit Compass), and P&L reporting (Profit Hub).
 
-Pricing: 7-day free trial with unlimited scans. Scout tier is free forever at 25 scans/month and 10 inventory items. Hustle plan is $19/month (unlimited scans, 500 items). Stack plan is $49/month (unlimited everything). Empire plan is $199/month for teams of 10.
+Pricing: 7-day free trial with unlimited scans. Scout tier is free forever at 25 scans/month and 10 inventory items. Hustle plan is $19/month (250 scans/month, 250 items). Stack plan is $49/month (unlimited everything). Empire plan is $199/month for teams of 10.
 
 ---
 
@@ -75,9 +75,9 @@ Claude AI turns thrift shelves into profit intelligence.
 
 ScanForProfit runs on Claude Sonnet (Anthropic) applied to a specific niche: helping solo eBay resellers decide what to buy at thrift stores before they buy it.
 
-The app has five AI-assisted features. Scout takes a photo of a shelf or single item and returns a BUY, HOT, or PASS call with eBay sold comp context, fee calculations, and profit math — in 47 seconds. Average ROI on BUY decisions is 156%. Inventory tracks items with status and category filtering. Listing writes eBay-optimized titles and descriptions from a photo. Trends surfaces stale inventory and sourcing targets by category. Stats generates a full P&L dashboard from inventory data.
+The app has five AI-assisted features. Profit Scanner takes a photo of a shelf or single item and returns a HOT, LIST, or SKIP call with eBay sold comp context, fee calculations, and profit math in seconds. Inventory tracks items with status and category filtering. Photos writes eBay-optimized titles and descriptions from a photo. Profit Compass surfaces stale inventory and sourcing targets by category. Profit Hub generates a full P&L dashboard from inventory data.
 
-Built on React Native (Expo SDK 52) for mobile with a Supabase backend. No desktop required. Pricing: free 7-day trial, then Scout (free, 25 scans/month), Hustle ($19/month), Stack ($49/month), or Empire ($199/month for teams).
+Built as a web app at scanforprofit.com/app.html — works from any browser, no install required. Stack: app.html (live web product), Next.js 15 shell on Vercel, Supabase backend, Claude Sonnet (AI). Pricing: free 7-day trial, then Scout (free, 25 scans/month), Hustle ($19/month), Stack ($49/month), or Empire ($199/month for teams).
 
 ---
 
@@ -93,8 +93,8 @@ I built ScanForProfit because I kept losing money at Goodwill. I would pick some
 
 - Copy variants are intentionally distinct. Do not paste Tier 1 copy into a Tier 3 submission.
 - All long descriptions are approximately 150 words. Trim to platform character limits as needed.
-- Pricing is confirmed: Trial (7 days free) / Scout (free, 25 scans/10 items) / Hustle ($19/mo or $180/yr) / Stack ($49/mo or $480/yr) / Empire ($199/mo, 10 seats). Update any older copy that says "validating at $19-$29."
+- Pricing confirmed: Trial (7 days free) / Scout (free, 25 scans/10 items) / Hustle ($19/mo, 250 scans/250 items) / Stack ($49/mo, unlimited) / Empire ($199/mo, 10 seats). Annual pricing vars exist in Supabase but toggle UI is broken — do not publish annual pricing until fixed.
 - Forbidden words: unlock, game-changer, revolutionize, discover, imagine if, transform, secret weapon, hack, crush it, take your reselling to the next level. None appear in the copy above.
-- Real metrics to use: 47s scan time, 156% average ROI, 5 mobile tabs, 4 paid tiers.
-- Stack: React Native + Expo SDK 52 (mobile), Next.js 14 (web), Supabase (backend), Claude Sonnet (AI).
+- Metrics: do NOT use "47s scan time" or "156% average ROI" — both are unverified placeholders. Per DECISIONS.md, no speculative metrics in public copy. Use only: 5 tabs, 4 paid tiers, 25 scans/month free.
+- Stack: app.html (live web product), Next.js 15 on Vercel, Supabase (backend), Claude Sonnet (AI). Mobile (React Native) is not shipped.
 - No em dashes used in any variant.

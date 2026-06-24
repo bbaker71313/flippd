@@ -44,7 +44,7 @@ Add decisions here when something is locked. Reference `docs/DOC_HIERARCHY.md` f
 ### Freemium model with usage-based gates
 **Decision:** Scout (free, limited), Hustle ($19/mo), Stack ($49/mo), Empire ($199/mo).
 **Why:** The value metric is clear — scans per month. Free users who hit the limit have already experienced the value and have a concrete reason to upgrade. Tier names use reseller language, not generic SaaS language.
-**Status:** Model locked. Pricing to be validated with real users via RESEARCH_PRICING_VALIDATION.md.
+**Status:** Model locked. Pricing to be validated with real users (research file not yet created).
 
 ### Compete on shelf scan + integrated workflow, not scan speed
 **Decision:** ScanForProfit's primary differentiators are shelf scan (one photo ranks everything visible) and the integrated workflow (sourcing → inventory → listing → P&L). Not raw speed or barcode support.
@@ -98,6 +98,7 @@ Add decisions here when something is locked. Reference `docs/DOC_HIERARCHY.md` f
 ### Android (Google Play) ships before iOS
 **Decision:** First mobile distribution is Android via EAS Build + Google Play. iOS (App Store) comes after.
 **Why:** Google Play review process is faster and less restrictive for initial launch. Allows real-user testing before the more scrutinous App Store submission.
+**Status:** Deferred — live product is app.html (web). Mobile rebuild not yet started.
 
 ### Source of truth for business logic is ScanForProfit_v5_24.html
 **Decision:** All AI prompts, profit calculations, and business rules are ported from `docs/ScanForProfit_v5_24.html`. Never rewrite from scratch.

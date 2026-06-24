@@ -1,24 +1,25 @@
 # Product Marketing Context — ScanForProfit
 
-*Last updated: May 2026*
+*Last updated: June 2026*
 
 ---
 
 ## Product Overview
 
-**One-liner:** ScanForProfit is the sourcing and tracking app for eBay resellers — scan any item or a full shelf, get an instant FLIP or PASS, and run your whole business from your phone.
+**One-liner:** ScanForProfit is the sourcing and tracking app for eBay resellers — scan any item or a full shelf, get an instant HOT, LIST, or SKIP decision, and run your whole business from your browser.
 
-**What it does:** ScanForProfit lets resellers photograph any item at a thrift store, garage sale, or estate sale and get an AI-powered BUY/PASS decision with real profit math in seconds. It also scans entire shelves at once, ranks every visible item by profit potential, and feeds sourcing decisions directly into a built-in inventory tracker, P&L, and growth insights tool. Everything a reseller needs — sourcing, inventory, listing, tracking, trends — in one app.
+**What it does:** ScanForProfit lets resellers photograph any item at a thrift store, garage sale, or estate sale and get an AI-powered sourcing decision with real profit math in seconds. It also scans entire shelves at once, ranks every visible item by profit potential (HOT → LIST → SKIP), and feeds sourcing decisions directly into a built-in inventory tracker, P&L, and growth insights tool. Everything a reseller needs — sourcing, inventory, listing, tracking, trends — in one app.
 
 **Product category:** Reseller sourcing app / thrift store scanner app (how customers search: "thrift store scanner app," "eBay reseller app," "reseller profit calculator," "thrift store price checker")
 
-**Product type:** Mobile-first native app (React Native + Expo SDK 52) + web app (Next.js 14). Available on Android (Google Play) and iOS (App Store), with web at scanforprofit.com.
+**Product type:** Web app at scanforprofit.com/app.html — works from any browser, no install required. Mobile app is roadmap.
 
 **Business model:** Freemium SaaS
-- **Scout** — Free forever: 25 AI scans/month, 10 inventory items, basic listing generator, eBay export, profit calculator
-- **Hustle** — $19/mo ($15 annual): Unlimited scans, 500 inventory items, full listing generator, eBay + Mercari + Poshmark, P&L dashboard, photo enhancement
-- **Stack** — $49/mo ($39 annual): Everything in Hustle + unlimited inventory, all platforms, AI pricing intelligence, growth agent, bulk listing automation, stale alerts
-- **Empire** — $199/mo (up to 10 seats): Team features, shared inventory, manager dashboard, API access
+- **Trial** — Free for 7 days: unlimited scans and inventory
+- **Scout** — Free forever: 25 AI scans/month, 10 inventory items, listing generator, eBay export, profit calculator
+- **Hustle** — $19/mo: 250 scans/month, 250 inventory items, full listing generator, P&L dashboard, photo enhancement
+- **Stack** — $49/mo: Unlimited scans, unlimited inventory, growth agent, all features
+- **Empire** — $199/mo: Up to 10 seats, team features
 
 *Free tier available — no credit card required.*
 
@@ -26,7 +27,7 @@
 
 ## Target Audience
 
-**Who they are:** Solo resellers and small reselling operations (1–3 people) who source from thrift stores, estate sales, garage sales, and flea markets and sell primarily on eBay, with some cross-listing to Poshmark, Mercari, and Facebook Marketplace.
+**Who they are:** Solo resellers and small reselling operations (1–3 people) who source from thrift stores, estate sales, garage sales, and flea markets and sell primarily on eBay.
 
 **Volume:** Part-time (20–50 items/month) to full-time (200+ items/month).
 
@@ -111,7 +112,7 @@
 
 **How we do it differently:** AI does the identification, pricing research, profit math, and decision — all from a photo. User just takes a picture and reads the answer.
 
-**Why that's better:** 8 seconds vs. 2–5 minutes. Whole shelf vs. one item. One app vs. four apps and two spreadsheets.
+**Why that's better:** Seconds vs. 2–5 minutes per item. Whole shelf vs. one item. One app vs. four apps and two spreadsheets.
 
 **Why customers choose ScanForProfit:**
 - Speed at the shelf — fastest decision possible
@@ -127,10 +128,10 @@
 
 | Objection | Response |
 |-----------|----------|
-| "I already check eBay sold on my phone" | That takes 2–5 min per item. ScanForProfit does it in 8 seconds — including the profit math after fees you'd still have to calculate manually. |
+| "I already check eBay sold on my phone" | That takes 2–5 min per item. ScanForProfit does it in seconds — including the profit math after fees you'd still have to calculate manually. |
 | "I don't want to pay for another app" | Scout tier is free forever. If one good find per month pays for itself, Hustle at $19/mo pays for itself in the first sourcing trip. |
 | "I don't trust AI to get the prices right" | ScanForProfit includes sold comps links so you can verify any result in one tap. The AI is your starting point, not your final word. |
-| "I'm not technical" | There's no setup. Open the app, take a photo, get an answer. No API keys, no spreadsheet imports, no learning curve. |
+| "I'm not technical" | There's no setup. Open the browser, take a photo, get an answer. No API keys, no spreadsheet imports, no learning curve. |
 
 **Anti-personas (not a good fit):**
 - Amazon FBA dropshippers sourcing new products (different workflow entirely — they need Jungle Scout / Helium 10)
@@ -149,7 +150,7 @@
 
 **Pull** (what attracts them to ScanForProfit):
 - Shelf scan — nothing else does this
-- 8-second decisions instead of 5-minute manual searches
+- Fast decisions instead of 5-minute manual searches
 - Finally knowing real profit numbers
 - One app instead of four apps and two spreadsheets
 
@@ -185,10 +186,10 @@
 - "Works for anything, not just stuff with barcodes"
 
 **Words and phrases to USE:**
-- flip, flipping, flipper
+- flip, flipping, flipper (customer vernacular — how resellers talk about buying to resell; not ScanForProfit product terminology)
 - sourcing, sourcing trip, thrifting
 - sold comps, comps
-- BUY / PASS / HOT
+- HOT / LIST / SKIP (product decisions) · HOT / LIST / PASS acceptable in marketing (PASS = SKIP)
 - profit after fees
 - list, listing
 - stale inventory, dead stock
@@ -197,6 +198,7 @@
 - reseller, reselling
 
 **Words and phrases to AVOID:**
+- "FLIP or PASS" as a product decision label (retired; product uses HOT / LIST / SKIP)
 - "AI Reseller OS" (sounds like a developer product)
 - "Growth Agent" (means nothing to a reseller)
 - "Analyze Item" (too technical)
@@ -207,14 +209,15 @@
 **Glossary:**
 | Term | ScanForProfit meaning |
 |------|----------------|
-| Scout | The sourcing/scanning tab (also free tier name) |
-| Flip | A good buy — item worth purchasing to resell |
-| Pass | Skip it — not worth buying |
+| Profit Scanner | The sourcing/scanning tab — scan one item or a full shelf |
 | HOT | High priority buy — projected ROI > 150% |
+| LIST | Worth listing — projected ROI above your threshold |
+| SKIP | Pass on it — not worth buying at this price |
 | Comps | Comparable sold listings on eBay |
-| Shelf scan | One photo of a whole shelf → every item ranked |
+| Shelf scan | One photo of a whole shelf → every item ranked HOT → LIST → SKIP |
 | Hunt list | AI-generated list of items to look for this week |
-| Stale | Inventory item listed 30+ days without selling |
+| Stale | Inventory item listed without selling past your max-days threshold |
+| flip / flipper | Customer slang for buying to resell — acceptable in marketing copy directed at resellers; not used in product UI |
 
 ---
 
@@ -229,7 +232,7 @@
 **Examples of on-brand copy:**
 - "Scan the shelf. Know what to buy."
 - "Stop leaving money on the floor."
-- "FLIP or PASS in 8 seconds."
+- "HOT, LIST, or SKIP in seconds."
 - "Finally know what you actually made."
 
 **Examples of off-brand copy:**
@@ -241,23 +244,25 @@
 
 ## Proof Points
 
-**Metrics (from landing page — verify before using publicly):**
+> ⚠️ **WARNING — DO NOT USE PUBLICLY:** All metrics and testimonials below are speculative placeholders written pre-launch. Per `docs/files/DECISIONS.md` ("No fake metrics or testimonials in any copy"), none of these may appear in any public-facing copy. Replace with verified claims from real users before publishing.
+
+**Placeholder metrics (unverified):**
 - $0 → $800 avg weekly profit, active users
 - 12 seconds to generate a full listing
 - Replaces 4+ separate tools
 - Average scan time: under 8 seconds
 
-**Testimonials (from landing page):**
+**Placeholder testimonials (unverified):**
 > "I used to spend 20 minutes writing one listing. Now I do it in under a minute. I've listed more in the last two weeks than the entire previous month." — @thriftqueenATL, eBay, 200+ items/month
 
 > "The shelf scan is insane. I walked through an estate sale and had a buy list in 3 minutes. Bought $180 worth of stuff that should sell for over $900." — @flippin_marcus, multi-platform, full-time reseller
 
 > "Finally I know what I actually made. I always had a rough idea but ScanForProfit showed me I was underpricing electronics by like 30%. Changed my whole strategy." — @thatvintageguy, eBay, electronics specialist
 
-**Value themes:**
+**Value themes (safe to use — factual):**
 | Theme | Proof |
 |-------|-------|
-| Speed at the shelf | 8-second scan vs. 2–5 min manual research |
+| Speed at the shelf | Seconds vs. 2–5 min manual research per item |
 | Shelf scan is unique | No competitor offers whole-shelf AI ranking |
 | Real profit numbers | P&L tracker with configurable fee structure |
 | Replaces the whole stack | Sourcing + inventory + listing + P&L in one app |
@@ -266,13 +271,13 @@
 
 ## Goals
 
-**Business goal:** Get to 500 early access users, validate the free-to-paid conversion rate, then open public launch with the freemium model.
+**Business goal:** Get to 500 active users, validate the free-to-paid conversion rate, then open public launch with the freemium model.
 
 **Key conversion actions:**
 1. New user: complete first scan (aha moment)
 2. Returning user: add first item to inventory after a scan
 3. Paid conversion: hit the free tier scan limit and upgrade to Hustle
 
-**Current stage:** Beta. App in active development. No API key required — AI calls are handled server-side via Supabase Edge Functions.
+**Current stage:** Pre-launch. App live at scanforprofit.com/app.html. No API key required — AI calls are handled server-side via Supabase Edge Functions.
 
 **North Star metric:** Scans completed per user per week (indicates active sourcing use, correlates with retention and paid conversion).
