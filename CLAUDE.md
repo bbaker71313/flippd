@@ -69,7 +69,7 @@ scanforprofit/
 
 ├── apps/
 
-│   ├── mobile/                    # React Native + Expo (ships first)
+│   ├── mobile/                    # React Native + Expo (not shipped — reference scaffold only)
 
 │   │   ├── app/                   # Expo Router screens
 
@@ -99,13 +99,13 @@ scanforprofit/
 
 │   │   └── eas.json
 
-│   ├── web/                       # Next.js 14 App Router
+│   ├── web/                       # Next.js 15 App Router
 
 │   │   ├── public/                # LIVE static files served by Vercel
 
 │   │   │   ├── index.html         # Marketing homepage — served at / via next.config.js rewrite
 
-│   │   │   ├── app.html           # Web app — rebranded Flippd HTML; live at /app.html
+│   │   │   ├── app.html           # Web app — live product at /app.html
 
 │   │   │   ├── privacy.html, terms.html
 
@@ -206,20 +206,20 @@ will be rebuilt using app.html as its source reference. The Next.js App Router c
 (apps/web/app/) are in-progress shells — not yet live. Do not treat page.tsx as the
 source of truth for any UI or business logic. Use apps/web/public/app.html instead.
 
-Framework: Next.js 14 App Router (shell only — / served by public/index.html via rewrite)
+Framework: Next.js 15 App Router (shell only — / served by public/index.html via rewrite)
 Language: TypeScript (strict mode)
 Styling: Tailwind CSS + shadcn/ui
 Auth: @supabase/ssr (cookie-based)
 Backend / Database
 Platform: Supabase (project: dqgfpchkheznvanfgsmx)
 Database: PostgreSQL 17
-Edge Functions: Deno / TypeScript (replacing Replit backend)
+Edge Functions: Deno / TypeScript
 Auth: Supabase Auth — email verification + username/password
 AI proxy: Edge Function calls Anthropic API server-side
 Payments
 Platform: Stripe
 Tiers: Scout (free) · Hustle ($19/mo) · Stack ($49/mo) · Empire ($199/mo)
-Billing: Monthly only — annual plans not yet available. Do not show annual toggle or yearly pricing anywhere.
+Billing: Annual pricing vars set in Supabase; toggle UI broken in app.html — fix pending. Do not add new annual UI until fixed.
 Video Ads
 Framework: Remotion 4 (@sfp/video)
 Compositions: HeroVideo, SquareAd, StoryAd, TikTokAd, YouTubePreroll
@@ -345,13 +345,13 @@ Store: UTC ISO 8601
 Display: convert to local time at UI layer only
 
 
-📱 Mobile Tab Structure (5 tabs — never add, rename, or remove)
+📱 Tab Structure (5 tabs — never add, rename, or remove)
 Tab | Label in App (display) | Tab ID | Feature
-Scanner |PROFIT SCANNER | tab-scanner | Profit Scanner — single item + shelf scan mode
-Inventory | INVENTORY | tab-inventory | Add/edit/delete items, status tracking, photos
-Photos | PHOTOS | tab-photo | AI listing generator, photo management, CSV export
-Trends | PROFIT COMPASS | tab-pulse | Growth Agent — weekly business brief
-Dash | PROFIT HUB | tab-pnl | P&L dashboard, expenses, mileage
+Scanner | PROFIT SCANNER | sourcing | Profit Scanner — single item + shelf scan mode
+Inventory | INVENTORY | inventory | Add/edit/delete items, status tracking, photos
+Photos | PHOTOS | photo | AI listing generator, photo management, CSV export
+Trends | PROFIT COMPASS | growth | Growth Agent — weekly business brief
+Dash | PROFIT HUB | dashboard | P&L dashboard, expenses, mileage
 
 
 🤖 AI Prompts 
@@ -384,6 +384,10 @@ stripe-checkout
 Stripe Checkout session creation (returns { url })
 ebay-oauth
 eBay OAuth flow — /authorize, /callback, /status, /disconnect
+export-reminder
+Scheduled export reminder emails
+cron
+Scheduled background jobs
 
 Rules:
 
@@ -483,7 +487,7 @@ Hardcoding fee percentages — always from user settings via ebayFee param
 Hardcoding mileage rate or tax reserve — always configurable in settings
 Using magic link auth — it was removed. Email verification + password only
 Rewriting AI prompts — port them verbatim from FEATURE_TRIAGE.md
-Adding a 6th tab — 5 tabs only: Scanner (PROFIT SCANNER), Inventory (INVENTORY), Photos (PHOTOS), Trends (PROFIT COMPASS), Dash (PROFIT HUB)
+Adding a 6th tab — 5 tabs only: sourcing (PROFIT SCANNER), inventory (INVENTORY), photo (PHOTOS), growth (PROFIT COMPASS), dashboard (PROFIT HUB)
 Calling Anthropic API from client — always via Supabase Edge Function
 Using StyleSheet in React Native — NativeWind classes only
 Using <form> tags — use onClick/onChange handlers
@@ -522,7 +526,7 @@ Expo Router: https://expo.github.io/router/docs
 NativeWind: https://www.nativewind.dev/v4/overview
 EAS Build: https://docs.expo.dev/build/introduction
 Stripe React Native: https://stripe.com/docs/stripe-js/react-native
-Next.js 14: https://nextjs.org/docs
+Next.js 15: https://nextjs.org/docs
 eBay Developer Portal: https://developer.ebay.com/develop/apis
 
 
