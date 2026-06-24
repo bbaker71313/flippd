@@ -10,7 +10,7 @@ import { AppState }               from '../../state/AppState.js';
 import { savePhotos, loadPhotos } from '../../services/storage/idb.js';
 import { editItem }               from '../../features/inventory.js';
 import { showToast }              from '../components/Toast.js';
-import { html, mount, trust }     from '../util/esc.js';
+import { html, mount, trust } from '../util/esc.js';
 
 // ── Module-local state ────────────────────────────────────────────────────
 
@@ -22,6 +22,38 @@ let paTargetItemId = null;
 let _paCropState = null;
 let _fsPinchDist = 0;
 let _fsScale     = 1;
+
+// ── One-time event wiring ─────────────────────────────────────────────────
+
+/**
+ * Wire delegated click listeners on the photo containers.
+ * Call once after the Photos tab DOM is in the document.
+ * Uses data-pa-idx / data-pa-del / data-pa-rm attributes so that
+ * render functions never embed onclick attributes with dynamic content.
+ */
+export function initPhotoAgentListeners() {
+  const thumbsEl = document.getElementById('pa-thumbs');
+  if (thumbsEl) {
+    thumbsEl.addEventListener('click', e => {
+      const delBtn = e.target.closest('[data-pa-del]');
+      const thumb  = e.target.closest('[data-pa-idx]');
+      if (delBtn) {
+        e.stopPropagation();
+        paDeletePhoto(parseInt(delBtn.dataset.paDel, 10));
+      } else if (thumb) {
+        paSelectPhoto(parseInt(thumb.dataset.paIdx, 10));
+      }
+    });
+  }
+
+  const existingEl = document.getElementById('pa-existing-photos');
+  if (existingEl) {
+    existingEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-pa-rm]');
+      if (btn) paRemoveExisting(parseInt(btn.dataset.paRm, 10));
+    });
+  }
+}
 
 // ── Dropdown population ───────────────────────────────────────────────────
 
@@ -68,10 +100,12 @@ export function paLoadItem(id) {
   const item = getItems().find(i => i.id == id);
   if (!el) return;
   if (item?.photos?.length) {
+    // data-pa-rm carries the numeric index — the delegated listener in
+    // initPhotoAgentListeners() reads it and calls paRemoveExisting(). No onclick attribute.
     mount(el, html`${item.photos.map((p, idx) => html`
       <div style="position:relative">
         <img src="${p}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
-        <button onclick="${trust(`App.photos.removeExisting(${idx})`)}" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 4px;cursor:pointer">×</button>
+        <button data-pa-rm="${idx}" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 4px;cursor:pointer">×</button>
       </div>`)}`);
   } else {
     el.textContent = 'No photos yet';
@@ -139,10 +173,12 @@ export function paRenderThumbs() {
   if (countEl) countEl.textContent = `${paPhotos.length} photo${paPhotos.length !== 1 ? 's' : ''}`;
   const thumbsEl = document.getElementById('pa-thumbs');
   if (!thumbsEl) return;
+  // data-pa-idx / data-pa-del carry numeric indices only.
+  // Clicks are handled by the delegated listener in initPhotoAgentListeners() — no onclick.
   mount(thumbsEl, html`${paPhotos.map((p, i) => html`
-    <div class="pa-thumb${i === paActiveIdx ? ' active' : ''}" onclick="${trust(`App.photos.selectPhoto(${i})`)}" role="button" tabindex="0">
+    <div class="pa-thumb${i === paActiveIdx ? ' active' : ''}" data-pa-idx="${i}" role="button" tabindex="0">
       <img src="${p.original}">
-      <button class="pa-thumb-del" onclick="${trust(`event.stopPropagation();App.photos.deletePhoto(${i})`)}"></button>
+      <button class="pa-thumb-del" data-pa-del="${i}"></button>
     </div>`)}`);
 }
 
