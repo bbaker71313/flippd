@@ -4,6 +4,58 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-24 — eBay state_mismatch root cause fix (branch: claude/ebay-state-mismatch-fix-gw1pbb)
+
+### Root causes found and fixed
+
+**Bug 1 — state_mismatch on every connect attempt (critical)**
+
+`handleAuthorize` upserted only `{ user_id, oauth_nonce, oauth_nonce_expires_at }` into `ebay_connections`. With 0 rows in the table (first connect), this is an INSERT that fails because `access_token`, `refresh_token`, `expires_at`, `refresh_expires_at` are all NOT NULL with no default. Error was silently swallowed. Callback read null nonce → state_mismatch every time.
+
+**Bug 2 — ebay_connections always empty / username always null**
+
+Because Bug 1 prevented the callback from passing nonce verification, the final token upsert (which supplies all NOT NULL fields) was never reached. Tokens were never written. This is why repeated connects never populated the table.
+
+### Fix
+
+Moved nonce storage from `ebay_connections` to `users` table (`ebay_oauth_nonce` / `ebay_oauth_nonce_expires_at` added in migration 008). A `users` row always exists for any authenticated user — no NOT NULL constraint problem. Final token upsert to `ebay_connections` is unchanged and supplies all required columns, so first-time INSERT now works.
+
+Also added explicit error propagation: nonce store failure returns 500, token upsert failure redirects with `ebay_error=token_save_failed`, state_mismatch logs `hasNonce`/`matches`/`expired`/`userId` to Supabase logs.
+
+### Deployment
+
+- `ebay-oauth` v63 deployed to production (`dqgfpchkheznvanfgsmx`) — ACTIVE ✅
+- PR #125 open (draft): https://github.com/bbaker71313/scanforprofit/pull/125
+
+### Files changed
+
+- `supabase/functions/ebay-oauth/index.ts` — nonce stored in users table, error checking added
+- `docs/HANDOFF.md` — this file
+
+### Commit
+
+`7617fc7`
+
+### Next tasks
+
+1. **Merge PR #125** once CI passes — connect flow should work end-to-end after merge
+2. **Test eBay connect in sandbox** — Settings → eBay → Connect eBay Account → should return `?ebay_connected=true` and populate `ebay_connections` row
+3. **Username investigation** — if `ebay_username` is still null after connect, check Supabase logs for "eBay identity lookup non-ok" to see what the sandbox identity API returns
+4. **Stripe checkout verification** — still not verified
+5. **PostHog events** — still not verified
+6. **Sentry zero-error audit** — still not verified
+
+### Decisions made (do not reverse)
+
+- OAuth nonce for eBay flow MUST be stored in `users` table, not `ebay_connections`. The `ebay_connections` table has NOT NULL token columns that make a nonce-only INSERT impossible for first-time users.
+- `ebay_connections` is still the canonical store for eBay tokens (access_token, refresh_token, etc.) — that hasn't changed.
+
+### Blockers
+
+- None. Fix deployed. Awaiting PR #125 CI and merge.
+
+---
+
 ## Session: 2026-06-23 — eBay connect CSRF nonce fix (branch: claude/ebay-connect-issue-jf5i2c)
 
 ### Root cause identified
