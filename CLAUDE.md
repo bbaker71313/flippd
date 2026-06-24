@@ -8,7 +8,7 @@ Read these files in order before doing anything:
 docs/HANDOFF.md — what changed last session, current state
 docs/FEATURE_TRIAGE.md — what to port vs build vs defer
 
-Do NOT create duplicate files. Do NOT recreate files that already exist — update them. Update docs/HANDOFF.md at the end of every session.
+Do NOT create duplicate files. Do NOT recreate files that already exist — update them. Update docs/HANDOFF.md after every github commit
 
 
 SESSION START — MANDATORY VERIFICATION (do not skip, do not reorder)
@@ -54,9 +54,9 @@ STOP RULE: If any check produces unexpected output, do not continue. Document th
 
 
 🗂️ Project Overview
-ScanForProfit is a mobile-first AI-powered sourcing and profit intelligence tool for solo eBay resellers. Point your phone at any thrift store shelf, get instant FLIP/PASS decisions with real profit math, track inventory, generate eBay listings with AI, and receive weekly business intelligence from the Growth Agent.
+ScanForProfit is a web-first AI-powered sourcing and profit intelligence tool for solo eBay resellers. Scan any item or shelf photo, get instant HOT/LIST/SKIP decisions with real profit math, track inventory, generate eBay listings with AI, and receive weekly business intelligence from the Growth Agent. Live at scanforprofit.com/app.html. Mobile app is roadmap.
 
-Target user: Solo reseller sourcing from thrift stores, garage sales, estate sales. Needs: AI sourcing decisions, inventory tracking, profit math, listing generation, and growth insights — all from a phone.
+Target user: Solo reseller sourcing from thrift stores, garage sales, estate sales. Needs: AI sourcing decisions, inventory tracking, profit math, listing generation, and growth insights — from any browser.
 
 Primary platform: eBay. Future: Poshmark, Mercari, Facebook Marketplace.
 
@@ -252,7 +252,7 @@ type ItemCondition = 'New' | 'Like New' | 'Open Box' | 'Good' | 'Used' | 'Fair' 
 
 type ItemStatus = 'Unlisted' | 'Listed' | 'Sold' | 'Ready to Export'
 
-type ScanDecision = 'BUY' | 'HOT' | 'PASS'
+type ScanDecision = 'HOT' | 'LIST' | 'SKIP'
 
 type SourcingStyle = 'conservative' | 'balanced' | 'aggressive'
 Tier Limits
@@ -275,7 +275,7 @@ empire
 Unlimited
 Unlimited (10 seats)
 
-DEFAULTS (from Flippd — never hardcode these)
+DEFAULTS (never hardcode these)
 ebayFee: 13        // configurable — never hardcode
 
 pkgCost: 1.25      // configurable
@@ -294,7 +294,7 @@ shipCost: 6.00     // configurable
 
 taxReservePct: 0.25 // configurable — never hardcode
 
-mileageRate: 0.67  // IRS rate — configurable — never hardcode
+mileageRate: 0.72  // IRS rate — configurable — never hardcode
 Supabase Tables
 users, inventory, scan_log, settings, pnl_expenses, growth_cache
 
@@ -315,7 +315,7 @@ Non-negotiable. Getting these wrong breaks profit math.
 Fee Calculation
 eBay fee is always user-configurable. Never hardcode. Logic lives in packages/shared/src/utils/calcProfit.ts only.
 
-// Always use these exact parameter names — matches Flippd
+// Always use these exact parameter names
 
 interface CalcProfitInput {
 
@@ -330,10 +330,10 @@ interface CalcProfitInput {
   ebayFee: number    // percentage — from user settings, never hardcoded
 
 }
-Sourcing Decision Logic (from Flippd — port verbatim)
+Sourcing Decision Logic 
 HOT = projected ROI > 150% AND high confidence
-BUY = projected ROI > targetRoi (user-configurable) AND reasonable confidence
-PASS = everything else
+LIST = projected ROI > targetRoi (user-configurable) AND reasonable confidence
+SKIP = everything else
 Style modifier: conservative (+20% ROI threshold), aggressive (-20%)
 Currency Rules
 Store: numbers in DB (dollars, 2 decimal places)
@@ -346,14 +346,14 @@ Display: convert to local time at UI layer only
 
 📱 Mobile Tab Structure (5 tabs — never add, rename, or remove)
 Tab | Label in App (display) | Tab ID | Feature
-Scanner | SCANNER | tab-scanner | Profit Scanner — single item + shelf scan mode
+Scanner |PROFIT SCANNER | tab-scanner | Profit Scanner — single item + shelf scan mode
 Inventory | INVENTORY | tab-inventory | Add/edit/delete items, status tracking, photos
 Photos | PHOTOS | tab-photo | AI listing generator, photo management, CSV export
-Trends | PULSE | tab-pulse | Growth Agent — weekly business brief
-Dash | P&L | tab-pnl | P&L dashboard, expenses, mileage
+Trends | PROFIT COMPASS | tab-pulse | Growth Agent — weekly business brief
+Dash | PROFIT HUB | tab-pnl | P&L dashboard, expenses, mileage
 
 
-🤖 AI Prompts (port verbatim from Flippd — never rewrite)
+🤖 AI Prompts 
 All AI prompts live in docs/FEATURE_TRIAGE.md under "Port Directly". When implementing any AI feature, extract the exact prompt from FEATURE_TRIAGE.md. Do NOT rewrite, summarize, or improve the prompts — they are tested and trusted.
 
 Key prompts documented in FEATURE_TRIAGE.md:
@@ -481,7 +481,7 @@ Hardcoding fee percentages — always from user settings via ebayFee param
 Hardcoding mileage rate or tax reserve — always configurable in settings
 Using magic link auth — it was removed. Email verification + password only
 Rewriting AI prompts — port them verbatim from FEATURE_TRIAGE.md
-Adding a 6th tab — 5 tabs only: Scanner (SCANNER), Inventory (INVENTORY), Photos (PHOTOS), Trends (PULSE), Dash (P&L)
+Adding a 6th tab — 5 tabs only: Scanner (PROFIT SCANNER), Inventory (INVENTORY), Photos (PHOTOS), Trends (PROFIT COMPASS), Dash (PROFIT HUB)
 Calling Anthropic API from client — always via Supabase Edge Function
 Using StyleSheet in React Native — NativeWind classes only
 Using <form> tags — use onClick/onChange handlers
@@ -528,7 +528,7 @@ eBay Developer Portal: https://developer.ebay.com/develop/apis
 
 ARCHITECTURE NOTE (2026-06-17): The React Native mobile app built in Phase 04 was
 scrapped — the output was unusable. The live product is apps/web/public/app.html
-(rebranded Flippd HTML, live at scanforprofit.com/app.html). This is the source of
+(Live at scanforprofit.com/app.html). This is the source of
 truth for all business logic. The mobile app will be rebuilt using app.html as reference.
 See docs/playbook.html for the full master playbook and current task status.
 

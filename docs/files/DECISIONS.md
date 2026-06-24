@@ -2,16 +2,35 @@
 
 Key product, technical, and business decisions with reasoning.
 This file exists so future sessions don't relitigate settled decisions.
-Add decisions here when something is locked. Reference CLAUDE.md for implementation rules.
+Add decisions here when something is locked. Reference `docs/DOC_HIERARCHY.md` for which doc wins when sources disagree. Reference `CLAUDE.md` for implementation rules.
 
 ---
 
 ## Product Decisions
 
-### 5 tabs: Scout / Inventory / Listing / Trends / Stats
-**Decision:** 5 tabs only. Never add, rename, or remove.
-**Why:** Matches the reseller's mental model: find it (Scout), track it (Inventory), list it (Listing), study the market (Trends), count the money (Stats). Every action a reseller takes maps to one of these.
-**Do not add a 6th tab** without explicit justification and Britt's approval.
+### Scan decision labels: HOT / LIST / SKIP
+**Decision:** In-app scan outcomes are **HOT**, **LIST**, and **SKIP** — not FLIP, not PASS.
+**Why:** FLIP was retired in the 2026 rebrand. The live app (`app.html`) implements three tiers: HOT (high-demand buy-now), LIST (worth listing), SKIP (pass on it). Shelf scan sorts HOT → LIST → SKIP.
+**Marketing shorthand:** "LIST or SKIP" is acceptable in landing copy as plain English for the binary sourcing question, but PASS always maps to SKIP in product UI and docs. Never use FLIP in new user-facing copy.
+**Do not revert** to FLIP/PASS without explicit product approval.
+
+### No app access codes — email registration only
+**Decision:** There are no early-access codes, invite codes, or gatekeeper passwords for the app.
+**How users get in:** Go to `scanforprofit.com/app.html` → Sign Up → verify email → log in with password. Session is a JWT stored client-side.
+**Waitlist vs app access:** The landing page "Get early access" CTA captures waitlist emails — that is **not** an app unlock code. Do not document or build access-code flows.
+**Legacy:** Pre-JWT access codes are rejected at session restore. One stale toast ("Access code required") remains in `app.html` — tracked in `docs/DOC_AUDIT.md` for cleanup.
+
+### Live product is the web app (app.html), not the RN scaffold
+**Decision:** The shipped product is `apps/web/public/app.html` at `/app.html`. The Expo mobile app in `apps/mobile/` is a future rebuild reference — not live, not authoritative for feature status.
+**Why:** Phase 04 RN output was scrapped (2026-06-17). All feature truth audits start from `app.html` + Supabase edge functions.
+**Do not mark mobile features as "complete"** in docs unless the mobile app is actually shipped.
+
+### 5 tabs — IDs fixed, display names evolved
+**Decision:** 5 tabs only. Never add a 6th without explicit justification and Britt's approval.
+**Tab IDs (code):** `sourcing` · `inventory` · `photo` · `growth` · `dashboard`
+**Display names (live app, 2026-06-24):** Profit Scanner · Inventory · Photos · Profit Compass · Profit Hub
+**Why:** Matches the reseller workflow: scan → track → photos/listings → market pulse → P&L hub. Display names may evolve; tab IDs must not change without a migration plan.
+**Do not relitigate** the 5-tab structure. Update copy to match live labels when docs disagree.
 
 ### eBay fee is configurable, never hardcoded
 **Decision:** eBay fee percentage is always from user settings (`ebayFee`). Default 13%. Never hardcode.
@@ -37,7 +56,7 @@ Add decisions here when something is locked. Reference CLAUDE.md for implementat
 
 ### Supabase Edge Functions replace Replit backend entirely
 **Decision:** All backend logic runs in Supabase Edge Functions (Deno/TypeScript). The old Replit backend is decommissioned.
-**Functions:** `claude-proxy`, `auth`, `stripe-webhook`, `stripe-checkout`, `ebay-oauth`. No others.
+**Functions (7 deployed):** `claude-proxy`, `auth`, `stripe-webhook`, `stripe-checkout`, `ebay-oauth`, `export-reminder`, `cron`.
 **Why:** Supabase is already the database and auth provider. Consolidating removes a dependency, improves latency, and keeps all secrets in one place.
 **Do not reference:** `flippd-backend.bbaker71313.repl.co` or any Replit URL. Dead.
 
@@ -64,7 +83,7 @@ Add decisions here when something is locked. Reference CLAUDE.md for implementat
 **Decision:** These values are always from user settings or constants files, never hardcoded inline:
 - `ebayFee` (default 13%)
 - `taxReservePct` (default 0.25)
-- `mileageRate` (default 0.67 — IRS rate)
+- `mileageRate` (default 0.72 — IRS rate)
 - Tier scan limits
 **Why:** User contexts vary. Hardcoding creates incorrect math for many users and makes the app feel broken.
 

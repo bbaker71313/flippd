@@ -215,10 +215,11 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 ### F-23 — Server Sync (cross-device inventory)
 - **Tab:** n/a — background
 - **Functions:** `syncFromServer()` (L2089), `pushItemToServer()` (L2112), `updateItemOnServer()` (L2126), `deleteItemFromServer()` (L2140), `itemForServer()` (L2073), `mergeServerItem()` (L2079)
-- **API_BASE:** `'https://flippd-backend.replit.app'` (⚠️ hardcoded)
+- **API_BASE:** `'https://flippd-backend.replit.app'` (⚠️ hardcoded in legacy source)
 - **Auth:** `Authorization: Bearer {jwt}`
 - **Logic:** Server wins on metadata, local wins on photos. Only metadata synced (no base64 photos).
 - **~Lines:** 2068–2151
+- ✅ **REPLACED in live app:** All server sync via Supabase (`inventory` table + RLS). Replit backend retired. `API_BASE` no longer used — all calls go through `SUPABASE_URL` + anon key.
 
 ### F-24 — P&L Tracker
 - **Tab:** P&L (sub-screen of Stats/Dashboard)
@@ -429,8 +430,9 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 ### F-43 — eBay Connect / Disconnect / Sync
 - **Tab:** Sourcing → Settings sub-view
 - **Functions:** `ebayConnect()` (L4052), `ebayDisconnect()` (L4074), `checkEbayStatus()` (L4097), `checkEbayOAuthCallback()` (L4130), `showEbaySyncPanel()` (L4143), `ebayPullListings()` (L4166), `runEbaySyncPull()` (L4214)
-- ⚠️ **Hardcoded eBay client ID:** `'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c'` (L4054) — must change for ScanForProfit
-- ⚠️ **Hardcoded redirect URI:** `'https://flippd-backend.replit.app/ebay/oauth/callback'` (L4055) — must change
+- ⚠️ **Hardcoded eBay client ID:** `'Brittany-Flippd-PRD-67b75c3f4-fb4ff30c'` (L4054) — legacy source only
+- ⚠️ **Hardcoded redirect URI:** `'https://flippd-backend.replit.app/ebay/oauth/callback'` (L4055) — legacy source only
+- ✅ **REPLACED in live app:** `ebay-oauth` Edge Function uses `ebayCreds()` helper — sandbox/prod credentials read from Supabase secrets, callback URL is `SUPABASE_URL/functions/v1/ebay-oauth/callback`.
 - **Scopes:** inventory, account, fulfillment, finances, identity.readonly
 - **Sync periods:** 30 / 60 / 90 days
 - **~Lines:** 4048–4215
