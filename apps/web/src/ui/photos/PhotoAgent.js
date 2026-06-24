@@ -31,22 +31,28 @@ export function populatePaDropdown() {
   const activeCats = [...new Set(
     getItems().filter(i => i.status !== 'Sold').map(i => i.category)
   )].sort();
-  catSel.innerHTML = '<option value="">Select category</option>'
-    + activeCats.map(c => `<option value="${c}">${c}</option>`).join('');
+  mount(catSel, html`
+    <option value="">Select category</option>
+    ${activeCats.map(c => html`<option value="${c}">${c}</option>`)}`);
   const itemSel = document.getElementById('pa-inv-select');
   if (itemSel) {
     itemSel.style.display = 'none';
-    itemSel.innerHTML = '<option value="">Select item</option>';
+    mount(itemSel, html`<option value="">Select item</option>`);
   }
 }
 
 export function paFilterByCategory(cat) {
   const itemSel = document.getElementById('pa-inv-select');
-  if (!cat) { if (itemSel) { itemSel.style.display = 'none'; itemSel.innerHTML = '<option value="">Select item</option>'; } return; }
+  if (!cat) {
+    if (itemSel) { itemSel.style.display = 'none'; mount(itemSel, html`<option value="">Select item</option>`); }
+    return;
+  }
   const filtered = getItems().filter(i => i.category === cat && i.status !== 'Sold');
   if (!itemSel) return;
-  itemSel.innerHTML = '<option value="">Select item</option>'
-    + filtered.map(i => `<option value="${i.id}">${i.nickname} (${i.sku || 'no SKU'})</option>`).join('');
+  // Item IDs are numbers; nicknames/SKUs are user/AI text — use html`` to escape them.
+  mount(itemSel, html`
+    <option value="">Select item</option>
+    ${filtered.map(i => html`<option value="${i.id}">${i.nickname} (${i.sku || 'no SKU'})</option>`)}`);
   itemSel.style.display = 'block';
   const epEl = document.getElementById('pa-existing-photos');
   if (epEl) epEl.textContent = '';

@@ -6,6 +6,26 @@
 
 import { html, mount, trust, esc } from '../util/esc.js';
 
+/**
+ * Module-level stale action registry.
+ * onclick handlers pass a numeric index; resolveStaleAction() looks up data here.
+ * This avoids embedding AI-sourced strings (sku, name) into HTML attribute context.
+ */
+let _staleActions = [];
+
+/**
+ * Called by App.growth.* onclick handlers — resolves data from the registry.
+ * @param {number} idx
+ * @param {'drop'|'relist'|'goto'} action
+ */
+export function resolveStaleAction(idx, action) {
+  const item = _staleActions[idx];
+  if (!item) return;
+  if (action === 'drop')   window.App?.growth?.openDropPrice?.(item.sku,  item.name);
+  if (action === 'relist') window.App?.growth?.openRelist?.(item.sku,     item.name);
+  if (action === 'goto')   window.App?.growth?.goToStaleItem?.(item.sku);
+}
+
 const _HUNT_ICON = trust(
   '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
   '<circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/>' +
@@ -56,24 +76,23 @@ export function renderGrowthResults(r) {
     }
   }
 
-  // Stale items
+  // Stale items — register data by index, pass only index to onclick
   const staleContent = document.getElementById('growth-stale-content');
   if (staleContent) {
-    const staleFiltered = (r.stale_actions || []).filter(i => !i.action.toLowerCase().includes('bundle'));
-    if (staleFiltered.length) {
-      mount(staleContent, html`${staleFiltered.map(item => {
-        const act = item.action.toLowerCase();
+    _staleActions = (r.stale_actions || []).filter(i => !i.action.toLowerCase().includes('bundle'));
+    if (_staleActions.length) {
+      mount(staleContent, html`${_staleActions.map((item, idx) => {
+        const act         = item.action.toLowerCase();
         const isDropPrice = act.includes('drop') || (act.includes('price') && !act.includes('relist'));
         const isRelist    = act.includes('relist');
-        const skuJs = JSON.stringify(item.sku || '');
-        const nameJs = JSON.stringify(item.name || '');
+        // Pass numeric index only — resolveStaleAction() looks up sku/name from _staleActions
         const badge = isDropPrice
-          ? html`<span class="stale-action cursor-ptr" onclick="${trust(`App.growth.openDropPrice(${skuJs},${nameJs})`)}" title="View recommended price drop">↓ ${item.action}</span>`
+          ? html`<span class="stale-action cursor-ptr" onclick="${trust(`App.growth.resolveStaleAction(${idx},'drop')`)}" title="View recommended price drop">↓ ${item.action}</span>`
           : isRelist
-            ? html`<span class="stale-action" style="cursor:pointer;background:rgba(212,168,67,0.12);border-color:var(--accent);color:var(--accent)" onclick="${trust(`App.growth.openRelist(${skuJs},${nameJs})`)}" title="Relist as new">↺ ${item.action}</span>`
+            ? html`<span class="stale-action" style="cursor:pointer;background:rgba(212,168,67,0.12);border-color:var(--accent);color:var(--accent)" onclick="${trust(`App.growth.resolveStaleAction(${idx},'relist')`)}" title="Relist as new">↺ ${item.action}</span>`
             : html`<span class="stale-action">${item.action}</span>`;
         return html`
-          <div class="stale-item cursor-ptr" onclick="${trust(`App.growth.goToStaleItem(${skuJs})`)}" role="button" tabindex="0">
+          <div class="stale-item cursor-ptr" onclick="${trust(`App.growth.resolveStaleAction(${idx},'goto')`)}" role="button" tabindex="0">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
               <div>
                 <div class="stale-name">${item.name}</div>
@@ -85,6 +104,7 @@ export function renderGrowthResults(r) {
           </div>`;
       })}`);
     } else {
+      _staleActions = [];
       mount(staleContent, html`<div class="u-text-base u-pos" style="padding:var(--space-2) 0">✓ No stale listings. Great turnover!</div>`);
     }
   }
