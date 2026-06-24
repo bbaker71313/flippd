@@ -2,7 +2,7 @@
 
 Source file: `ScanForProfit_v5_24.html` (6,642 lines)
 Analysis date: 2026-05-24
-Last status update: 2026-06-16
+Last status update: 2026-06-24
 
 ## Live Product Status (updated 2026-06-24)
 
@@ -60,14 +60,14 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 - **Tab:** Sourcing (Scout) → modal
 - **Functions:** `buyItem()` (L4873), `showBuyConfirm()` (L5085), `confirmBuyItem()` (L5131), `createInventoryItem()` (L2617), `logScan()` (L4864), `logActivity()` (L5001)
 - **Data reads:** `lastSingleResult`, editable fields in buy-confirm modal
-- **Data writes:** `items[]`, localStorage `flippd_items_v1`, IndexedDB (via `savePhotosIDB`), `fef_scan_log`, `fef_activity_log`, server sync via `pushItemToServer()`
+- **Data writes:** `items[]`, Supabase `inventory` table (via `pushItemToServer()` → replaced by Supabase insert), IndexedDB (via `savePhotosIDB`), `fef_scan_log`, `fef_activity_log`
 - **~Lines:** 4864–5169
 
 ### F-04 — Buy Action from Shelf Scan
 - **Tab:** Sourcing (Scout)
 - **Functions:** `buyShelfItem()` (L4942), `createInventoryItem()` (L2617)
 - **Data reads:** `currentShelfItems[itemIndex]`
-- **Data writes:** same as F-03 (no photo attached — shelf photo not transferred)
+- **Data writes:** same as F-03 — Supabase `inventory` table insert; no photo attached (shelf photo not transferred)
 - **~Lines:** 4942–4991
 
 ### F-05 — Watch / Save for Later
@@ -92,13 +92,13 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
   - `shipCost: 6.00` (⚠️ configurable)
   - `style: 'balanced'`
 - **Data reads:** `S` (settings object), DOM sliders
-- **Data writes:** `fif_settings` (localStorage), `S` module-level object
+- **Data writes:** Supabase `settings` table + `S` module-level object (localStorage used as cache only)
 - **~Lines:** 4046–4414
 
-### F-07 — Decision Logic (BUY / HOT / PASS)
+### F-07 — Decision Logic (HOT / LIST / SKIP)
 - **Tab:** n/a — pure calculation
 - **Functions:** `getDecision()` (L4673)
-- **Logic:** If `profit < minProfit * styleBias OR days > maxDays / styleBias OR sellThrough < minStr * styleBias` → PASS. If `roi >= targetRoi AND profit >= minProfit*styleBias*1.5 AND days <= maxDays/styleBias*0.5` → HOT. Otherwise → BUY.
+- **Logic:** If `profit < minProfit * styleBias OR days > maxDays / styleBias OR sellThrough < minStr * styleBias` → SKIP. If `roi >= targetRoi AND profit >= minProfit*styleBias*1.5 AND days <= maxDays/styleBias*0.5` → HOT. Otherwise → LIST.
 - **Style biases:** `{conservative: 1.3, balanced: 1.0, aggressive: 0.75}`
 - **~Lines:** 4673–4679
 
@@ -135,21 +135,21 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 - **Tab:** Inventory
 - **Functions:** `openAddForm()` (L2522), `saveInvItem()` (L2663), `updateProfitPreview()` (L2593), `initFormSelects()` (L5584), `generateSKU()` (L2608), `createInventoryItem()` (L2617)
 - **Data reads:** all form fields, `CATEGORIES`, `CONDITIONS`, `PLATFORMS`, `STATUSES`, `SKU_PREFIXES`
-- **Data writes:** `items[]`, localStorage, IndexedDB, server sync
+- **Data writes:** `items[]`, Supabase `inventory` table, IndexedDB (photos)
 - **~Lines:** 2418–2741
 
 ### F-13 — Edit Inventory Item
 - **Tab:** Inventory
 - **Functions:** `startEdit()` (L2543), `saveInvItem()` (edit path L2667), `editRemovePhoto()` (L2581)
 - **Data reads:** `items[id]`, form fields
-- **Data writes:** `items[]`, localStorage, IndexedDB, `updateItemOnServer()`
+- **Data writes:** `items[]`, Supabase `inventory` table (update), IndexedDB (photos)
 - **~Lines:** 2543–2591
 
 ### F-14 — Delete Inventory Item
 - **Tab:** Inventory
 - **Functions:** `deleteItem()` (L2723), `showAppConfirm()` (L3969)
 - **Data reads:** `items[id]`
-- **Data writes:** `items[]`, `deletePhotosIDB()`, `deleteItemFromServer()`
+- **Data writes:** Supabase `inventory` table (delete), `deletePhotosIDB()`
 - **~Lines:** 2723–2735
 
 ### F-15 — Photo-Based Item Detection (in Add/Edit form)
@@ -226,8 +226,8 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 ### F-24 — P&L Tracker
 - **Tab:** P&L (sub-screen of Stats/Dashboard)
 - **Functions:** `pnlLoad()`, `pnlSave()`, `pnlCalc()` (L3028), `pnlAddExpense()` (L3091), `pnlDeleteExp()` (L3126), `pnlRenderSales()` (L3058), `pnlRenderExpenses()` (L3106), `pnlRenderReport()` (L3131), `pnlRenderSummary()` (L3042), `pnlSetTab()` (L3015)
-- **Storage key:** `fef_expenses_v1`
-- **Hardcoded:** tax reserve `0.25` (25%) at L3038 (⚠️ should be configurable)
+- **Storage key:** `fef_expenses_v1` (localStorage cache); authoritative data in Supabase `pnl_expenses` table
+- **Tax reserve:** now configurable via settings (`tax_reserve_pct`) — legacy hardcoded `0.25` at L3038 has been replaced
 - **Data reads:** `items[]` filtered by status='Sold', `pnlExpenses[]`, `S.ebayFee`, `S.pkgCost`, `S.shipping`, `S.shipCost`
 - **Data writes:** `pnlExpenses[]`, `fef_expenses_v1` localStorage
 - **~Lines:** 3004–3164
@@ -241,7 +241,7 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 ### F-26 — Mileage Logging
 - **Tab:** P&L
 - **Functions:** `pnlLogMileage()` (L5313), `sPnlMiles()` (L5593)
-- **Hardcoded:** IRS mileage rate `0.67` at L5316 and L5596 (⚠️ must be configurable — changes annually)
+- **Mileage rate:** now configurable via settings (`mileage_rate`); 2026 IRS rate is `0.72` — legacy hardcoded `0.67` at L5316/L5596 has been replaced
 - **Data reads:** miles input field
 - **Data writes:** `pnlExpenses[]` (appends expense with category 'Gas & Travel')
 - **~Lines:** 5313–5324
@@ -402,7 +402,7 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 - **Endpoints:** `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
 - **Storage keys:** `flippd_jwt`, `fif_api_key` (both store the JWT — duplicated), `flippd_user_name`
 - **Session restore:** optimistic on load; background `GET /auth/me` validates; 401 → logout
-- **Forgot password:** `alert()` with "Email support@flippd.app with your username" — no API call (⚠️ needs proper API endpoint)
+- **Forgot password:** `alert()` with "Email support@scanforprofit.com with your username" — no API call (⚠️ needs proper API endpoint)
 - **~Lines:** 5596–5797
 
 ### F-40 — Tier Banner / Trial Countdown
@@ -425,6 +425,7 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
   - Hustle: $19/mo, $180/yr (unlimited scans, 500 items, listing generator, photo enhancement, P&L)
   - Stack: $49/mo, $468/yr (unlimited inventory, live pricing, growth agent, bulk listing, stale alerts)
   - Empire: $199/mo, $1908/yr (10 team seats, API access, priority support)
+- ⚠️ **Annual toggle bug:** Annual prices are defined and Stripe variables are set in Supabase, but the annual billing interval toggle is not functioning correctly in the live app. **Next step: fix annual toggle in `app.html`.** Monthly pricing is working.
 - **Stripe checkout:** `POST /stripe/checkout` → redirects to `data.url`
 - **Stripe portal:** `POST /stripe/portal` → redirects to `data.url`
 - **~Lines:** 6015–6114
@@ -516,7 +517,7 @@ Every distinct feature, exhaustive and ungrouped. Line numbers reference `ScanFo
 ### F-55 — Forgot Password
 - **Tab:** Sourcing (Scout) → auth sub-view
 - **Functions:** `showForgotPassword()` (L5757)
-- **Logic:** shows `alert()` with "Email support@flippd.app with your username" — no API call, no email sent
+- **Logic:** shows `alert()` with "Email support@scanforprofit.com with your username" — no API call, no email sent
 - ⚠️ Needs proper `/auth/forgot-password` endpoint
 - **~Lines:** 5757–5763
 
@@ -584,11 +585,11 @@ For each distinct item visible:
 - Provide REALISTIC eBay sold prices — actual sold comps, not retail or asking prices.
 - Only include items you can identify with at least 40% confidence.
 - Calculate estimated_profit as: avg_sold_price - estimated_cost_at_thrift - (avg_sold_price * ${ebayFee}/100) - ${pkgCost}
-- Buyer always pays shipping. Min profit threshold for FLIP: $${minProfit}. Target ROI for HOT: ${targetRoi}%.
+- Buyer always pays shipping. Min profit threshold for LIST: $${minProfit}. Target ROI for HOT: ${targetRoi}%.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"BUY|HOT|PASS","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then BUY, then PASS.
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"HOT|LIST|SKIP","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
+Sort: HOT first, then LIST, then SKIP.
 ```
 
 ### P-05 — Growth Agent AI Prompt
@@ -767,7 +768,7 @@ Features that are real but not P1. Omit from initial build.
 Brightness/contrast/saturation sliders with live canvas preview, apply-to-all, download. Core photo attachment (add photo to item) is P1; the enhancement editor is V2. Reason: requires canvas polyfill or native module work; most users won't use it on first launch.
 
 ### V2-02 — eBay Connect / OAuth / Pull Listings
-Full eBay OAuth flow, listing sync, sell-through data enrichment. Reason: requires eBay developer account, production keys, redirect URI registration, and backend changes. High integration complexity. Manual CSV export (V1) covers the listing need.
+✅ **eBay OAuth edge function is active** (`supabase/functions/ebay-oauth`). Connect / disconnect / status / callback are deployed. **Not deferred** — production E2E verification still pending (0 rows in `ebay_connections`). Listing push (`/create-listing`) and order sync (`/sync-orders`) remain 🟡 pending connected account.
 
 ### V2-03 — eBay Dedupe Modal
 Fuzzy matching UI for merging Flippd items with eBay-pulled listings. Depends on V2-02. Defer entirely.
@@ -782,10 +783,10 @@ Photo-based scan of an entire store shelf, returns ranked list of all visible it
 Fetches live eBay search trends via Claude's web_search tool. Reason: requires tool-use API path, separate UI component, 6-hour cache management. Growth Agent (V1) already includes market trends from Claude's training knowledge; live web search is an enhancement.
 
 ### V2-07 — CSV Export Tab (eBay Draft Listings)
-Full eBay Seller Hub CSV format with time-window picker, "exported" tracking, reminder scheduling. The listing generator (P1) saves listing data to inventory items; the CSV export bridge to eBay Seller Hub is a power-user feature. Defer the full CSV tab; a simple "Export CSV" button on individual items is acceptable for V1.
+✅ **Live in web app.** Full eBay Seller Hub CSV format with time-window picker, "exported" tracking, reminder scheduling. Not deferred.
 
 ### V2-08 — CSV/JSON Import Tab
-Full import flow with preview, CSV detection, eBay order/listing rejection, normalisation. Reason: most new users start fresh; import is a migration tool. A simple JSON backup restore is enough for V1 private beta.
+✅ **Live in web app.** Full import flow with preview, CSV detection, eBay order/listing rejection, normalisation. Not deferred.
 
 ### V2-09 — Analytics Event Tracking
 `trackEvent()` writes to `flippd_events` in localStorage. Never read in the app — appears to be a foundation for future PostHog/analytics flush. PostHog is already in the scaffold as a stub. Implement PostHog calls at key events in V2 rather than the localStorage approach.
@@ -794,7 +795,7 @@ Full import flow with preview, CSV detection, eBay order/listing rejection, norm
 Tappable KPI cards open detailed drill-down modals with item-level breakdowns. Reason: nice polish, but not needed for core metrics visibility. Basic static KPI cards are sufficient for V1.
 
 ### V2-11 — Subscription / Stripe Checkout
-Full `TIER_INFO` tier card UI, monthly/annual toggle, Stripe checkout redirect, customer portal. Reason: build the product first; monetization UI is V2. For closed beta, all users can be on a free or trial tier.
+🟡 **Built — E2E verification pending.** Tier card UI, Stripe checkout redirect, and customer portal are deployed. Monthly pricing works. Annual toggle is broken in the live app (Stripe variables set in Supabase; UI fix needed — see F-42 note). Not fully deferred — needs E2E test on production.
 
 ### V2-12 — Trial Banner / Scan Limit Modal
 `updateTierBanner()` and `showLimitReachedModal()` depend on subscription tiers from the backend user object. Defer with subscription system.
@@ -834,8 +835,8 @@ Red badge count on Inventory tab showing stale listings. Requires a badge API (E
 | Min profit default `15` | DEFAULTS object | L4046 | `settings.minProfit` (already in schema) |
 | Target ROI default `200` | DEFAULTS object | L4046 | `settings.targetRoi` (already in schema) |
 | Max days default `60` | DEFAULTS object | L4046 | `settings.maxDays` (already in schema) |
-| Tax reserve `0.25` (25%) | `pnlCalc()`, `sPnlRender()` | L3038, L5526 | Add `tax_reserve_pct` to settings; not in schema yet |
-| IRS mileage rate `0.67` | `pnlLogMileage()`, `sPnlMiles()` | L5316, L5596 | Add `mileage_rate` to settings; changes annually |
+| Tax reserve `0.25` (25%) | `pnlCalc()`, `sPnlRender()` | L3038, L5526 | ✅ Now configurable via `tax_reserve_pct` in settings |
+| IRS mileage rate `0.72` (2026) | `pnlLogMileage()`, `sPnlMiles()` | L5316, L5596 | ✅ Now configurable via `mileage_rate` in settings |
 | eBay fee fallback `13` | `calcProfit()` | L2217 | Remove fallback; require explicit fee param |
 | Pkg cost fallback `1.25` | `calcProfit()` | L2217 | Remove fallback; require explicit pkg param |
 | eBay client ID | `ebayConnect()` | L4054 | Move to env var `EBAY_CLIENT_ID` |

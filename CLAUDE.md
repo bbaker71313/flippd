@@ -5,6 +5,7 @@ Authoritative rules file for all Claude Code sessions. Read this file completely
 CRITICAL: Before Every Session
 Read these files in order before doing anything:
 
+docs/CURRENT_STATE.md — authoritative "what exists now"
 docs/HANDOFF.md — what changed last session, current state
 docs/FEATURE_TRIAGE.md — what to port vs build vs defer
 
