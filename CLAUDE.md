@@ -407,7 +407,8 @@ Never hit live Supabase or Stripe in tests — always mock.
 
 ✅ Session Protocol
 Start of every session:
-Read docs/HANDOFF.md — understand current state
+Read docs/CURRENT_STATE.md — authoritative "what exists now"
+Read docs/HANDOFF.md — last 2 sessions only; skip older entries
 Read docs/FEATURE_TRIAGE.md — check port vs build vs defer
 Read this file — done when you reach this line
 Run SESSION START verification above — all 5 checks must pass
@@ -528,9 +529,9 @@ eBay Developer Portal: https://developer.ebay.com/develop/apis
 
 ARCHITECTURE NOTE (2026-06-17): The React Native mobile app built in Phase 04 was
 scrapped — the output was unusable. The live product is apps/web/public/app.html
-(Live at scanforprofit.com/app.html). This is the source of
-truth for all business logic. The mobile app will be rebuilt using app.html as reference.
-See docs/playbook.html for the full master playbook and current task status.
+(Live at scanforprofit.com/app.html). RN scaffold exists in apps/mobile/ but is not
+shipped; live product is app.html. Mobile will be rebuilt from app.html as reference.
+Authoritative current state: docs/CURRENT_STATE.md.
 
 Phase
 Name
@@ -543,13 +544,13 @@ Brand & Architecture
 ✅ Complete
 03
 Design
-🔄 In progress (brand/tokens done; mobile components unused)
+✅ Complete (brand/tokens done; mobile components are reference scaffolds only)
 04
 Build Web App (app.html)
-✅ Live on Vercel — 5 Edge Functions active, RLS on all tables
+✅ Live on Vercel — 7 Edge Functions active, RLS on all tables
 05
 Build Mobile App
-⬜ Not started — will be rebuilt from app.html reference
+⬜ Not started — RN scaffold exists; live product is app.html
 06
 Launch
 ⬜ Not started

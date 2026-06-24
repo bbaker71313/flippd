@@ -4,33 +4,35 @@ Source file: `ScanForProfit_v5_24.html` (6,642 lines)
 Analysis date: 2026-05-24
 Last status update: 2026-06-16
 
-## Phase 4 Build Status (as of 2026-06-16)
+## Live Product Status (updated 2026-06-24)
 
-**Phase 4 is complete.** All 8 mobile build steps are done. Features below that are now live in the ScanForProfit RN app:
+**Live product is `apps/web/public/app.html`** — web-first, served at scanforprofit.com/app.html.
+The RN mobile app scaffold (`apps/mobile/`) exists but is **not shipped**. Phase 4 RN build was scrapped; all features below are live in the web app, not mobile. Mobile rebuild is Phase 05 (not started), using app.html as reference.
 
-| Feature area | Status | Where implemented |
+Authoritative feature truth: `docs/CURRENT_STATE.md`.
+
+| Feature area | Web app status | Where implemented |
 |---|---|---|
-| Auth (register / verify / login) | ✅ Built | `apps/mobile/app/(auth)/`, `supabase/functions/auth` |
-| Scanner tab — single item scan (F-01, F-03, F-07, F-08) | ✅ Built | `apps/mobile/app/(tabs)/scout.tsx`, `supabase/functions/claude-proxy` |
-| Scanner tab — shelf scan (F-02, F-04) | ✅ Built | same as above |
-| Inventory CRUD + photos + status (F-09 to F-18) | ✅ Built | `apps/mobile/app/(tabs)/inventory.tsx`, claude-proxy |
-| Listing generator + CSV export + trending keywords (F-28, F-29, F-31) | ✅ Built | `apps/mobile/app/(tabs)/listing.tsx`, claude-proxy |
-| Growth Agent / Trends tab (F-27) | ✅ Built | `apps/mobile/app/(tabs)/trends.tsx`, claude-proxy |
-| Stats / P&L dashboard + expenses (F-22 to F-26) | ✅ Built | `apps/mobile/app/(tabs)/stats.tsx`, claude-proxy |
-| Settings screen (F-06) | ✅ Built | `apps/mobile/app/(tabs)/settings.tsx`, claude-proxy |
-| Onboarding flow | ✅ Built | `apps/mobile/app/(onboarding)/` |
-| Profit calculation (P-02, P-12) | ✅ Built | `packages/shared/src/utils/calcProfit.ts`, `calcPnl.ts` |
-| AI prompts (P-03, P-04, P-05, P-06, P-07, P-08) | ✅ Built | `supabase/functions/claude-proxy/index.ts` |
-| eBay OAuth (F-32 area) | ✅ Built | `supabase/functions/ebay-oauth/index.ts` |
-| Stripe payments | ✅ Built | `supabase/functions/stripe-webhook`, `stripe-checkout` |
+| Auth (register / verify / login / password reset) | ✅ Live | `supabase/functions/auth` |
+| Scanner — single item scan (F-01, F-03, F-07, F-08) | ✅ Live | `app.html`, `supabase/functions/claude-proxy` |
+| Scanner — shelf scan (F-02, F-04) | ✅ Live | `app.html`, `claude-proxy` |
+| Inventory CRUD + photos + status (F-09 to F-18) | ✅ Live | `app.html`, Supabase `inventory` table |
+| Listing generator + CSV export + trending keywords (F-28, F-29, F-31) | ✅ Live | `app.html`, `claude-proxy` |
+| Growth Agent / Profit Compass (F-27) | ✅ Live | `app.html`, `claude-proxy` |
+| P&L / Profit Hub + expenses (F-22 to F-26) | ✅ Live | `app.html` |
+| Settings (fee, tax, mileage — all configurable) (F-06) | ✅ Live | `app.html` |
+| Profit calculation (P-02, P-12) | ✅ Live | `app.html` + `packages/shared/src/utils/calcProfit.ts` |
+| AI prompts (P-03–P-08) | ✅ Live | `supabase/functions/claude-proxy/index.ts` |
+| eBay OAuth (F-43 area) | ✅ Active | `supabase/functions/ebay-oauth/index.ts` |
+| Stripe payments | ✅ Built | `supabase/functions/stripe-webhook`, `stripe-checkout` — E2E not yet verified |
 
-Features **not yet built** (deferred to Phase 5 / future):
-- eBay listing push via API (F-30) — `apps/web` or future mobile
-- Backup / restore import (P-17, P-18) — deferred
+Features **deferred** (Phase 05+ / mobile rebuild):
+- eBay listing push via API (F-30)
+- Backup / restore import (P-17, P-18)
 - Watch / Save for Later (F-05) — dead stub, low priority
-- eBay CSV export from mobile (P-19) — web app handles this via app.html
+- Mobile-native camera scan — web uses file input
 
-The sections below remain the authoritative reference for **what to port and how**. Use them when implementing any feature from scratch. Do not rewrite prompts (P-03 through P-08) — they are verbatim from the source file.
+The sections below remain the authoritative reference for **what to port and how**. Use them when rebuilding features in the mobile app or refactoring app.html. Do not rewrite prompts (P-03 through P-08) — they are verbatim from the source file.
 
 ---
 
