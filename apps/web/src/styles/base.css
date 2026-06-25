@@ -1,0 +1,63 @@
+/**
+ * Base styles — reset, document, typography, scanline texture.
+ * No component-specific rules here.
+ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: linear-gradient(180deg, #100f0c 0%, #0a0a0a 25%);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  font-size: 1rem;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  padding-bottom: 80px; /* clear tab bar */
+}
+
+/* Scanline texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  z-index: var(--z-scanline);
+}
+
+/* Typography */
+h1, h2, h3 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Utility typography classes */
+.text-accent  { color: var(--accent); }
+.text-muted   { color: var(--muted); }
+.text-soft    { color: var(--soft); }
+.text-green   { color: var(--green); }
+.text-red     { color: var(--red); }
+.text-purple  { color: var(--purple); }
+.font-syne    { font-family: 'Syne', sans-serif; }
+.font-mono    { font-family: 'IBM Plex Mono', monospace; }
