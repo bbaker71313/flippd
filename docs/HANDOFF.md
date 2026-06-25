@@ -4,6 +4,45 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-24 — clean-arch-refactor merge + XSS security fixes
+
+### What changed
+
+- **`apps/web/public/app.html`** — 4 security fixes + dashboard ROI:
+  - `escHtml()` utility added (line ~2272) — sanitizes user/AI text before HTML injection
+  - `openRelistById(id)` added — passes integer item.id instead of sku/name strings to onclick
+  - Relist buttons (inv list + sold detail overlay) now use `openRelistById(item.id)`
+  - `populatePaDropdown` + `paFilterByCategory` wrap category/nickname/sku in `escHtml()`
+  - Stale actions: `_growthStaleActions` index registry replaces onclick-with-user-data; delegated listener dispatches by numeric index
+  - Dashboard ROI shows 'N/A' when any sold item has null/zero cost
+- **`supabase/functions/ebay-oauth/index.ts`** — nonce stored in `ebay_connections` (not `users` table)
+- **`apps/web/src/`** — 42 new files merged from `worktree-clean-arch-refactor`:
+  - Clean architecture extraction: `core/`, `features/`, `services/`, `state/`, `ui/`, `styles/`, `router/`
+  - These are ES module reference files — NOT yet loaded by app.html (no bundler)
+  - Security-fixed `PhotoAgent.js` + `GrowthPanel.js` included
+
+### Commits this session
+
+| Hash | Message |
+|---|---|
+| `0996908` | fix(security): XSS fixes + dashboard ROI null-cost + ebay-oauth nonce |
+| `f636e07` | refactor: merge clean-arch-refactor worktree — extract 48 JS modules |
+
+### Decisions made (do not reverse)
+
+- `apps/web/src/` modules are reference architecture only — no bundler yet (Phase 4 deferred)
+- XSS fix strategy: `escHtml()` for content injection, `data-*` + delegated listeners for event dispatch — no user/AI text in onclick attributes
+- Relist uses `item.id` (integer) not sku/name string in onclick
+
+### Next task
+
+**Phase 4 (Vite bundler) — deferred.** Next priority options:
+1. Verify Stripe upgrade flow end-to-end (still `⬜` in CURRENT_STATE.md)
+2. Verify PostHog events firing
+3. Connect eBay sandbox credentials (0 rows in ebay_connections)
+
+---
+
 ## Session: 2026-06-24 — Doc review Phases 4 & 5 complete
 
 ### What changed
