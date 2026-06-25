@@ -349,6 +349,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   const { api: apiBase, identity: identityUrl, finding: findingUrl } = ebayUrls();
   const ebayHeaders = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' };
   let active = 0, drafted = 0, sold = 0, clientIdMissing = false;
+  let findingSellerName: string | null = null, findingApiErr: string | null = null;
 
   // Build sku→title map from inventory items
   const titleMap: Record<string, string> = {};
@@ -425,6 +426,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       .eq('user_id', userId)
       .maybeSingle();
     let sellerName = conn?.ebay_username as string | null;
+    findingSellerName = sellerName;
 
     // If username wasn't captured during OAuth (identity API may have failed),
     // fetch it now using the already-valid access token and persist it so
@@ -446,6 +448,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       }
     }
 
+    findingSellerName = sellerName;
     const appId = ebayCreds().clientId;
     if (!appId) {
       clientIdMissing = true;
@@ -464,7 +467,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
         const findData = await findRes.json();
         // Check for API-level errors (eBay returns HTTP 200 even for invalid requests)
         const apiError = findData?.errorMessage?.[0]?.error?.[0]?.message?.[0];
-        if (apiError) { console.error('ebay finding-api error response:', apiError); break; }
+        if (apiError) { findingApiErr = apiError; console.error('ebay finding-api error response:', apiError); break; }
         const response = findData?.findItemsAdvancedResponse?.[0];
         const foundItems: Record<string, unknown>[] = (response?.searchResult?.[0]?.item ?? []) as Record<string, unknown>[];
         if (foundItems.length === 0) break;
@@ -561,7 +564,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
     console.error('ebay pull-listings orders error:', err);
   }
 
-  return json({ active, drafted, sold, clientIdMissing, debug: { totalOffers: active + drafted, totalOrders: sold } });
+  return json({ active, drafted, sold, clientIdMissing, debug: { totalOffers: active + drafted, totalOrders: sold, findingSellerName, findingApiErr, sandbox: Deno.env.get('EBAY_SANDBOX') === 'true' } });
 }
 
 async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {

@@ -2268,6 +2268,17 @@ function findDuplicateItem(nickname, sku) {
 const CAT_ICONS  = {Electronics:'',Clothing:'',Shoes:'','Home & Garden':'',Collectibles:'','Toys & Hobbies':'','Sporting Goods':'',Books:'',Automotive:'','Health & Beauty':'',Tools:'','Musical Instruments':'','Pet Supplies':'',Baby:'','Jewelry & Watches':''};
 const SKU_PREFIXES = {Electronics:'ELC',Clothing:'CLO',Shoes:'SHO','Home & Garden':'HMG',Collectibles:'COL','Toys & Hobbies':'TOY','Sporting Goods':'SPT',Books:'BOK',Automotive:'AUT','Health & Beauty':'HLT',Tools:'TLS','Musical Instruments':'MUS','Pet Supplies':'PET',Baby:'BBY','Jewelry & Watches':'JWL'};
 
+// Escape user/AI-sourced text before injecting into HTML attribute or content context.
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Pass item.id (integer — injection-safe) instead of sku/name strings into onclick.
+function openRelistById(id) {
+  const item = items.find(i => i.id === id);
+  if (item) openRelistConfirm(item.sku, item.nickname || item.sku);
+}
+
 // ══════════════════════════════════════════════════
 // SEED INVENTORY DATA
 // ══════════════════════════════════════════════════
@@ -2792,7 +2803,7 @@ function renderFilteredList() {
             ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
             ${isUnlisted ? `<button class="sm-btn" style="background:var(--card);border:1px solid var(--border);color:var(--soft);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();markAsListed(${item.id})">Mark Listed</button>` : ''}
             ${isListed ? `<button class="sold-btn" onclick="event.stopPropagation();openSoldModal(${item.id})">Mark Sold</button>` : ''}
-            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistConfirm('${item.sku}','${item.nickname}')">Relist</button>` : ''}
+            ${isSold ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();openRelistById(${item.id})">Relist</button>` : ''}
             <button class="sm-btn" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();deleteItem(${item.id})">Delete</button>
           </div>
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
@@ -2922,7 +2933,7 @@ function showSoldDetail(id) {
         <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>
       </div>
     </div>
-    <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistConfirm('${item.sku}','${item.nickname}')">Relist This Item</button>`;
+    <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistById(${item.id})">Relist This Item</button>`;
   document.body.appendChild(overlay);
 }
 
@@ -3570,7 +3581,7 @@ function populatePaDropdown() {
   if (!catSel) return; // photo tab not in DOM yet — safe exit
   const activeCats = [...new Set(items.filter(i=>i.status!=='Sold').map(i=>i.category))].sort();
   catSel.innerHTML = '<option value="">Select category</option>'
-    + activeCats.map(c=>`<option value="${c}">${c}</option>`).join('');
+    + activeCats.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
   const itemSel = document.getElementById('pa-inv-select');
   if (itemSel) {
     itemSel.style.display = 'none';
@@ -3583,7 +3594,7 @@ function paFilterByCategory(cat) {
   if (!cat) { itemSel.style.display = 'none'; itemSel.innerHTML = '<option value="">Select item</option>'; return; }
   const filtered = items.filter(i=>i.category===cat && i.status!=='Sold');
   itemSel.innerHTML = '<option value="">Select item</option>'
-    + filtered.map(i=>`<option value="${i.id}">${i.nickname} (${i.sku||'no SKU'})</option>`).join('');
+    + filtered.map(i=>`<option value="${i.id}">${escHtml(i.nickname)} (${escHtml(i.sku||'no SKU')})</option>`).join('');
   itemSel.style.display = 'block';
   document.getElementById('pa-existing-photos').innerHTML = '';
   paTargetItemId = null;
@@ -4375,32 +4386,51 @@ function renderGrowthResults(r) {
     </div>`).join('');
   document.getElementById('growth-top-content').innerHTML = topContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sales data yet. Keep listing!</div>';
 
-  // Stale items — filter Bundle (single-item bundle makes no sense), add click actions
+  // Stale items — filter Bundle (single-item bundle makes no sense), add click actions.
+  // _growthStaleActions stores {sku,name} by index so onclick only passes a safe integer.
+  _growthStaleActions = [];
   const staleFiltered = (r.stale_actions||[]).filter(i => !i.action.toLowerCase().includes('bundle'));
-  const staleContent = staleFiltered.length ? staleFiltered.map(i => {
+  const staleContent = staleFiltered.length ? staleFiltered.map((i, idx) => {
+    _growthStaleActions.push({ sku: i.sku||'', name: i.name||'' });
     const act = i.action.toLowerCase();
     const isDropPrice = act.includes('drop') || (act.includes('price') && !act.includes('relist'));
     const isRelist = act.includes('relist');
-    const skuSafe = (i.sku||'').replace(/'/g,"\\'");
-    const nameSafe = (i.name||'').replace(/'/g,"\\'");
     const actionBadge = isDropPrice
-      ? `<span class="stale-action cursor-ptr" onclick="event.stopPropagation();openDropPriceModal('${skuSafe}','${nameSafe}')" title="View recommended price drop">&#x2193; ${i.action}</span>`
+      ? `<span class="stale-action cursor-ptr" data-stale-drop="${idx}" title="View recommended price drop">&#x2193; ${escHtml(i.action)}</span>`
       : isRelist
-        ? `<span class="stale-action" style="cursor:pointer;background:rgba(212,168,67,0.12);border-color:var(--accent);color:var(--accent)" onclick="event.stopPropagation();openRelistConfirm('${skuSafe}','${nameSafe}')" title="Relist as new">&#x21BA; ${i.action}</span>`
-        : `<span class="stale-action">${i.action}</span>`;
+        ? `<span class="stale-action" style="cursor:pointer;background:rgba(212,168,67,0.12);border-color:var(--accent);color:var(--accent)" data-stale-relist="${idx}" title="Relist as new">&#x21BA; ${escHtml(i.action)}</span>`
+        : `<span class="stale-action">${escHtml(i.action)}</span>`;
     return `
-    <div class="stale-item cursor-ptr" onclick="goToStaleItemListing('${skuSafe}')" role="button" tabindex="0">
+    <div class="stale-item cursor-ptr" data-stale-nav="${idx}" role="button" tabindex="0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div class="stale-name">${i.name}</div>
-          <div class="stale-meta">${i.sku||''} · Listed ${i.days} days</div>
-          <div class="u-text-sm u-soft u-mt-1">${i.reason}</div>
+          <div class="stale-name">${escHtml(i.name)}</div>
+          <div class="stale-meta">${escHtml(i.sku||'')} · Listed ${i.days} days</div>
+          <div class="u-text-sm u-soft u-mt-1">${escHtml(i.reason)}</div>
         </div>
         ${actionBadge}
       </div>
     </div>`;
   }).join('') : '<div class="u-text-base u-pos" style="padding:var(--space-2) 0">&#x2713; No stale listings. Great turnover!</div>';
-  document.getElementById('growth-stale-content').innerHTML = staleContent;
+  const staleEl = document.getElementById('growth-stale-content');
+  staleEl.innerHTML = staleContent;
+  staleEl.addEventListener('click', function _staleClick(e) {
+    const dropEl   = e.target.closest('[data-stale-drop]');
+    const relistEl = e.target.closest('[data-stale-relist]');
+    const navEl    = e.target.closest('[data-stale-nav]');
+    if (dropEl) {
+      e.stopPropagation();
+      const { sku, name } = _growthStaleActions[parseInt(dropEl.dataset.staleDrop, 10)] || {};
+      if (sku) openDropPriceModal(sku, name);
+    } else if (relistEl) {
+      e.stopPropagation();
+      const { sku, name } = _growthStaleActions[parseInt(relistEl.dataset.staleRelist, 10)] || {};
+      if (sku) openRelistConfirm(sku, name);
+    } else if (navEl) {
+      const { sku } = _growthStaleActions[parseInt(navEl.dataset.staleNav, 10)] || {};
+      if (sku) goToStaleItemListing(sku);
+    }
+  }, { once: true });
 
   // Hunt list
   const huntContent = (r.hunt_list||[]).map(h=>`
@@ -4513,6 +4543,7 @@ async function syncDropPriceToEbay() {
 // RELIST CONFIRM MODAL (Change 4)
 // ══════════════════════════════════════════════════
 let _relistState = null;
+let _growthStaleActions = []; // index registry — keeps user/AI text out of onclick attributes
 
 function openRelistConfirm(sku, name) {
   _relistState = { sku, name };
@@ -4926,7 +4957,8 @@ function renderDashboard() {
   }, 0);
   const netProfit   = totalSales - totalCosts - totalFees;
   const margin      = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : '0.0';
-  const roi         = totalCosts > 0 ? ((netProfit / totalCosts) * 100).toFixed(0) : 'N/A';
+  const missingCost = sold.some(i => i.cost == null || i.cost === '' || parseFloat(i.cost) <= 0);
+  const roi         = (!missingCost && totalCosts > 0) ? ((netProfit / totalCosts) * 100).toFixed(0) : 'N/A';
 
   // Expenses from pnl_expenses (use existing expense data structure)
   const expenses = pnlExpenses || [];
@@ -5010,10 +5042,11 @@ function renderDashboard() {
         <div class="ph-kpi-label">Margin</div>
       </div>
       <div class="ph-kpi">
-        <div class="ph-kpi-val">${roi}%</div>
-        <div class="ph-kpi-label">ROI</div>
+        <div class="ph-kpi-val">${roi === 'N/A' ? 'N/A' : roi + '%'}</div>
+        <div class="ph-kpi-label">ROI${missingCost && sold.length > 0 ? ' *' : ''}</div>
       </div>
     </div>
+    ${missingCost && sold.length > 0 ? '<div style="font-size:10px;color:var(--muted);font-family:\'IBM Plex Mono\',monospace;margin-top:4px;padding:0 2px">* ROI requires cost entered on all sold items. Open each item in Inventory to add cost.</div>' : ''}
 
     <!-- EXPENSE TRACKER -->
     <div class="ph-section-title">Expense Tracker</div>
