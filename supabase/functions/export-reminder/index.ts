@@ -6,6 +6,11 @@ const RESEND_URL = "https://api.resend.com/emails";
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
+  // SEC-004: fail closed — require CRON_SECRET to be configured and matched
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (!cronSecret) return new Response(JSON.stringify({ error: "Not configured" }), { status: 503, headers: { "Content-Type": "application/json" } });
+  if (req.headers.get("x-cron-secret") !== cronSecret) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+
   const { userId } = await req.json();
   if (!userId) return new Response(JSON.stringify({ error: "userId required" }), { status: 400, headers: { "Content-Type": "application/json" } });
 

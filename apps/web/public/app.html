@@ -2786,18 +2786,18 @@ function renderFilteredList() {
     return `<div class="item-card">
       <div style="display:flex;align-items:flex-start;gap:var(--space-2)">
         ${thumbUrl
-          ? `<img class="item-thumb" src="${thumbUrl}" alt="" loading="lazy" onclick="${thumbClick}" role="button" tabindex="0" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer">`
+          ? `<img class="item-thumb" src="${escHtml(thumbUrl)}" alt="" loading="lazy" onclick="${thumbClick}" role="button" tabindex="0" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer">`
           : `<div class="item-thumb" style="width:48px;height:48px;background:var(--bg);display:flex;align-items:center;justify-content:center;border-radius:6px;flex-shrink:0;cursor:pointer;border:1px solid var(--border)" onclick="${thumbClick}" role="button" tabindex="0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h4"/></svg></div>`}
         <div class="flex-1-min0">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer" onclick="${cardClick}" role="button" tabindex="0">
             <div class="flex-1-min0">
-              <div class="item-sku">${item.sku||''}</div>
-              <div class="item-nick">${item.nickname}</div>
+              <div class="item-sku">${escHtml(item.sku||'')}</div>
+              <div class="item-nick">${escHtml(item.nickname)}</div>
             </div>
             ${!(invListFilter.type==='status' && invListFilter.value==='Unlisted') ? `<span class="status-badge status-${item.status}" style="flex-shrink:0;margin-left:var(--space-1)">${item.status}</span>` : ''}
           </div>
           <div class="item-row-bot" style="gap:var(--space-1);flex-wrap:wrap">
-            <span class="u-text-sm u-muted">$${item.sellPrice||'0'}</span>
+            <span class="u-text-sm u-muted">$${escHtml(item.sellPrice||'0')}</span>
             ${isListed ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing Boost</button>` : ''}
             ${isUnlisted && !hasListing ? `<button class="listing-btn" onclick="openListingModal(${item.id})" title="Generate eBay listing">Listing</button>` : ''}
             ${isUnlisted && !item.ebay_item_id ? `<button class="sm-btn" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer" onclick="event.stopPropagation();handleListOnEbay(${item.id})">List on eBay</button>` : ''}
@@ -2809,8 +2809,8 @@ function renderFilteredList() {
           ${hasListing && !isSold ? `<div style="margin-top:var(--space-2);border-top:1px solid var(--border);padding-top:var(--space-2);font-size:var(--text-sm)">
             <button onclick="toggleListingDetail(${item.id})" style="background:none;border:none;color:var(--accent);cursor:pointer;font-weight:700;text-decoration:underline">▼ View Generated Listing</button>
             <div id="listing-detail-${item.id}" style="display:none;margin-top:var(--space-2);font-size:var(--text-xs);line-height:1.5">
-              <div style="margin-bottom:var(--space-1)"><strong>Title:</strong> <span class="u-muted">${item.listing.title}</span></div>
-              <div style="margin-bottom:var(--space-1)"><strong>Desc:</strong> <span class="u-muted">${item.listing.description.substring(0, 100)}...</span></div>
+              <div style="margin-bottom:var(--space-1)"><strong>Title:</strong> <span class="u-muted">${escHtml(item.listing.title)}</span></div>
+              <div style="margin-bottom:var(--space-1)"><strong>Desc:</strong> <span class="u-muted">${escHtml(item.listing.description.substring(0, 100))}...</span></div>
               <div><strong>Generated:</strong> <span class="u-muted">${new Date(item.listing.generatedAt).toLocaleDateString()}</span></div>
             </div>
           </div>` : ''}
@@ -2908,16 +2908,16 @@ function showSoldDetail(id) {
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:200;overflow-y:auto;padding:16px;box-sizing:border-box';
   overlay.innerHTML = `
     <button class="back-btn" onclick="document.getElementById('sold-detail-overlay').remove()">← Back</button>
-    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin:12px 0 4px">${item.nickname}</div>
+    <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:var(--text);margin:12px 0 4px">${escHtml(item.nickname)}</div>
     <span class="status-badge status-Sold">Sold</span>
-    ${thumbUrl ? `<img src="${thumbUrl}" loading="lazy" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--border);margin:12px 0;display:block">` : ''}
+    ${thumbUrl ? `<img src="${escHtml(thumbUrl)}" loading="lazy" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--border);margin:12px 0;display:block">` : ''}
     <div class="card" style="margin:12px 0">
       <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">LISTING DATA</div>
       <div style="font-size:13px;line-height:2;color:var(--text)">
-        <b>SKU:</b> ${item.sku||'—'}<br>
-        <b>Category:</b> ${item.category||'—'}<br>
-        <b>Condition:</b> ${item.condition||'—'}<br>
-        ${item.notes ? `<b>Notes:</b> ${item.notes}` : ''}
+        <b>SKU:</b> ${escHtml(item.sku||'—')}<br>
+        <b>Category:</b> ${escHtml(item.category||'—')}<br>
+        <b>Condition:</b> ${escHtml(item.condition||'—')}<br>
+        ${item.notes ? `<b>Notes:</b> ${escHtml(item.notes)}` : ''}
       </div>
     </div>
     <div class="card" style="margin:12px 0">
@@ -2952,8 +2952,8 @@ function showDetail(id) {
   document.getElementById('inv-detail-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--space-3)">
       <div>
-        <div class="detail-item-sku">${item.sku||''}</div>
-        <div class="detail-item-name">${item.nickname}</div>
+        <div class="detail-item-sku">${escHtml(item.sku||'')}</div>
+        <div class="detail-item-name">${escHtml(item.nickname)}</div>
       </div>
       <span class="status-badge status-${item.status}">${item.status}</span>
     </div>
@@ -2964,19 +2964,19 @@ function showDetail(id) {
     </div>` : ''}
     ${photosHtml}
     <div class="detail-grid">
-      <div class="detail-box"><div class="d-lbl">Category</div><div class="d-val">${CAT_ICONS[item.category]||''} ${item.category}</div></div>
-      <div class="detail-box"><div class="d-lbl">Condition</div><div class="d-val">${item.condition}</div></div>
-      <div class="detail-box"><div class="d-lbl">Date</div><div class="d-val">${item.dateAcquired}</div></div>
-      <div class="detail-box"><div class="d-lbl">Platform</div><div class="d-val">${item.platform}</div></div>
-      <div class="detail-box"><div class="d-lbl">Cost</div><div class="d-val">$${item.cost||'0.00'}</div></div>
-      <div class="detail-box"><div class="d-lbl">Sell Price</div><div class="d-val">$${item.sellPrice||'0.00'}</div></div>
+      <div class="detail-box"><div class="d-lbl">Category</div><div class="d-val">${CAT_ICONS[item.category]||''} ${escHtml(item.category)}</div></div>
+      <div class="detail-box"><div class="d-lbl">Condition</div><div class="d-val">${escHtml(item.condition)}</div></div>
+      <div class="detail-box"><div class="d-lbl">Date</div><div class="d-val">${escHtml(item.dateAcquired)}</div></div>
+      <div class="detail-box"><div class="d-lbl">Platform</div><div class="d-val">${escHtml(item.platform)}</div></div>
+      <div class="detail-box"><div class="d-lbl">Cost</div><div class="d-val">$${escHtml(item.cost||'0.00')}</div></div>
+      <div class="detail-box"><div class="d-lbl">Sell Price</div><div class="d-val">$${escHtml(item.sellPrice||'0.00')}</div></div>
       <div class="detail-box"><div class="d-lbl">eBay Fees</div><div class="d-val u-neg">-$${((parseFloat(item.sellPrice)||0)*(S.ebayFee/100)).toFixed(2)}</div></div>
       <div class="detail-box" style="background:var(--green-bg);border-color:var(--green-border)">
         <div class="d-lbl">Est. Profit</div>
         <div class="detail-profit-val ${profitClass(p)}">$${p.toFixed(2)}</div>
       </div>
     </div>
-    ${item.notes ? `<div class="notes-box"><div class="d-lbl u-mb-1">Notes / Flaws</div><div class="u-soft" style="font-size:var(--text-base);line-height:1.6">${item.notes}</div></div>` : ''}
+    ${item.notes ? `<div class="notes-box"><div class="d-lbl u-mb-1">Notes / Flaws</div><div class="u-soft" style="font-size:var(--text-base);line-height:1.6">${escHtml(item.notes)}</div></div>` : ''}
     <div class="btn-row">
       <button class="sm-btn sm-btn-primary" onclick="startEdit(${item.id})">Edit</button>
       <button class="sm-btn" style="background:#185FA5;color:#fff" onclick="openPhotoAgentFor(${item.id})">Photos</button>
@@ -3338,7 +3338,7 @@ function invRenderPhotoGallery(item) {
   const urls = (item.photo_urls || []).filter(Boolean);
   const localPhotos = (item.photos || []).filter(Boolean);
   const allPhotos = [
-    ...urls.map(u => ({ src: u, source: 'url' })),
+    ...urls.map((u, ui) => ({ src: u, source: 'url', urlIdx: ui })),
     ...localPhotos.map((p, i) => ({ src: p, source: 'local', idx: i }))
   ];
   if (!allPhotos.length) { el.style.display = 'none'; return; }
@@ -3347,10 +3347,10 @@ function invRenderPhotoGallery(item) {
     + `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">`
     + allPhotos.map((photo, i) => {
         const removeCall = photo.source === 'url'
-          ? `editRemovePhotoUrl(${item.id},'${photo.src}')`
+          ? `editRemovePhotoUrl(${item.id},${photo.urlIdx})`
           : `editRemovePhoto(${item.id},${photo.idx})`;
         return `<div style="position:relative;flex-shrink:0">
-          <img src="${photo.src}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+          <img src="${escHtml(photo.src)}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
           <button onclick="${removeCall}" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;cursor:pointer;padding:0"></button>
         </div>`;
       }).join('')
@@ -3370,10 +3370,11 @@ function editRemovePhoto(itemId, photoIdx) {
   showToast('Photo removed');
 }
 
-function editRemovePhotoUrl(itemId, url) {
+function editRemovePhotoUrl(itemId, urlIdx) {
   items = items.map(i => {
     if (i.id !== itemId) return i;
-    const photo_urls = (i.photo_urls || []).filter(u => u !== url);
+    const photo_urls = (i.photo_urls || []).filter(Boolean);
+    photo_urls.splice(urlIdx, 1);
     return {...i, photo_urls};
   });
   saveItems();
@@ -3608,7 +3609,7 @@ function paLoadItem(id) {
   if (item && item.photos && item.photos.length) {
     el.innerHTML = item.photos.map((p,idx) =>
       `<div style="position:relative">
-        <img src="${p}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
+        <img src="${escHtml(p)}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
         <button onclick="paRemoveExisting(${idx})" style="position:absolute;top:1px;right:1px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:3px;font-size:9px;padding:1px 4px;cursor:pointer"></button>
        </div>`
     ).join('');
@@ -3689,7 +3690,7 @@ function paRenderThumbs() {
   document.getElementById('pa-count-label').textContent = `${paPhotos.length} photo${paPhotos.length!==1?'s':''}`;
   document.getElementById('pa-thumbs').innerHTML = paPhotos.map((p, i) => `
     <div class="pa-thumb${i===paActiveIdx?' active':''}" onclick="paSelectPhoto(${i})" role="button" tabindex="0">
-      <img src="${p.original}">
+      <img src="${escHtml(p.original)}">
       <button class="pa-thumb-del" onclick="event.stopPropagation();paDeletePhoto(${i})"></button>
     </div>`).join('');
 }
@@ -4125,7 +4126,7 @@ function paSaveDialogNewItem() {
     if (prev) prev.style.display = 'none';
     if (ep && window._paPreloadPhotos && window._paPreloadPhotos.length) {
       ep.style.display = 'block';
-      ep.innerHTML = '<div class="edit-photos-label">Photos from editor (' + window._paPreloadPhotos.length + ')</div><div class="edit-photo-grid">' + window._paPreloadPhotos.map(p=>'<div class="edit-photo-wrap"><img src="'+p+'"></div>').join('') + '</div>';
+      ep.innerHTML = '<div class="edit-photos-label">Photos from editor (' + window._paPreloadPhotos.length + ')</div><div class="edit-photo-grid">' + window._paPreloadPhotos.map(p=>'<div class="edit-photo-wrap"><img src="'+escHtml(p)+'"></div>').join('') + '</div>';
     }
     showInvView('add');
     updateProfitPreview();
@@ -4365,12 +4366,12 @@ function renderGrowthResults(r) {
   document.getElementById('growth-score-card').innerHTML = `
     <div style="display:flex;align-items:center;gap:18px">
       <div>
-        <div class="score-big" style="color:${r.score_color||'var(--green)'}">${r.business_score}</div>
+        <div class="score-big" style="color:${escHtml(r.score_color||'var(--green)')}">${escHtml(r.business_score)}</div>
         <div class="score-label">Business Score</div>
       </div>
       <div class="flex-1">
-        <div class="u-syne u-bold9" style="font-size:var(--text-lg);margin-bottom:var(--space-1)">${r.score_label}</div>
-        <div class="u-text-base u-soft" style="line-height:1.5">${r.score_summary}</div>
+        <div class="u-syne u-bold9" style="font-size:var(--text-lg);margin-bottom:var(--space-1)">${escHtml(r.score_label)}</div>
+        <div class="u-text-base u-soft" style="line-height:1.5">${escHtml(r.score_summary)}</div>
       </div>
     </div>`;
 
@@ -4378,11 +4379,11 @@ function renderGrowthResults(r) {
   const topContent = (r.top_categories||[]).map(c=>`
     <div class="growth-cat-row">
       <div class="flex-1-min0">
-        <div class="growth-cat-name">${c.name}</div>
-        <div class="growth-cat-sub">${c.insight}</div>
-        <div class="growth-bar-bg"><div class="growth-bar-fill" style="width:${c.bar_pct||0}%"></div></div>
+        <div class="growth-cat-name">${escHtml(c.name)}</div>
+        <div class="growth-cat-sub">${escHtml(c.insight)}</div>
+        <div class="growth-bar-bg"><div class="growth-bar-fill" style="width:${escHtml(c.bar_pct||0)}%"></div></div>
       </div>
-      <div class="growth-profit">${c.profit}</div>
+      <div class="growth-profit">${escHtml(c.profit)}</div>
     </div>`).join('');
   document.getElementById('growth-top-content').innerHTML = topContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">No sales data yet. Keep listing!</div>';
 
@@ -4435,10 +4436,10 @@ function renderGrowthResults(r) {
   // Hunt list
   const huntContent = (r.hunt_list||[]).map(h=>`
     <div class="hunt-item">
-      <div class="hunt-icon">${h.icon||HUNT_ICON_SVG}</div>
+      <div class="hunt-icon">${h.icon ? escHtml(h.icon) : HUNT_ICON_SVG}</div>
       <div>
-        <div class="hunt-name">${h.item} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${h.priority}</span></div>
-        <div class="hunt-why">${h.why}</div>
+        <div class="hunt-name">${escHtml(h.item)} <span class="hunt-priority ${h.priority==='HIGH'?'is-high':'is-warn'}">${escHtml(h.priority)}</span></div>
+        <div class="hunt-why">${escHtml(h.why)}</div>
       </div>
     </div>`).join('');
   document.getElementById('growth-hunt-content').innerHTML = huntContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">Run refresh to get hunt list</div>';
@@ -4446,16 +4447,16 @@ function renderGrowthResults(r) {
   // Market trends
   const trendContent = (r.market_trends||[]).map(t=>`
     <div class="trend-item">
-      <div class="trend-arrow">${t.arrow||''}</div>
+      <div class="trend-arrow">${escHtml(t.arrow||'')}</div>
       <div>
-        <div class="trend-name">${t.category}</div>
-        <div class="trend-detail">${t.detail}</div>
+        <div class="trend-name">${escHtml(t.category)}</div>
+        <div class="trend-detail">${escHtml(t.detail)}</div>
       </div>
     </div>`).join('');
   document.getElementById('growth-market-content').innerHTML = trendContent || '<div class="u-text-base u-muted" style="padding:var(--space-2) 0">Tap Refresh to pull live market data</div>';
 
   // Advisor message
-  document.getElementById('growth-advice-content').innerHTML = r.advisor_message || '';
+  document.getElementById('growth-advice-content').innerHTML = escHtml(r.advisor_message || '');
 }
 
 // ══════════════════════════════════════════════════
@@ -5057,7 +5058,7 @@ function renderDashboard() {
       </div>
       ${expCats.length ? expCats.slice(0,5).map(([cat, amt]) => `
         <div class="ph-row">
-          <span class="ph-row-label">${cat}</span>
+          <span class="ph-row-label">${escHtml(cat)}</span>
           <span class="ph-row-val">$${amt.toFixed(2)}</span>
         </div>`).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No expenses logged this period.</div>'}
       <button class="ph-add-btn" onclick="statsSubTab('expenses')">+ Add Expense</button>
@@ -5091,7 +5092,7 @@ function renderDashboard() {
         <thead><tr><th>Category</th><th>Items</th><th>Profit</th></tr></thead>
         <tbody>${cats.slice(0,8).map(([cat, d]) => `
           <tr>
-            <td>${cat}</td>
+            <td>${escHtml(cat)}</td>
             <td>${d.count}</td>
             <td style="color:${d.profit>=0?'var(--green)':'var(--red)'}">$${d.profit.toFixed(2)}</td>
           </tr>`).join('')}</tbody>
@@ -5105,7 +5106,7 @@ function renderDashboard() {
         <thead><tr><th>Item</th><th>Profit</th></tr></thead>
         <tbody>${topPerformers.map(i => `
           <tr>
-            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.nickname)}</td>
             <td style="color:var(--green)">$${i._profit.toFixed(2)}</td>
           </tr>`).join('')}</tbody>
       </table>` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">No sold items yet.</div>'}
@@ -5119,7 +5120,7 @@ function renderDashboard() {
         <thead><tr><th>Item</th><th>Loss</th></tr></thead>
         <tbody>${negMargin.map(i => `
           <tr>
-            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.nickname)}</td>
             <td style="color:var(--red)">$${i._profit.toFixed(2)}</td>
           </tr>`).join('')}</tbody>
       </table>
@@ -5133,7 +5134,7 @@ function renderDashboard() {
         <tbody>${[...sold].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.created_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.created_at||a.createdAt)).slice(0,10).map(i => {
           const sp=parseFloat(i.soldPrice||i.sold_price||0),c=parseFloat(i.cost||0),f=sp*((Sv.ebayFee||13)/100)+(Sv.pkgCost||1.25),p=sp-c-f;
           return `<tr>
-            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</td>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.nickname)}</td>
             <td>$${sp.toFixed(2)}</td>
             <td style="color:${p>=0?'var(--green)':'var(--red)'}">$${p.toFixed(2)}</td>
           </tr>`;}).join('')}</tbody>
@@ -6270,9 +6271,9 @@ function renderSingle({item,cost,fin,dec}) {
     :`<span class="dv u-pos" style="font-weight:800">Buyer Pays</span>`;
   const D_ICON={HOT:'[ HOT ]',LIST:'[ LIST ]',SKIP:'[ SKIP ]'};
   const D_LBL={HOT:'HIGH DEMAND: BUY NOW',LIST:'WORTH LISTING',SKIP:'SKIP THIS ONE'};
-  const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${k} ↗</a>`).join('');
-  const tips=(item.listing_tips||[]).map(t=>`<li class="tip-item"><span class="tip-arrow">→</span>${t}</li>`).join('');
-  const flags=(item.risk_flags||[]).filter(Boolean).map(f=>`<li class="tip-item u-neg"><span class="tip-arrow u-neg">!</span>${f}</li>`).join('');
+  const kw=(item.search_keywords||[]).map(k=>`<a href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(k)}&LH_Sold=1&LH_Complete=1" target="_blank" class="tag">${escHtml(k)} ↗</a>`).join('');
+  const tips=(item.listing_tips||[]).map(t=>`<li class="tip-item"><span class="tip-arrow">→</span>${escHtml(t)}</li>`).join('');
+  const flags=(item.risk_flags||[]).filter(Boolean).map(f=>`<li class="tip-item u-neg"><span class="tip-arrow u-neg">!</span>${escHtml(f)}</li>`).join('');
 
   // Determine what category to map to for inventory
   const invCategory = mapToInvCategory(item.category);
@@ -6284,8 +6285,8 @@ function renderSingle({item,cost,fin,dec}) {
     <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
     <div class="decision-banner is-${dec.toLowerCase()}">
       <span class="d-icon">${D_ICON[dec]}</span>
-      <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${item.item_name}</div>${maxCostHint}</div>
-      <div class="conf-pill">${item.confidence}%</div>
+      <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${escHtml(item.item_name)}</div>${maxCostHint}</div>
+      <div class="conf-pill">${escHtml(item.confidence)}%</div>
     </div>
     <div class="source-badge">[ AI ] Estimated · Buyer pays shipping · Verify with real eBay data</div>
 
@@ -6302,7 +6303,7 @@ function renderSingle({item,cost,fin,dec}) {
     <div class="card">
       <h3 class="card-title">Financial Breakdown</h3>
       <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv u-syne u-text-lg">$${item.avg_sold_price?.toFixed(2)}</span></div>
-      <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${item.price_low} – $${item.price_high}</span></div>
+      <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${escHtml(item.price_low)} – $${escHtml(item.price_high)}</span></div>
       <hr class="divider">
       <div class="data-row"><span class="dl">Your Cost</span><span class="dv">$${cost.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">eBay Fee (${S.ebayFee}%)</span><span class="dv u-neg">-$${fee.toFixed(2)}</span></div>
@@ -6314,26 +6315,26 @@ function renderSingle({item,cost,fin,dec}) {
     </div>
     <div class="card">
       <h3 class="card-title">Market Intelligence</h3>
-      <div class="data-row"><span class="dl">Demand</span><span class="dv u-text-md ${demandClass(item.demand_level)}">${item.demand_level}</span></div>
-      <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv ${strClass(item.sell_through_rate)}">${item.sell_through_rate}%</span></div>
-      <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv ${daysClass(item.avg_days_to_sell)}">${item.avg_days_to_sell} days</span></div>
-      <div class="data-row"><span class="dl">Category</span><span class="dv">${item.category}</span></div>
-      ${item.brand?`<div class="data-row"><span class="dl">Brand</span><span class="dv">${item.brand}</span></div>`:''}
+      <div class="data-row"><span class="dl">Demand</span><span class="dv u-text-md ${demandClass(item.demand_level)}">${escHtml(item.demand_level)}</span></div>
+      <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv ${strClass(item.sell_through_rate)}">${escHtml(item.sell_through_rate)}%</span></div>
+      <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv ${daysClass(item.avg_days_to_sell)}">${escHtml(item.avg_days_to_sell)} days</span></div>
+      <div class="data-row"><span class="dl">Category</span><span class="dv">${escHtml(item.category)}</span></div>
+      ${item.brand?`<div class="data-row"><span class="dl">Brand</span><span class="dv">${escHtml(item.brand)}</span></div>`:''}
       <div class="u-mt-3">
-        <div class="u-text-base u-soft u-mb-1" style="font-weight:600">AI Confidence: ${item.confidence}%</div>
-        <div class="conf-bar-bg"><div class="conf-bar-fill ${confClass(item.confidence)}" style="width:${item.confidence}%"></div></div>
-        <div class="u-text-base u-muted u-mt-1" style="line-height:1.5">${item.confidence_reason}</div>
+        <div class="u-text-base u-soft u-mb-1" style="font-weight:600">AI Confidence: ${escHtml(item.confidence)}%</div>
+        <div class="conf-bar-bg"><div class="conf-bar-fill ${confClass(item.confidence)}" style="width:${escHtml(item.confidence)}%"></div></div>
+        <div class="u-text-base u-muted u-mt-1" style="line-height:1.5">${escHtml(item.confidence_reason)}</div>
       </div>
     </div>
     <div class="two-col">
       <div class="card"><h3 class="card-title">Listing Tips</h3><ul class="tips-list">${tips||'<li class="tip-item"><span class="tip-arrow">→</span>Search eBay sold listings to verify price before buying</li><li class="tip-item"><span class="tip-arrow">→</span>Use clear photos with neutral background</li><li class="tip-item"><span class="tip-arrow">→</span>Include brand, model, and condition in your title</li><li class="tip-item"><span class="tip-arrow">→</span>Check completed listings for accurate pricing</li>'}</ul></div>
-      <div class="card"><h3 class="card-title">Check This</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.condition_notes||'Inspect for cracks, missing parts, damage, and verify it powers on / functions correctly.'}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</div>
+      <div class="card"><h3 class="card-title">Check This</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${escHtml(item.condition_notes||'Inspect for cracks, missing parts, damage, and verify it powers on / functions correctly.')}</div>${flags?`<ul class="tips-list u-mt-2">${flags}</ul>`:''}</div>
     </div>
     <div class="card">
       <h3 class="card-title">eBay Search Terms</h3>
       <div class="tags-wrap">${kw}</div>
     </div>
-    ${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${item.notes}</div></div>`:''}
+    ${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${escHtml(item.notes)}</div></div>`:''}
     <div class="legend-row">
       <span class="legend-item">Min profit: $${S.minProfit}</span>
       <span class="legend-item">Target ROI: ${S.targetRoi}%+</span>
@@ -6411,14 +6412,14 @@ function renderShelf(shelfItems) {
     const mcHint=mc>0?`<div class="s-max-cost">if item is under $${mc.toFixed(2)}</div>`:'';
     return `<div class="shelf-item is-${i.decision.toLowerCase()}">
       <span class="s-badge">${icon[i.decision]} ${i.decision}</span>${mcHint}
-      <div class="s-name">${i.item_name}</div>
+      <div class="s-name">${escHtml(i.item_name)}</div>
       <div class="s-detail">
-        <span class="u-pos u-bold9">~$${i.avg_sold_price} sold</span> &nbsp;·&nbsp;
+        <span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)} sold</span> &nbsp;·&nbsp;
         Est. profit: <span class="${profitClass(i.estimated_profit)} u-bold9">$${i.estimated_profit?.toFixed(2)}</span> &nbsp;·&nbsp;
-        <span class="${demandClass(i.demand_level)}">${i.demand_level} demand</span>
+        <span class="${demandClass(i.demand_level)}">${escHtml(i.demand_level)} demand</span>
       </div>
-      <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${i.decision_reason}</div>
-      ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">${i.condition_notes}</div>`:''}
+      <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${escHtml(i.decision_reason)}</div>
+      ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">${escHtml(i.condition_notes)}</div>`:''}
       ${i.decision!=='SKIP'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">List → Add to Inventory</button>`:''}
     </div>`;
   };
@@ -6521,8 +6522,8 @@ function renderActivityFeed() {
   if (!log.length) { el.innerHTML = '<div style="padding:20px 16px;font-size:13px;color:var(--muted);font-family:\'IBM Plex Mono\',monospace">No activity yet</div>'; return; }
   el.innerHTML = log.slice(0,20).map(a => `
     <div class="act-item">
-      <div class="act-icon">${a.icon}</div>
-      <div><div class="act-text">${a.text}</div>
+      <div class="act-icon">${escHtml(a.icon)}</div>
+      <div><div class="act-text">${escHtml(a.text)}</div>
       <div class="act-time">${new Date(a.ts).toLocaleString()}</div></div>
     </div>`).join('');
 }
@@ -6550,12 +6551,12 @@ function runGlobalSearch(q) {
   if (!matches.length) { el.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:var(--muted)">No items found</div>'; return; }
   el.innerHTML = matches.map(i => {
     const thumb = i.photos && i.photos[0]
-      ? `<img class="gs-thumb" src="${i.photos[0]}">`
+      ? `<img class="gs-thumb" src="${escHtml(i.photos[0])}">`
       : `<div class="gs-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">${CAT_ICONS[i.category]||''}</div>`;
     return `<div class="gs-item" onclick="gsGoToItem(${i.id})" role="button" tabindex="0">
       ${thumb}
-      <div><div class="gs-name">${i.nickname}</div>
-      <div class="gs-sub">${i.sku||''} · ${i.category} · ${i.status} · $${i.sellPrice||'0'}</div></div>
+      <div><div class="gs-name">${escHtml(i.nickname)}</div>
+      <div class="gs-sub">${escHtml(i.sku||'')} · ${escHtml(i.category)} · ${i.status} · $${escHtml(i.sellPrice||'0')}</div></div>
     </div>`;
   }).join('');
 }
@@ -6841,7 +6842,7 @@ function renderScanHistory() {
       ${todayScans.map(s=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
           <div class="flex-1-min0">
-            <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name||'Unknown item'}</div>
+            <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.name||'Unknown item')}</div>
             <div style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px">${new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
           </div>
           <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px;${s.dec==='HOT'?'background:var(--green-bg);color:var(--green)':s.dec==='LIST'?'background:var(--green-bg);color:var(--green)':s.dec==='SKIP'?'background:var(--red-bg);color:var(--red)':'background:var(--bg);color:var(--muted)'}">${s.dec||'—'}</span>
@@ -6880,19 +6881,19 @@ async function fetchTrendingKeywords() {
 function renderTrendingKeywords(data, el) {
   if (!el || !data) return;
   el.innerHTML = `
-    ${data.hot_tip ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:12px"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:4px"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg> ${data.hot_tip}</div>` : ''}
+    ${data.hot_tip ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);font-weight:600;margin-bottom:12px"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" style="vertical-align:-1px;margin-right:4px"><path d="M7 2C5 5 5 7 5 9C5 10.7 5.9 11.8 7 12C8.1 11.8 9 10.7 9 9C9 8 8.5 7.5 8 7C8.5 5.5 9.5 4.5 9.5 3C8.5 3.5 7.5 5 7.5 5C7.5 4 7 2 7 2Z" fill="currentColor"/></svg> ${escHtml(data.hot_tip)}</div>` : ''}
     <div style="font-size:10px;letter-spacing:0.15em;color:var(--muted);font-weight:800;margin-bottom:8px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Top 10 eBay Searches Right Now</div>
     ${(data.keywords||[]).map(k=>`
       <div class="trend-keyword">
-        <div class="trend-rank">${k.rank}</div>
-        <div class="trend-word">${k.word}</div>
+        <div class="trend-rank">${escHtml(k.rank)}</div>
+        <div class="trend-word">${escHtml(k.word)}</div>
         <div class="flex-center-6">
-          <div class="trend-bar-wrap"><div class="trend-bar-inner" style="width:${k.bar||50}%"></div></div>
+          <div class="trend-bar-wrap"><div class="trend-bar-inner" style="width:${escHtml(k.bar||50)}%"></div></div>
           <span style="font-size:10px;${k.trend==='up'?'color:var(--green)':k.trend==='down'?'color:var(--red)':'color:var(--muted)'}">${k.trend==='up'?'↑':k.trend==='down'?'↓':'→'}</span>
         </div>
       </div>`).join('')}
     ${data.trending_categories?.length ? `<div style="font-size:10px;letter-spacing:0.15em;color:var(--muted);font-weight:800;margin:12px 0 6px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Trending Categories</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${data.trending_categories.map(c=>`<span style="background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:3px 10px;font-size:12px;color:var(--yellow);font-weight:600">${c}</span>`).join('')}</div>` : ''}`;
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${data.trending_categories.map(c=>`<span style="background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:3px 10px;font-size:12px;color:var(--yellow);font-weight:600">${escHtml(c)}</span>`).join('')}</div>` : ''}`;
 }
 
 // ══════════════════════════════════════════════════
@@ -6973,14 +6974,14 @@ function renderCsvPreview() {
   listEl.innerHTML = selectAllBtn + candidates.map(i => {
     const checked = _csvExportQueue.has(String(i.id));
     return `<div class="csv-item-row" style="align-items:center">
-      <input type="checkbox" ${checked?'checked':''} onchange="csvToggleQueue(${i.id},this.checked)" style="width:16px;height:16px;flex-shrink:0;margin-right:8px;cursor:pointer" aria-label="Select ${i.nickname}">
+      <input type="checkbox" ${checked?'checked':''} onchange="csvToggleQueue(${i.id},this.checked)" style="width:16px;height:16px;flex-shrink:0;margin-right:8px;cursor:pointer" aria-label="Select ${escHtml(i.nickname)}">
       <div class="flex-1-min0">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} · ${i.status}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(i.nickname)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${escHtml(i.sku||'')} · ${i.status}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--green)">$${i.sellPrice||'0'}</div>
-        <div style="font-size:10px;color:var(--muted)">${i.condition}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--green)">$${escHtml(i.sellPrice||'0')}</div>
+        <div style="font-size:10px;color:var(--muted)">${escHtml(i.condition)}</div>
       </div>
     </div>`;
   }).join('');
@@ -7194,7 +7195,7 @@ async function registerUser() {
       document.getElementById('auth-verify-email').textContent = email;
       setAuthMode('verify');
     } else {
-      showAuthError(data.error || 'Registration failed. Please try again.');
+      showAuthError(escHtml(data.error) || 'Registration failed. Please try again.');
     }
   } catch (err) {
     showAuthError('Network error. Check your connection and try again.');
@@ -7243,7 +7244,7 @@ async function loginUser() {
       loadUserInfo();
       syncFromServer();
     } else {
-      showAuthError(data.error || 'Incorrect username or password.');
+      showAuthError(escHtml(data.error) || 'Incorrect username or password.');
     }
   } catch (err) {
     showAuthError('Network error. Check your connection and try again.');
@@ -7444,8 +7445,8 @@ function showKpiDrillDown(type) {
     const listedItems = items.filter(i=>i.status==='Listed');
     const rows = listedItems.length ? listedItems.map(i=>`
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
-        <div><div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
-          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''}</div></div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(i.nickname)}</div>
+          <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${escHtml(i.sku||'')}</div></div>
         <div style="font-size:13px;font-weight:700;color:var(--accent)">$${parseFloat(i.sellPrice||0).toFixed(2)}</div>
       </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted)">No active listings</div>';
     return showDrillDownModal(`${listedItems.length} Active Listings`, rows);
@@ -7454,8 +7455,8 @@ function showKpiDrillDown(type) {
   const rows = soldItems.length ? soldItems.map(i=>{
     const profit = calcProfit(i.cost, i.sellPrice);
     return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
-      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${i.nickname}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${i.sku||''} \u00b7 ${new Date(i.createdAt||i.dateAcquired).toLocaleDateString()}</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(i.nickname)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${escHtml(i.sku||'')} \u00b7 ${new Date(i.createdAt||i.dateAcquired).toLocaleDateString()}</div></div>
       <div class="text-right">
         <div style="font-size:13px;font-weight:700;color:var(--green)">$${parseFloat(i.sellPrice||0).toFixed(2)}</div>
         <div style="font-size:10px;color:${profit>=0?'var(--green)':'var(--red)'};font-family:'IBM Plex Mono',monospace">${profit>=0?'+':''}$${profit.toFixed(2)}</div>
@@ -7473,7 +7474,7 @@ function showSourcingDrillDown() {
   const scans = log.filter(s=>new Date(s.ts).toDateString()===today);
   const rows = scans.length ? scans.map(s=>`
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
-      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${s.item||'Unknown item'}</div>
+      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(s.item||'Unknown item')}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${new Date(s.ts).toLocaleTimeString()}</div></div>
       <div class="text-right">
         <span style="background:${s.dec==='LIST'||s.dec==='HOT'?'var(--green-bg)':'var(--red-bg)'};color:${s.dec==='LIST'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
@@ -7518,7 +7519,7 @@ function showPhotosDrillDown() {
       </div>
     </div>
     ${noPhotos.length>0 ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">Items missing photos:</div>
-    ${noPhotos.map(i=>`<div style="font-size:12px;color:var(--soft);padding:6px 0;border-bottom:1px solid var(--border)">${i.nickname} <span class="text-muted">(${i.sku||'no SKU'})</span></div>`).join('')}` : '<div style="text-align:center;padding:20px;color:var(--green)">\u2713 All items have photos!</div>'}`;
+    ${noPhotos.map(i=>`<div style="font-size:12px;color:var(--soft);padding:6px 0;border-bottom:1px solid var(--border)">${escHtml(i.nickname)} <span class="text-muted">(${escHtml(i.sku||'no SKU')})</span></div>`).join('')}` : '<div style="text-align:center;padding:20px;color:var(--green)">\u2713 All items have photos!</div>'}`;
   showDrillDownModal('Photo Coverage', rows);
 }
 
@@ -8127,8 +8128,8 @@ function showImportPreview(newItems, skippedCount, type) {
   listEl.innerHTML = newItems.slice(0,20).map(i => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(0,153,61,0.2);font-size:12px">
       <div class="flex-1-min0">
-        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.nickname}</div>
-        <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">${i.sku} · ${i.category} · $${parseFloat(i.cost||0).toFixed(2)} cost</div>
+        <div style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.nickname)}</div>
+        <div style="font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace">${escHtml(i.sku)} · ${escHtml(i.category)} · $${parseFloat(i.cost||0).toFixed(2)} cost</div>
       </div>
       <span style="background:var(--green);color:#000;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;margin-left:8px">${i.status.toUpperCase()}</span>
     </div>`).join('') + (newItems.length > 20 ? `<div style="font-size:11px;color:var(--green);padding:8px 0;font-family:'IBM Plex Mono',monospace">... and ${newItems.length - 20} more</div>` : '');
@@ -8312,7 +8313,7 @@ function sPnlRender() {
     } else {
       salesEl.innerHTML = sold.slice().reverse().map(function(i) {
         var p=calcProfit(i.cost,i.sellPrice);
-        return '<div class="item-card mb-8"><div style="font-weight:600;font-size:13px">'+(i.nickname||'Item')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Sold $'+parseFloat(i.sellPrice||0).toFixed(2)+' &middot; Cost $'+parseFloat(i.cost||0).toFixed(2)+' &middot; <span style="color:'+(p>=0?'var(--green)':'var(--red)')+'">Profit $'+p.toFixed(2)+'</span></div></div>';
+        return '<div class="item-card mb-8"><div style="font-weight:600;font-size:13px">'+escHtml(i.nickname||'Item')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Sold $'+parseFloat(i.sellPrice||0).toFixed(2)+' &middot; Cost $'+parseFloat(i.cost||0).toFixed(2)+' &middot; <span style="color:'+(p>=0?'var(--green)':'var(--red)')+'">Profit $'+p.toFixed(2)+'</span></div></div>';
       }).join('');
     }
   }
@@ -8322,7 +8323,7 @@ function sPnlRender() {
       expListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No expenses logged yet.</div>';
     } else {
       expListEl.innerHTML = pnlExpenses.slice().reverse().map(function(e) {
-        return '<div class="item-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:600">'+(e.desc||e.description||'Expense')+'</div><div class="text-xs-muted">'+(e.category||'')+' &middot; '+(e.date||'')+'</div></div><div style="font-family:Syne,sans-serif;font-weight:800;color:var(--red);font-size:14px">-$'+parseFloat(e.amount||0).toFixed(2)+'</div></div>';
+        return '<div class="item-card" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:600">'+escHtml(e.desc||e.description||'Expense')+'</div><div class="text-xs-muted">'+escHtml(e.category||'')+' &middot; '+escHtml(e.date||'')+'</div></div><div style="font-family:Syne,sans-serif;font-weight:800;color:var(--red);font-size:14px">-$'+parseFloat(e.amount||0).toFixed(2)+'</div></div>';
       }).join('');
     }
   }

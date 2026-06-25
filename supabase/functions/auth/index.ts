@@ -124,7 +124,8 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
-  const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
+  const jwtSecret = Deno.env.get('JWT_SECRET');
+  if (!jwtSecret) throw new Error('JWT_SECRET must be set');
 
   try {
     if (req.method === 'POST' && path.endsWith('/register')) return await handleRegister(req, supabase, jwtSecret);
@@ -232,11 +233,20 @@ async function handleLogin(req: Request, supabase: ReturnType<typeof createClien
 
   if (!username || !password) return json({ error: 'Username and password are required' }, 400);
 
-  const { data: user } = await supabase
+  // SEC-005: parameterized .eq() lookups — never interpolate user input into .or() filter strings
+  const COLS = 'id, name, username, email, password, is_verified, tier, trial_ends_at';
+  let { data: user } = await supabase
     .from('users')
-    .select('id, name, username, email, password, is_verified, tier, trial_ends_at')
-    .or(`username.eq.${username},email.eq.${username}`)
+    .select(COLS)
+    .eq('username', username)
     .maybeSingle();
+  if (!user) {
+    ({ data: user } = await supabase
+      .from('users')
+      .select(COLS)
+      .eq('email', username)
+      .maybeSingle());
+  }
 
   if (!user) return json({ error: 'Incorrect username or password' }, 401);
 

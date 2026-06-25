@@ -4,6 +4,41 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-25 — Security Audit Phase 1 (P1 critical fixes)
+
+Executed P1 of `docs/auditex.md` (from SEAudit.md multi-agent sweep), then handled 5 side-findings.
+
+### What changed (P1 — 6 audit items)
+
+- **SEC-001** JWT fallback secret → fail-closed startup guard (`if (!jwtSecret) throw`). 5 sites: `auth`, `ebay-oauth`, `claude-proxy` (×2), `stripe-checkout`. Zero `dev-secret` fallbacks remain.
+- **SEC-005** `auth/index.ts` login `.or()` PostgREST filter injection → two parameterized `.eq()` lookups (username then email). No real `.or()` calls remain.
+- **SEC-003** `claude-proxy/index.ts` — deleted unauthenticated Anthropic pass-through; unknown action now returns `400 Unknown request type`. try/catch intact.
+- **SEC-004** `cron` + `export-reminder` fail-OPEN → fail-CLOSED: `503` if `CRON_SECRET` unset, `401` on mismatch. (export-reminder had ZERO auth before.)
+- **SEC-007** `stripe-checkout` POST `/` now requires JWT (`getAuthedUserId`, `401` if absent); `client_reference_id` from token, never request body.
+- **SEC-006/008/020** `app.html` XSS sweep — wrapped unprotected `innerHTML` interpolations in `escHtml()` (9 → 102 calls). All 3 inline `<script>` blocks parse clean.
+
+### Side-findings handled (user-directed, post-P1)
+
+- **SEC-009** `showAuthError(msg)` innerHTML — wrapped the 2 server-`data.error` callers (7198, 7247) in `escHtml()`; left intentional-HTML caller (7185) + static strings.
+- **NEW XSS (fixed)** `invRenderPhotoGallery` interpolated `photo.src` URL into an `onclick` JS-string (`editRemovePhotoUrl(id,'<url>')`) — `escHtml` insufficient for JS-string context. Fixed: now passes integer `urlIdx`; `editRemovePhotoUrl(itemId, urlIdx)` removes by `splice`. app.html:3341/3350/3373/3377.
+- **UI drift** `apps/mobile/components/ui/` has 13 files (OnboardingSheet.tsx is real + used in scout.tsx, not stray). Updated CLAUDE.md session-check 12 → 13. No code deleted (delete would have broken scout.tsx + index.ts).
+
+### Decisions made (do not reverse)
+
+- **SEC-002 (wildcard CORS) DEFERRED** — funcs auth via JWT Bearer in Authorization header (not cookies), so wildcard `*` does not enable CSRF or cross-origin response theft; low real-risk, out of auditex P1. Restricting risks breaking prod/preview/localhost. Revisit deliberately with full origin allowlist.
+- XSS fix rule (continued): `escHtml()` for HTML text/attribute contexts; integer-index lookup (never user/AI string) inside `onclick` JS-string contexts.
+
+### Verification
+
+- `tsc --noEmit`: packages/shared = 0 errors, apps/web = 0 errors. (Edge fns are Deno — not in tsc scope; validated structurally. app.html is static — validated via `node --check` on inline scripts, 0 failures.)
+- Local env: no `deno` binary; `typescript@5.9.3` present via pnpm.
+
+### Next task
+
+**Phase 2 (P2) — NOT started.** Awaiting go-ahead. P2 = `_shared/` extraction, tier-limit single source, eBay token merge, `token_version` JWT revocation, atomic scan RPC, rate limiting, Vault encryption, first tests. See `docs/auditex.md` P2 table.
+
+---
+
 ## Session: 2026-06-24 — clean-arch-refactor merge + XSS security fixes
 
 ### What changed

@@ -21,14 +21,14 @@ cat packages/shared/package.json | grep '"name"'
 
 # Expected: "name": "@sfp/shared"
 
-# 2. Confirm all 12 UI component files exist
+# 2. Confirm all 13 UI component files exist
 
 ls apps/mobile/components/ui/
 
 # Expected: BottomSheet.tsx, Button.tsx, Card.tsx, EmptyState.tsx,
-#           index.ts, Input.tsx, ItemCard.tsx, PaywallModal.tsx,
-#           ProfitBadge.tsx, ScanResult.tsx, SettingsForm.tsx,
-#           TabBar.tsx (12 files total)
+#           index.ts, Input.tsx, ItemCard.tsx, OnboardingSheet.tsx,
+#           PaywallModal.tsx, ProfitBadge.tsx, ScanResult.tsx,
+#           SettingsForm.tsx, TabBar.tsx (13 files total)
 
 # 3. Confirm git is initialized and has a clean working tree
 

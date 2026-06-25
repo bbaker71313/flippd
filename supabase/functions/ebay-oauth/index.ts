@@ -107,7 +107,8 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
-  const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
+  const jwtSecret = Deno.env.get('JWT_SECRET');
+  if (!jwtSecret) throw new Error('JWT_SECRET must be set');
 
   try {
     if (req.method === 'GET'  && path.endsWith('/authorize'))     return await handleAuthorize(req, supabase, jwtSecret);

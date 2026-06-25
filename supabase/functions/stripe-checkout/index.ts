@@ -68,8 +68,10 @@ Deno.serve(async (req: Request) => {
   const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
   if (!stripeKey) return json({ error: 'Stripe not configured' }, 503);
 
+  const jwtSecret = Deno.env.get('JWT_SECRET');
+  if (!jwtSecret) throw new Error('JWT_SECRET must be set');
+
   if (isPortal) {
-    const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
     const userId = await getAuthedUserId(req, jwtSecret);
     if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -112,14 +114,16 @@ Deno.serve(async (req: Request) => {
     return json({ url: portalSession.url });
   }
 
-  // Checkout session
+  // Checkout session — require authenticated user (SEC-007)
+  const userId = await getAuthedUserId(req, jwtSecret);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+
   let body: Record<string, unknown>;
   try { body = await req.json(); }
   catch { return json({ error: 'Invalid JSON body' }, 400); }
 
   const tier      = (body.tier as string) ?? 'hustle';
   const interval  = (body.interval as string) ?? 'monthly';
-  const userId    = body.userId as string | undefined;
   const returnUrl = (body.returnUrl as string) ?? 'scanforprofit://subscription/success';
 
   const normalizedInterval = interval === 'month' ? 'monthly' : interval === 'year' ? 'annual' : interval;
@@ -139,7 +143,7 @@ Deno.serve(async (req: Request) => {
     'allow_promotion_codes':   'true',
   });
 
-  if (userId) params.set('client_reference_id', userId);
+  params.set('client_reference_id', String(userId));
 
   const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',

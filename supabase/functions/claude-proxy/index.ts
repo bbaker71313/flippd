@@ -1127,7 +1127,8 @@ function ab2b64(buf: ArrayBuffer): string {
 async function handleLegacyProxy(req: Request, hasImage: boolean): Promise<Response> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
-  const jwtSecret = Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production';
+  const jwtSecret = Deno.env.get('JWT_SECRET');
+  if (!jwtSecret) throw new Error('JWT_SECRET must be set');
   try { await verifyJWT(authHeader.slice(7), jwtSecret); }
   catch { return json({ error: 'Unauthorized' }, 401); }
 
@@ -1244,9 +1245,12 @@ Deno.serve(async (req: Request) => {
   );
   const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
 
+  const jwtSecret = Deno.env.get('JWT_SECRET');
+  if (!jwtSecret) throw new Error('JWT_SECRET must be set');
+
   let payload: Record<string, unknown>;
   try {
-    payload = await verifyJWT(token, Deno.env.get('JWT_SECRET') ?? 'dev-secret-replace-in-production');
+    payload = await verifyJWT(token, jwtSecret);
   } catch {
     return json({ error: 'Unauthorized' }, 401);
   }
@@ -1313,18 +1317,8 @@ Deno.serve(async (req: Request) => {
     if (body.type === 'settings_get')   return json(await handleSettingsGet(supabase, dbUser.id, dbUser.tier));
     if (body.type === 'settings_update') return json(await handleSettingsUpdate(supabase, dbUser.id, dbUser.tier, body));
 
-    // Pass-through for other claude calls
-    if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    return new Response(JSON.stringify(data), {
-      status: res.status,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
+    // SEC-003: no unauthenticated Anthropic pass-through — reject unknown action types
+    return json({ error: 'Unknown request type' }, 400);
   } catch (e) {
     if (e instanceof HttpError) {
       return json({ error: e.message, ...e.data }, e.httpStatus);

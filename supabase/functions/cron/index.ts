@@ -32,12 +32,11 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  // Authenticate with CRON_SECRET header to prevent unauthorized invocations
+  // SEC-004: fail closed — require CRON_SECRET to be configured and matched
   const cronSecret = Deno.env.get('CRON_SECRET');
-  if (cronSecret) {
-    const provided = req.headers.get('x-cron-secret');
-    if (provided !== cronSecret) return json({ error: 'Unauthorized' }, 401);
-  }
+  if (!cronSecret) return json({ error: 'Cron not configured' }, 503);
+  const provided = req.headers.get('x-cron-secret');
+  if (provided !== cronSecret) return json({ error: 'Unauthorized' }, 401);
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
