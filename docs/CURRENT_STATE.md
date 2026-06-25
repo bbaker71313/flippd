@@ -161,6 +161,21 @@ scanforprofit/                    pnpm monorepo + Turborepo
 
 `auth` · `claude-proxy` · `stripe-checkout` · `stripe-webhook` · `ebay-oauth` · `export-reminder` · `cron`
 
+Shared code lives in `supabase/functions/_shared/` (`jwt.ts`, `sendEmail.ts`, `tierLimits.ts`) — leading underscore = not deployed as a function.
+
+---
+
+## Known issues / tracked debt (security audit P1–P2)
+
+Small pre-existing issues surfaced during the audit, logged here so we fix them in advance. Full detail in [`HANDOFF.md`](HANDOFF.md).
+
+- **claude-proxy inline `calcProfit`** duplicates `packages/shared` util (Deno can't import packages/ without bundling).
+- **`randomHex` duplicated** in `auth` + `ebay-oauth` (candidate for `_shared/`).
+- **stripe-webhook** NaN-timestamp tolerance + non-constant-time signature compare (P3 / §5.6).
+- **`ebay_connections.oauth_nonce`** likely orphan column (live nonce uses `users.ebay_oauth_nonce`).
+- **Live DB advisor WARNs:** waitlist always-true INSERT RLS; `item-photos` public bucket listing; `send_export_reminders` SECURITY DEFINER anon-callable; Auth leaked-password protection OFF.
+- **SEC-002 wildcard CORS** deferred (JWT-Bearer, not cookie → low CSRF risk); needs origin allowlist.
+
 ---
 
 ## Local development (quick start)
@@ -214,3 +229,4 @@ Full agent/dev rules: [`CLAUDE.md`](../CLAUDE.md)
 |------|--------|
 | 2026-06-24 | Initial version — Phase 2 doc cleanup |
 | 2026-06-24 | Phase 4–5 complete: ARCHITECTURE.md created, marketing docs corrected, DOC_PROCESS.md added |
+| 2026-06-25 | Security audit P1 (XSS/JWT/auth-injection fixes) + P2 (`_shared/` extraction, tier single-source, atomic scan RPC, token_version revocation, auth rate limiting; migrations 009–012 live) |

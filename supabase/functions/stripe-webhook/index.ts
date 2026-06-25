@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendEmail } from "../_shared/sendEmail.ts"
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,22 +36,6 @@ async function verifyStripeSignature(payload: string, sigHeader: string, secret:
   );
   const expectedHex = Array.from(new Uint8Array(expectedSig), b => b.toString(16).padStart(2, '0')).join('');
   return expectedHex === sig;
-}
-
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendKey) return;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: Deno.env.get('RESEND_FROM_EMAIL') ?? 'ScanForProfit <hello@scanforprofit.com>',
-      to: [to],
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) console.error('Resend error:', await res.text());
 }
 
 // Stripe Price ID → tier mapping (from HANDOFF.md)

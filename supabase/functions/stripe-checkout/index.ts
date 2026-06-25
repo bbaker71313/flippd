@@ -4,6 +4,7 @@
 // POST /portal    → { url } — billing portal session
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { getAuthedUserId } from "../_shared/jwt.ts"
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -15,41 +16,6 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
-}
-
-function b64url(s: string): string {
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown>> {
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid token');
-  const [header, payload, sig] = parts;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
-  const sigBytes = Uint8Array.from(
-    atob(sig.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)
-  );
-  const valid = await crypto.subtle.verify(
-    'HMAC', key, sigBytes, new TextEncoder().encode(`${header}.${payload}`)
-  );
-  if (!valid) throw new Error('Invalid signature');
-  const data = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-  if (data.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
-  return data;
-}
-
-async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  try {
-    const payload = await verifyJWT(authHeader.slice(7), jwtSecret);
-    return payload.sub as number;
-  } catch {
-    return null;
-  }
 }
 
 const PRICE_ID_MAP: Record<string, string> = {

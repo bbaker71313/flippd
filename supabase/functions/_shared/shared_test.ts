@@ -1,0 +1,56 @@
+// Runtime tests for shared Edge Function utils. Run: `deno test supabase/functions/_shared/`
+// No live Supabase — pure crypto + constants.
+import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { b64url, signJWT, verifyJWT, getAuthedUserId } from "./jwt.ts";
+import { SCAN_LIMITS, ITEM_LIMITS } from "./tierLimits.ts";
+
+const SECRET = "test-secret-not-production";
+
+Deno.test("signJWT → verifyJWT roundtrip preserves payload", async () => {
+  const token = await signJWT({ sub: 42, username: "rita" }, SECRET);
+  const payload = await verifyJWT(token, SECRET);
+  assertEquals(payload.sub, 42);
+  assertEquals(payload.username, "rita");
+});
+
+Deno.test("verifyJWT rejects wrong secret", async () => {
+  const token = await signJWT({ sub: 1 }, SECRET);
+  await assertRejects(() => verifyJWT(token, "different-secret"), Error, "Invalid signature");
+});
+
+Deno.test("verifyJWT rejects tampered payload", async () => {
+  const token = await signJWT({ sub: 1 }, SECRET);
+  const [h, _p, s] = token.split(".");
+  const forged = `${h}.${b64url(JSON.stringify({ sub: 999, exp: 9999999999 }))}.${s}`;
+  await assertRejects(() => verifyJWT(forged, SECRET), Error, "Invalid signature");
+});
+
+Deno.test("verifyJWT rejects expired token", async () => {
+  const token = await signJWT({ sub: 1 }, SECRET, -10); // expired 10s ago
+  await assertRejects(() => verifyJWT(token, SECRET), Error, "Token expired");
+});
+
+Deno.test("verifyJWT rejects malformed token", async () => {
+  await assertRejects(() => verifyJWT("not.a.jwt.token", SECRET), Error, "Invalid token");
+});
+
+Deno.test("getAuthedUserId extracts sub from valid Bearer", async () => {
+  const token = await signJWT({ sub: 7 }, SECRET);
+  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  assertEquals(await getAuthedUserId(req, SECRET), 7);
+});
+
+Deno.test("getAuthedUserId returns null without Bearer header", async () => {
+  const req = new Request("http://x");
+  assertEquals(await getAuthedUserId(req, SECRET), null);
+});
+
+Deno.test("getAuthedUserId returns null on bad token", async () => {
+  const req = new Request("http://x", { headers: { Authorization: "Bearer garbage" } });
+  assertEquals(await getAuthedUserId(req, SECRET), null);
+});
+
+Deno.test("tier limits match CLAUDE.md spec (single source of truth)", () => {
+  assertEquals(SCAN_LIMITS, { trial: null, scout: 25, hustle: 250, stack: null, empire: null });
+  assertEquals(ITEM_LIMITS, { trial: null, scout: 10, hustle: 250, stack: null, empire: null });
+});

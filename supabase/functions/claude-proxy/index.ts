@@ -1,9 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// ── Item limits per tier ────────────────────────────────────────────────────
-const ITEM_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 10, hustle: 250, stack: null, empire: null,
-};
+import { verifyJWT } from "../_shared/jwt.ts";
+import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts";
 
 const CATEGORY_SKU_PREFIX: Record<string, string> = {
   'Consumer Electronics':            'ELEC',
@@ -48,10 +45,6 @@ const DEFAULT_SETTINGS = {
   sourcing_style: 'balanced', ship_cost: 6.00, shipping: 'buyer',
 };
 
-const SCAN_LIMITS: Record<string, number | null> = {
-  trial: null, scout: 25, hustle: 250, stack: null, empire: null,
-};
-
 type Settings = typeof DEFAULT_SETTINGS;
 
 function json(data: unknown, status = 200) {
@@ -61,36 +54,15 @@ function json(data: unknown, status = 200) {
   });
 }
 
-// Supabase JWTs: sub = UUID string, email at top level
-async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown>> {
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid token');
-  const [header, payload, sig] = parts;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
-  const sigBytes = Uint8Array.from(
-    atob(sig.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)
-  );
-  const valid = await crypto.subtle.verify(
-    'HMAC', key, sigBytes, new TextEncoder().encode(`${header}.${payload}`)
-  );
-  if (!valid) throw new Error('Invalid signature');
-  const data = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-  if (data.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
-  return data;
-}
-
 // Look up or lazily create the users row by email.
 // Bridges Supabase Auth (UUID sub) → custom users table (integer id).
 async function getOrCreateUser(
   supabase: ReturnType<typeof createClient>,
   email: string,
   username: string,
-): Promise<{ id: number; tier: string; scan_count_month: number; scan_reset_date: string; settings: Settings; }> {
+): Promise<{ id: number; tier: string; scan_count_month: number; scan_reset_date: string; token_version: number; settings: Settings; }> {
   const { data: existing } = await supabase
-    .from('users').select('id, tier, scan_count_month, scan_reset_date')
+    .from('users').select('id, tier, scan_count_month, scan_reset_date, token_version')
     .eq('email', email).maybeSingle();
 
   let user = existing;
@@ -98,7 +70,7 @@ async function getOrCreateUser(
     const { data: created, error } = await supabase
       .from('users')
       .insert({ email, username: username || email.split('@')[0], password: 'supabase_auth', is_verified: true })
-      .select('id, tier, scan_count_month, scan_reset_date').single();
+      .select('id, tier, scan_count_month, scan_reset_date, token_version').single();
     if (error || !created) throw new Error('Failed to create user');
     user = created;
   }
@@ -1262,22 +1234,24 @@ Deno.serve(async (req: Request) => {
   try { dbUser = await getOrCreateUser(supabase, email, username); }
   catch (e) { return json({ error: (e as Error).message }, 500); }
 
+  // SEC-012 — reject sessions issued before the last password reset.
+  if ((payload.token_version ?? 0) !== (dbUser.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401);
+
   const isScan = body.type === 'single_scan' || body.type === 'shelf_scan';
   if (isScan) {
-    const thisMonth = new Date().toISOString().slice(0, 7);
-    const lastReset = (dbUser.scan_reset_date ?? '').slice(0, 7);
-    let scanCount = dbUser.scan_count_month ?? 0;
-    if (lastReset < thisMonth) {
-      scanCount = 0;
-      await supabase.from('users').update({
-        scan_count_month: 0, scan_reset_date: new Date().toISOString().slice(0, 10),
-      }).eq('id', dbUser.id);
+    // §5.1 — atomic increment + monthly reset + limit check in one RPC,
+    // replacing the read-then-write race. p_limit null = unlimited.
+    const limit = SCAN_LIMITS[dbUser.tier] ?? null;
+    const { error: incErr } = await supabase.rpc('increment_scan_count', {
+      p_user_id: dbUser.id,
+      p_limit: limit,
+    });
+    if (incErr) {
+      if (incErr.message?.includes('scan_limit_reached')) {
+        return json({ error: 'scan_limit_reached', tier: dbUser.tier, limit, used: limit }, 429);
+      }
+      throw incErr;
     }
-    const limit = SCAN_LIMITS[dbUser.tier];
-    if (limit !== null && scanCount >= limit) {
-      return json({ error: 'scan_limit_reached', tier: dbUser.tier, limit, used: scanCount }, 429);
-    }
-    await supabase.from('users').update({ scan_count_month: scanCount + 1 }).eq('id', dbUser.id);
   }
 
   try {

@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
+import { signJWT, verifyJWT, getAuthedUserId } from "../_shared/jwt.ts"
+import { sendEmail } from "../_shared/sendEmail.ts"
+import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 
@@ -16,73 +19,23 @@ function randomHex(bytes: number): string {
   return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 }
 
-
-function b64url(s: string): string {
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+// SEC-011 — IP-based rate limiting for auth endpoints.
+function clientIp(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 }
 
-async function signJWT(payload: Record<string, unknown>, secret: string, expiresInSeconds = 90 * 24 * 60 * 60): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = b64url(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSeconds }));
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${header}.${body}`));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${header}.${body}.${sigB64}`;
-}
-
-async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown>> {
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid token');
-  const [header, payload, sig] = parts;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
-  const sigBytes = Uint8Array.from(
-    atob(sig.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)
-  );
-  const valid = await crypto.subtle.verify(
-    'HMAC', key, sigBytes, new TextEncoder().encode(`${header}.${payload}`)
-  );
-  if (!valid) throw new Error('Invalid signature');
-  const data = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-  if (data.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
-  return data;
-}
-
-const EBAY_SCOPES = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment https://api.ebay.com/oauth/api_scope/sell.finances https://api.ebay.com/oauth/api_scope/commerce.identity.readonly';
-
-async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  try {
-    const payload = await verifyJWT(authHeader.slice(7), jwtSecret);
-    return payload.sub as number;
-  } catch {
-    return null;
-  }
-}
-
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendKey) { console.warn('RESEND_API_KEY not set — skipping email'); return; }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: Deno.env.get('RESEND_FROM_EMAIL') ?? 'ScanForProfit <hello@scanforprofit.com>',
-      to: [to],
-      subject,
-      html,
-    }),
+async function rateLimitOk(
+  supabase: ReturnType<typeof createClient>,
+  bucket: string, max: number, windowSeconds: number,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_rate_limit', {
+    p_bucket: bucket, p_max: max, p_window_seconds: windowSeconds,
   });
-  if (!res.ok) console.error('Resend error:', await res.text());
+  // Fail open on infra error — a broken limiter must not lock everyone out.
+  if (error) { console.error('rate limit check failed:', error); return true; }
+  return data === true;
 }
+
 
 async function sendVerificationEmail(to: string, token: string): Promise<void> {
   // Use SUPABASE_URL (always set in Edge Functions) so the verify link always hits the auth
@@ -132,10 +85,6 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'GET'  && path.endsWith('/verify'))   return await handleVerify(req, supabase);
     if (req.method === 'POST' && path.endsWith('/login'))    return await handleLogin(req, supabase, jwtSecret);
     if (req.method === 'GET'  && path.endsWith('/me'))       return await handleMe(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/ebay/connect'))    return await handleEbayConnect(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/ebay-callback'))   return await handleEbayCallback(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/ebay/status'))     return await handleEbayStatus(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/ebay/disconnect')) return await handleEbayDisconnect(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/reset-request'))  return await handleResetRequest(req, supabase, jwtSecret);
     if (req.method === 'POST' && path.endsWith('/reset-confirm'))  return await handleResetConfirm(req, supabase, jwtSecret);
     if (req.method === 'PATCH' && path.endsWith('/settings'))      return await handleSaveSettings(req, supabase, jwtSecret);
@@ -147,6 +96,7 @@ Deno.serve(async (req: Request) => {
 });
 
 async function handleRegister(req: Request, supabase: ReturnType<typeof createClient>, _secret: string) {
+  if (!await rateLimitOk(supabase, `register:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429);
   const body = await req.json().catch(() => ({}));
   const { name: rawName, username, email, password } = body;
   const name = rawName ?? username;
@@ -228,13 +178,14 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
 }
 
 async function handleLogin(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  if (!await rateLimitOk(supabase, `login:${clientIp(req)}`, 10, 900)) return json({ error: 'Too many login attempts. Please try again in a few minutes.' }, 429);
   const body = await req.json().catch(() => ({}));
   const { username, password } = body;
 
   if (!username || !password) return json({ error: 'Username and password are required' }, 400);
 
   // SEC-005: parameterized .eq() lookups — never interpolate user input into .or() filter strings
-  const COLS = 'id, name, username, email, password, is_verified, tier, trial_ends_at';
+  const COLS = 'id, name, username, email, password, is_verified, tier, trial_ends_at, token_version';
   let { data: user } = await supabase
     .from('users')
     .select(COLS)
@@ -257,7 +208,7 @@ async function handleLogin(req: Request, supabase: ReturnType<typeof createClien
 
   await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
 
-  const token = await signJWT({ sub: user.id, username: user.username, email: user.email }, jwtSecret);
+  const token = await signJWT({ sub: user.id, username: user.username, email: user.email, token_version: user.token_version ?? 0 }, jwtSecret);
 
   return json({
     token,
@@ -282,14 +233,14 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, username, email, tier, trial_ends_at, scan_count_month, stripe_subscription_id, subscription_status, subscription_period_end')
+    .select('id, name, username, email, tier, trial_ends_at, scan_count_month, stripe_subscription_id, subscription_status, subscription_period_end, token_version')
     .eq('id', payload.sub)
     .maybeSingle();
 
   if (!user) return json({ error: 'User not found' }, 401);
 
-  const scanLimits: Record<string, number | null> = { trial: null, scout: 25, hustle: null, stack: null, empire: null };
-  const inventoryLimits: Record<string, number | null> = { trial: null, scout: 10, hustle: 500, stack: null, empire: null };
+  // SEC-012 — reject sessions issued before the last password reset.
+  if ((payload.token_version ?? 0) !== (user.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401);
 
   const { data: settings } = await supabase
     .from('settings')
@@ -305,8 +256,8 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
     tier: user.tier,
     trialEndsAt: user.trial_ends_at,
     scansThisMonth: user.scan_count_month,
-    scanLimit: scanLimits[user.tier] ?? null,
-    inventoryLimit: inventoryLimits[user.tier] ?? null,
+    scanLimit: SCAN_LIMITS[user.tier] ?? null,
+    inventoryLimit: ITEM_LIMITS[user.tier] ?? null,
     subscription: user.stripe_subscription_id ? {
       id: user.stripe_subscription_id,
       status: user.subscription_status,
@@ -339,156 +290,8 @@ async function handleSaveSettings(req: Request, supabase: ReturnType<typeof crea
   return json({ ok: true });
 }
 
-async function handleEbayConnect(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
-  if (!userId) return json({ error: 'Unauthorized' }, 401);
-
-  const clientId = Deno.env.get('EBAY_CLIENT_ID');
-  const ruName = Deno.env.get('EBAY_RUNAME');
-  if (!clientId || !ruName) return json({ error: 'eBay integration is not configured' }, 500);
-
-  // Nonce stored server-side (users table). Cookie-based nonces cannot be
-  // used here because the /ebay/connect fetch is cross-origin and browsers
-  // block Set-Cookie from * CORS responses.
-  const nonce = randomHex(16);
-  const nonceExpiresAt = new Date(Date.now() + 600_000).toISOString();
-
-  await supabase.from('users').update({
-    ebay_oauth_nonce: nonce,
-    ebay_oauth_nonce_expires_at: nonceExpiresAt,
-  }).eq('id', userId);
-
-  const state = await signJWT({ sub: userId, nonce }, jwtSecret, 600);
-  const authUrl = 'https://auth.ebay.com/oauth2/authorize'
-    + '?client_id=' + encodeURIComponent(clientId)
-    + '&response_type=code'
-    + '&redirect_uri=' + encodeURIComponent(ruName)
-    + '&scope=' + encodeURIComponent(EBAY_SCOPES)
-    + '&state=' + encodeURIComponent(state);
-
-  return json({ authUrl });
-}
-
-async function handleEbayCallback(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const url = new URL(req.url);
-  const frontendUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
-  const code = url.searchParams.get('code');
-  const state = url.searchParams.get('state');
-  const ebayError = url.searchParams.get('error');
-
-  if (ebayError) return Response.redirect(`${frontendUrl}/app.html?ebay_error=${encodeURIComponent(ebayError)}`, 302);
-  if (!code || !state) return Response.redirect(`${frontendUrl}/app.html?ebay_error=missing_code`, 302);
-
-  let userId: number;
-  try {
-    const payload = await verifyJWT(state, jwtSecret);
-    userId = payload.sub as number;
-    const jwtNonce = payload.nonce as string;
-
-    const { data: userRow } = await supabase
-      .from('users')
-      .select('ebay_oauth_nonce, ebay_oauth_nonce_expires_at')
-      .eq('id', userId)
-      .maybeSingle();
-
-    const storedNonce = userRow?.ebay_oauth_nonce;
-    const nonceExpiry = userRow?.ebay_oauth_nonce_expires_at
-      ? new Date(userRow.ebay_oauth_nonce_expires_at)
-      : new Date(0);
-
-    if (!storedNonce || storedNonce !== jwtNonce || nonceExpiry < new Date()) {
-      return Response.redirect(`${frontendUrl}/app.html?ebay_error=state_mismatch`, 302);
-    }
-
-    await supabase.from('users').update({
-      ebay_oauth_nonce: null,
-      ebay_oauth_nonce_expires_at: null,
-    }).eq('id', userId);
-  } catch {
-    return Response.redirect(`${frontendUrl}/app.html?ebay_error=invalid_state`, 302);
-  }
-
-  const clientId = Deno.env.get('EBAY_CLIENT_ID');
-  const clientSecret = Deno.env.get('EBAY_CLIENT_SECRET');
-  const ruName = Deno.env.get('EBAY_RUNAME');
-  if (!clientId || !clientSecret || !ruName) return Response.redirect(`${frontendUrl}/app.html?ebay_error=not_configured`, 302);
-
-  const basicAuth = btoa(`${clientId}:${clientSecret}`);
-  const tokenRes = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${basicAuth}`,
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: ruName,
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    console.error('eBay token exchange failed:', await tokenRes.text());
-    return Response.redirect(`${frontendUrl}/app.html?ebay_error=token_exchange_failed`, 302);
-  }
-
-  const tokenData = await tokenRes.json();
-  const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
-
-  let ebayUsername: string | null = null;
-  try {
-    const identityRes = await fetch('https://apiz.ebay.com/commerce/identity/v1/user/', {
-      headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
-    });
-    if (identityRes.ok) {
-      const identity = await identityRes.json();
-      ebayUsername = identity.username ?? null;
-    }
-  } catch (err) {
-    console.error('eBay identity lookup failed:', err);
-  }
-
-  await supabase.from('users').update({
-    ebay_access_token: tokenData.access_token,
-    ebay_refresh_token: tokenData.refresh_token,
-    ebay_token_expires_at: expiresAt,
-    ebay_username: ebayUsername,
-  }).eq('id', userId);
-
-  return Response.redirect(`${frontendUrl}/app.html?ebay_connected=true`, 302);
-}
-
-async function handleEbayStatus(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
-  if (!userId) return json({ error: 'Unauthorized' }, 401);
-
-  const { data: user } = await supabase
-    .from('users')
-    .select('ebay_access_token, ebay_username')
-    .eq('id', userId)
-    .maybeSingle();
-
-  return json({
-    connected: !!user?.ebay_access_token,
-    username: user?.ebay_username ?? null,
-  });
-}
-
-async function handleEbayDisconnect(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
-  if (!userId) return json({ error: 'Unauthorized' }, 401);
-
-  await supabase.from('users').update({
-    ebay_access_token: null,
-    ebay_refresh_token: null,
-    ebay_token_expires_at: null,
-    ebay_username: null,
-  }).eq('id', userId);
-
-  return json({ success: true });
-}
-
 async function handleResetRequest(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  if (!await rateLimitOk(supabase, `reset:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429);
   const body = await req.json().catch(() => ({}));
   const { email } = body;
   if (!email) return json({ error: 'Email is required' }, 400);
@@ -537,9 +340,12 @@ async function handleResetConfirm(req: Request, supabase: ReturnType<typeof crea
   if (payload.purpose !== 'password_reset') return json({ error: 'Invalid reset token' }, 400);
 
   const passwordHash = bcrypt.hashSync(password, 10);
+  // SEC-012 — bump token_version to invalidate all existing JWTs for this user.
+  const { data: current } = await supabase
+    .from('users').select('token_version').eq('id', payload.sub).maybeSingle();
   const { error } = await supabase
     .from('users')
-    .update({ password: passwordHash })
+    .update({ password: passwordHash, token_version: ((current?.token_version as number) ?? 0) + 1 })
     .eq('id', payload.sub);
 
   if (error) return json({ error: 'Failed to update password. Please try again.' }, 500);

@@ -4,6 +4,53 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-25 — Security Audit Phase 2 (P2 — 7 of 8 items)
+
+Executed P2 of `docs/auditex.md`. Verified each item before committing. 7 of 8 done; **SEC-010 (eBay token encryption) in progress this session** — separate commit.
+
+### What changed (P2 — 7 audit items)
+
+- **§4.2 `_shared/` extraction** — created `supabase/functions/_shared/` (Supabase's deploy-skip convention). 4 modules: `jwt.ts` (`b64url`, `signJWT`, `verifyJWT`, `getAuthedUserId` — secret passed by caller, no fallback per SEC-001), `sendEmail.ts` (Resend), `tierLimits.ts` (single source), `shared_test.ts` (9 deno tests). Removed the duplicated copies from `auth`, `claude-proxy`, `ebay-oauth`, `stripe-checkout`, `stripe-webhook`, `cron`.
+- **§4.3 tier-limit single source** — `tierLimits.ts` `SCAN_LIMITS`/`ITEM_LIMITS` now imported by `auth` + `claude-proxy`. Fixed split-brain: `auth/me` previously had WRONG hustle (scans=null, items=500) vs spec (scans=250, items=250).
+- **§4.7 first tests** — `calcProfit.test.ts` (6 `node --test`: happy, fee-configurable, zero-cost, zero-sell, negative, rounding) + `shared_test.ts` (9 deno). All 15 pass.
+- **§5.1 atomic scan RPC** — migration 009 `increment_scan_count(p_user_id, p_limit)`; `claude-proxy` replaced read-then-write race with one RPC call (429 `scan_limit_reached`).
+- **SEC-012 JWT revocation** — migration 010 adds `users.token_version`; embedded in login JWT, bumped on password reset, checked in `auth/me` + `claude-proxy` (stale → 401).
+- **§4.4 dead eBay handlers** — deleted `handleEbayConnect/Callback/Status/Disconnect` + routes + `EBAY_SCOPES` from `auth` (wrote to phantom `users.ebay_*` columns that DON'T exist in live DB). Code-only deletion, no migration.
+- **SEC-011 auth rate limiting** — migration 011 `auth_rate_limits` table + `check_rate_limit(bucket,max,window)`; guards on login (10/15min), register (5/1h), reset-request (5/1h). Fail-open on infra error.
+- **Hardening** — migration 012 pins `SET search_path = ''` on both new functions (fixes self-introduced advisor WARN).
+
+### Migrations applied to LIVE prod (009–012)
+
+Applied via Supabase MCP **and** written to disk. Forward-compatible with currently-DEPLOYED old functions (all additive: new column has default, new RPCs unused by old code, NO columns dropped) → live app keeps working until new code deploys.
+
+### NOT deployed yet
+
+6 edge functions changed on disk (`auth`, `claude-proxy`, `ebay-oauth`, `stripe-checkout`, `stripe-webhook`, `cron`) but **NOT deployed** (deploy is outward-facing — needs explicit approval). Migrations ARE live.
+
+### Verification
+
+- `deno test --allow-net _shared/shared_test.ts` → 9 passed. `node --test calcProfit.test.ts` → 6 passed.
+- `deno check` on edited funcs: no NEW real errors (TS2304/missing-export). Baseline ~50-66 `never`/`unknown` errors are PRE-EXISTING supabase-js no-`Database`-type noise.
+- RPC paths tested via ROLLBACK (under/at limit). `check_rate_limit` tested true/true/false.
+- `tsc`: NOT runnable — typescript not installed anywhere in repo (root pkg is express backend). Deno funcs + test files are out of tsc scope anyway; verified via deno/node.
+
+---
+
+## Pre-existing issues tracked (fix later — found during P1/P2, not yet scheduled)
+
+Per standing rule: anything marked "pre-existing" gets logged here + CURRENT_STATE so we fix little issues in advance.
+
+- **claude-proxy inline `calcProfit`** (~line 84) — duplicate of `packages/shared/src/utils/calcProfit.ts`. Not consolidated (Deno func can't import from packages/ without bundling). Consider `_shared/calcProfit.ts`.
+- **`randomHex` duplicated** in `auth` + `ebay-oauth`. Candidate for `_shared/`.
+- **stripe-webhook** (`index.ts:27/37`) — NaN-timestamp tolerance check + non-constant-time signature compare. §5.6 / P3.
+- **`ebay_connections.oauth_nonce`** — likely orphan column (ebay-oauth uses `users.ebay_oauth_nonce`, confirmed). Verify before any drop.
+- **Advisor WARNs (live DB):** waitlist always-true INSERT RLS; `item-photos` public bucket listing; `send_export_reminders` SECURITY DEFINER callable by anon/authenticated; Auth leaked-password protection OFF.
+- **`auth_rate_limits`** rls_enabled_no_policy — INFO only, intentional (service-role-only access).
+- **`deno.lock`** new untracked file — committing it (lockfile, reproducible deno deps). Revisit if it churns.
+- **SEC-002 wildcard CORS** — deferred P1 (JWT-Bearer auth, not cookie → low CSRF risk). Needs deliberate origin allowlist.
+
+---
+
 ## Session: 2026-06-25 — Security Audit Phase 1 (P1 critical fixes)
 
 Executed P1 of `docs/auditex.md` (from SEAudit.md multi-agent sweep), then handled 5 side-findings.

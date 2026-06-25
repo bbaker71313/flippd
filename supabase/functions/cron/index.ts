@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendEmail } from "../_shared/sendEmail.ts"
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -10,22 +11,6 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
-}
-
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  const resendKey = Deno.env.get('RESEND_API_KEY');
-  if (!resendKey) return;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: Deno.env.get('RESEND_FROM_EMAIL') ?? 'ScanForProfit <hello@scanforprofit.com>',
-      to: [to],
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) console.error('Resend error:', await res.text());
 }
 
 Deno.serve(async (req: Request) => {
