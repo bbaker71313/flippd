@@ -55,3 +55,28 @@ export async function getAuthedUserId(req: Request, jwtSecret: string): Promise<
     return null;
   }
 }
+
+// Like getAuthedUserId, but also enforces JWT revocation (SEC-012): rejects a token
+// whose token_version is stale vs the user's current value. Use this for EVERY
+// authenticated endpoint — getAuthedUserId alone does NOT check revocation, so a
+// token issued before a password reset would otherwise still be accepted.
+// `supabase` is a service-role client (structurally typed to avoid pulling supabase-js types).
+export async function getAuthedUserIdChecked(
+  req: Request,
+  jwtSecret: string,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+): Promise<number | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const payload = await verifyJWT(authHeader.slice(7), jwtSecret);
+    const { data } = await supabase
+      .from('users').select('token_version').eq('id', payload.sub).maybeSingle();
+    if (!data) return null;
+    if ((payload.token_version ?? 0) !== ((data.token_version as number) ?? 0)) return null;
+    return payload.sub as number;
+  } catch {
+    return null;
+  }
+}

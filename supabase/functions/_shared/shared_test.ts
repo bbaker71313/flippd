@@ -1,7 +1,7 @@
 // Runtime tests for shared Edge Function utils. Run: `deno test supabase/functions/_shared/`
 // No live Supabase — pure crypto + constants.
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { b64url, signJWT, verifyJWT, getAuthedUserId } from "./jwt.ts";
+import { b64url, signJWT, verifyJWT, getAuthedUserId, getAuthedUserIdChecked } from "./jwt.ts";
 import { SCAN_LIMITS, ITEM_LIMITS } from "./tierLimits.ts";
 
 const SECRET = "test-secret-not-production";
@@ -48,6 +48,44 @@ Deno.test("getAuthedUserId returns null without Bearer header", async () => {
 Deno.test("getAuthedUserId returns null on bad token", async () => {
   const req = new Request("http://x", { headers: { Authorization: "Bearer garbage" } });
   assertEquals(await getAuthedUserId(req, SECRET), null);
+});
+
+// Minimal fake supabase whose users.token_version is `dbVersion`.
+function fakeSupabase(dbVersion: number | null) {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: dbVersion === null ? null : { token_version: dbVersion }, error: null }),
+        }),
+      }),
+    }),
+  };
+}
+
+Deno.test("getAuthedUserIdChecked accepts token with matching token_version (SEC-012)", async () => {
+  const token = await signJWT({ sub: 7, token_version: 3 }, SECRET);
+  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(3)), 7);
+});
+
+Deno.test("getAuthedUserIdChecked rejects stale token_version (revoked) (SEC-012)", async () => {
+  const token = await signJWT({ sub: 7, token_version: 2 }, SECRET); // DB bumped to 3
+  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(3)), null);
+});
+
+Deno.test("getAuthedUserIdChecked treats missing versions as 0 (legacy token, fresh user)", async () => {
+  const token = await signJWT({ sub: 7 }, SECRET); // no token_version → 0
+  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(0)), 7);
+});
+
+Deno.test("getAuthedUserIdChecked rejects when user row missing", async () => {
+  const token = await signJWT({ sub: 7, token_version: 0 }, SECRET);
+  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(null)), null);
 });
 
 Deno.test("tier limits match CLAUDE.md spec (single source of truth)", () => {

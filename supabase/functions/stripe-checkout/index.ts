@@ -4,7 +4,7 @@
 // POST /portal    → { url } — billing portal session
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { getAuthedUserId } from "../_shared/jwt.ts"
+import { getAuthedUserIdChecked } from "../_shared/jwt.ts"
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -37,15 +37,15 @@ Deno.serve(async (req: Request) => {
   const jwtSecret = Deno.env.get('JWT_SECRET');
   if (!jwtSecret) throw new Error('JWT_SECRET must be set');
 
-  if (isPortal) {
-    const userId = await getAuthedUserId(req, jwtSecret);
-    if (!userId) return json({ error: 'Unauthorized' }, 401);
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+  if (isPortal) {
+    const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
+    if (!userId) return json({ error: 'Unauthorized' }, 401);
 
     const { data: user } = await supabase
       .from('users')
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // Checkout session — require authenticated user (SEC-007)
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   let body: Record<string, unknown>;

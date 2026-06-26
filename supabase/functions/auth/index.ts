@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
-import { signJWT, verifyJWT, getAuthedUserId } from "../_shared/jwt.ts"
+import { signJWT, verifyJWT, getAuthedUserIdChecked } from "../_shared/jwt.ts"
 import { sendEmail } from "../_shared/sendEmail.ts"
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
 
@@ -269,7 +269,7 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
 }
 
 async function handleSaveSettings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   const body = await req.json().catch(() => ({}));

@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { signJWT, verifyJWT, getAuthedUserId } from "../_shared/jwt.ts"
+import { signJWT, verifyJWT, getAuthedUserIdChecked } from "../_shared/jwt.ts"
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
 });
 
 async function handleAuthorize(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   const { clientId, ruName } = ebayCreds();
@@ -224,7 +224,7 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
 }
 
 async function handleStatus(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   const { data: conn } = await supabase
@@ -240,7 +240,7 @@ async function handleStatus(req: Request, supabase: ReturnType<typeof createClie
 }
 
 async function handleDisconnect(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   await supabase.from('ebay_connections').delete().eq('user_id', userId);
@@ -290,7 +290,7 @@ async function getValidEbayToken(
 }
 
 async function handlePullListings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   const body = await req.json().catch(() => ({}));
@@ -521,7 +521,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
 }
 
 async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
   const body = await req.json().catch(() => ({}));
@@ -579,7 +579,7 @@ async function handlePriceChange(req: Request, supabase: ReturnType<typeof creat
 }
 const EBAY_COND: Record<string, string> = { 'New': 'NEW', 'Like New': 'LIKE_NEW', 'Open Box': 'NEW_OTHER', 'Good': 'USED_GOOD', 'Used': 'USED_GOOD', 'Fair': 'USED_ACCEPTABLE', 'Poor': 'FOR_PARTS_OR_NOT_WORKING' };
 async function handleCreateListing(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
   const { inventoryId } = await req.json().catch(() => ({})) as { inventoryId?: number };
   if (!inventoryId) return json({ error: 'Missing inventoryId' }, 400);
@@ -643,7 +643,7 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
 }
 
 async function handleSyncOrders(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const userId = await getAuthedUserId(req, jwtSecret);
+  const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
   const accessToken = await getValidEbayToken(userId, supabase);
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
