@@ -87,7 +87,7 @@ These exist in code and have been deployed; end-to-end production verification i
 | Feature | Status | Blocker / next step |
 |---------|--------|---------------------|
 | Stripe upgrade checkout | 🟡 | Complete a test purchase on production |
-| eBay OAuth connect | 🟡 | Apply prod migration + deploy `ebay-oauth` / `auth` (see HANDOFF) |
+| eBay OAuth connect | 🟡 | Migrations + `ebay-oauth` v64 (SEC-010 encrypted tokens) live; needs a fresh connect to re-encrypt (only the expired sandbox token was affected) |
 | eBay listing push (`/create-listing`) | 🟡 | Requires connected eBay account + sandbox/prod credentials |
 | eBay order sync (`/sync-orders`) | 🟡 | Same as above |
 | PostHog analytics | 🟡 | SDK initialized in app; event coverage not audited |
@@ -162,6 +162,8 @@ scanforprofit/                    pnpm monorepo + Turborepo
 `auth` · `claude-proxy` · `stripe-checkout` · `stripe-webhook` · `ebay-oauth` · `export-reminder` · `cron`
 
 Shared code lives in `supabase/functions/_shared/` (`jwt.ts`, `sendEmail.ts`, `tierLimits.ts`) — leading underscore = not deployed as a function.
+
+**Live versions (P2 deploy, 2026-06-26):** `auth` v60 · `claude-proxy` v77 · `stripe-checkout` v60 · `stripe-webhook` v57 · `ebay-oauth` v64 · `cron` v1 (new — needs `CRON_SECRET` + schedule to fire) · `export-reminder` v29. All `verify_jwt:false` (each does its own in-body JWT check). Migrations 009–014 live.
 
 ---
 

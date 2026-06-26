@@ -35,9 +35,16 @@ Migrations 009–012 were additive + forward-compatible with the DEPLOYED old fu
 
 Applied via Supabase MCP **and** written to disk. Forward-compatible with currently-DEPLOYED old functions (all additive: new column has default, new RPCs unused by old code, NO columns dropped) → live app keeps working until new code deploys.
 
-### NOT deployed yet
+### DEPLOYED to LIVE prod (2026-06-26) ✅
 
-6 edge functions changed on disk (`auth`, `claude-proxy`, `ebay-oauth`, `stripe-checkout`, `stripe-webhook`, `cron`) but **NOT deployed** (deploy is outward-facing — needs explicit approval). Migrations ARE live.
+All 6 changed edge functions deployed + verified (user-approved):
+- `auth` v60, `ebay-oauth` v64, `stripe-checkout` v60, `stripe-webhook` v57, `cron` v1 (new — never deployed before; needs `CRON_SECRET` + a schedule to fire), all via Supabase MCP `deploy_edge_function`.
+- `claude-proxy` v77 via **Supabase CLI** (`npx supabase functions deploy claude-proxy --use-api --no-verify-jwt`) — chosen for byte-exact copy of the 1302-line tested-AI-prompt file (CLAUDE.md "never alter prompts"); MCP-inline would have required hand-retyping. CLI auto-bundles `_shared/`.
+- MCP-inline deploys (entrypoint trick): named entrypoint `<fn>/index.ts` with `_shared/*.ts` siblings so `../_shared/x.ts` resolves; `verify_jwt:false` preserved on all (each does its own in-body JWT check).
+- `ebay-oauth` verified byte-identical via `get_edge_function` round-trip (em-dashes, all eBay API URLs, Finding `itemFilter%280%29`, all 3 SEC-010 RPCs, all 8 handlers on `getAuthedUserIdChecked`).
+- Migration 013 ciphertext coupling now resolved — new `ebay-oauth` reads tokens via decrypt RPCs.
+- **Post-deploy advisor scan: 6 lints, ALL pre-existing/tracked, ZERO new.** The 3 `ebay_*` SECURITY DEFINER RPCs are absent (migration 014 lockdown holds). Remaining (tracked debt, see below): `auth_rate_limits` rls-no-policy (INFO), `waitlist` always-true INSERT, `item-photos` public-bucket listing, `send_export_reminders` SECURITY DEFINER anon+auth (×2), leaked-password protection off.
+- **ACTION FOR USER:** the Supabase access token was pasted into the session transcript during the CLI deploy — **revoke it** at supabase.com/dashboard/account/tokens.
 
 ### Verification
 
