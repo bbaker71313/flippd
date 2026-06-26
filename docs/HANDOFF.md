@@ -4,9 +4,20 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
-## Session: 2026-06-25 — Security Audit Phase 2 (P2 — 7 of 8 items)
+## Session: 2026-06-25/26 — Security Audit Phase 2 (P2 — all 8 items)
 
-Executed P2 of `docs/auditex.md`. Verified each item before committing. 7 of 8 done; **SEC-010 (eBay token encryption) in progress this session** — separate commit.
+Executed P2 of `docs/auditex.md`. Verified each item before committing. Commit 1 (`81377a7`) = 7 items. Commit 2 (`02cfc75`) = SEC-012 revocation parity (background-review fix). Commit 3 = **SEC-010 eBay token encryption** (this entry).
+
+### SEC-010 — encrypt eBay OAuth tokens at rest (migration 013)
+
+- `access_token`/`refresh_token` were plaintext in `ebay_connections`. Now ASCII-armored pgcrypto PGP, key in **Supabase Vault** (`ebay_token_key`) — key never leaves DB; Edge Function never handles it.
+- 3 SECURITY DEFINER RPCs (`search_path=''`, granted to service_role only, revoked from public): `ebay_store_tokens` (encrypt+upsert), `ebay_get_tokens` (decrypt), `ebay_update_access_token` (re-encrypt on refresh).
+- `ebay-oauth/index.ts` rewired: write→`ebay_store_tokens`; refresh-read→`ebay_get_tokens`; refresh-write→`ebay_update_access_token`. `/status` now reads only `ebay_username` (non-secret) + row existence → never decrypts.
+- Existing live row migrated plaintext→ciphertext in-migration (idempotent guard on `-----BEGIN PGP MESSAGE-----`). Verified: decrypts back to identical lengths (2340/96); store→get round-trip exact.
+
+### ⚠️ DEPLOY COUPLING (read before deploying)
+
+Migrations 009–012 were additive + forward-compatible with the DEPLOYED old functions. **Migration 013 is NOT** — it rewrote the existing `ebay_connections` row to ciphertext, which the currently-deployed old `ebay-oauth` reads as plaintext. So until the new `ebay-oauth` is deployed, eBay token reads on that row are broken. **Only affected row is the expired sandbox token (`testuser_dakota89`, expired 2026-06-24)** → practical impact nil, but the eBay flow needs the new `ebay-oauth` deployed to function. Deploy `ebay-oauth` (+ the other 5 changed funcs) together.
 
 ### What changed (P2 — 7 audit items)
 

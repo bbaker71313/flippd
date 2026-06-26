@@ -203,17 +203,16 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
     console.error('eBay identity lookup failed:', err);
   }
 
-  // Tokens live in ebay_connections. All NOT NULL columns supplied so INSERT succeeds
-  // for first-time connections (no prior row). username may be null if identity lookup failed.
-  const { error: tokenUpsertErr } = await supabase.from('ebay_connections').upsert({
-    user_id: userId,
-    access_token: tokenData.access_token,
-    refresh_token: tokenData.refresh_token,
-    expires_at: expiresAt,
-    refresh_expires_at: refreshExpiresAt,
-    ebay_username: ebayUsername,
-    connected_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' });
+  // Tokens are encrypted at rest (SEC-010). ebay_store_tokens upserts on user_id and
+  // armors access/refresh with a Vault-held key inside the DB — plaintext never persisted.
+  const { error: tokenUpsertErr } = await supabase.rpc('ebay_store_tokens', {
+    p_user_id: userId,
+    p_access: tokenData.access_token,
+    p_refresh: tokenData.refresh_token,
+    p_expires: expiresAt,
+    p_refresh_expires: refreshExpiresAt,
+    p_username: ebayUsername,
+  });
 
   if (tokenUpsertErr) {
     console.error('ebay-oauth: token upsert failed', tokenUpsertErr);
@@ -227,14 +226,16 @@ async function handleStatus(req: Request, supabase: ReturnType<typeof createClie
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
+  // Connection status needs only row existence + username (not a secret), so it reads
+  // the plaintext columns directly and never decrypts the tokens (SEC-010).
   const { data: conn } = await supabase
     .from('ebay_connections')
-    .select('access_token, ebay_username')
+    .select('ebay_username')
     .eq('user_id', userId)
     .maybeSingle();
 
   return json({
-    connected: !!conn?.access_token,
+    connected: !!conn,
     username: conn?.ebay_username ?? null,
   });
 }
@@ -252,11 +253,9 @@ async function getValidEbayToken(
   userId: number,
   supabase: ReturnType<typeof createClient>,
 ): Promise<string | null> {
-  const { data: conn } = await supabase
-    .from('ebay_connections')
-    .select('access_token, refresh_token, expires_at')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // Decrypts via SECURITY DEFINER RPC (SEC-010); returns 0 or 1 row.
+  const { data: rows } = await supabase.rpc('ebay_get_tokens', { p_user_id: userId });
+  const conn = Array.isArray(rows) ? rows[0] : null;
 
   if (!conn?.access_token) return null;
 
@@ -281,10 +280,11 @@ async function getValidEbayToken(
   const refreshData = await refreshRes.json();
   const newExpires = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
 
-  await supabase.from('ebay_connections').update({
-    access_token: refreshData.access_token,
-    expires_at: newExpires,
-  }).eq('user_id', userId);
+  await supabase.rpc('ebay_update_access_token', {
+    p_user_id: userId,
+    p_access: refreshData.access_token,
+    p_expires: newExpires,
+  });
 
   return refreshData.access_token;
 }
