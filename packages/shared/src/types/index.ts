@@ -19,7 +19,7 @@ export type ItemStatus =
 
 export type SourcingStyle = 'conservative' | 'balanced' | 'aggressive'
 
-export type ScanDecision = 'BUY' | 'HOT' | 'PASS'
+export type ScanDecision = 'HOT' | 'LIST' | 'SKIP'
 
 export interface SourcingMeta {
   avgSoldPrice: number
