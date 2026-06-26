@@ -95,9 +95,11 @@ begin
 end $$;
 
 -- 5. Lock down: these run only via service-role (Edge Functions). Block anon/authenticated.
-revoke all on function public.ebay_store_tokens(integer,text,text,timestamp,timestamp,text) from public;
-revoke all on function public.ebay_get_tokens(integer) from public;
-revoke all on function public.ebay_update_access_token(integer,text,timestamp) from public;
+-- NB: `from public` alone is NOT enough — Supabase grants EXECUTE to anon/authenticated
+-- by default, so they must be revoked explicitly (see migration 014).
+revoke all on function public.ebay_store_tokens(integer,text,text,timestamp,timestamp,text) from public, anon, authenticated;
+revoke all on function public.ebay_get_tokens(integer) from public, anon, authenticated;
+revoke all on function public.ebay_update_access_token(integer,text,timestamp) from public, anon, authenticated;
 grant execute on function public.ebay_store_tokens(integer,text,text,timestamp,timestamp,text) to service_role;
 grant execute on function public.ebay_get_tokens(integer) to service_role;
 grant execute on function public.ebay_update_access_token(integer,text,timestamp) to service_role;

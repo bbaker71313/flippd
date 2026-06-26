@@ -14,6 +14,7 @@ Executed P2 of `docs/auditex.md`. Verified each item before committing. Commit 1
 - 3 SECURITY DEFINER RPCs (`search_path=''`, granted to service_role only, revoked from public): `ebay_store_tokens` (encrypt+upsert), `ebay_get_tokens` (decrypt), `ebay_update_access_token` (re-encrypt on refresh).
 - `ebay-oauth/index.ts` rewired: write→`ebay_store_tokens`; refresh-read→`ebay_get_tokens`; refresh-write→`ebay_update_access_token`. `/status` now reads only `ebay_username` (non-secret) + row existence → never decrypts.
 - Existing live row migrated plaintext→ciphertext in-migration (idempotent guard on `-----BEGIN PGP MESSAGE-----`). Verified: decrypts back to identical lengths (2340/96); store→get round-trip exact.
+- **CAUGHT BY ADVISOR (migration 014):** 013's `revoke all … from public` did NOT strip Supabase's default EXECUTE grants to `anon`/`authenticated` — all 3 SECURITY DEFINER RPCs were briefly callable via `/rest/v1/rpc/` (anon could call `ebay_get_tokens` → decrypted tokens). Migration 014 explicitly revokes from `anon, authenticated, public`. Re-verified: `has_function_privilege` anon/auth=false, service_role=true; advisor WARNs cleared. (013 on disk also corrected for fresh installs.) **Lesson: SECURITY DEFINER funcs in `public` need explicit revoke from anon+authenticated, not just `public`.**
 
 ### ⚠️ DEPLOY COUPLING (read before deploying)
 
