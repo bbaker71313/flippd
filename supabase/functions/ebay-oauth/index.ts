@@ -304,6 +304,16 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   let active = 0, drafted = 0, sold = 0, clientIdMissing = false;
   let findingSellerName: string | null = null, findingApiErr: string | null = null;
 
+  // §5.7: preload all existing inventory rows into Maps — avoids N+1 per-item SELECT queries
+  const { data: existingRows } = await supabase
+    .from('inventory').select('id, ebay_item_id, sku').eq('user_id', userId);
+  const byEbayId = new Map<string, number>();
+  const bySku    = new Map<string, number>();
+  for (const r of existingRows ?? []) {
+    if (r.ebay_item_id) byEbayId.set(String(r.ebay_item_id), Number(r.id));
+    if (r.sku)          bySku.set(String(r.sku), Number(r.id));
+  }
+
   // Build sku→title map from inventory items
   const titleMap: Record<string, string> = {};
   try {
@@ -330,25 +340,19 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
         const status = isPublished ? 'Listed' : 'Unlisted';
         const title: string | null = offer.sku ? (titleMap[offer.sku] ?? null) : null;
 
-        // Find existing row by ebay_item_id, then by sku
-        let existing: { id: number } | null = null;
-        if (listingId) {
-          const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', listingId).maybeSingle();
-          existing = data;
-        }
-        if (!existing && offer.sku) {
-          const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', offer.sku).maybeSingle();
-          existing = data;
-        }
+        // §5.7: map lookup — no per-item DB query
+        const existingId = listingId && byEbayId.has(listingId)
+          ? byEbayId.get(listingId)!
+          : (offer.sku && bySku.has(String(offer.sku)) ? bySku.get(String(offer.sku))! : null);
 
-        if (existing) {
+        if (existingId !== null) {
           const update: Record<string, unknown> = { status };
           if (sellPrice) update.sell_price = sellPrice;
           if (listingId) update.ebay_item_id = listingId;
           if (title) update.listing_title = title.slice(0, 80);
-          await supabase.from('inventory').update(update).eq('id', existing.id);
+          await supabase.from('inventory').update(update).eq('id', existingId);
         } else if (offer.sku || listingId) {
-          await supabase.from('inventory').insert({
+          const { data: newRow } = await supabase.from('inventory').insert({
             user_id: userId,
             item_id: offer.sku ?? `ebay-${listingId}`,
             sku: offer.sku ?? null,
@@ -360,7 +364,11 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
             ebay_category_id: offer.categoryId ? parseInt(String(offer.categoryId), 10) : null,
             platform: 'eBay',
             created_from: 'ebay_sync',
-          });
+          }).select('id').single();
+          if (newRow?.id) {
+            if (listingId) byEbayId.set(listingId, Number(newRow.id));
+            if (offer.sku) bySku.set(String(offer.sku), Number(newRow.id));
+          }
         }
       }
     }
@@ -431,14 +439,13 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
           const currentPrice = (priceVal?.currentPrice as Record<string, string>[] | null)?.[0];
           const sellPrice = currentPrice ? parseFloat(currentPrice['__value__'] ?? '0') || null : null;
           if (!itemId) continue;
-          // Skip if already imported via Inventory API (would already be in inventory)
-          const { data: existing } = await supabase
-            .from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', itemId).maybeSingle();
-          if (existing) {
-            await supabase.from('inventory').update({ status: 'Listed', ...(sellPrice ? { sell_price: sellPrice } : {}) }).eq('id', existing.id);
+          // §5.7: map lookup — no per-item DB query
+          const findingExistingId = byEbayId.has(itemId) ? byEbayId.get(itemId)! : null;
+          if (findingExistingId !== null) {
+            await supabase.from('inventory').update({ status: 'Listed', ...(sellPrice ? { sell_price: sellPrice } : {}) }).eq('id', findingExistingId);
             active++;
           } else {
-            await supabase.from('inventory').insert({
+            const { data: newRow } = await supabase.from('inventory').insert({
               user_id: userId,
               item_id: `ebay-${itemId}`,
               nickname: (title ?? `eBay item ${itemId}`).slice(0, 255),
@@ -448,7 +455,8 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
               ebay_item_id: itemId,
               platform: 'eBay',
               created_from: 'ebay_sync',
-            });
+            }).select('id').single();
+            if (newRow?.id) byEbayId.set(itemId, Number(newRow.id));
             active++;
           }
           totalFindings++;
@@ -473,28 +481,24 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
       const ordersData = await ordersRes.json();
       for (const order of (ordersData.orders ?? [])) {
         for (const item of (order.lineItems ?? [])) {
-          let existing: { id: number } | null = null;
-          if (item.sku) {
-            const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('sku', item.sku).maybeSingle();
-            existing = data;
-          }
-          if (!existing && item.legacyItemId) {
-            const { data } = await supabase.from('inventory').select('id').eq('user_id', userId).eq('ebay_item_id', item.legacyItemId).maybeSingle();
-            existing = data;
-          }
-          if (existing) {
+          // §5.7: map lookup — no per-item DB query
+          const orderExistingId = (item.sku && bySku.has(String(item.sku)))
+            ? bySku.get(String(item.sku))!
+            : (item.legacyItemId && byEbayId.has(String(item.legacyItemId)) ? byEbayId.get(String(item.legacyItemId))! : null);
+
+          if (orderExistingId !== null) {
             const orderSoldPrice = parseFloat((item.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
             await supabase.from('inventory').update({
               status: 'Sold',
               sold_at: order.creationDate ?? new Date().toISOString(),
               ...(orderSoldPrice ? { sold_price: orderSoldPrice } : {}),
-            }).eq('id', existing.id);
+            }).eq('id', orderExistingId);
             sold++;
           } else {
             // No matching inventory row — insert a new Sold item from order data
             const title = (item.title as string | null) ?? (item.sku ? `eBay item ${item.sku}` : 'eBay sold item');
             const soldPrice = parseFloat((item.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
-            await supabase.from('inventory').insert({
+            const { data: newRow } = await supabase.from('inventory').insert({
               user_id: userId,
               item_id: item.sku ?? `ebay-order-${order.orderId}-${item.legacyItemId ?? ''}`,
               sku: item.sku ?? null,
@@ -507,7 +511,11 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
               platform: 'eBay',
               created_from: 'ebay_sync',
               sold_at: order.creationDate ?? new Date().toISOString(),
-            });
+            }).select('id').single();
+            if (newRow?.id) {
+              if (item.sku) bySku.set(String(item.sku), Number(newRow.id));
+              if (item.legacyItemId) byEbayId.set(String(item.legacyItemId), Number(newRow.id));
+            }
             sold++;
           }
         }

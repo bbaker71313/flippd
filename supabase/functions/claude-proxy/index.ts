@@ -90,6 +90,11 @@ function calcProfit(sell: number, cost: number, pkg: number, ship: number, fee: 
 }
 function r2(n: number) { return Math.round(n * 100) / 100; }
 
+// SEC-017: strip control chars and truncate before injecting user text into AI prompts
+function sanitizeForPrompt(s: string, maxLen = 500): string {
+  return s.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, maxLen).trim();
+}
+
 function getDecision(roi: number, confidence: number, s: Settings, net?: number, demandLevel?: string): 'LIST' | 'HOT' | 'SKIP' {
   const mod = s.sourcing_style === 'conservative' ? 1.2 : s.sourcing_style === 'aggressive' ? 0.8 : 1.0;
   const target = s.target_roi * mod;
@@ -327,17 +332,22 @@ async function handleInventoryList(
   userId: number,
   settings: Settings,
   tier: string,
+  pageSize = 500,
+  pageOffset = 0,
 ) {
+  // §5.8: paginated — default page 500 prevents full-table scans for Stack/Empire users
   const { data: items, error } = await supabase
     .from('inventory').select('*')
-    .eq('user_id', userId).order('created_at', { ascending: false });
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .range(pageOffset, pageOffset + pageSize - 1);
   if (error) throw new Error(error.message);
 
   const { count } = await supabase
     .from('inventory').select('*', { count: 'exact', head: true })
     .eq('user_id', userId);
 
-  return { items: items ?? [], itemCount: count ?? 0, settings, tier };
+  return { items: items ?? [], itemCount: count ?? 0, settings, tier, pageSize, pageOffset };
 }
 
 async function handleInventoryCreate(
@@ -490,10 +500,10 @@ async function handleListingGenerate(
   settings: Settings,
   body: Record<string, unknown>,
 ) {
-  const nickname  = (body.nickname  as string) ?? 'Unknown item';
+  const nickname  = sanitizeForPrompt((body.nickname  as string) ?? 'Unknown item', 200);
   const category  = (body.category  as string) ?? 'Other';
   const condition = (body.condition as string) ?? 'Used';
-  const notes     = (body.notes     as string) ?? '';
+  const notes     = sanitizeForPrompt((body.notes as string) ?? '', 500);
   const sellPrice = body.sellPrice  != null ? Number(body.sellPrice) : null;
   const itemId    = body.itemId     as number | null ?? null;
 
@@ -647,7 +657,7 @@ function calcPnlServer(
   const shipping     = settings.shipping    ?? 'buyer';
   const shipCost     = settings.ship_cost   ?? 6.00;
   const taxReservePct = settings.tax_reserve_pct ?? 0.25; // never hardcoded
-  const mileageRate  = settings.mileage_rate ?? 0.67;     // never hardcoded
+  const mileageRate  = settings.mileage_rate ?? 0.72;     // never hardcoded
 
   let totalRevenue = 0, totalCogs = 0, totalFees = 0, totalPackaging = 0, totalShipping = 0;
   for (const item of soldItems) {
@@ -803,10 +813,12 @@ async function handleGrowthReport(
     total_profit: s.revenue - s.cogs,
   })).sort((a, b) => b.total_profit - a.total_profit);
 
-  // Pull sold totals
+  // Pull sold totals — §5.3: include eBay fees + packaging so AI sees real profit
   const sold = items.filter(r => r.status === 'Sold');
   const revenue = sold.reduce((s, r) => s + Number(r.sell_price ?? 0), 0);
   const cogs    = sold.reduce((s, r) => s + Number(r.cost ?? 0), 0);
+  const ebayFees = revenue * ((settings.ebay_fee ?? 13) / 100);
+  const pkgFees  = sold.length * (settings.pkg_cost ?? 1.25);
 
   // Pull stale items (>60 days)
   const maxDays = (settings as unknown as Record<string, unknown>).stale_days
@@ -823,7 +835,7 @@ async function handleGrowthReport(
 
   const staleItems = (staleRows ?? []).map(r => ({
     sku: r.sku ?? '',
-    nickname: r.nickname ?? 'Unknown',
+    nickname: sanitizeForPrompt(r.nickname ?? 'Unknown', 100),
     days: Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / 86400000),
   }));
 
@@ -846,7 +858,7 @@ async function handleGrowthReport(
     total_items: itemCount,
     total_revenue: Math.round(revenue * 100) / 100,
     total_cogs: Math.round(cogs * 100) / 100,
-    net_profit: Math.round((revenue - cogs) * 100) / 100,
+    net_profit: Math.round((revenue - cogs - ebayFees - pkgFees) * 100) / 100,
     sold_count: sold.length,
     category_stats: categoryStats.slice(0, 8),
     stale_items: staleItems,
@@ -988,7 +1000,7 @@ async function handleSettingsGet(
     shipCost:      Number(s.ship_cost ?? 6.00),
     sourcingStyle: s.sourcing_style ?? 'balanced',
     taxReservePct: Number(s.tax_reserve_pct ?? 0.25),
-    mileageRate:   Number(s.mileage_rate ?? 0.67),
+    mileageRate:   Number(s.mileage_rate ?? 0.72),
     updatedAt:     s.updated_at ?? new Date().toISOString(),
   };
   return { success: true, settings, tier };
@@ -1053,7 +1065,7 @@ async function handleSettingsUpdate(
     shipCost:      Number(row.ship_cost ?? s.shipCost),
     sourcingStyle: row.sourcing_style ?? s.sourcingStyle,
     taxReservePct: Number(row.tax_reserve_pct ?? 0.25),
-    mileageRate:   Number(row.mileage_rate ?? 0.67),
+    mileageRate:   Number(row.mileage_rate ?? 0.72),
     updatedAt:     row.updated_at as string,
   };
   return { success: true, settings: updated };
@@ -1232,7 +1244,7 @@ Deno.serve(async (req: Request) => {
 
   let dbUser: Awaited<ReturnType<typeof getOrCreateUser>>;
   try { dbUser = await getOrCreateUser(supabase, email, username); }
-  catch (e) { return json({ error: (e as Error).message }, 500); }
+  catch (e) { console.error('getOrCreateUser failed:', e); return json({ error: 'Internal error' }, 500); }
 
   // SEC-012 — reject sessions issued before the last password reset.
   if ((payload.token_version ?? 0) !== (dbUser.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401);
@@ -1250,7 +1262,8 @@ Deno.serve(async (req: Request) => {
       if (incErr.message?.includes('scan_limit_reached')) {
         return json({ error: 'scan_limit_reached', tier: dbUser.tier, limit, used: limit }, 429);
       }
-      throw incErr;
+      console.error('increment_scan_count error:', incErr);
+      return json({ error: 'Scan service temporarily unavailable' }, 503);
     }
   }
 
@@ -1272,7 +1285,7 @@ Deno.serve(async (req: Request) => {
       return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
     }
     if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
-    if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier));
+    if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier, Number(body.pageSize ?? 500), Number(body.pageOffset ?? 0)));
     if (body.type === 'inventory_create') return json(await handleInventoryCreate(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_update') return json(await handleInventoryUpdate(supabase, dbUser.id, body));
     if (body.type === 'inventory_delete') return json(await handleInventoryDelete(supabase, dbUser.id, body));
@@ -1297,6 +1310,7 @@ Deno.serve(async (req: Request) => {
     if (e instanceof HttpError) {
       return json({ error: e.message, ...e.data }, e.httpStatus);
     }
-    return json({ error: (e as Error).message ?? 'Internal error' }, 500);
+    console.error('claude-proxy unhandled error:', e);
+    return json({ error: 'Internal error' }, 500);
   }
 });

@@ -4,6 +4,72 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-26/27 — Security Audit Phase 3 (P3 — all items) + crash fix
+
+Executed P3 of `docs/auditex.md` + verified P1/P2 items by reading actual deployed files (not trusting HANDOFF claims). Caught that stripe-webhook SEC-019 was NOT done despite memory claiming it was. Fixed everything, deployed 3 functions, applied 1 migration.
+
+### Critical crash fix
+
+`claude-proxy` had `throw incErr` **outside** the try/catch surrounding `increment_scan_count`. Any non-`scan_limit_reached` RPC error (DB timeout, transient error) escaped unhandled → unhandled promise rejection → function crash. Fixed: `console.error('increment_scan_count error:', incErr); return json({ error: 'Scan service temporarily unavailable' }, 503);`
+
+### P3 items completed
+
+- **SEC-017 prompt injection** — `sanitizeForPrompt(s, maxLen)` helper strips control chars + truncates. Applied to `handleListingGenerate` (nickname 200, notes 500) and Growth Agent staleItems (nickname 100). Does NOT block keywords — preserves legitimate content.
+- **SEC-019 Stripe webhook** — NaN timestamp bypass: `parseInt(timestamp,10)` + `Number.isNaN(ts)` guard. Non-constant-time HMAC: `timingSafeEqual(a,b)` char-XOR loop. Both confirmed NOT present before this session despite prior memory claiming they were. Now deployed v58.
+- **SEC-021 raw exception leak** — `getOrCreateUser` and top-level `Deno.serve` catch blocks now return `{ error: 'Internal error' }` (500) instead of leaking exception messages. Intentional `HttpError` user-facing messages preserved as-is.
+- **SEC-022 missing RLS policies** — migration 015 adds SELECT/INSERT/UPDATE/DELETE policies for `scan_log`, `pnl_expenses`, `growth_cache`, `settings`. Pattern: `user_id = (current_setting('app.user_id', true))::integer`. Applied to live prod.
+- **§5.3 Growth Agent profit calc** — net_profit previously `revenue - cogs` only. Now: `net_profit = revenue - cogs - (revenue * ebayFee/100) - (sold.length * pkgCost)`. Uses settings values, never hardcoded.
+- **§5.5 Stripe unknown priceId** — `PRICE_TIER[priceId] ?? 'hustle'` silent downgrade removed. Both `checkout.session.completed` and `customer.subscription.updated` handlers now: log error + `break` on unknown priceId. Tier unchanged rather than silently downgraded.
+- **§5.7 eBay sync N+1** — `handleSyncListings` preloads all inventory into two Maps (`byEbayId`, `bySku`) before the offers loop. 800+ per-sync SELECT queries → 1 preload + per-item upsert/insert. Maps updated after each insert so cross-loop lookups stay accurate. (Note: `handleSyncOrders` is a separate function — still has N+1; out of scope for §5.7 which targeted listings sync.)
+- **§5.8 inventory pagination** — `handleInventoryList` now accepts `pageSize` (default 500) + `pageOffset` (default 0) params; uses `.range(pageOffset, pageOffset + pageSize - 1)`. Previously unbounded — would OOM on large inventories.
+- **§5.9 ScanDecision type drift** — `packages/shared/src/types/index.ts` line 22: was `'BUY' | 'HOT' | 'PASS'`, now `'HOT' | 'LIST' | 'SKIP'`. Matches AI prompt output and DB values.
+- **§5.10 mileage rate** — 0.67 → 0.72 (IRS 2025 rate per CLAUDE.md). All 3 occurrences in claude-proxy replaced via `replace_all`. Comment on line 105 of types/index.ts still says `0.67` — comment only, not logic.
+- **SEC-003 verified** — unknown action type already returns 400; no change needed.
+- **SEC-018 verified** — all inventory/scan_log queries already filter by `userId`; no change needed.
+
+### Deployments (all to project dqgfpchkheznvanfgsmx)
+
+| Function | Version | Key changes |
+|---|---|---|
+| `stripe-webhook` | v58 | SEC-019 NaN bypass, timingSafeEqual, §5.5 unknown priceId break |
+| `ebay-oauth` | v65 | §5.7 N+1 Map preload |
+| `claude-proxy` | v78 | crash fix, SEC-017, SEC-021, §5.3, §5.8, §5.10, SEC-003 |
+
+### Migration applied to live prod
+
+- `20260626150000_015_rls_policies_remaining_tables.sql` — SEC-022 RLS for scan_log, pnl_expenses, growth_cache, settings.
+
+### Files changed this session
+
+- `supabase/functions/claude-proxy/index.ts`
+- `supabase/functions/stripe-webhook/index.ts`
+- `supabase/functions/ebay-oauth/index.ts`
+- `supabase/migrations/20260626150000_015_rls_policies_remaining_tables.sql`
+- `packages/shared/src/types/index.ts` (ScanDecision type)
+
+### Verification done
+
+- stripe-webhook: Read actual file — NaN guard + timingSafeEqual confirmed present.
+- claude-proxy: Read key sections — crash fix, sanitizeForPrompt, §5.3 net_profit formula, §5.8 .range(), mileage 0.72 all confirmed.
+- ebay-oauth: Map preload block confirmed in deployed v65.
+- types/index.ts: ScanDecision = 'HOT' | 'LIST' | 'SKIP' confirmed.
+- Migration 015: Applied → `{"success":true}`.
+
+### Lesson learned
+
+HANDOFF memory can lie. Always verify P1/P2 items by reading actual code files before marking "done". Memory entries from prior sessions are not authoritative — the deployed code is.
+
+### Next task
+
+**E2E verification sprint:**
+1. Stripe upgrade flow end-to-end (create checkout session → webhook → tier update → user sees new tier in app.html)
+2. PostHog events audit — confirm scan, listing, growth agent events are firing; check dashboard at us.posthog.com/project/448050
+3. Sentry zero-error audit — confirm no unhandled exceptions in prod
+4. eBay sandbox credentials — connect a sandbox credential (0 rows in ebay_connections); test the OAuth flow end-to-end
+5. Annual billing toggle fix in app.html (broken per CLAUDE.md — do not add new UI until fixed)
+
+---
+
 ## Session: 2026-06-25/26 — Security Audit Phase 2 (P2 — all 8 items)
 
 Executed P2 of `docs/auditex.md`. Verified each item before committing. Commit 1 (`81377a7`) = 7 items. Commit 2 (`02cfc75`) = SEC-012 revocation parity (background-review fix). Commit 3 = **SEC-010 eBay token encryption** (this entry).

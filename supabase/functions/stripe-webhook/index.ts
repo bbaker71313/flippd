@@ -24,8 +24,10 @@ async function verifyStripeSignature(payload: string, sigHeader: string, secret:
   const sig = parts['v1'];
   if (!timestamp || !sig) return false;
 
-  // Reject stale events (> 5 minutes)
-  if (Math.abs(Date.now() / 1000 - parseInt(timestamp)) > 300) return false;
+  // SEC-019: reject NaN timestamps (parseInt('') = NaN; NaN > 300 = false = bypass)
+  const ts = parseInt(timestamp, 10);
+  if (Number.isNaN(ts)) return false;
+  if (Math.abs(Date.now() / 1000 - ts) > 300) return false;
 
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(secret),
@@ -35,7 +37,15 @@ async function verifyStripeSignature(payload: string, sigHeader: string, secret:
     'HMAC', key, new TextEncoder().encode(`${timestamp}.${payload}`)
   );
   const expectedHex = Array.from(new Uint8Array(expectedSig), b => b.toString(16).padStart(2, '0')).join('');
-  return expectedHex === sig;
+  // SEC-019: constant-time compare to prevent timing-channel HMAC bypass
+  return timingSafeEqual(expectedHex, sig);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
 }
 
 // Stripe Price ID → tier mapping (from HANDOFF.md)
@@ -94,7 +104,12 @@ Deno.serve(async (req: Request) => {
         });
         const sub = await subRes.json();
         const priceId = (sub.items?.data?.[0]?.price?.id) as string;
-        const tier = PRICE_TIER[priceId] ?? 'hustle';
+        // §5.5: unknown price ID must not silently downgrade buyer to hustle
+        const tier = PRICE_TIER[priceId];
+        if (!tier) {
+          console.error(`stripe-webhook: unknown priceId ${priceId} for subscription ${subscriptionId} — no tier assigned`);
+          break;
+        }
         const periodEnd = sub.current_period_end
           ? new Date((sub.current_period_end as number) * 1000).toISOString()
           : null;
@@ -136,17 +151,21 @@ Deno.serve(async (req: Request) => {
         const status = data['status'] as string;
         const items = data['items'] as Record<string, unknown>;
         const priceId = (items?.['data'] as Array<Record<string, unknown>>)?.[0]?.['price'] as Record<string, unknown>;
-        const tier = PRICE_TIER[(priceId?.['id'] as string) ?? ''] ?? 'hustle';
+        // §5.5: unknown price ID — keep current tier, don't silently downgrade
+        const tier = PRICE_TIER[(priceId?.['id'] as string) ?? ''];
         const periodEnd = data['current_period_end']
           ? new Date((data['current_period_end'] as number) * 1000).toISOString()
           : null;
 
-        await supabase.from('users').update({
-          tier,
+        const updatePayload: Record<string, unknown> = {
           stripe_subscription_id: subscriptionId,
           subscription_status: status,
           subscription_period_end: periodEnd,
-        }).eq('stripe_customer_id', customerId);
+        };
+        if (tier) updatePayload.tier = tier;
+        else console.error(`stripe-webhook: unknown priceId ${priceId?.['id']} on subscription.updated — tier unchanged`);
+
+        await supabase.from('users').update(updatePayload).eq('stripe_customer_id', customerId);
         break;
       }
 
