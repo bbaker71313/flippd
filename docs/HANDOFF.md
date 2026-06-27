@@ -4,6 +4,53 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-27 — Security Audit Phase 4 (P4 — all completable items) + auth deploy
+
+All SEAudit.md P4 items executed. Auth Edge Fn deployed v61 with SEC-023 (password min 8). Commit `9004434` merged to main.
+
+### P4 items completed
+
+- **SEC-023 password min length** — `auth/index.ts` lines 105 + 334: `< 6` → `< 8`, message updated to "at least 8 characters". Auth redeployed v61 (ACTIVE). Server-side enforcement.
+- **SEC-024 waitlist anon key** — `apps/web/app/api/waitlist/route.ts`: hardcoded Supabase anon key (`eyJhbGci...`) removed from `??` fallback. Reads env only; POST returns 500 if key not set.
+- **§7 SEED_ITEMS** — `apps/web/public/app.html` line 2285: 29 demo items → `const SEED_ITEMS = [];`. Merge logic degrades cleanly; existing user localStorage data unaffected.
+- **§7 mockups/ dead code** — 11 HTML files deleted: `apps/web/public/mockups/` (01-terminal-evolved, 02-profit-oracle, 03-flip-street, 04-scanner-pro, 05-market-intelligence, 01-command, 02-oracle, 03-hunter, 04-stack, 05-pulse, index).
+
+### P4 items DEFERRED / BLOCKED
+
+- **§7 handleLegacyProxy removal** — BLOCKED. `app.html` `callClaude()` (Growth Agent, listing gen, trending keywords) and `invFormDetectItem()` both call `/v1/messages`. Live production traffic. Cannot remove until client migrated to typed action handlers. ~1 day task.
+- **§7 apps/mobile/ deletion** — DEFERRED. 100s of files. CLAUDE.md calls it "reference scaffold only". Requires explicit user approval before destructive delete.
+- **§5.9 / §5.10** — Already done in P3 (confirmed via grep before this session).
+
+### Deployments
+
+| Function | Version | Key changes |
+|---|---|---|
+| `auth` | v61 | SEC-023 password min 8 chars (register + reset-confirm) |
+
+### Files changed this session
+
+- `supabase/functions/auth/index.ts`
+- `apps/web/app/api/waitlist/route.ts`
+- `apps/web/public/app.html`
+- `apps/web/public/mockups/*.html` (11 deleted)
+
+### SEAudit.md status — ALL 4 PRIORITY LEVELS COMPLETE
+
+P1 ✅ (6/6) · P2 ✅ (8/8) · P3 ✅ (10/10) · P4 ✅ (4/4 completable; 2 deferred with documented reasons)
+
+### Next task
+
+**E2E verification sprint:**
+1. Stripe upgrade flow end-to-end (checkout session → webhook → tier update → app.html reflects)
+2. PostHog events audit — scan, listing, growth agent events confirmed firing
+3. Sentry zero-error audit — no unhandled exceptions in prod
+4. eBay sandbox credentials — connect credential (0 rows in ebay_connections); test OAuth flow
+5. Annual billing toggle fix in app.html (broken per CLAUDE.md)
+6. **handleLegacyProxy migration** — migrate callClaude() to typed handlers so legacy proxy can be removed
+7. **apps/mobile/ decision** — confirm with user: archive or delete?
+
+---
+
 ## Session: 2026-06-26/27 — Security Audit Phase 3 (P3 — all items) + crash fix
 
 Executed P3 of `docs/auditex.md` + verified P1/P2 items by reading actual deployed files (not trusting HANDOFF claims). Caught that stripe-webhook SEC-019 was NOT done despite memory claiming it was. Fixed everything, deployed 3 functions, applied 1 migration.
