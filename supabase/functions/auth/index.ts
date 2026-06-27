@@ -102,7 +102,7 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
   const name = rawName ?? username;
 
   if (!username || !email || !password) return json({ error: 'username, email, and password are required' }, 400);
-  if (password.length < 6) return json({ error: 'Password must be at least 6 characters' }, 400);
+  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
   if (!/^[a-zA-Z0-9_]+$/.test(username)) return json({ error: 'Username can only contain letters, numbers, and underscores' }, 400);
 
   const { data: existingUser } = await supabase.from('users').select('id').eq('username', username).maybeSingle();
@@ -331,7 +331,7 @@ async function handleResetConfirm(req: Request, supabase: ReturnType<typeof crea
   const body = await req.json().catch(() => ({}));
   const { token, password } = body;
   if (!token || !password) return json({ error: 'Token and password are required' }, 400);
-  if (password.length < 6) return json({ error: 'Password must be at least 6 characters' }, 400);
+  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
 
   let payload: Record<string, unknown>;
   try { payload = await verifyJWT(token, jwtSecret); }

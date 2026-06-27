@@ -3,9 +3,7 @@ import { NextResponse } from 'next/server'
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://dqgfpchkheznvanfgsmx.supabase.co'
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZ2ZwY2hraGV6bnZhbmZnc214Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NjE5MjQsImV4cCI6MjA5MzEzNzkyNH0.mAViqTT9u5_iXikax9ZOr9b2i9UzecrGiY9kLI-Egdo'
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 async function sendWaitlistWelcome(email: string): Promise<void> {
   const resendKey = process.env.RESEND_API_KEY
@@ -29,6 +27,11 @@ async function sendWaitlistWelcome(email: string): Promise<void> {
 
 export async function POST(req: Request) {
   try {
+    if (!SUPABASE_ANON_KEY) {
+      console.error('[waitlist] NEXT_PUBLIC_SUPABASE_ANON_KEY not configured')
+      return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    }
+
     const { email, source } = await req.json()
 
     if (!email || !email.includes('@')) {
