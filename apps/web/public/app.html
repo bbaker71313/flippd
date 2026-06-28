@@ -3155,20 +3155,16 @@ async function invFormDetectItem() {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     let res;
     try {
-      res = await fetch(API_BASE + '/v1/messages', {
+      res = await fetch(API_BASE, {
         method: 'POST',
         headers: getApiHeaders(),
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          type: 'image_detect',
+          imageBase64: compressed,
+          imageMimeType: 'image/jpeg',
+          prompt: detectPrompt,
           max_tokens: 400,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: compressed } },
-              { type: 'text', text: detectPrompt }
-            ]
-          }]
         })
       });
     } finally {
@@ -5709,7 +5705,6 @@ const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
 function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
-function getApiUrl() { return API_BASE + '/v1/messages'; }
 function getApiHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -5969,15 +5964,12 @@ async function callScan(type, hint, imageB64) {
 async function callClaude(system,msg,maxTok=1500) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
 
-  // Text-only path against /v1/messages. Photo scans go through callScan,
-  // which routes to the typed single_scan/shelf_scan endpoints with full
-  // server-side business logic — never through here.
-  const url = getApiUrl();
   const headers = getApiHeaders();
   headers['Content-Type'] = 'application/json';
-  console.log('API Call:', {url, apiKeySet: !!apiKey});
+  console.log('API Call:', {url: API_BASE, apiKeySet: !!apiKey});
 
   const body = JSON.stringify({
+    type: 'text_completion',
     model: 'claude-sonnet-4-6',
     max_tokens: maxTok,
     system,
@@ -5985,7 +5977,7 @@ async function callClaude(system,msg,maxTok=1500) {
   });
 
   try {
-    const res = await fetch(url, { method: 'POST', headers, body });
+    const res = await fetch(API_BASE, { method: 'POST', headers, body });
     console.log('Response status:', res.status);
     if (!res.ok) {
       let errData = {};
