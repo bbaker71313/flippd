@@ -4,6 +4,46 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-28 — Legacy proxy migration + CI fix + verification protocol
+
+Completed handleLegacyProxy migration (deferred from P4). Fixed GitHub TypeCheck CI failures. Established verify-before-merge protocol (GitHub CI + Vercel + Supabase before any merge).
+
+### Completed this session
+
+- **handleLegacyProxy removed** from `claude-proxy` — added `handleTextCompletion` (`type:text_completion`) and `handleImageDetect` (`type:image_detect`) typed action handlers. Deployed v79 ACTIVE.
+- **app.html migrated** — `callClaude()` now posts `{ type:'text_completion', ... }` to `API_BASE`. `invFormDetectItem()` posts `{ type:'image_detect', ... }` to `API_BASE`. `getApiUrl()` removed. Zero `/v1/messages` refs remain.
+- **TS typecheck CI fixed** — `packages/shared/tsconfig.json` excludes `**/*.test.ts` (test file uses `node:test`/`node:assert` which need `@types/node`; tests run via `node --test` directly, not tsc).
+- **PR #126** merged via worktree-p4-cleanup branch. CI green on PR + post-merge main. Vercel READY. All 7 Supabase functions ACTIVE.
+
+### Deployments
+
+| Function | Version | Status |
+|---|---|---|
+| `claude-proxy` | v79 | ACTIVE — typed handlers, legacy proxy removed |
+| `auth` | v61 | ACTIVE — unchanged |
+
+### Verification protocol (new rule)
+Before merging to main: (1) GitHub CI must pass on PR, (2) Vercel READY, (3) Supabase functions ACTIVE if edge fn changed, (4) Railway checked if Railway-deployed services affected.
+
+### Files changed this session
+
+- `supabase/functions/claude-proxy/index.ts`
+- `apps/web/public/app.html`
+- `packages/shared/tsconfig.json`
+
+### Next task
+
+**E2E verification sprint:**
+1. Stripe upgrade flow end-to-end (checkout session → webhook → tier update → app.html reflects)
+2. PostHog events audit — scan, listing, growth agent events confirmed firing
+3. Sentry zero-error audit — no unhandled exceptions in prod
+4. eBay sandbox credentials — connect credential (0 rows in ebay_connections); test OAuth flow
+5. Annual billing toggle fix in app.html (broken per CLAUDE.md)
+6. **apps/mobile/ decision** — confirm with user: archive or delete? (100s of files, needs explicit approval)
+7. Railway login needed (`! railway login`) before Railway status can be checked
+
+---
+
 ## Session: 2026-06-27 — Security Audit Phase 4 (P4 — all completable items) + auth deploy
 
 All SEAudit.md P4 items executed. Auth Edge Fn deployed v61 with SEC-023 (password min 8). Commit `9004434` merged to main.
