@@ -4,6 +4,33 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-29 (cont.) — SEC-016 single-use password reset
+
+### What was done
+
+- **Migration 016** (`20260629000016_add_password_reset_used_at.sql`): added `password_reset_used_at TIMESTAMPTZ` column to `users` table. Applied to live DB ✓
+- **`auth/index.ts`** — two surgical changes:
+  - `handleResetRequest`: clears `password_reset_used_at = NULL` before issuing each new token (so old tokens cannot be reused after a new request)
+  - `handleResetConfirm`: reads `password_reset_used_at`; rejects with 400 if non-null ("Reset link has already been used"); sets it to `NOW()` on success
+  - Consolidated the separate `SELECT token_version` query into the single `SELECT token_version, password_reset_used_at`
+- **auth v62** deployed and ACTIVE
+- **Commit**: `57ea5f8` → pushed main
+- **Vercel**: READY (`dpl_CsUZokeugTLYHuTDxUV2pdPdg6Vk`)
+- **GitHub CI**: TypeCheck not triggered (correct — only `supabase/` files changed)
+
+### Files changed
+
+- `supabase/functions/auth/index.ts` (v62)
+- `supabase/migrations/20260629000016_add_password_reset_used_at.sql`
+
+### Next tasks (in order)
+
+1. **Phase 5D — SEC-015 JWT → httpOnly cookie**: Last security item, before launch. Full migration of JWT storage from localStorage to httpOnly cookie.
+2. **Stripe E2E verification**: Test purchase flow end-to-end on production.
+3. **PostHog event audit**: Confirm events firing in production.
+
+---
+
 ## Session: 2026-06-29 — Phase 5A complete: legacy proxy removed, all callers migrated
 
 ### What was done
