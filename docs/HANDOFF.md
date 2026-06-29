@@ -4,6 +4,46 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-29 — Phase 5A complete: legacy proxy removed, all callers migrated
+
+### What was done
+
+- **`handleLegacyProxy` removed** from `claude-proxy/index.ts` — SEC-013 model-abuse vector closed. `/v1/messages` now returns 405.
+- **4 new typed handlers** in claude-proxy: `handleTextScan`, `handleDetectItem` (new), `text_scan` route, `detect_item` route (in addition to existing `growth_report`, `listing_generate`).
+- **`ab2b64` restored** as standalone helper at top of claude-proxy (still needed for multipart photo scan form data).
+- **`app.html` migrations** (all 4 `callClaude` callers eliminated):
+  - `invFormDetectItem` → `{ type: 'detect_item' }`
+  - `runGrowthAgent` → `{ type: 'growth_report' }` (server aggregates inventory, no client prompt)
+  - `generateListingWithAI` → `{ type: 'listing_generate' }`
+  - text-only scan in `analyze()` → `{ type: 'text_scan' }` with camelCase response mapping
+- **Deleted from app.html**: `callClaude()`, `getApiUrl()`, `PROXY_URL`
+- **`apps/mobile/` deleted** (60 files) — never started, user approved
+- **claude-proxy v80** deployed and ACTIVE
+- **Merge conflict resolved**: remote had partial/inconsistent migration (`image_detect` type with no proxy handler). Kept our complete version.
+- **Commit**: `8aef70d` → pushed main
+
+### Files changed
+
+- `supabase/functions/claude-proxy/index.ts` (v80)
+- `apps/web/public/app.html`
+- `apps/mobile/` (deleted, 60 files)
+- `packages/shared/tsconfig.json` (TS fix from remote)
+
+### Deployments
+
+| Function | Version | Key changes |
+|---|---|---|
+| `claude-proxy` | v80 | Legacy proxy removed; text_scan + detect_item typed handlers added |
+
+### Next tasks (in order)
+
+1. **SEC-016 — single-use password reset**: Add `password_reset_used_at TIMESTAMPTZ` to users table (migration 016). In `handleResetRequest`: set `= NULL`. In `handleResetConfirm`: check null before accepting, set to `NOW()` on success. Deploy auth.
+2. **Phase 5D — SEC-015 JWT → httpOnly cookie**: Last security item, before launch. Full migration of JWT storage from localStorage to httpOnly cookie.
+3. **Stripe E2E verification**: Test purchase flow end-to-end on production.
+4. **PostHog event audit**: Confirm events firing in production.
+
+---
+
 ## Session: 2026-06-27 — Security Audit Phase 4 (P4 — all completable items) + auth deploy
 
 All SEAudit.md P4 items executed. Auth Edge Fn deployed v61 with SEC-023 (password min 8). Commit `9004434` merged to main.
