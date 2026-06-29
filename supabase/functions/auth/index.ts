@@ -305,6 +305,9 @@ async function handleResetRequest(req: Request, supabase: ReturnType<typeof crea
   // Always return success to prevent email enumeration
   if (!user) return json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
 
+  // SEC-016 — clear used-at so the new token can be consumed once
+  await supabase.from('users').update({ password_reset_used_at: null }).eq('id', user.id);
+
   const resetToken = await signJWT({ sub: user.id, purpose: 'password_reset' }, jwtSecret, 3600);
   const frontendUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
   // Fragment (#) keeps the token out of server logs, Referer headers, and proxy access logs
@@ -339,13 +342,21 @@ async function handleResetConfirm(req: Request, supabase: ReturnType<typeof crea
 
   if (payload.purpose !== 'password_reset') return json({ error: 'Invalid reset token' }, 400);
 
-  const passwordHash = bcrypt.hashSync(password, 10);
-  // SEC-012 — bump token_version to invalidate all existing JWTs for this user.
+  // SEC-016 — reject already-consumed tokens
   const { data: current } = await supabase
-    .from('users').select('token_version').eq('id', payload.sub).maybeSingle();
+    .from('users').select('token_version, password_reset_used_at').eq('id', payload.sub).maybeSingle();
+  if (!current) return json({ error: 'Invalid reset token' }, 400);
+  if (current.password_reset_used_at !== null) return json({ error: 'Reset link has already been used. Please request a new one.' }, 400);
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  // SEC-012 — bump token_version; SEC-016 — mark token consumed
   const { error } = await supabase
     .from('users')
-    .update({ password: passwordHash, token_version: ((current?.token_version as number) ?? 0) + 1 })
+    .update({
+      password: passwordHash,
+      token_version: ((current.token_version as number) ?? 0) + 1,
+      password_reset_used_at: new Date().toISOString(),
+    })
     .eq('id', payload.sub);
 
   if (error) return json({ error: 'Failed to update password. Please try again.' }, 500);
