@@ -2,6 +2,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyJWT } from "../_shared/jwt.ts";
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts";
 
+function ab2b64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 8192;
+  let s = '';
+  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+    s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(s);
+}
+
 const CATEGORY_SKU_PREFIX: Record<string, string> = {
   'Consumer Electronics':            'ELEC',
   'Clothing, Shoes & Accessories':   'CLTH',
@@ -121,14 +131,15 @@ function detectImageMime(buf: ArrayBuffer): 'image/jpeg' | 'image/png' | 'image/
 async function callAnthropic(
   key: string, system: string, images: string[], maxTokens = 1024,
   mimeTypes: ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[] = [],
+  userText?: string,
 ): Promise<string> {
   const imageBlocks = images.map((data, i) => ({
     type: 'image' as const,
     source: { type: 'base64' as const, media_type: (mimeTypes[i] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data },
   }));
-  const textPrompt = images.length > 1
+  const textPrompt = userText ?? (images.length > 1
     ? `Analyze these ${images.length} photos of the same item from different angles.`
-    : 'Analyze this image.';
+    : 'Analyze this image.');
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -245,6 +256,67 @@ async function handleSingleScan(
     notes: (ai.notes as string) ?? '',
     scanLogId: logRow?.id ?? null,
   };
+}
+
+async function handleTextScan(
+  supabase: ReturnType<typeof createClient>,
+  anthropicKey: string,
+  userId: number,
+  settings: Settings,
+  text: string,
+) {
+  const userText = `Identify and price this specific item for eBay resale: "${text.slice(0, 300)}". Provide realistic eBay sold comps — not retail or asking prices.`;
+  const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), [], 1024, [], userText);
+  let ai: Record<string, unknown>;
+  try { ai = JSON.parse(raw); }
+  catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) { try { ai = JSON.parse(m[0]); } catch { throw new Error('Could not analyze this item. Try adding more detail.'); } }
+    else throw new Error('Could not analyze this item. Try adding more detail.');
+  }
+  const avgSell = (ai.avg_sold_price as number) ?? 0;
+  const estimatedCost = r2(avgSell * 0.10);
+  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
+  const confidence = (ai.confidence as number) ?? 50;
+  const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
+  const { data: logRow } = await supabase.from('scan_log').insert({
+    user_id: userId, scan_type: 'text', decision,
+    item_name: ai.item_name, category: ai.category,
+    estimated_profit: net, estimated_sell: avgSell,
+    roi, confidence, bought: false, raw_response: ai,
+  }).select('id').single();
+  return {
+    decision, itemName: ai.item_name, estimatedProfit: net,
+    estimatedSell: avgSell, estimatedCost, confidence, roi,
+    reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
+    category: ai.category, brand: (ai.brand as string) ?? null,
+    searchKeywords: ai.search_keywords ?? [],
+    priceLow: ai.price_low, priceHigh: ai.price_high,
+    sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
+    avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
+    listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
+    conditionNotes: ai.condition_notes ?? '',
+    notes: (ai.notes as string) ?? '',
+    scanLogId: logRow?.id ?? null,
+  };
+}
+
+async function handleDetectItem(
+  anthropicKey: string,
+  imageBase64: string,
+  imageMimeType: string,
+) {
+  const detectPrompt = 'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}';
+  const raw = await callAnthropic(anthropicKey, '', [imageBase64], 400, [imageMimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'], detectPrompt);
+  let ai: Record<string, unknown>;
+  try { ai = JSON.parse(raw.replace(/```json|```/g, '').trim()); }
+  catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (m) { try { ai = JSON.parse(m[0]); } catch { throw new Error('Could not detect item — try a clearer photo'); } }
+    else throw new Error('Could not detect item — try a clearer photo');
+  }
+  return ai;
 }
 
 async function handleShelfScan(
@@ -1097,77 +1169,8 @@ const STATIC_KEYWORDS = [
 const STATIC_CATEGORIES = ['Electronics', 'Clothing', 'Collectibles', 'Home & Garden'];
 const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always include if available.';
 
-// ── Legacy proxy: handles old Replit-style /v1/messages endpoints ──────────
-function ab2b64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  const CHUNK = 8192;
-  let s = '';
-  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
-    s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(s);
-}
-
-async function handleLegacyProxy(req: Request, hasImage: boolean): Promise<Response> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
-  const jwtSecret = Deno.env.get('JWT_SECRET');
-  if (!jwtSecret) throw new Error('JWT_SECRET must be set');
-  try { await verifyJWT(authHeader.slice(7), jwtSecret); }
-  catch { return json({ error: 'Unauthorized' }, 401); }
-
-  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
-  if (!anthropicKey) return json({ error: 'Anthropic key not configured' }, 500);
-
-  let model: string, system: string, messages: unknown[], maxTokens: number;
-
-  if (hasImage) {
-    const form = await req.formData();
-    model     = (form.get('model') as string) ?? 'claude-sonnet-4-6';
-    system    = (form.get('system') as string) ?? '';
-    maxTokens = parseInt((form.get('max_tokens') as string) ?? '1500', 10);
-    messages  = JSON.parse((form.get('messages') as string) ?? '[]');
-    const imageFile = form.get('image') as File | null;
-    if (imageFile) {
-      const b64 = ab2b64(await imageFile.arrayBuffer());
-      if (Array.isArray(messages) && messages.length > 0) {
-        const content = (messages[0] as Record<string, unknown>).content as Array<Record<string, unknown>>;
-        const imgBlock = content?.find(b => b.type === 'image');
-        if (imgBlock) (imgBlock.source as Record<string, unknown>).data = b64;
-      }
-    }
-  } else {
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-    model     = (body.model as string) ?? 'claude-sonnet-4-6';
-    system    = (body.system as string) ?? '';
-    maxTokens = (body.max_tokens as number) ?? 1500;
-    messages  = (body.messages as unknown[]) ?? [];
-  }
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': anthropicKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
-  });
-  const data = await res.json();
-  return new Response(JSON.stringify(data), {
-    status: res.ok ? 200 : res.status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  });
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-
-  // Route old /v1/messages* endpoints to legacy transparent proxy
-  const path = new URL(req.url).pathname;
-  if (req.method === 'POST' && (path.endsWith('/v1/messages') || path.endsWith('/v1/messages-with-image'))) {
-    return await handleLegacyProxy(req, path.endsWith('/v1/messages-with-image'));
-  }
 
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
@@ -1249,7 +1252,7 @@ Deno.serve(async (req: Request) => {
   // SEC-012 — reject sessions issued before the last password reset.
   if ((payload.token_version ?? 0) !== (dbUser.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401);
 
-  const isScan = body.type === 'single_scan' || body.type === 'shelf_scan';
+  const isScan = body.type === 'single_scan' || body.type === 'shelf_scan' || body.type === 'text_scan';
   if (isScan) {
     // §5.1 — atomic increment + monthly reset + limit check in one RPC,
     // replacing the read-then-write race. p_limit null = unlimited.
@@ -1283,6 +1286,19 @@ Deno.serve(async (req: Request) => {
       if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
       const mimes = Array.isArray(body.imageMimeTypes) ? (body.imageMimeTypes as string[]) : [];
       return json(await handleShelfScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
+    }
+    if (body.type === 'text_scan') {
+      if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+      const text = (body.hint as string) ?? (body.text as string) ?? '';
+      if (!text.trim()) return json({ error: 'No item description provided' }, 400);
+      return json(await handleTextScan(supabase, anthropicKey, dbUser.id, dbUser.settings, text));
+    }
+    if (body.type === 'detect_item') {
+      if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
+      const imgB64 = (body.imageBase64 as string) ?? '';
+      const mime = (body.imageMimeType as string) ?? 'image/jpeg';
+      if (!imgB64) return json({ error: 'No image provided' }, 400);
+      return json(await handleDetectItem(anthropicKey, imgB64, mime));
     }
     if (body.type === 'buy_item')         return json(await handleBuyItem(supabase, dbUser.id, dbUser.tier, body));
     if (body.type === 'inventory_list')   return json(await handleInventoryList(supabase, dbUser.id, dbUser.settings, dbUser.tier, Number(body.pageSize ?? 500), Number(body.pageOffset ?? 0)));

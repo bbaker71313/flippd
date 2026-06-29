@@ -3150,26 +3150,15 @@ async function invFormDetectItem() {
   try {
     // Compress image client-side: max 1200px, JPEG 0.85
     const compressed = await compressImageForDetect(invFormImgFile, 1200, 0.85);
-    const detectPrompt = 'Identify this item for an eBay reseller inventory system. Study all visible details — brand, model, labels, features. Return ONLY valid JSON, no markdown: {"name":"specific item name with brand and model","category":"one of: Electronics/Clothing/Shoes/Home & Garden/Collectibles/Toys & Hobbies/Sporting Goods/Books/Automotive/Health & Beauty/Tools/Musical Instruments/Pet Supplies/Baby/Jewelry & Watches","condition":"New/Like New/Good/Fair/Poor","estimated_value":number,"notes":"condition observations and key selling points in one sentence"}';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     let res;
     try {
-      res = await fetch(API_BASE + '/v1/messages', {
+      res = await fetch(API_BASE, {
         method: 'POST',
         headers: getApiHeaders(),
         signal: controller.signal,
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 400,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: compressed } },
-              { type: 'text', text: detectPrompt }
-            ]
-          }]
-        })
+        body: JSON.stringify({ type: 'detect_item', imageBase64: compressed, imageMimeType: 'image/jpeg' })
       });
     } finally {
       clearTimeout(timeoutId);
@@ -3180,9 +3169,8 @@ async function invFormDetectItem() {
       throw new Error('API Error ' + res.status + ': ' + errText.substring(0, 100));
     }
     const d = await res.json();
-    if (d.error) throw new Error(d.error.message);
-    const raw = d.content?.find(b=>b.type==='text')?.text || '';
-    const detected = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    if (d.error) throw new Error(d.error);
+    const detected = d;
     document.getElementById('f-nickname').value = detected.name || '';
     if (detected.category && CATEGORIES.includes(detected.category)) {
       document.getElementById('f-category').value = detected.category;
@@ -4226,89 +4214,14 @@ async function runGrowthAgent() {
   }, 2200);
 
   try {
-    // Build inventory summary
-    const sold = items.filter(i=>i.status==='Sold');
-    const listed = items.filter(i=>i.status==='Listed');
-    const unlisted = items.filter(i=>i.status==='Unlisted');
-
-    const catStats = {};
-    CATEGORIES.forEach(cat => {
-      const ci = items.filter(i=>i.category===cat);
-      const soldCi = ci.filter(i=>i.status==='Sold');
-      catStats[cat] = {
-        total: ci.length,
-        sold: soldCi.length,
-        listed: ci.filter(i=>i.status==='Listed').length,
-        totalProfit: Math.round(soldCi.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0)*100)/100,
-        avgProfit: soldCi.length ? Math.round(soldCi.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0)/soldCi.length*100)/100 : 0,
-      };
+    const growthRes = await fetch(API_BASE, {
+      method: 'POST', headers: getApiHeaders(),
+      body: JSON.stringify({ type: 'growth_report' })
     });
-
-    const now = Date.now();
-    const staleItems = listed.filter(i => {
-      const days = (now - new Date(i.createdAt||i.dateAcquired).getTime()) / 86400000;
-      return days > S.maxDays;
-    }).slice(0,8);
-
-    const inventorySummary = {
-      totalItems: items.length,
-      totalListed: listed.length,
-      totalSold: sold.length,
-      totalUnlisted: unlisted.length,
-      totalRealizedProfit: sold.reduce((s,i)=>s+calcProfit(i.cost,i.sellPrice),0).toFixed(2),
-      categoryStats: catStats,
-      staleItems: staleItems.map(i=>({
-        name:i.nickname, sku:i.sku, price:i.sellPrice,
-        daysListed: Math.floor((now-new Date(i.createdAt||i.dateAcquired).getTime())/86400000),
-        category:i.category
-      })),
-      recentSales: sold.slice(-5).map(i=>({name:i.nickname,category:i.category,profit:calcProfit(i.cost,i.sellPrice).toFixed(2)})),
-    };
-
-    // Single combined call — market trends + analysis in one prompt
-    // (avoids the web search tool complexity and uses callClaude directly)
-    const prompt = `You are a business growth advisor for an eBay thrift reseller. Analyze their data and provide actionable insights.
-
-SELLER INVENTORY DATA:
-${JSON.stringify(inventorySummary, null, 2)}
-
-SELLER FEE STRUCTURE: ${S.ebayFee}% eBay fee + $${S.pkgCost} packaging per item. Minimum profit target: $${S.minProfit}. Target ROI: ${S.targetRoi}%. Max days to sell: ${S.maxDays}.
-
-TODAY'S DATE: ${new Date().toLocaleDateString()}
-
-Based on this real seller data AND your knowledge of current eBay reselling trends for thrift sellers in 2025-2026, return ONLY valid JSON (no markdown, no preamble):
-{
-  "business_score": number (0-100),
-  "score_label": "Strong/Growing/Steady/Needs Attention",
-  "score_color": "#00bb66 or #c47800 or #dd0000",
-  "score_summary": "one sentence on overall business health using their actual numbers",
-  "top_categories": [
-    {"name":"string","profit":"$X","insight":"one sentence specific to their data","bar_pct":number}
-  ],
-  "stale_actions": [
-    {"sku":"string","name":"string","days":number,"action":"Relist / Drop price 10% / Bundle / Donate","reason":"one sentence"}
-  ],
-  "hunt_list": [
-    {"icon":"emoji","item":"string","why":"one sentence why to hunt this now","priority":"HIGH or MED"}
-  ],
-  "market_trends": [
-    {"arrow":"up or down","category":"string","detail":"one sentence trend insight for thrift resellers"}
-  ],
-  "advisor_message": "3-4 sentences of direct actionable advice using their actual numbers. Be specific. Tell them exactly what to do differently this week."
-}`;
-
-    const raw = await callClaude('', prompt, 4096);
-    let result;
-    try {
-      let cleaned = raw.replace(/```json|```/g, '').trim();
-      const jsonStart = cleaned.indexOf('{');
-      const jsonEnd = cleaned.lastIndexOf('}');
-      if (jsonStart !== -1 && jsonEnd !== -1) cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-      result = JSON.parse(cleaned);
-    } catch (parseErr) {
-      console.error('JSON parse error in growth agent:', parseErr, 'Raw:', raw.substring(0, 300));
-      throw new Error('Invalid response from Claude \u2014 please try again');
-    }
+    if (!growthRes.ok) { const e = await growthRes.json().catch(()=>({})); throw new Error(e.error || 'Growth report failed'); }
+    const growthD = await growthRes.json();
+    if (growthD.error) throw new Error(growthD.error);
+    const result = growthD.data;
 
     clearInterval(msgInterval);
     saveGrowthCache(result);
@@ -4782,53 +4695,19 @@ async function saveListing(exportCsv) {
 }
 
 async function generateListingWithAI(item, condition) {
-  const categoryDescriptors = {
-    'Electronics': 'functional, tested, specifications',
-    'Clothing': 'fabric, fit, brand, styling',
-    'Shoes': 'size, brand, condition, fit',
-    'Home & Garden': 'materials, dimensions, functionality',
-    'Collectibles': 'authenticity, rarity, condition',
-    'Toys & Hobbies': 'completeness, vintage value, condition',
-    'Books': 'author, edition, binding, condition',
-    'Sporting Goods': 'brand, specifications, condition',
-    'Jewelry & Watches': 'material, brand, specifications'
-  };
-  
-  const categoryHint = categoryDescriptors[item.category] || 'condition, functionality, quality';
-  
-  const prompt = `You are an expert eBay reseller writing product listings. Generate a title, description, and condition note for this item.
-
-Item name: ${item.nickname}
-Category: ${item.category}
-Condition: ${condition}
-Seller notes: ${item.notes || 'No additional notes'}
-
-Focus on: ${categoryHint}
-
-STRICT REQUIREMENTS:
-- Title: max 80 characters, eBay-optimized keywords first
-- Description: 250-400 words, bullet points for key details, mobile-friendly
-- Condition Note: 50-100 words, specific about condition
-
-Respond ONLY with valid JSON (no markdown, no backticks):
-{
-  "title": "...",
-  "description": "...",
-  "conditionNote": "..."
-}`;
-
-  const resp = await callClaude('Generate eBay listing', prompt, 1000);
-  
-  const jsonMatch = resp.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Invalid response format');
-  
-  const parsed = JSON.parse(jsonMatch[0]);
-  
-  return {
-    title: (parsed.title || '').substring(0, 80),
-    description: (parsed.description || '').substring(0, 1500),
-    conditionNote: (parsed.conditionNote || '').substring(0, 500)
-  };
+  const res = await fetch(API_BASE, {
+    method: 'POST', headers: getApiHeaders(),
+    body: JSON.stringify({
+      type: 'listing_generate',
+      nickname: item.nickname, category: item.category,
+      condition, notes: item.notes || '',
+      sellPrice: item.sellPrice,
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Listing generation failed'); }
+  const d = await res.json();
+  if (d.error) throw new Error(d.error);
+  return { title: d.title, description: d.description, conditionNote: d.conditionNote };
 }
 
 function exportListingsToCSV() {
@@ -5192,7 +5071,7 @@ function fileToBase64NoDecodeAndThumb(file) {
     }
     // Resolve immediately with the raw File — no allocation, no decode.
     // The caller stores it in imgFile / invFormImgFile and uses
-    // multipart/form-data upload in callClaude / invFormDetectItem.
+    // multipart/form-data upload in invFormDetectItem / callScan.
     // b64/mime/thumbUrl kept for backwards compat with existing callers
     // (they check for null and route through the file path instead).
     resolve({ b64: null, thumbUrl: null, mime: file.type || 'image/jpeg', sizeKB: Math.round(file.size/1024), file: file });
@@ -5705,11 +5584,9 @@ let apiKey = localStorage.getItem('sfp_jwt') || '';
 const AUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
 const EBAY_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/ebay-oauth';
 const API_BASE  = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy';
-const PROXY_URL = API_BASE; // Backend proxy
 let currentUser = null;
 
 function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
-function getApiUrl() { return API_BASE + '/v1/messages'; }
 function getApiHeaders() {
   return {
     'Content-Type': 'application/json',
@@ -5966,84 +5843,6 @@ async function callScan(type, hint, imageB64) {
   return res.json();
 }
 
-async function callClaude(system,msg,maxTok=1500) {
-  if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
-
-  // Text-only path against /v1/messages. Photo scans go through callScan,
-  // which routes to the typed single_scan/shelf_scan endpoints with full
-  // server-side business logic — never through here.
-  const url = getApiUrl();
-  const headers = getApiHeaders();
-  headers['Content-Type'] = 'application/json';
-  console.log('API Call:', {url, apiKeySet: !!apiKey});
-
-  const body = JSON.stringify({
-    model: 'claude-sonnet-4-6',
-    max_tokens: maxTok,
-    system,
-    messages: [{role:'user', content:[{type:'text', text: msg}]}]
-  });
-
-  try {
-    const res = await fetch(url, { method: 'POST', headers, body });
-    console.log('Response status:', res.status);
-    if (!res.ok) {
-      let errData = {};
-      try { errData = await res.json(); } catch(e) {}
-      console.error('HTTP Error:', res.status, JSON.stringify(errData).substring(0,200));
-      if (res.status === 429 && errData.error && errData.error.toLowerCase().includes('limit')) {
-        showLimitReachedModal(errData);
-        throw new Error('scan_limit');
-      }
-      if (res.status === 401 || res.status === 403) {
-        throw new Error('Session expired. Please log in again.');
-      } else if (res.status === 429) {
-        throw new Error('Rate limited. Wait a moment and try again');
-      } else if (res.status === 413) {
-        throw new Error('Photo too large for server. Try a smaller one');
-      } else if (res.status === 400) {
-        // Backend may return error as a nested object (Anthropic format)
-        // or a flat string. Walk the common shapes to extract a readable
-        // message instead of stringifying [object Object].
-        function extract(e) {
-          if (!e) return null;
-          if (typeof e === 'string') return e;
-          if (typeof e === 'object') {
-            return e.message || e.error || e.detail || e.msg ||
-                   (e.type ? e.type + ': ' + JSON.stringify(e).substring(0,160) : null);
-          }
-          return null;
-        }
-        const detail = extract(errData.error) || extract(errData.message) ||
-                       extract(errData.detail) || extract(errData) ||
-                       JSON.stringify(errData).substring(0,200);
-        console.error('400 raw body:', errData);
-        throw new Error('API Error 400: ' + detail);
-      } else if (res.status >= 500) {
-        throw new Error('API server error. Try again in a moment');
-      }
-      throw new Error(`API Error ${res.status}`);
-    }
-    const d = await (async () => {
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('application/json')) return res.json();
-      const txt = await res.text();
-      // May be JSON despite wrong content-type header
-      if (txt.trimStart().startsWith('{') || txt.trimStart().startsWith('[')) {
-        try { return JSON.parse(txt); } catch(_) {}
-      }
-      // Plain-text error from backend (e.g. "This image is too large")
-      throw new Error(txt.substring(0, 200));
-    })();
-    if (d.error) throw new Error(d.error.message);
-    const text = d.content?.find(b => b.type === 'text')?.text || '';
-    if (!text) throw new Error('No response text from API');
-    return text.replace(/```json|```/g, '').trim();
-  } catch (e) {
-    console.error('callClaude error:', e.message);
-    throw e;
-  }
-}
 
 function getSingleSys() {
   return `You are a meticulous eBay sourcing expert with deep product knowledge. Your job is to ACCURATELY identify items and provide REALISTIC eBay sold market data — not retail prices.
@@ -6155,13 +5954,28 @@ async function analyze() {
       renderSingle({item,cost,fin,dec});
       renderScanHistory();
     } else {
-      // Text-only scan: legacy Claude path
-      const msg=`Analyze this specific item for eBay reselling: "${txt}". Research actual eBay sold prices for this exact item.`;
-      const raw=await callClaude(getSingleSys(),msg);
+      // Text-only scan: typed text_scan handler
+      const txRes = await fetch(API_BASE, {
+        method: 'POST', headers: getApiHeaders(),
+        body: JSON.stringify({ type: 'text_scan', hint: txt })
+      });
+      if (!txRes.ok) { const e = await txRes.json().catch(()=>({})); throw new Error(e.error || 'Scan failed'); }
+      const r = await txRes.json();
+      if (r.error) throw new Error(r.error);
       setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
-      const item=JSON.parse(raw);
-      const fin=calcFinancials(cost,item.avg_sold_price);
-      const dec=getDecision(fin.profit,fin.roi,item.avg_days_to_sell,item.sell_through_rate,item.demand_level,item.confidence);
+      const item = {
+        item_name: r.itemName, avg_sold_price: r.estimatedSell,
+        price_low: r.priceLow, price_high: r.priceHigh,
+        sell_through_rate: r.sellThroughRate||0, avg_days_to_sell: r.avgDaysToSell,
+        demand_level: r.demandLevel, confidence: r.confidence,
+        confidence_reason: r.reasoning, search_keywords: r.searchKeywords||[],
+        listing_tips: r.listingTips||[], risk_flags: r.riskFlags||[],
+        condition_notes: r.conditionNotes||'', category: r.category,
+        brand: r.brand||null, notes: r.notes||'',
+      };
+      const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
+      const fin = calcFinancials(useCost, r.estimatedSell || 0);
+      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,item.sell_through_rate,item.demand_level,item.confidence);
       logScan(dec, fin.roi, cost, false);
       try {
         const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
