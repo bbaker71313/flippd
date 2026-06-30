@@ -4,6 +4,48 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-30 — SEC-015 JWT → httpOnly cookie (all 6 Edge Functions)
+
+### What was done
+
+- **`_shared/cors.ts`** (NEW): locked-origin CORS module. `corsHeaders(req)` returns exact allowlisted origin (`scanforprofit.com`, `www.scanforprofit.com`) only — required for `credentials: 'include'` (browser rejects `*` with credentials).
+- **`_shared/jwt.ts`**: added `jwtFromCookie(req)` (regex on `sfp_auth` cookie); updated `getAuthedUserId` and `getAuthedUserIdChecked` to cookie-only (no Bearer fallback).
+- **`auth/index.ts`**: `authCookie()` / `clearAuthCookie()` helpers; login sets `Set-Cookie: sfp_auth=<jwt>; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`; `/logout` clears cookie; all non-GET/OPTIONS endpoints check `X-Sfp-Client: 1` CSRF guard; `/me` reads cookie only.
+- **`claude-proxy/index.ts`**: local `json` shadow (per-request CORS), `jwtFromCookie`, `X-Sfp-Client` guard, `corsHeaders(req)` on all responses.
+- **`ebay-oauth/index.ts`**: `addCors()` wrapper pattern (module-level handlers call module-level `json()` without CORS; `Deno.serve` wraps all returns with `addCors(res)`).
+- **`stripe-checkout/index.ts`**, **`stripe-webhook/index.ts`**, **`cron/index.ts`**: local `json` shadow + `corsHeaders(req)`.
+- **`apps/web/public/app.html`**: `apiFetch(url, opts)` wrapper adds `credentials: 'include'`; all 27+ `fetch(API_BASE/EBAY_BASE/AUTH_BASE` → `apiFetch`; `getApiHeaders()` returns `X-Sfp-Client: 1`; `apiKey` now `'authenticated'` or `''` (no JWT stored client-side); `sfp_session` localStorage flag for optimistic UI.
+- **All 6 functions deployed atomically**: `auth`, `claude-proxy`, `ebay-oauth`, `stripe-checkout`, `stripe-webhook`, `cron` — all ACTIVE.
+- **Commit**: `3eacaa9` → pushed main
+
+### Files changed
+
+- `supabase/functions/_shared/cors.ts` (NEW)
+- `supabase/functions/_shared/jwt.ts`
+- `supabase/functions/auth/index.ts`
+- `supabase/functions/claude-proxy/index.ts`
+- `supabase/functions/ebay-oauth/index.ts`
+- `supabase/functions/stripe-checkout/index.ts`
+- `supabase/functions/stripe-webhook/index.ts`
+- `supabase/functions/cron/index.ts`
+- `apps/web/public/app.html`
+
+### Decisions locked
+
+- **No Bearer fallback**: JWT only ever in httpOnly cookie. Never read from Authorization header.
+- **SameSite=None**: Required because app (`scanforprofit.com`) and functions (`supabase.co`) are different origins.
+- **CSRF guard via X-Sfp-Client**: Non-simple header forces CORS preflight; cross-site form attacks cannot set custom headers.
+- **Atomic deploy**: All 6 functions deployed in single CLI call per architect RC2.
+
+### Next tasks (in order)
+
+1. **Stripe E2E verification**: Test purchase flow end-to-end on production (upgrade button → Stripe Checkout → webhook → tier update).
+2. **PostHog event audit**: Confirm `scan_complete`, `item_added`, `listing_generated` events firing in production.
+3. **Sentry zero-error audit**: Check Sentry dashboard for any JS errors post-SEC-015 (cookie changes may surface auth regressions).
+4. **eBay Developer sandbox credentials**: Connect sandbox app to `ebay_connections` table (0 rows currently).
+
+---
+
 ## Session: 2026-06-29 (cont.) — SEC-016 single-use password reset
 
 ### What was done
