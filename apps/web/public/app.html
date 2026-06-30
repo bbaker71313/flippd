@@ -2499,7 +2499,7 @@ function mergeServerItem(serverItem) {
 async function syncFromServer() {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE, {
+    const res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({ type: 'inventory_list' })
@@ -2526,7 +2526,7 @@ async function syncFromServer() {
 async function pushItemToServer(item) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE, {
+    const res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({ type: 'inventory_create', ...itemForServer(item) })
@@ -2540,7 +2540,7 @@ async function pushItemToServer(item) {
 async function updateItemOnServer(item) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE, {
+    const res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({ type: 'inventory_update', id: item.id, ...itemForServer(item) })
@@ -2554,7 +2554,7 @@ async function updateItemOnServer(item) {
 async function deleteItemFromServer(id) {
   if (!isUnlocked()) return;
   try {
-    const res = await fetch(API_BASE, {
+    const res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({ type: 'inventory_delete', id })
@@ -3154,7 +3154,7 @@ async function invFormDetectItem() {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     let res;
     try {
-      res = await fetch(API_BASE, {
+      res = await apiFetch(API_BASE, {
         method: 'POST',
         headers: getApiHeaders(),
         signal: controller.signal,
@@ -4214,7 +4214,7 @@ async function runGrowthAgent() {
   }, 2200);
 
   try {
-    const growthRes = await fetch(API_BASE, {
+    const growthRes = await apiFetch(API_BASE, {
       method: 'POST', headers: getApiHeaders(),
       body: JSON.stringify({ type: 'growth_report' })
     });
@@ -4400,7 +4400,7 @@ async function syncDropPriceToEbay() {
   const btn = document.getElementById('dp-ebay-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
   try {
-    const res = await fetch(EBAY_BASE + '/price-change', {
+    const res = await apiFetch(EBAY_BASE + '/price-change', {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({ sku: _dpState.sku, newPrice: _dpState.newPrice }),
@@ -4509,7 +4509,7 @@ function confirmSold() {
   // Persist sold status + sale price to server so syncFromServer reflects the sale
   var soldId = soldModalItem.id;
   var soldPrice = parseFloat(price);
-  fetch(API_BASE, {
+  apiFetch(API_BASE, {
     method: 'POST',
     headers: getApiHeaders(),
     body: JSON.stringify({ type: 'inventory_status', id: soldId, status: 'Sold', actualSellPrice: soldPrice })
@@ -4695,7 +4695,7 @@ async function saveListing(exportCsv) {
 }
 
 async function generateListingWithAI(item, condition) {
-  const res = await fetch(API_BASE, {
+  const res = await apiFetch(API_BASE, {
     method: 'POST', headers: getApiHeaders(),
     body: JSON.stringify({
       type: 'listing_generate',
@@ -5108,7 +5108,7 @@ async function ebayConnect() {
   if (!isUnlocked()) { showToast('Log in to connect your eBay account'); return; }
   showToast('Redirecting to eBay...');
   try {
-    const res = await fetch(EBAY_BASE + '/authorize', { headers: getApiHeaders() });
+    const res = await apiFetch(EBAY_BASE + '/authorize', { headers: getApiHeaders() });
     if (!res.ok) throw new Error('status ' + res.status);
     const data = await res.json();
     if (!data.authUrl) throw new Error('missing authUrl');
@@ -5122,7 +5122,7 @@ function ebayDisconnect() {
   // Call backend to revoke tokens, then update UI
   (async () => {
     try {
-      await fetch(EBAY_BASE + '/disconnect', {
+      await apiFetch(EBAY_BASE + '/disconnect', {
         method: 'POST',
         headers: getApiHeaders()
       });
@@ -5154,7 +5154,7 @@ async function checkEbayStatus() {
   }
   disp.textContent = 'Checking...';
   try {
-    const res = await fetch(EBAY_BASE + '/status', { headers: getApiHeaders() });
+    const res = await apiFetch(EBAY_BASE + '/status', { headers: getApiHeaders() });
     if (!res.ok) throw new Error('status ' + res.status);
     const data = await res.json();
     if (data.connected) {
@@ -5220,7 +5220,7 @@ async function ebayPullListings(days){
   btn.style.opacity='0.5';
   
   try{
-    const r=await fetch(EBAY_BASE+'/pull-listings',{
+    const r=await apiFetch(EBAY_BASE+'/pull-listings',{
       method:'POST',
       headers:getApiHeaders(),
       body:JSON.stringify({days})
@@ -5290,7 +5290,7 @@ async function handleListOnEbay(inventoryId) {
   if (!isUnlocked()) { showToast('Log in to push listings to eBay'); return; }
   showToast('Pushing to eBay...');
   try {
-    const res = await fetch(EBAY_BASE + '/create-listing', {
+    const res = await apiFetch(EBAY_BASE + '/create-listing', {
       method: 'POST', headers: getApiHeaders(), body: JSON.stringify({ inventoryId })
     });
     const data = await res.json();
@@ -5315,7 +5315,7 @@ async function handleSyncOrders() {
   if (st) { st.style.color = 'var(--soft)'; st.textContent = 'Syncing sold orders from eBay...'; }
   if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
   try {
-    const res = await fetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
+    const res = await apiFetch(EBAY_BASE + '/sync-orders', { method: 'POST', headers: getApiHeaders() });
     const data = await res.json();
     if (!res.ok) { if (st) { st.style.color = 'var(--red)'; st.textContent = data.error || 'Sync failed'; } return; }
     if (data.synced === 0 && data.debug && data.debug.ordersFound === 0) {
@@ -5496,13 +5496,13 @@ function saveSettings() {
   localStorage.setItem('fif_settings', JSON.stringify(S));
   S = loadSrcSettings();
   if (apiKey) {
-    fetch(AUTH_BASE + '/settings', {
+    apiFetch(AUTH_BASE + '/settings', {
       method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      headers: getApiHeaders(),
       body: JSON.stringify({ exportReminderEnabled: S.exportReminderEnabled, exportReminderTime: S.exportReminderTime })
     }).catch(() => {});
     // Sync scanner settings to server so AI prompt uses user's actual fee structure
-    fetch(API_BASE, {
+    apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({
@@ -5580,18 +5580,24 @@ function updateStyle(val) {
 // ══════════════════════════════════════════════════
 // SOURCING — VIEWS
 // ══════════════════════════════════════════════════
-let apiKey = localStorage.getItem('sfp_jwt') || '';
+// SEC-015: JWT moved to httpOnly cookie — apiKey is now a boolean session flag only.
+// 'authenticated' = logged in (cookie exists server-side), '' = logged out.
+let apiKey = '';
 const AUTH_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/auth';
 const EBAY_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/ebay-oauth';
 const API_BASE  = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/claude-proxy';
 let currentUser = null;
 
 function isUnlocked() { return !!(apiKey && apiKey.length > 0); }
+// SEC-015: no Authorization header — JWT is in httpOnly cookie, sent automatically.
+// X-Sfp-Client is the CSRF guard (non-simple header forces CORS preflight).
 function getApiHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + apiKey
-  };
+  return { 'Content-Type': 'application/json', 'X-Sfp-Client': '1' };
+}
+// SEC-015: all calls to our Edge Functions must include credentials so the
+// browser sends the sfp_auth httpOnly cookie cross-origin.
+async function apiFetch(url, opts = {}) {
+  return fetch(url, { ...opts, credentials: 'include' });
 }
 let imgB64 = null, imgType = 'image/jpeg', srcMode = 'single';
 // v5.17: hold the raw File object so we can upload via multipart/form-data
@@ -5806,7 +5812,7 @@ async function callScan(type, hint, imageB64) {
     // and stay under Anthropic's 10MB image limit.
     const body = { type, imageBase64: imageB64 };
     if (hint) body.hint = hint;
-    res = await fetch(API_BASE, {
+    res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify(body),
@@ -5822,7 +5828,7 @@ async function callScan(type, hint, imageB64) {
     for (const k in baseHeaders) {
       if (k.toLowerCase() !== 'content-type') headers[k] = baseHeaders[k];
     }
-    res = await fetch(API_BASE, {
+    res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: headers,
       body: fd,
@@ -5955,7 +5961,7 @@ async function analyze() {
       renderScanHistory();
     } else {
       // Text-only scan: typed text_scan handler
-      const txRes = await fetch(API_BASE, {
+      const txRes = await apiFetch(API_BASE, {
         method: 'POST', headers: getApiHeaders(),
         body: JSON.stringify({ type: 'text_scan', hint: txt })
       });
@@ -6643,7 +6649,7 @@ async function fetchTrendingKeywords() {
   if (!el) return;
   el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Fetching live trends...</div>';
   try {
-    const res = await fetch(API_BASE,{
+    const res = await apiFetch(API_BASE,{
       method:'POST',
       headers:getApiHeaders(),
       body: JSON.stringify({ type: 'keywords_get' })
@@ -6956,9 +6962,9 @@ async function registerUser() {
   if (password !== confirm)           { showAuthError('Passwords do not match'); return; }
 
   try {
-    const res = await fetch(AUTH_BASE + '/register', {
+    const res = await apiFetch(AUTH_BASE + '/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getApiHeaders(),
       body: JSON.stringify({ name, username, email, password })
     });
     const data = await res.json();
@@ -6994,9 +7000,9 @@ async function loginUser() {
   if (!password) { showAuthError('Enter your password'); return; }
 
   try {
-    const res = await fetch(AUTH_BASE + '/login', {
+    const res = await apiFetch(AUTH_BASE + '/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getApiHeaders(),
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
@@ -7006,12 +7012,12 @@ async function loginUser() {
       return;
     }
 
-    if (data.token || data.jwt) {
-      const jwt = data.token || data.jwt;
-      localStorage.setItem('sfp_jwt', jwt);
-      // Store name for greeting
+    if (res.ok && data.user) {
+      // SEC-015: JWT is in httpOnly cookie set by server — never in response body.
+      // sfp_session persists a non-sensitive "logged in" flag for startup detection.
+      localStorage.setItem('sfp_session', '1');
       if (data.user?.name) localStorage.setItem('sfp_user_name', data.user.name);
-      apiKey = jwt;
+      apiKey = 'authenticated';
       if (window.posthog && data.user) {
         posthog.identify(data.user.id || data.user.username, {
           email: data.user.email,
@@ -7053,9 +7059,9 @@ function showForgotPassword() {
 async function requestPasswordResetByEmail(email) {
   showToast('Sending reset link...');
   try {
-    const res = await fetch(AUTH_BASE + '/reset-request', {
+    const res = await apiFetch(AUTH_BASE + '/reset-request', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getApiHeaders(),
       body: JSON.stringify({ email })
     });
     if (res.ok) showToast('Reset link sent — check your email');
@@ -7079,9 +7085,9 @@ async function submitPasswordReset() {
   if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
   errEl.style.display='none';
   try {
-    const res = await fetch(AUTH_BASE + '/reset-confirm', {
+    const res = await apiFetch(AUTH_BASE + '/reset-confirm', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getApiHeaders(),
       body: JSON.stringify({ token: _resetToken, password: pw })
     });
     const data = await res.json();
@@ -7100,7 +7106,9 @@ function signOut() {
   apiKey = '';
   currentUser = null;
   window._currentUser = null;
-  localStorage.removeItem('sfp_jwt');
+  // SEC-015: /logout clears the httpOnly cookie server-side; sfp_session is the client flag.
+  apiFetch(AUTH_BASE + '/logout', { method: 'POST', headers: getApiHeaders() }).catch(() => {});
+  localStorage.removeItem('sfp_session');
   localStorage.removeItem('sfp_user_name');
   localStorage.removeItem('sfp_settings');
   showSrcView('setup');
@@ -7131,12 +7139,12 @@ function populateAccountUI() {
 
 async function loadUserInfo() {
   try {
-    const res = await fetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
+    const res = await apiFetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
     if (!res.ok) {
       // Don't reload — backend may not be ready yet (CORS/deploy)
       // Only log out on explicit 401 without reloading
       if (res.status === 401) {
-        localStorage.removeItem('sfp_jwt');
+        localStorage.removeItem('sfp_session');
         localStorage.removeItem('sfp_user_name');
         apiKey = '';
         showSrcView('setup');
@@ -7574,24 +7582,18 @@ window.onload = () => {
   filterCat = 'All'; filterStatus = 'All';
   initFormSelects();
 
-  // Restore session from saved JWT and validate against backend
-  // A JWT has 3 dot-separated parts; anything else is a legacy access code
-  // and is treated as not-logged-in.
-  const storedJwt = localStorage.getItem('sfp_jwt') || '';
-  if (storedJwt && storedJwt.split('.').length === 3 && storedJwt.length > 50) {
-    apiKey = storedJwt;
-    localStorage.setItem('sfp_jwt', storedJwt);
-    // Optimistically show app; verify token server-side in background
+  // SEC-015: JWT is in httpOnly cookie — check sfp_session flag to detect prior login.
+  // Optimistically show app if flag is set; validate cookie server-side in background.
+  if (localStorage.getItem('sfp_session')) {
+    apiKey = 'authenticated';
     switchTab('sourcing');
     showSrcView('input');
-    // Background validation: if backend rejects token, fall back to login
     (async function validateSession() {
       try {
-        const r = await fetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
+        const r = await apiFetch(AUTH_BASE + '/me', { headers: getApiHeaders() });
         if (r.status === 401 || r.status === 403) {
           apiKey = '';
-          localStorage.removeItem('fif_api_key');
-          localStorage.removeItem('sfp_jwt');
+          localStorage.removeItem('sfp_session');
           showSrcView('setup');
           setAuthMode('login');
           showToast('Session expired — please log in');
@@ -7608,10 +7610,8 @@ window.onload = () => {
       }
     })();
   } else {
-    // No valid token stored — clear any garbage and show login
+    // No session flag — show login
     apiKey = '';
-    localStorage.removeItem('fif_api_key');
-    localStorage.removeItem('sfp_jwt');
     switchTab('sourcing');
     showSrcView('setup');
     setAuthMode('login');

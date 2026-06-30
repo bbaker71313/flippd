@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyJWT } from "../_shared/jwt.ts";
+import { verifyJWT, jwtFromCookie } from "../_shared/jwt.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts";
 
 function ab2b64(buf: ArrayBuffer): string {
@@ -44,11 +45,6 @@ class HttpError extends Error {
   ) { super(message); }
 }
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 // Defaults from FEATURE_TRIAGE.md — used only when user has no settings row
 const DEFAULT_SETTINGS = {
   ebay_fee: 13, pkg_cost: 1.25, target_roi: 200, min_profit: 15,
@@ -57,10 +53,11 @@ const DEFAULT_SETTINGS = {
 
 type Settings = typeof DEFAULT_SETTINGS;
 
-function json(data: unknown, status = 200) {
+// SEC-015: module-level json unused after local shadow in Deno.serve — kept for type reference only.
+function json(data: unknown, status = 200, req?: Request) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...(req ? corsHeaders(req) : {}), 'Content-Type': 'application/json' },
   });
 }
 
@@ -1170,7 +1167,14 @@ const STATIC_CATEGORIES = ['Electronics', 'Clothing', 'Collectibles', 'Home & Ga
 const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always include if available.';
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
+
+  // SEC-015: local json shadows module-level, closes over req for dynamic CORS.
+  const json = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+    });
 
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
@@ -1221,9 +1225,12 @@ Deno.serve(async (req: Request) => {
     return json({ status: 'ok', function: 'claude-proxy', ts: new Date().toISOString() });
   }
 
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
-  const token = authHeader.slice(7);
+  // SEC-015: X-Sfp-Client required on all state-changing requests (forces CORS preflight → blocks CSRF).
+  if (!req.headers.get('x-sfp-client')) return json({ error: 'Forbidden' }, 403);
+
+  // SEC-015: cookie-only — no Bearer fallback.
+  const token = jwtFromCookie(req);
+  if (!token) return json({ error: 'Unauthorized' }, 401);
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,

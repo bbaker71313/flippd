@@ -1,16 +1,30 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
-import { signJWT, verifyJWT, getAuthedUserIdChecked } from "../_shared/jwt.ts"
+import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked } from "../_shared/jwt.ts"
 import { sendEmail } from "../_shared/sendEmail.ts"
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
+import { corsHeaders } from "../_shared/cors.ts"
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
-
-function json(data: unknown, status = 200) {
+// SEC-015: dynamic CORS per request (locked-origin, credentialed). req is optional
+// only for the cold-start catch block where the request context may be unavailable.
+function json(data: unknown, status = 200, req?: Request) {
+  const cors = req ? corsHeaders(req) : {};
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
+}
+
+// SEC-015: 30-day httpOnly cookie carrying the JWT. SameSite=None required because
+// app (scanforprofit.com) and Edge Functions (supabase.co) are different origins.
+// Custom X-Sfp-Client header is the CSRF guard (non-simple header → preflight → blocks
+// cross-site form/img POSTs that can't set custom headers).
+function authCookie(token: string): string {
+  return `sfp_auth=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`;
+}
+
+function clearAuthCookie(): string {
+  return 'sfp_auth=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0';
 }
 
 function randomHex(bytes: number): string {
@@ -67,7 +81,7 @@ async function sendWelcomeEmail(to: string, username: string): Promise<void> {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
 
   const url = new URL(req.url);
   const path = url.pathname;
@@ -81,14 +95,23 @@ Deno.serve(async (req: Request) => {
   if (!jwtSecret) throw new Error('JWT_SECRET must be set');
 
   try {
-    if (req.method === 'POST' && path.endsWith('/register')) return await handleRegister(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/verify'))   return await handleVerify(req, supabase);
-    if (req.method === 'POST' && path.endsWith('/login'))    return await handleLogin(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/me'))       return await handleMe(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/reset-request'))  return await handleResetRequest(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/reset-confirm'))  return await handleResetConfirm(req, supabase, jwtSecret);
+    // SEC-015: require X-Sfp-Client on all state-changing requests.
+    // Non-simple header forces CORS preflight — third-party pages can't set it,
+    // blocking CSRF even with SameSite=None cookies.
+    // GET /verify is a browser-followed redirect from an email link — no custom header.
+    if (req.method !== 'OPTIONS' && req.method !== 'GET') {
+      if (!req.headers.get('x-sfp-client')) return json({ error: 'Forbidden' }, 403, req);
+    }
+
+    if (req.method === 'POST'  && path.endsWith('/register'))      return await handleRegister(req, supabase, jwtSecret);
+    if (req.method === 'GET'   && path.endsWith('/verify'))        return await handleVerify(req, supabase);
+    if (req.method === 'POST'  && path.endsWith('/login'))         return await handleLogin(req, supabase, jwtSecret);
+    if (req.method === 'POST'  && path.endsWith('/logout'))        return await handleLogout(req);
+    if (req.method === 'GET'   && path.endsWith('/me'))            return await handleMe(req, supabase, jwtSecret);
+    if (req.method === 'POST'  && path.endsWith('/reset-request')) return await handleResetRequest(req, supabase, jwtSecret);
+    if (req.method === 'POST'  && path.endsWith('/reset-confirm')) return await handleResetConfirm(req, supabase, jwtSecret);
     if (req.method === 'PATCH' && path.endsWith('/settings'))      return await handleSaveSettings(req, supabase, jwtSecret);
-    return json({ error: 'Not found' }, 404);
+    return json({ error: 'Not found' }, 404, req);
   } catch (err) {
     console.error('auth error:', err);
     return json({ error: 'Internal server error' }, 500);
@@ -96,17 +119,17 @@ Deno.serve(async (req: Request) => {
 });
 
 async function handleRegister(req: Request, supabase: ReturnType<typeof createClient>, _secret: string) {
-  if (!await rateLimitOk(supabase, `register:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429);
+  if (!await rateLimitOk(supabase, `register:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429, req);
   const body = await req.json().catch(() => ({}));
   const { name: rawName, username, email, password } = body;
   const name = rawName ?? username;
 
-  if (!username || !email || !password) return json({ error: 'username, email, and password are required' }, 400);
-  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
-  if (!/^[a-zA-Z0-9_]+$/.test(username)) return json({ error: 'Username can only contain letters, numbers, and underscores' }, 400);
+  if (!username || !email || !password) return json({ error: 'username, email, and password are required' }, 400, req);
+  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400, req);
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) return json({ error: 'Username can only contain letters, numbers, and underscores' }, 400, req);
 
   const { data: existingUser } = await supabase.from('users').select('id').eq('username', username).maybeSingle();
-  if (existingUser) return json({ error: 'Username already taken', field: 'username' }, 409);
+  if (existingUser) return json({ error: 'Username already taken', field: 'username' }, 409, req);
 
   const { data: existingEmail } = await supabase.from('users').select('id, is_verified').eq('email', email).maybeSingle();
   if (existingEmail) {
@@ -115,9 +138,9 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
       const expires = new Date(Date.now() + 86400000).toISOString();
       await supabase.from('users').update({ verification_token: token, verification_token_expires: expires }).eq('id', existingEmail.id);
       await sendVerificationEmail(email, token).catch(console.error);
-      return json({ error: 'An account with this email exists but is unverified. We resent your verification link.', field: 'email' }, 409);
+      return json({ error: 'An account with this email exists but is unverified. We resent your verification link.', field: 'email' }, 409, req);
     }
-    return json({ error: 'An account with this email already exists.', field: 'email' }, 409);
+    return json({ error: 'An account with this email already exists.', field: 'email' }, 409, req);
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
@@ -138,11 +161,11 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
 
   if (insertErr) {
     console.error('insert error:', insertErr);
-    return json({ error: 'Registration failed. Please try again.' }, 500);
+    return json({ error: 'Registration failed. Please try again.' }, 500, req);
   }
 
   await sendVerificationEmail(email, token).catch(console.error);
-  return json({ success: true, message: 'Check your email to verify your account before logging in.' });
+  return json({ success: true, message: 'Check your email to verify your account before logging in.' }, 200, req);
 }
 
 async function handleVerify(req: Request, supabase: ReturnType<typeof createClient>) {
@@ -178,11 +201,11 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
 }
 
 async function handleLogin(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  if (!await rateLimitOk(supabase, `login:${clientIp(req)}`, 10, 900)) return json({ error: 'Too many login attempts. Please try again in a few minutes.' }, 429);
+  if (!await rateLimitOk(supabase, `login:${clientIp(req)}`, 10, 900)) return json({ error: 'Too many login attempts. Please try again in a few minutes.' }, 429, req);
   const body = await req.json().catch(() => ({}));
   const { username, password } = body;
 
-  if (!username || !password) return json({ error: 'Username and password are required' }, 400);
+  if (!username || !password) return json({ error: 'Username and password are required' }, 400, req);
 
   // SEC-005: parameterized .eq() lookups — never interpolate user input into .or() filter strings
   const COLS = 'id, name, username, email, password, is_verified, tier, trial_ends_at, token_version';
@@ -199,19 +222,19 @@ async function handleLogin(req: Request, supabase: ReturnType<typeof createClien
       .maybeSingle());
   }
 
-  if (!user) return json({ error: 'Incorrect username or password' }, 401);
+  if (!user) return json({ error: 'Incorrect username or password' }, 401, req);
 
   const match = bcrypt.compareSync(password, user.password);
-  if (!match) return json({ error: 'Incorrect username or password' }, 401);
+  if (!match) return json({ error: 'Incorrect username or password' }, 401, req);
 
-  if (!user.is_verified) return json({ error: 'email_not_verified', message: 'Please verify your email before logging in. Check your inbox.' }, 403);
+  if (!user.is_verified) return json({ error: 'email_not_verified', message: 'Please verify your email before logging in. Check your inbox.' }, 403, req);
 
   await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
 
   const token = await signJWT({ sub: user.id, username: user.username, email: user.email, token_version: user.token_version ?? 0 }, jwtSecret);
 
-  return json({
-    token,
+  // SEC-015: JWT in httpOnly cookie only — never in response body.
+  return new Response(JSON.stringify({
     user: {
       id: user.id,
       name: user.name,
@@ -220,16 +243,36 @@ async function handleLogin(req: Request, supabase: ReturnType<typeof createClien
       tier: user.tier,
       trialEndsAt: user.trial_ends_at,
     },
+  }), {
+    status: 200,
+    headers: {
+      ...corsHeaders(req),
+      'Content-Type': 'application/json',
+      'Set-Cookie': authCookie(token),
+    },
+  });
+}
+
+async function handleLogout(req: Request) {
+  // Clear the session cookie. Client clears sfp_session localStorage flag after this call.
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: {
+      ...corsHeaders(req),
+      'Content-Type': 'application/json',
+      'Set-Cookie': clearAuthCookie(),
+    },
   });
 }
 
 async function handleMe(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
+  // SEC-015: cookie-only — no Bearer fallback
+  const token = jwtFromCookie(req);
+  if (!token) return json({ error: 'Unauthorized' }, 401, req);
 
   let payload: Record<string, unknown>;
-  try { payload = await verifyJWT(authHeader.slice(7), jwtSecret); }
-  catch { return json({ error: 'Unauthorized' }, 401); }
+  try { payload = await verifyJWT(token, jwtSecret); }
+  catch { return json({ error: 'Unauthorized' }, 401, req); }
 
   const { data: user } = await supabase
     .from('users')
@@ -237,10 +280,10 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
     .eq('id', payload.sub)
     .maybeSingle();
 
-  if (!user) return json({ error: 'User not found' }, 401);
+  if (!user) return json({ error: 'User not found' }, 401, req);
 
   // SEC-012 — reject sessions issued before the last password reset.
-  if ((payload.token_version ?? 0) !== (user.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401);
+  if ((payload.token_version ?? 0) !== (user.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401, req);
 
   const { data: settings } = await supabase
     .from('settings')
@@ -265,12 +308,12 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
     } : null,
     exportReminderEnabled: settings?.export_reminder_enabled ?? false,
     exportReminderTime: (settings?.export_reminder_time as string | null)?.slice(0, 5) ?? '09:00',
-  });
+  }, 200, req);
 }
 
 async function handleSaveSettings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
-  if (!userId) return json({ error: 'Unauthorized' }, 401);
+  if (!userId) return json({ error: 'Unauthorized' }, 401, req);
 
   const body = await req.json().catch(() => ({}));
   const update: Record<string, unknown> = { user_id: userId };
@@ -280,21 +323,21 @@ async function handleSaveSettings(req: Request, supabase: ReturnType<typeof crea
     update.export_reminder_time = body.exportReminderTime;
   }
 
-  if (Object.keys(update).length <= 1) return json({ error: 'No valid fields' }, 400);
+  if (Object.keys(update).length <= 1) return json({ error: 'No valid fields' }, 400, req);
 
   const { error } = await supabase
     .from('settings')
     .upsert(update, { onConflict: 'user_id' });
 
-  if (error) return json({ error: error.message }, 500);
-  return json({ ok: true });
+  if (error) return json({ error: error.message }, 500, req);
+  return json({ ok: true }, 200, req);
 }
 
 async function handleResetRequest(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  if (!await rateLimitOk(supabase, `reset:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429);
+  if (!await rateLimitOk(supabase, `reset:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429, req);
   const body = await req.json().catch(() => ({}));
   const { email } = body;
-  if (!email) return json({ error: 'Email is required' }, 400);
+  if (!email) return json({ error: 'Email is required' }, 400, req);
 
   const { data: user } = await supabase
     .from('users')
@@ -303,7 +346,7 @@ async function handleResetRequest(req: Request, supabase: ReturnType<typeof crea
     .maybeSingle();
 
   // Always return success to prevent email enumeration
-  if (!user) return json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+  if (!user) return json({ success: true, message: 'If that email is registered, a reset link has been sent.' }, 200, req);
 
   // SEC-016 — clear used-at so the new token can be consumed once
   await supabase.from('users').update({ password_reset_used_at: null }).eq('id', user.id);
@@ -327,26 +370,26 @@ async function handleResetRequest(req: Request, supabase: ReturnType<typeof crea
     }).catch(console.error);
   }
 
-  return json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+  return json({ success: true, message: 'If that email is registered, a reset link has been sent.' }, 200, req);
 }
 
 async function handleResetConfirm(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const body = await req.json().catch(() => ({}));
   const { token, password } = body;
-  if (!token || !password) return json({ error: 'Token and password are required' }, 400);
-  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
+  if (!token || !password) return json({ error: 'Token and password are required' }, 400, req);
+  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400, req);
 
   let payload: Record<string, unknown>;
   try { payload = await verifyJWT(token, jwtSecret); }
-  catch { return json({ error: 'Reset link has expired or is invalid. Please request a new one.' }, 400); }
+  catch { return json({ error: 'Reset link has expired or is invalid. Please request a new one.' }, 400, req); }
 
-  if (payload.purpose !== 'password_reset') return json({ error: 'Invalid reset token' }, 400);
+  if (payload.purpose !== 'password_reset') return json({ error: 'Invalid reset token' }, 400, req);
 
   // SEC-016 — reject already-consumed tokens
   const { data: current } = await supabase
     .from('users').select('token_version, password_reset_used_at').eq('id', payload.sub).maybeSingle();
-  if (!current) return json({ error: 'Invalid reset token' }, 400);
-  if (current.password_reset_used_at !== null) return json({ error: 'Reset link has already been used. Please request a new one.' }, 400);
+  if (!current) return json({ error: 'Invalid reset token' }, 400, req);
+  if (current.password_reset_used_at !== null) return json({ error: 'Reset link has already been used. Please request a new one.' }, 400, req);
 
   const passwordHash = bcrypt.hashSync(password, 10);
   // SEC-012 — bump token_version; SEC-016 — mark token consumed
@@ -359,7 +402,7 @@ async function handleResetConfirm(req: Request, supabase: ReturnType<typeof crea
     })
     .eq('id', payload.sub);
 
-  if (error) return json({ error: 'Failed to update password. Please try again.' }, 500);
+  if (error) return json({ error: 'Failed to update password. Please try again.' }, 500, req);
 
-  return json({ success: true, message: 'Password updated successfully. Please log in.' });
+  return json({ success: true, message: 'Password updated successfully. Please log in.' }, 200, req);
 }

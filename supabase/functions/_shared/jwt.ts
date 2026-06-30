@@ -45,11 +45,20 @@ export async function verifyJWT(token: string, secret: string): Promise<Record<s
   return data;
 }
 
+// SEC-015: extract JWT from httpOnly cookie (no Bearer fallback).
+// Cookie name: sfp_auth. Value is URL-encoded.
+export function jwtFromCookie(req: Request): string | null {
+  const cookieHeader = req.headers.get('Cookie') ?? '';
+  const match = /(?:^|;\s*)sfp_auth=([^;]+)/.exec(cookieHeader);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// SEC-015: cookie-only auth (no Bearer). Use only where revocation check is NOT needed.
 export async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = jwtFromCookie(req);
+  if (!token) return null;
   try {
-    const payload = await verifyJWT(authHeader.slice(7), jwtSecret);
+    const payload = await verifyJWT(token, jwtSecret);
     return payload.sub as number;
   } catch {
     return null;
@@ -60,6 +69,7 @@ export async function getAuthedUserId(req: Request, jwtSecret: string): Promise<
 // whose token_version is stale vs the user's current value. Use this for EVERY
 // authenticated endpoint — getAuthedUserId alone does NOT check revocation, so a
 // token issued before a password reset would otherwise still be accepted.
+// SEC-015: cookie-only — no Bearer fallback.
 // `supabase` is a service-role client (structurally typed to avoid pulling supabase-js types).
 export async function getAuthedUserIdChecked(
   req: Request,
@@ -67,10 +77,10 @@ export async function getAuthedUserIdChecked(
   // deno-lint-ignore no-explicit-any
   supabase: any,
 ): Promise<number | null> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = jwtFromCookie(req);
+  if (!token) return null;
   try {
-    const payload = await verifyJWT(authHeader.slice(7), jwtSecret);
+    const payload = await verifyJWT(token, jwtSecret);
     const { data } = await supabase
       .from('users').select('token_version').eq('id', payload.sub).maybeSingle();
     if (!data) return null;

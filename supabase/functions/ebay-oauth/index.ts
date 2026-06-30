@@ -1,15 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { signJWT, verifyJWT, getAuthedUserIdChecked } from "../_shared/jwt.ts"
+import { corsHeaders } from "../_shared/cors.ts"
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+// SEC-015: handler functions call json() with no CORS; Deno.serve wraps with addCors().
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
   });
 }
 
@@ -49,7 +46,15 @@ function ebayCreds() {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  // SEC-015: addCors injects dynamic locked-origin CORS onto every response,
+  // including those returned from handler functions that call the module-level json().
+  const addCors = (res: Response): Response => {
+    const h = new Headers(res.headers);
+    for (const [k, v] of Object.entries(corsHeaders(req))) h.set(k, v);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  };
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
 
   const url = new URL(req.url);
   const path = url.pathname;
@@ -63,18 +68,18 @@ Deno.serve(async (req: Request) => {
   if (!jwtSecret) throw new Error('JWT_SECRET must be set');
 
   try {
-    if (req.method === 'GET'  && path.endsWith('/authorize'))     return await handleAuthorize(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/callback'))      return await handleCallback(req, supabase, jwtSecret);
-    if (req.method === 'GET'  && path.endsWith('/status'))        return await handleStatus(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/disconnect'))    return await handleDisconnect(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/price-change'))   return await handlePriceChange(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/pull-listings'))  return await handlePullListings(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/create-listing')) return await handleCreateListing(req, supabase, jwtSecret);
-    if (req.method === 'POST' && path.endsWith('/sync-orders'))    return await handleSyncOrders(req, supabase, jwtSecret);
-    return json({ error: 'Not found' }, 404);
+    if (req.method === 'GET'  && path.endsWith('/authorize'))     return addCors(await handleAuthorize(req, supabase, jwtSecret));
+    if (req.method === 'GET'  && path.endsWith('/callback'))      return addCors(await handleCallback(req, supabase, jwtSecret));
+    if (req.method === 'GET'  && path.endsWith('/status'))        return addCors(await handleStatus(req, supabase, jwtSecret));
+    if (req.method === 'POST' && path.endsWith('/disconnect'))    return addCors(await handleDisconnect(req, supabase, jwtSecret));
+    if (req.method === 'POST' && path.endsWith('/price-change'))   return addCors(await handlePriceChange(req, supabase, jwtSecret));
+    if (req.method === 'POST' && path.endsWith('/pull-listings'))  return addCors(await handlePullListings(req, supabase, jwtSecret));
+    if (req.method === 'POST' && path.endsWith('/create-listing')) return addCors(await handleCreateListing(req, supabase, jwtSecret));
+    if (req.method === 'POST' && path.endsWith('/sync-orders'))    return addCors(await handleSyncOrders(req, supabase, jwtSecret));
+    return addCors(json({ error: 'Not found' }, 404));
   } catch (err) {
     console.error('ebay-oauth error:', err);
-    return json({ error: 'Internal server error' }, 500);
+    return addCors(json({ error: 'Internal server error' }, 500));
   }
 });
 
