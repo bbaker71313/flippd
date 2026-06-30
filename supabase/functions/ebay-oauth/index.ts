@@ -56,6 +56,16 @@ Deno.serve(async (req: Request) => {
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
 
+  // SEC-015 CSRF guard: non-simple header forces CORS preflight; cross-site requests cannot set it.
+  if (req.method !== 'GET') {
+    if (!req.headers.get('x-sfp-client')) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   const url = new URL(req.url);
   const path = url.pathname;
 
