@@ -23,6 +23,8 @@ Deno.serve(async (req: Request) => {
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  // SEC-015 CSRF guard: non-simple header forces CORS preflight; cross-site requests cannot set it.
+  if (!req.headers.get('x-sfp-client')) return json({ error: 'Forbidden' }, 403);
 
   const url = new URL(req.url);
   const isPortal = url.pathname.endsWith('/portal');
