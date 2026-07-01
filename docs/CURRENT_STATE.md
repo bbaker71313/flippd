@@ -1,6 +1,6 @@
 # ScanForProfit — Current State
 
-**Last updated:** 2026-06-24  
+**Last updated:** 2026-06-30  
 **Audience:** Humans onboarding to the project, marketing review, and doc writers.  
 **Authoritative for:** What exists today in production. When this disagrees with README or marketing copy, fix the lower-tier doc — not this file without verifying against `app.html`.
 
@@ -87,7 +87,7 @@ These exist in code and have been deployed; end-to-end production verification i
 | Feature | Status | Blocker / next step |
 |---------|--------|---------------------|
 | Stripe upgrade checkout | 🟡 | Complete a test purchase on production |
-| eBay OAuth connect | 🟡 | Migrations + `ebay-oauth` v64 (SEC-010 encrypted tokens) live; needs a fresh connect to re-encrypt (only the expired sandbox token was affected) |
+| eBay OAuth connect | 🟡 | Migrations + `ebay-oauth` v67 (SEC-010 encrypted tokens, SEC-015 cookie auth + CSRF guard) live; needs a fresh connect to re-encrypt (only the expired sandbox token was affected) |
 | eBay listing push (`/create-listing`) | 🟡 | Requires connected eBay account + sandbox/prod credentials |
 | eBay order sync (`/sync-orders`) | 🟡 | Same as above |
 | PostHog analytics | 🟡 | SDK initialized in app; event coverage not audited |
@@ -98,7 +98,7 @@ These exist in code and have been deployed; end-to-end production verification i
 
 | Item | Notes |
 |------|-------|
-| Mobile app (Expo / React Native) | Scaffold in `apps/mobile/` — future rebuild from `app.html` |
+| Mobile app (Expo / React Native) | `apps/mobile/` scaffold deleted 2026-06-29 (60 files, never started/shipped) — future rebuild will start fresh from `app.html` |
 | Sentry in live web app | Not wired in `app.html` |
 | Cross-listing (Poshmark, Mercari, FB) | Future platforms |
 | Public launch / App Store | Phase 6 — see `docs/files/LAUNCH_CHECKLIST.md` |
@@ -138,7 +138,6 @@ Configurable business defaults (never hardcoded in logic): eBay fee 13%, packagi
 scanforprofit/                    pnpm monorepo + Turborepo
 ├── apps/web/public/app.html      ← LIVE PRODUCT (single-file HTML/JS)
 ├── apps/web/                     Next.js 15 shell (landing, API routes, deploy)
-├── apps/mobile/                  Expo RN — not shipped
 ├── apps/video/                   Remotion ad compositions
 ├── packages/shared/              @sfp/shared — types, calcProfit, tiers, theme
 └── supabase/
@@ -155,28 +154,30 @@ scanforprofit/                    pnpm monorepo + Turborepo
 | AI | Claude Sonnet 4.6 via `claude-proxy` (key in Supabase secrets) |
 | Payments | Stripe via `stripe-checkout` + `stripe-webhook` |
 | eBay | `ebay-oauth` edge function |
-| Client storage | JWT + settings cache in localStorage; photos in IndexedDB; inventory/expenses on server |
+| Client storage | httpOnly `sfp_auth` cookie (JWT never touches JS); settings cache + `sfp_session` UI flag in localStorage; photos in IndexedDB; inventory/expenses on server |
 
 ### Edge functions (7)
 
 `auth` · `claude-proxy` · `stripe-checkout` · `stripe-webhook` · `ebay-oauth` · `export-reminder` · `cron`
 
-Shared code lives in `supabase/functions/_shared/` (`jwt.ts`, `sendEmail.ts`, `tierLimits.ts`) — leading underscore = not deployed as a function.
+Shared code lives in `supabase/functions/_shared/` (`jwt.ts`, `cors.ts`, `sendEmail.ts`, `tierLimits.ts`) — leading underscore = not deployed as a function.
 
-**Live versions (P2 deploy, 2026-06-26):** `auth` v60 · `claude-proxy` v77 · `stripe-checkout` v60 · `stripe-webhook` v57 · `ebay-oauth` v64 · `cron` v1 (new — needs `CRON_SECRET` + schedule to fire) · `export-reminder` v29. All `verify_jwt:false` (each does its own in-body JWT check). Migrations 009–014 live.
+**Live versions (verified via Supabase MCP, 2026-06-30):** `auth` v63 · `claude-proxy` v81 · `stripe-checkout` v62 · `stripe-webhook` v59 · `ebay-oauth` v67 · `cron` v2 · `export-reminder` v29. All ACTIVE, all `verify_jwt:false` (each does its own in-body auth check). Migrations 009–016 live.
+
+**Auth model (SEC-015, deployed 2026-06-30):** JWT lives only in an httpOnly `sfp_auth` cookie (`Secure; SameSite=None`), never in localStorage or a Bearer header. `_shared/cors.ts` returns an exact locked-origin allowlist (required for `credentials: 'include'`). Every non-GET/OPTIONS route on `auth`, `claude-proxy`, `ebay-oauth`, and `stripe-checkout` requires an `X-Sfp-Client: 1` header as a CSRF guard.
 
 ---
 
-## Known issues / tracked debt (security audit P1–P2)
+## Known issues / tracked debt (security audit P1–P4 + SEC-015)
 
 Small pre-existing issues surfaced during the audit, logged here so we fix them in advance. Full detail in [`HANDOFF.md`](HANDOFF.md).
 
 - **claude-proxy inline `calcProfit`** duplicates `packages/shared` util (Deno can't import packages/ without bundling).
 - **`randomHex` duplicated** in `auth` + `ebay-oauth` (candidate for `_shared/`).
-- **stripe-webhook** NaN-timestamp tolerance + non-constant-time signature compare (P3 / §5.6).
 - **`ebay_connections.oauth_nonce`** likely orphan column (live nonce uses `users.ebay_oauth_nonce`).
 - **Live DB advisor WARNs:** waitlist always-true INSERT RLS; `item-photos` public bucket listing; `send_export_reminders` SECURITY DEFINER anon-callable; Auth leaked-password protection OFF.
-- **SEC-002 wildcard CORS** deferred (JWT-Bearer, not cookie → low CSRF risk); needs origin allowlist.
+
+Resolved since last update (kept here as changelog, not open items): stripe-webhook NaN-timestamp + non-constant-time signature compare — fixed (SEC-019, v58+). SEC-002 wildcard CORS — superseded by SEC-015 locked-origin `_shared/cors.ts`.
 
 ---
 
@@ -232,3 +233,6 @@ Full agent/dev rules: [`CLAUDE.md`](../CLAUDE.md)
 | 2026-06-24 | Initial version — Phase 2 doc cleanup |
 | 2026-06-24 | Phase 4–5 complete: ARCHITECTURE.md created, marketing docs corrected, DOC_PROCESS.md added |
 | 2026-06-25 | Security audit P1 (XSS/JWT/auth-injection fixes) + P2 (`_shared/` extraction, tier single-source, atomic scan RPC, token_version revocation, auth rate limiting; migrations 009–012 live) |
+| 2026-06-26/27 | Security audit P3 (stripe-webhook NaN/timing fix, prompt injection sanitization, RLS gaps, eBay N+1 fix) + P4 (password min length 8, waitlist key fix, dead demo data removed) |
+| 2026-06-29 | SEC-016 single-use password reset (auth v62); Phase 5A — legacy `/v1/messages` proxy removed from claude-proxy, all `app.html` callers migrated to typed actions; `apps/mobile/` deleted (60 files, never shipped) |
+| 2026-06-30 | SEC-015 — JWT moved from localStorage to httpOnly cookie across all 6 edge functions, locked-origin CORS (`_shared/cors.ts`), `X-Sfp-Client` CSRF guard added to every mutating route; doc sync (versions, mobile removal, resolved debt) |

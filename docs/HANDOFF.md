@@ -4,6 +4,39 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-06-30 (cont.) — SEC-015 CSRF guard gap closed on ebay-oauth + stripe-checkout
+
+### What was done
+
+Post-deploy security review of the SEC-015 cookie-auth rollout (previous entry below) found the `X-Sfp-Client` CSRF guard had only been applied to `auth` and `claude-proxy` — `ebay-oauth` and `stripe-checkout` POST routes were still cookie-authed with no CSRF guard, i.e. accepted cross-site requests.
+
+- **`ebay-oauth/index.ts`**: added `X-Sfp-Client: 1` requirement to all 5 POST handlers — `/disconnect`, `/price-change`, `/pull-listings`, `/create-listing`, `/sync-orders`.
+- **`stripe-checkout/index.ts`**: same guard added to its POST route(s).
+
+### Commits
+
+| Hash | Message |
+|---|---|
+| `c97833f` | fix(security): SEC-015 add X-Sfp-Client CSRF guard to ebay-oauth POST routes |
+| `bab8974` | fix(security): SEC-015 add X-Sfp-Client CSRF guard to stripe-checkout |
+
+### Deployments
+
+`ebay-oauth` v67, `stripe-checkout` v62 — both ACTIVE (confirmed via `list_edge_functions`).
+
+### Decisions locked
+
+- Every non-GET/OPTIONS route on every cookie-authed function must carry the `X-Sfp-Client` guard — no exceptions. Treat a new edge function or route without it as a bug, not a style choice.
+
+### Next tasks (in order)
+
+1. **Stripe E2E verification**: Test purchase flow end-to-end on production.
+2. **PostHog event audit**: Confirm `scan_complete`, `item_added`, `listing_generated` firing in production.
+3. **Sentry zero-error audit**: Check for JS errors post-SEC-015 (cookie changes may surface auth regressions).
+4. **eBay Developer sandbox credentials**: Connect sandbox app to `ebay_connections` (0 rows currently).
+
+---
+
 ## Session: 2026-06-30 — SEC-015 JWT → httpOnly cookie (all 6 Edge Functions)
 
 ### What was done
