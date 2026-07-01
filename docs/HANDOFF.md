@@ -4,6 +4,42 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-07-01 — bug verification + ebay-oauth v69 re-deploy
+
+### What was done
+
+Resumed from compacted context (stale snapshot — earlier session work not yet visible). Verified that all 3 bugs identified in the compacted summary were already fixed in prior sessions:
+
+1. **Dashboard ROI null-cost (3057%)** — already fixed in commit `0996908` (`missingCost` guard, ROI shows 'N/A' when any sold item lacks cost, asterisk footnote explains).
+2. **`unauthorized_client` eBay OAuth** — already fixed in `c4bcb36` (`ebayCreds()` sandbox-aware credential helper).
+3. **Finding API debug (listings not syncing)** — `findingSellerName`, `findingApiErr`, `sandbox` already in `pull-listings` response from prior session.
+
+Re-deployed `ebay-oauth` to confirm latest code is live → **v69 active**.
+
+### Remaining open issue: eBay active listings don't sync
+
+The Finding API returns 0 results. Fulfillment API (sold orders) works. Now that `debug.findingSellerName` and `debug.findingApiErr` are in the response, next step is:
+1. Trigger "Sync eBay Listings" in the app
+2. Open DevTools → Network → find the `/pull-listings` response
+3. Check `debug.findingSellerName` (is the eBay username correct?) and `debug.findingApiErr` (any API error?)
+4. If `findingSellerName` is null → username wasn't saved during OAuth — re-connect eBay
+5. If `findingApiErr` is present → eBay is returning an API error for that username + app ID combo
+
+The Finding API may also fail for traditional eBay.com listings if the app was registered after eBay's new-app deprecation of that API. In that case, replace with Browse API (`/buy/browse/v1/item_summary/search?filter=sellers:{username}`) — requires adding `buy.item.bulk` scope (forces user re-auth).
+
+### Commit
+
+No code changes this session — all were already committed. HANDOFF.md only.
+
+### Next tasks (in order)
+
+1. **Debug eBay listings sync**: Trigger sync, read `/pull-listings` response debug fields, diagnose sellerName/findingApiErr.
+2. **Fix `shared_test.ts` cookie-auth drift**: Rewrite 4 `getAuthedUserIdChecked` tests to use `Cookie: sfp_auth=` header instead of `Authorization: Bearer`.
+3. **Stripe E2E verification**: Test purchase flow end-to-end on production.
+4. **PostHog event audit**: Confirm `scan_complete`, `item_added`, `listing_generated` firing.
+
+---
+
 ## Session: 2026-07-01 — ponytail-audit cleanup (dead code, dead config, dead deps)
 
 ### What was done
