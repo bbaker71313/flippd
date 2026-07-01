@@ -4707,7 +4707,8 @@ async function generateListingWithAI(item, condition) {
   if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Listing generation failed'); }
   const d = await res.json();
   if (d.error) throw new Error(d.error);
-  return { title: d.title, description: d.description, conditionNote: d.conditionNote };
+  const l = d.listing || d;
+  return { title: l.title, description: l.description, conditionNote: l.conditionNote };
 }
 
 function exportListingsToCSV() {
