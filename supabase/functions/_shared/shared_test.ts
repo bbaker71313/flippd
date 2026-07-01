@@ -50,25 +50,25 @@ function fakeSupabase(dbVersion: number | null) {
 
 Deno.test("getAuthedUserIdChecked accepts token with matching token_version (SEC-012)", async () => {
   const token = await signJWT({ sub: 7, token_version: 3 }, SECRET);
-  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  const req = new Request("http://x", { headers: { Cookie: `sfp_auth=${encodeURIComponent(token)}` } });
   assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(3)), 7);
 });
 
 Deno.test("getAuthedUserIdChecked rejects stale token_version (revoked) (SEC-012)", async () => {
   const token = await signJWT({ sub: 7, token_version: 2 }, SECRET); // DB bumped to 3
-  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  const req = new Request("http://x", { headers: { Cookie: `sfp_auth=${encodeURIComponent(token)}` } });
   assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(3)), null);
 });
 
 Deno.test("getAuthedUserIdChecked treats missing versions as 0 (legacy token, fresh user)", async () => {
   const token = await signJWT({ sub: 7 }, SECRET); // no token_version → 0
-  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  const req = new Request("http://x", { headers: { Cookie: `sfp_auth=${encodeURIComponent(token)}` } });
   assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(0)), 7);
 });
 
 Deno.test("getAuthedUserIdChecked rejects when user row missing", async () => {
   const token = await signJWT({ sub: 7, token_version: 0 }, SECRET);
-  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
+  const req = new Request("http://x", { headers: { Cookie: `sfp_auth=${encodeURIComponent(token)}` } });
   assertEquals(await getAuthedUserIdChecked(req, SECRET, fakeSupabase(null)), null);
 });
 
