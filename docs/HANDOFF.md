@@ -4,6 +4,50 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-07-01 — ponytail-audit cleanup (dead code, dead config, dead deps)
+
+### What was done
+
+Whole-repo over-engineering audit (ponytail-audit) found several safe cuts, executed after ranking:
+
+1. **Deleted `apps/web/src/`** (42 files, ~5.7k lines) — the clean-arch reference rewrite (`core/`, `features/`, `services/`, `state/`, `ui/`) from the 2026-06-24 worktree merge. Confirmed zero references anywhere in the repo (not imported by `app.html`, not imported by the Next.js `app/` router, no bundler config touches it).
+2. **Deleted `.github/workflows/mobile.yml`** — EAS Build CI for `apps/mobile/`, which was deleted 2026-06-29 (Phase 5A). Workflow targeted a directory that no longer exists.
+3. **Trimmed root `package.json`** — removed the pre-Supabase Replit backend stack (`express`/`pg`/`bcrypt`/`jsonwebtoken`/`cors`/`resend`/`stripe`) and the `start`/`dev` scripts, which pointed at a nonexistent `index.js`. Fully superseded by Supabase Edge Functions per CLAUDE.md's own deprecated-architecture table.
+4. **`supabase/functions/_shared/jwt.ts`**: removed `getAuthedUserId` (unchecked, no revocation check) — zero production callers post-SEC-015; every real call site already uses `getAuthedUserIdChecked`. Removed its 3 dead unit tests from `shared_test.ts`.
+5. **Deduplicated `randomHex()`** — was copy-pasted verbatim in `auth/index.ts` and `ebay-oauth/index.ts`; now a single export from `_shared/jwt.ts`, imported by both.
+
+### Verification
+
+- `deno check` on `auth`, `ebay-oauth`, `_shared/jwt.ts`: 123 errors, unchanged from main baseline (pre-existing supabase-js untyped-client `never` noise) — **zero new errors**.
+- `deno test _shared/shared_test.ts`: 8 passed (main baseline was 10 passed / 3 failed — removed 1 of the 3 already-failing tests as dead code; the other 2 pre-existing failures remain, see below).
+- Post-deploy `get_advisors` (security): 6 lints, all pre-existing/tracked (matches CURRENT_STATE.md known-issues list) — **zero new**.
+
+### Side-finding — pre-existing test/prod drift (not fixed, flagging for follow-up)
+
+`shared_test.ts`'s 4 `getAuthedUserIdChecked` tests build requests with an `Authorization: Bearer` header, but `jwtFromCookie` (used internally since SEC-015) only reads a `Cookie: sfp_auth=` header — so 2 of those 4 tests fail against the actual cookie-only implementation on **main** (confirmed before touching anything). This predates this session (introduced by the 2026-06-30 SEC-015 migration; tests were never updated). Not fixed here — out of scope for the audit — but worth a follow-up session since it means `shared_test.ts` has not been a reliable regression check since SEC-015 shipped.
+
+### Deployments
+
+- `auth` v64 — dedupe (randomHex import, removed getAuthedUserId) — ACTIVE.
+- `ebay-oauth` v68 — same dedupe — ACTIVE.
+
+### Commit
+
+`f5dacc5` → pushed main.
+
+### Decisions locked
+
+- `getAuthedUserId` (unchecked) is gone for good — `getAuthedUserIdChecked` is the only sanctioned way to read the authed user from a cookie-authed Edge Function request.
+
+### Next tasks (in order)
+
+1. **Fix `shared_test.ts` cookie-auth drift** (see side-finding above) — rewrite the 4 `getAuthedUserIdChecked` tests to set a `Cookie: sfp_auth=` header instead of `Authorization: Bearer`.
+2. **Stripe E2E verification**: Test purchase flow end-to-end on production.
+3. **PostHog event audit**: Confirm events firing in production.
+4. **eBay Developer sandbox credentials**: Connect sandbox app to `ebay_connections` (0 rows currently).
+
+---
+
 ## Session: 2026-06-30 (cont.) — SEC-015 CSRF guard gap closed on ebay-oauth + stripe-checkout
 
 ### What was done
