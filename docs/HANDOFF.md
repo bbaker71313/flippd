@@ -4,6 +4,26 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-07-01 — shared_test.ts cookie-auth drift fixed
+
+### What was done
+
+Fixed the side-finding flagged in the 2026-07-01 ponytail-audit session: 4 `getAuthedUserIdChecked` tests in `supabase/functions/_shared/shared_test.ts` built requests with `Authorization: Bearer <token>`, but SEC-015 moved auth to cookie-only (`jwtFromCookie` reads `Cookie: sfp_auth=`). Switched all 4 to `Cookie: sfp_auth=${encodeURIComponent(token)}`.
+
+`deno test supabase/functions/_shared/`: **10/10 passing** (was 8/10 — 2 of the 4 were silently failing against the real cookie-only implementation).
+
+### Commit
+
+`955b33a` → pushed main (fast-forwarded from a worktree).
+
+### Next tasks (in order) — unchanged, user deferred these this session
+
+1. **Debug eBay listings sync**: Trigger sync, read `/pull-listings` response debug fields, diagnose sellerName/findingApiErr.
+2. **Stripe E2E verification**: Test purchase flow end-to-end on production.
+3. **PostHog event audit**: Confirm `scan_complete`, `item_added`, `listing_generated` firing.
+
+---
+
 ## Session: 2026-07-01 — bug verification + ebay-oauth v69 re-deploy
 
 ### What was done
