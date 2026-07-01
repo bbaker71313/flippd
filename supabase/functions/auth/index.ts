@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
-import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked } from "../_shared/jwt.ts"
+import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked, randomHex } from "../_shared/jwt.ts"
 import { sendEmail } from "../_shared/sendEmail.ts"
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
 import { corsHeaders } from "../_shared/cors.ts"
@@ -25,12 +25,6 @@ function authCookie(token: string): string {
 
 function clearAuthCookie(): string {
   return 'sfp_auth=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0';
-}
-
-function randomHex(bytes: number): string {
-  const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // SEC-011 — IP-based rate limiting for auth endpoints.

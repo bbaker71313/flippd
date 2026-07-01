@@ -2,20 +2,6 @@
   "name": "scanforprofit",
   "version": "3.0.0",
   "description": "ScanForProfit — AI-powered sourcing and profit intelligence tool for solo eBay resellers",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
-  },
-  "dependencies": {
-    "bcrypt": "^5.1.1",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.0",
-    "resend": "^4.0.0",
-    "stripe": "^14.0.0"
-  },
   "engines": {
     "node": ">=18.0.0"
   },

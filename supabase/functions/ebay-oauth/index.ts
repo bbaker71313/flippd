@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { signJWT, verifyJWT, getAuthedUserIdChecked } from "../_shared/jwt.ts"
+import { signJWT, verifyJWT, getAuthedUserIdChecked, randomHex } from "../_shared/jwt.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 // SEC-015: handler functions call json() with no CORS; Deno.serve wraps with addCors().
@@ -9,13 +9,6 @@ function json(data: unknown, status = 200) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
-
-function randomHex(bytes: number): string {
-  const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-}
-
 
 const EBAY_SCOPES = [
   'https://api.ebay.com/oauth/api_scope',

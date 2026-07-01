@@ -7,6 +7,14 @@ export function b64url(s: string): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// Random hex string of `bytes` random bytes (e.g. for tokens/nonces). §4.2 dedup —
+// previously copied verbatim into auth and ebay-oauth.
+export function randomHex(bytes: number): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function signJWT(
   payload: Record<string, unknown>,
   secret: string,
@@ -53,22 +61,9 @@ export function jwtFromCookie(req: Request): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-// SEC-015: cookie-only auth (no Bearer). Use only where revocation check is NOT needed.
-export async function getAuthedUserId(req: Request, jwtSecret: string): Promise<number | null> {
-  const token = jwtFromCookie(req);
-  if (!token) return null;
-  try {
-    const payload = await verifyJWT(token, jwtSecret);
-    return payload.sub as number;
-  } catch {
-    return null;
-  }
-}
-
-// Like getAuthedUserId, but also enforces JWT revocation (SEC-012): rejects a token
-// whose token_version is stale vs the user's current value. Use this for EVERY
-// authenticated endpoint — getAuthedUserId alone does NOT check revocation, so a
-// token issued before a password reset would otherwise still be accepted.
+// Enforces JWT revocation (SEC-012): rejects a token whose token_version is stale
+// vs the user's current value. Use this for EVERY authenticated endpoint — a token
+// issued before a password reset must not still be accepted.
 // SEC-015: cookie-only — no Bearer fallback.
 // `supabase` is a service-role client (structurally typed to avoid pulling supabase-js types).
 export async function getAuthedUserIdChecked(

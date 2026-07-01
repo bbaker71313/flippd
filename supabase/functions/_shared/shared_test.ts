@@ -1,7 +1,7 @@
 // Runtime tests for shared Edge Function utils. Run: `deno test supabase/functions/_shared/`
 // No live Supabase — pure crypto + constants.
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { b64url, signJWT, verifyJWT, getAuthedUserId, getAuthedUserIdChecked } from "./jwt.ts";
+import { b64url, signJWT, verifyJWT, getAuthedUserIdChecked } from "./jwt.ts";
 import { SCAN_LIMITS, ITEM_LIMITS } from "./tierLimits.ts";
 
 const SECRET = "test-secret-not-production";
@@ -32,22 +32,6 @@ Deno.test("verifyJWT rejects expired token", async () => {
 
 Deno.test("verifyJWT rejects malformed token", async () => {
   await assertRejects(() => verifyJWT("not.a.jwt.token", SECRET), Error, "Invalid token");
-});
-
-Deno.test("getAuthedUserId extracts sub from valid Bearer", async () => {
-  const token = await signJWT({ sub: 7 }, SECRET);
-  const req = new Request("http://x", { headers: { Authorization: `Bearer ${token}` } });
-  assertEquals(await getAuthedUserId(req, SECRET), 7);
-});
-
-Deno.test("getAuthedUserId returns null without Bearer header", async () => {
-  const req = new Request("http://x");
-  assertEquals(await getAuthedUserId(req, SECRET), null);
-});
-
-Deno.test("getAuthedUserId returns null on bad token", async () => {
-  const req = new Request("http://x", { headers: { Authorization: "Bearer garbage" } });
-  assertEquals(await getAuthedUserId(req, SECRET), null);
 });
 
 // Minimal fake supabase whose users.token_version is `dbVersion`.
