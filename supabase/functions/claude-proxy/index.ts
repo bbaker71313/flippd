@@ -13,28 +13,27 @@ function ab2b64(buf: ArrayBuffer): string {
   return btoa(s);
 }
 
+// Keys must match CATEGORIES in apps/web/public/app.html verbatim — that's the
+// only client, and its category strings are what actually arrives here. This
+// previously used an eBay-style taxonomy ('Consumer Electronics', 'Clothing,
+// Shoes & Accessories', ...) that the client never sends, so nearly every item
+// fell through to the 'OTH_' fallback regardless of its real category.
 const CATEGORY_SKU_PREFIX: Record<string, string> = {
-  'Consumer Electronics':            'ELEC',
-  'Clothing, Shoes & Accessories':   'CLTH',
-  'Home & Garden':                   'HOME',
-  'Toys & Hobbies':                  'TOYS',
-  'Sporting Goods':                  'SPRT',
-  'Books':                           'BOOK',
-  'Music':                           'MUSC',
-  'Movies & TV':                     'MOVI',
-  'Video Games & Consoles':          'GAME',
-  'Jewelry & Watches':               'JEWL',
-  'Collectibles':                    'COLL',
-  'Art':                             'ART_',
-  'Baby':                            'BABY',
-  'Cameras & Photography':           'CAMR',
-  'Musical Instruments & Gear':      'INST',
-  'Business & Industrial':           'BIZZ',
-  'eBay Motors':                     'AUTO',
-  'Antiques':                        'ANTQ',
-  'Computers, Tablets & Networking': 'COMP',
-  'Cell Phones & Accessories':       'CELL',
-  'Entertainment Memorabilia':       'ENT_',
+  'Electronics':          'ELEC',
+  'Clothing':             'CLTH',
+  'Shoes':                'SHOE',
+  'Home & Garden':        'HOME',
+  'Collectibles':         'COLL',
+  'Toys & Hobbies':       'TOYS',
+  'Sporting Goods':       'SPRT',
+  'Books':                'BOOK',
+  'Automotive':           'AUTO',
+  'Health & Beauty':      'HLTH',
+  'Tools':                'TOOL',
+  'Musical Instruments':  'INST',
+  'Pet Supplies':         'PETS',
+  'Baby':                 'BABY',
+  'Jewelry & Watches':    'JEWL',
 };
 
 class HttpError extends Error {
@@ -551,15 +550,23 @@ async function handleInventoryStatus(
 }
 
 // ── categoryHint map — verbatim from FEATURE_TRIAGE F-29 L3623-3635 ───────────
+// Keys match CATEGORIES in apps/web/public/app.html — see CATEGORY_SKU_PREFIX comment.
 const CATEGORY_HINT: Record<string, string> = {
-  'Consumer Electronics':          'functional, tested, specifications',
-  'Clothing, Shoes & Accessories': 'fabric, fit, brand, styling',
-  'Home & Garden':                 'materials, dimensions, functionality',
-  'Collectibles':                  'authenticity, rarity, condition',
-  'Toys & Hobbies':                'completeness, vintage value, condition',
-  'Books':                         'author, edition, binding, condition',
-  'Sporting Goods':                'brand, specifications, condition',
-  'Jewelry & Watches':             'material, brand, specifications',
+  'Electronics':         'functional, tested, specifications',
+  'Clothing':            'fabric, fit, brand, styling',
+  'Shoes':               'size, fit, brand, sole condition',
+  'Home & Garden':       'materials, dimensions, functionality',
+  'Collectibles':        'authenticity, rarity, condition',
+  'Toys & Hobbies':      'completeness, vintage value, condition',
+  'Sporting Goods':      'brand, specifications, condition',
+  'Books':               'author, edition, binding, condition',
+  'Automotive':          'fitment, brand, condition',
+  'Health & Beauty':     'sealed/unused, expiration, brand',
+  'Tools':               'brand, functionality, wear',
+  'Musical Instruments': 'brand, playability, condition',
+  'Pet Supplies':        'size, material, condition',
+  'Baby':                'safety, completeness, condition',
+  'Jewelry & Watches':   'material, brand, specifications',
 };
 
 async function handleListingGenerate(
