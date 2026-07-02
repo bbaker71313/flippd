@@ -2487,11 +2487,20 @@ function itemForServer(item) {
   return { ...meta, photo_count: (photos || []).length };
 }
 
-// Restore photos from localStorage when merging server data
+// Restore photos from localStorage when merging server data.
+// Server rows use DB column names (sell_price, created_at); the client reads
+// camelCase (item.sellPrice, item.dateAcquired) everywhere — profit calc,
+// detail view, price editing. Without renaming here, every field read through
+// those camelCase names goes silently undefined the moment an item round-trips
+// through the server (i.e. on every page reload), even though the DB has the
+// real value under sell_price.
 function mergeServerItem(serverItem) {
   const local = items.find(i => i.id === serverItem.id);
   return {
     ...serverItem,
+    sellPrice: serverItem.sell_price ?? serverItem.sellPrice ?? '',
+    dateAcquired: serverItem.dateAcquired || (serverItem.created_at ? serverItem.created_at.slice(0, 10) : ''),
+    createdAt: serverItem.createdAt || serverItem.created_at,
     photos: local?.photos || [],
     image_url: local?.image_url || null,
     category: migrateCategory(serverItem.category),
