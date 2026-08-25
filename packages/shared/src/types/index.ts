@@ -269,6 +269,51 @@ export interface ProfitCalcResult {
   shipCost: number
   totalFees: number   // pkgCost + shipCost + ebayFees
   net: number
-  roi: number         // (net / cost) * 100
-  margin: number      // (net / gross) * 100
+  roi: number | null  // (net / cost) * 100 — null when cost <= 0 (undefined, not 0%)
+  margin: number       // (net / gross) * 100
+}
+
+// ── Decision engine (deterministic HOT/LIST/SKIP) ──────────────────────────
+// See packages/shared/src/utils/decisionEngine.ts. Demand levels are
+// verified market evidence, never an AI confidence score.
+export type DemandLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY HIGH'
+
+export interface DecisionInputs {
+  netProfit: number
+  roi: number | null          // null = unknown/undefined (e.g. zero cost) — never passes ROI threshold
+  sellThroughRate: number | null   // null = unverified/unavailable
+  daysToSell: number | null        // null = unverified/unavailable
+  demandLevel: DemandLevel | null  // null = unverified/unavailable
+  minProfit: number
+  targetRoi: number
+  minSellThroughRate: number
+  maxDaysToSell: number
+}
+
+export interface DecisionThresholdResults {
+  profitPass: boolean
+  roiPass: boolean
+  strPass: boolean
+  daysPass: boolean
+  demandIsVeryHigh: boolean
+  failingThresholds: string[]
+}
+
+export interface DecisionResult extends DecisionThresholdResults {
+  decision: ScanDecision
+}
+
+// ── Maximum qualifying buy price (used when acquisition cost is unknown) ──
+export interface MaxBuyPriceInputs {
+  sellPrice: number
+  ebayFee: number
+  pkgCost: number
+  shipCost: number   // seller-borne shipping cost; 0 when buyer pays
+  minProfit: number
+  targetRoi: number
+}
+
+export interface MaxBuyPriceResult {
+  maxCost: number | null      // null when no positive cost satisfies both constraints
+  limitedBy: 'minProfit' | 'targetRoi' | 'both' | 'none'
 }

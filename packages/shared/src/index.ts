@@ -1,5 +1,7 @@
 export * from "./types";
 export * from "./utils/calcProfit";
+export * from "./utils/decisionEngine";
+export * from "./utils/maxBuyPrice";
 export * from "./utils/createInventoryItem";
 export * from "./utils/calcPnl";
 export * from "./constants/categories";

@@ -172,7 +172,7 @@ Shared code lives in `supabase/functions/_shared/` (`jwt.ts`, `cors.ts`, `sendEm
 
 Small pre-existing issues surfaced during the audit, logged here so we fix them in advance. Full detail in [`HANDOFF.md`](HANDOFF.md).
 
-- **claude-proxy inline `calcProfit`** duplicates `packages/shared` util (Deno can't import packages/ without bundling).
+- **`claude-proxy` financial/decision math** now lives in `supabase/functions/_shared/{financialEngine,decisionEngine,maxBuyPrice}.ts` (2026-08-25) instead of ad hoc inline duplicates — but these are still hand-mirrored copies of `packages/shared/src/utils/{calcProfit,decisionEngine,maxBuyPrice}.ts`, not a real cross-package import (unverified whether a relative import survives the Supabase CLI's deploy bundler). Keep both sides in lockstep until someone with deploy access verifies the import and collapses the duplication for real.
 - **`randomHex` duplicated** in `auth` + `ebay-oauth` (candidate for `_shared/`).
 - **`ebay_connections.oauth_nonce`** likely orphan column (live nonce uses `users.ebay_oauth_nonce`).
 - **Live DB advisor WARNs:** waitlist always-true INSERT RLS; `item-photos` public bucket listing; `send_export_reminders` SECURITY DEFINER anon-callable; Auth leaked-password protection OFF.
@@ -230,6 +230,7 @@ Full agent/dev rules: [`CLAUDE.md`](../CLAUDE.md)
 
 | Date | Change |
 |------|--------|
+| 2026-08-25 | Chapter 02 audit (Profit & Decision Engine) repair: deterministic HOT/LIST/SKIP + max-buy-price solver in `packages/shared` (mirrored in `supabase/functions/_shared/`), no more invented acquisition cost (`avgSell*0.10`) in any scan mode, sourcing-style multiplier removed from decision logic, `buyer`/`seller`/`free` shipping bug fixed client- and server-side. Real eBay market-data integration (Marketplace Insights/Browse/Taxonomy/Catalog) still not implemented — see `HANDOFF.md`. |
 | 2026-06-24 | Initial version — Phase 2 doc cleanup |
 | 2026-06-24 | Phase 4–5 complete: ARCHITECTURE.md created, marketing docs corrected, DOC_PROCESS.md added |
 | 2026-06-25 | Security audit P1 (XSS/JWT/auth-injection fixes) + P2 (`_shared/` extraction, tier single-source, atomic scan RPC, token_version revocation, auth rate limiting; migrations 009–012 live) |

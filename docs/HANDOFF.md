@@ -4,6 +4,59 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-25 — Chapter 02 Profit & Decision Engine repair (Steps 0–5, 11–13, 16 of the audit plan)
+
+### What was done
+
+Implemented the Chapter 02 audit's Critical/High findings that are achievable without new eBay API access: eliminated invented acquisition cost, made profit math and HOT/LIST/SKIP deterministic and authoritative, removed the sourcing-style multiplier from decision logic, and fixed the `buyer`/`seller`/`free` shipping terminology bug.
+
+**New files (packages/shared — canonical, tested):**
+- `packages/shared/src/utils/decisionEngine.ts` + `.test.ts` — the single authoritative HOT/LIST/SKIP function. Inputs: net profit, ROI, sell-through rate, days-to-sell, demand level vs. user thresholds. No sourcing-style multiplier, no AI-confidence substitution, demand alone never triggers HOT. 16 boundary tests (exact-threshold, one-unit-off, every independent failure, missing-evidence).
+- `packages/shared/src/utils/maxBuyPrice.ts` + `.test.ts` — backward-solves the maximum acquisition price that clears both `minProfit` and `targetRoi` when cost is left blank, instead of inventing one. 8 tests covering each constraint binding, both-equal, seller-paid shipping, and the "no price qualifies" case (returns `null`, not a misleading number).
+- `packages/shared/src/utils/calcProfit.ts` — extended with input validation (throws on negative/non-finite values) and `roi: number | null` (was `0`) when acquisition cost is `<= 0` — a $0-cost item's ROI is undefined, not "0%". `ProfitCalcResult.roi` type changed accordingly (zero blast radius: nothing in the live app consumed this function before this session — it was dead code, only its own test file called it).
+- `supabase/functions/_shared/financialEngine.ts`, `decisionEngine.ts`, `maxBuyPrice.ts` (+ `_test.ts` for each) — Deno-native byte-for-byte mirrors of the above, used by `claude-proxy`. **Not a true cross-package import**: `docs/CURRENT_STATE.md`'s known-issues already flagged that Deno can't import `packages/` without bundling, and this session had no way to verify a relative cross-monorepo import survives the Supabase CLI's deploy bundler, so the risk of breaking the live edge function wasn't worth taking. Each `_shared/*.ts` file has a comment pointing back to its `packages/shared` counterpart — **keep them in lockstep** if either changes. Verifying the cross-import and collapsing this duplication for real is the cleanest next step for someone with Supabase CLI/deploy access.
+
+**`supabase/functions/claude-proxy/index.ts` (rewired, not rewritten):**
+- Removed the inline duplicate `calcProfit`/`getDecision` functions (sourcing-style multiplier, AI-confidence gating). All three scan handlers now call the shared engine via `evaluateScanEconomics()`.
+- Removed `estimatedCost = avgSell * 0.10` — the exact heuristic the audit calls out — from single, text, **and shelf** scan. Shelf items are pre-purchase by definition, so every shelf item is now priced via `calcMaxBuyPrice`, never an AI-estimated thrift cost.
+- Added `acquisitionCost` to the request contract (JSON body and multipart form field), parsed by `parseAcquisitionCost()` so blank/missing/malformed all mean "unknown" — never conflated with a user-typed `0`.
+- Fixed the shipping bug: single/text/shelf scan checked `settings.shipping === 'free'` to decide whether to charge shipping, but `validateSettingsInput`/the DB column only ever store `'buyer'` or `'seller'` — so seller-paid shipping was **silently never charged**, in every code path (confirmed the same bug existed client-side in `app.html`'s own copy). Now checks `=== 'seller'` everywhere.
+- Response now returns `acquisitionCost` (entered value or `null`), `estimatedProfit`/`roi` (`null` when cost unknown), `maxBuyPrice`/`maxBuyPriceLimitedBy` (populated only when cost is unknown and a qualifying price exists — `null` on SKIP, per the audit: "don't show a misleading buy price"), `feeAmount`/`shipCostAmount` (always computable from sell price + settings), `decisionReasons` (the full pass/fail breakdown), and `marketDataSource: 'ai_estimate'` (honest disclosure — see "Explicitly NOT done" below).
+- `scan_log.cost` now stores the real entered cost or `null` (was always the invented estimate). `raw_response` now includes a `decisionAudit` object (settings snapshot + full decision reasons + maxBuyPrice) alongside the raw AI JSON, so a past scan's HOT/LIST/SKIP is reconstructable — no new DB columns needed (`scan_log.cost`/`raw_response` already existed).
+- Shelf AI prompt no longer asks the model to calculate `estimated_profit`/`estimated_cost_at_thrift`/a `decision` — it identifies and prices only.
+
+**`apps/web/public/app.html` (client made server-authoritative):**
+- Removed `calcFinancials()`/`getDecision()`/`calcMaxCost()` — these recomputed profit and the decision independently, client-side, with the *same* shipping bug (`S.shipping==='free'`) plus a sourcing-style multiplier the server didn't even apply. This is exactly the audit's "documented decision logic and live decision logic disagree" finding: the server computed one decision and logged it, but the UI actually displayed a *different*, client-computed one and the server's `decision` field was dead. Both `analyze()` call sites (photo scan, text scan) now render `r.decision`/`r.estimatedProfit`/`r.roi`/`r.maxBuyPrice` directly.
+- Cost input now sent to the server as `acquisitionCost` (`null` when the field is blank, distinct from a typed `0`).
+- `renderSingle()` shows "Not entered" / "—" for cost/profit/ROI when cost is unknown, plus the server's `maxBuyPrice` hint ("if item is under $X") — same UI pattern that already existed, now fed by the authoritative backward-solve instead of a client-side `calcMaxCost()`.
+- Shelf scan (`analyzeShelf`/`renderShelf`/`buyShelfItem`): removed the client's own `getDecision()` recompute; "Add to Inventory" from a shelf item no longer invents a cost (was `estimated_cost_at_thrift || 0`) — leaves cost blank for the user to fill in from the real receipt, with the max qualifying price noted in the item's notes.
+
+**Explicitly NOT done this session — needs product-owner review before it can be called "verified" per the audit:**
+Steps 6–10 of the implementation plan (verified identification via barcode/GTIN/catalog matching, eBay category resolution via Taxonomy API, and real sold-market data via Marketplace Insights/Browse/Catalog APIs) are **not implemented**. Demand level, sell-through rate, and days-to-sell going into the decision engine are still AI estimates, not verified eBay data — this session made the *arithmetic and decision logic* deterministic and free of invented costs, but did not replace the market-data *source*. This wasn't attempted because: (1) it requires a production capability check against eBay's Marketplace Insights scope that the audit itself says "must remain treated as pending verification until a successful production API request is confirmed" — not something checkable from this sandbox without live eBay credentials; (2) building an unverified integration would violate the audit's own core constraint ("AI must not be treated as the source of market facts"). The response now carries `marketDataSource: 'ai_estimate'` so this is explicit and auditable rather than implied. **Next task: someone with eBay developer/production Supabase access should run the Marketplace Insights capability check (Step 8) before this chapter can be marked complete.**
+
+Also not touched (explicitly out of scope per the audit's own guardrails): removing the `sourcingStyle` field from the UI/DB (kept, just no longer read by decision logic, per the plan's Step 8: "Whether the setting is also removed from the UI/database... is a separate cleanup decision"); `calcPnlServer`'s duplicate P&L math (P&L reporting on historical *actual* sold prices, not the sourcing decision — different chapter); the dead `getSingleSys()`/`getShelfSys()` functions in `app.html` (unused leftover from a pre-Edge-Function architecture, never called).
+
+### Known product-behavior change to flag
+
+A **$0 acquisition cost now always produces SKIP**, even for an obviously-profitable free find, because ROI is undefined (`null`) for zero cost and the decision engine requires `roi >= targetRoi` — a null value can never satisfy that. This is the mathematically correct consequence of the audit's own Step 2 rule ("never fabricate a 0% ROI"), but may be a surprising UX regression for legitimately-free items. Flagging for product-owner sign-off rather than silently picking a special-case behavior.
+
+### Tests / verification
+
+- `node --test` in `packages/shared/src/utils/`: **34/34 passing** (calcProfit, decisionEngine, maxBuyPrice — happy path, every boundary, every independent threshold failure, invalid-input rejection).
+- `npx tsc --noEmit` in `packages/shared`: **0 errors**.
+- `npx tsc --noEmit` in `apps/web`: pre-existing failures unrelated to this session (missing `node_modules` — `@supabase/ssr`, `next/headers`, `tailwindcss`, `@types/node` all unresolved; this sandbox never ran `pnpm install`). No `.ts`/`.tsx` file under `apps/web` was touched this session, so there is no new risk from these changes to that type-check.
+- The new `supabase/functions/_shared/*_test.ts` files use the same `deno test` pattern as the existing `shared_test.ts` but **could not be run** — no Deno runtime in this sandbox. Please run `deno test supabase/functions/_shared/` before/after deploying.
+- No browser/live-backend testing was possible (no real Supabase/Anthropic credentials in this session) — recommend manually exercising single scan (with and without cost entered), text scan, and shelf scan against a staging environment before this reaches production.
+
+### Next task
+
+1. **Verify Marketplace Insights production access** (audit Step 8) — the prerequisite for Steps 6–10 (real market data / identification).
+2. Run `deno test supabase/functions/_shared/` to confirm the new Deno tests actually pass (only type-reviewed, not executed, in this session).
+3. Decide the product behavior for zero-cost items (see "Known product-behavior change to flag" above).
+4. Manually smoke-test the three scan modes in a browser against staging before merging to production.
+
+---
+
 ## Session: 2026-07-01 — shared_test.ts cookie-auth drift fixed
 
 ### What was done
