@@ -4,6 +4,30 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-25 — Remove dead eBay OAuth columns from `users` (follow-up to PR #128)
+
+### What was done
+
+Follow-up to the PR #128 repair session below: that session found and deliberately left alone a drift item — `20260603000000_005_add_ebay_oauth_columns.sql` adds `ebay_access_token`/`ebay_refresh_token`/`ebay_token_expires_at`/`ebay_username` to `public.users`, but production never actually got these columns (superseded by the `ebay_connections` table before migration 005 was applied). User asked to clean this up as a proper follow-up.
+
+**Verified nothing reads/writes them before touching anything:** repo-wide grep for all 4 column names across `apps/`, `supabase/functions/`, `packages/` found zero references outside migration 005 itself and migrations that correctly reference `public.ebay_connections`'s own `ebay_username` column (checked with surrounding context — every live `.select('ebay_username')`/`.update({ebay_username...})` call in `supabase/functions/ebay-oauth/index.ts` targets `.from('ebay_connections')`, never `.from('users')`). Confirmed dead.
+
+**Migration added** (per explicit instruction: do not edit the historical migration 005 — it stays as committed history): `supabase/migrations/20260825145324_remove_dead_ebay_oauth_user_columns.sql` — `ALTER TABLE public.users DROP COLUMN IF EXISTS` for all 4 columns. `IF EXISTS` makes this a no-op against production (which never had them) and a real drop on a fresh database (which gets them from migration 005 first).
+
+**Verified:**
+- Dry-run (`BEGIN; ALTER TABLE ... DROP COLUMN IF EXISTS ...; ROLLBACK;`) against live production — 0 rows returned for those 4 columns before rollback, confirming both valid syntax and that this is a genuine no-op there.
+- Fresh migration replay: pushed to a branch/PR, which triggered this repo's live Supabase GitHub integration to rebuild a Preview database from scratch. Confirmed via `mcp__Supabase__list_tables` on the preview project that `public.users` no longer has any of the 4 columns after the full chain (005 adds them, this new migration removes them) — the fresh schema now matches production exactly on this table.
+- `pnpm --filter @sfp/shared test`: 34/34 still passing (untouched).
+- No other file changed — scope held to exactly what was asked.
+
+### Files changed
+- `supabase/migrations/20260825145324_remove_dead_ebay_oauth_user_columns.sql` — new
+
+### Next task
+None outstanding from this item. `public.users` and a fresh rebuild's schema now agree with production on the eBay-OAuth-related columns; `ebay_connections` (from the PR #128 session) is the only live token store.
+
+---
+
 ## Session: 2026-08-25 — Repair pre-existing CI blockers (repo-health only, no Chapter 02 changes)
 
 ### What was done
@@ -20,7 +44,7 @@ That commit stripped the 7 dead Replit-backend deps (`bcrypt`, `cors`, `express`
 
 **Update — confirmed end-to-end**: this repo's Supabase GitHub integration is live and opening PR #128 for this branch automatically spun up a real Preview branch (`suwgcdqyhjcqqsgmgngi`) that rebuilds the database from scratch on every push. Its migration run finished with Database/Services/APIs/Configurations/Migrations all ✅. Queried it directly: `mcp__Supabase__list_migrations` on the branch shows all 24 committed migrations applied in order, including `20260607170846 create_ebay_connections` immediately before `20260626120000 013_encrypt_ebay_tokens` — and `mcp__Supabase__list_tables` confirms the resulting `public.ebay_connections` table matches the schema documented above exactly. This is the actual from-scratch clean-rebuild proof, not just the dry-run inference. (A standalone `mcp__Supabase__create_branch` call earlier in the session failed with `PaymentRequiredException` — branching needs the Pro plan — but the GitHub-integration-managed preview branch tied to the PR worked regardless and gave the real answer.)
 
-**Also found, not fixed (out of scope per task guardrails — doesn't block CI):** `supabase/migrations/20260603000000_005_add_ebay_oauth_columns.sql` (adds `ebay_access_token`/`ebay_refresh_token`/`ebay_token_expires_at`/`ebay_username` to `public.users`) has no matching entry in production's applied-migrations list and none of those 4 columns exist on prod's `users` table today — production evolved to the separate `ebay_connections` table model instead and this migration was apparently abandoned mid-flight. It doesn't break the migration chain (a fresh DB just gets 4 unused columns on `users`), so a fresh rebuild and prod diverge slightly on this table but nothing consumes those columns. Left untouched per "do not perform unrelated cleanup" / "do not change eBay OAuth behavior unless absolutely required" — flagging for a future session to decide whether to delete the dead columns from a fresh rebuild's schema or just leave them as inert.
+**Also found, not fixed (out of scope per task guardrails — doesn't block CI):** `supabase/migrations/20260603000000_005_add_ebay_oauth_columns.sql` (adds `ebay_access_token`/`ebay_refresh_token`/`ebay_token_expires_at`/`ebay_username` to `public.users`) has no matching entry in production's applied-migrations list and none of those 4 columns exist on prod's `users` table today — production evolved to the separate `ebay_connections` table model instead and this migration was apparently abandoned mid-flight. It doesn't break the migration chain (a fresh DB just gets 4 unused columns on `users`), so a fresh rebuild and prod diverge slightly on this table but nothing consumes those columns. Left untouched per "do not perform unrelated cleanup" / "do not change eBay OAuth behavior unless absolutely required" — flagging for a future session to decide whether to delete the dead columns from a fresh rebuild's schema or just leave them as inert. **Resolved in the follow-up session above.**
 
 ### Files changed
 - `pnpm-lock.yaml` — regenerated (no `package.json` edited)
