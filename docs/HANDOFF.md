@@ -4,6 +4,43 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-25 — Repair pre-existing CI blockers (repo-health only, no Chapter 02 changes)
+
+### What was done
+
+Repaired the two confirmed pre-existing repo/CI failures blocking clean validation of PR #127 (already merged to `main` as `96890d3` by the time this session started — this repair is a separate branch/PR, not stacked on it). No Chapter 02 profit/decision-engine code was touched.
+
+**1. `pnpm-lock.yaml` drift (root cause found in `f5dacc5`):**
+That commit stripped the 7 dead Replit-backend deps (`bcrypt`, `cors`, `express`, `jsonwebtoken`, `pg`, `resend`, `stripe`) from root `package.json` but never regenerated the lockfile, so `pnpm install --frozen-lockfile` (and therefore the "TypeCheck web" CI job) failed with `ERR_PNPM_OUTDATED_LOCKFILE`. Ran `pnpm install --no-frozen-lockfile` to regenerate — no `package.json` in the repo was edited. The resulting diff also drops the stale `apps/mobile` importer (that directory no longer exists — confirmed via `git log`/`ls`, matches the existing "RN scaffold scrapped" architecture note) and picks up `apps/video`'s `@fontsource/*` deps that were already in its `package.json` but missing from the lockfile. `pnpm install --frozen-lockfile` and both `tsc --noEmit` checks (`@sfp/shared`, `@sfp/web`) now pass clean.
+
+**Also fixed, discovered while verifying the CI command literally:** `.github/workflows/web.yml`'s "TypeCheck web" step ran `pnpm --filter apps/web run type-check` — `apps/web` is not a valid `--filter` match (the package is named `@sfp/web`, and there's no `./` path prefix), so this step silently matched zero projects and exited 0 without ever type-checking anything, lockfile issue aside. Changed the filter to `@sfp/web` to match the working directory name already used for `@sfp/shared` in the same workflow. One-line fix, directly required for "the TypeScript CI check" to actually mean something rather than silently no-op green.
+
+**2. Missing `ebay_connections` migration:**
+`013_encrypt_ebay_tokens.sql` operates on `public.ebay_connections` with no earlier committed migration creating it, so a from-scratch rebuild (Supabase Preview) fails. Root cause, found via `mcp__Supabase__list_migrations` against the live project (`dqgfpchkheznvanfgsmx`): production has an applied migration `20260607170846 create_ebay_connections` that was run directly against prod but whose `.sql` file was never committed to the repo. Reconstructed it verbatim from live introspection (`information_schema.columns`, `pg_constraint`, `pg_indexes`, `pg_policies`) as `supabase/migrations/20260607170846_create_ebay_connections.sql`, using that exact production version number so the file is a no-op if ever pushed to prod (already recorded as applied there) and a real `CREATE TABLE` on a fresh/preview database. Schema: `id serial PK`, `user_id integer NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE`, `ebay_username varchar(100)`, `access_token`/`refresh_token text NOT NULL`, `expires_at`/`refresh_expires_at timestamp NOT NULL`, `connected_at timestamp DEFAULT now()`, `oauth_nonce varchar(64)`, `oauth_nonce_expires_at timestamptz`; RLS enabled with the same 4 `*_own` policies present on every other per-user table; plus the (redundant but real) `idx_ebay_connections_user` index that exists in prod alongside the unique constraint's own index. Verified the exact DDL text executes cleanly on live Postgres 17 via a `BEGIN; CREATE TABLE public._migration_repair_validation_ebay_connections (...); ... ROLLBACK;` dry run against the real project (column-for-column identical to prod's real table), then confirmed the rollback left prod untouched (`ebay_connections` still had its 1 row). Could not spin up an actual Supabase Preview branch to test the full from-scratch chain end-to-end — branching requires the Pro plan and this project returned `PaymentRequiredException`; no local Docker/Supabase CLI available in this sandbox either. Confidence is high but not "confirmed by Supabase Preview": that verification still needs to happen when this branch's PR triggers the real GitHub-integration preview (if configured) or on a machine with Docker for `supabase db reset`.
+
+**Also found, not fixed (out of scope per task guardrails — doesn't block CI):** `supabase/migrations/20260603000000_005_add_ebay_oauth_columns.sql` (adds `ebay_access_token`/`ebay_refresh_token`/`ebay_token_expires_at`/`ebay_username` to `public.users`) has no matching entry in production's applied-migrations list and none of those 4 columns exist on prod's `users` table today — production evolved to the separate `ebay_connections` table model instead and this migration was apparently abandoned mid-flight. It doesn't break the migration chain (a fresh DB just gets 4 unused columns on `users`), so a fresh rebuild and prod diverge slightly on this table but nothing consumes those columns. Left untouched per "do not perform unrelated cleanup" / "do not change eBay OAuth behavior unless absolutely required" — flagging for a future session to decide whether to delete the dead columns from a fresh rebuild's schema or just leave them as inert.
+
+### Files changed
+- `pnpm-lock.yaml` — regenerated (no `package.json` edited)
+- `.github/workflows/web.yml` — fixed `--filter apps/web` → `--filter @sfp/web` (1 line)
+- `supabase/migrations/20260607170846_create_ebay_connections.sql` — new, reconstructed from live prod schema
+
+### Verification run this session
+- `pnpm install --frozen-lockfile` — passes
+- `pnpm --filter @sfp/shared exec tsc --noEmit` — 0 errors
+- `pnpm --filter @sfp/web run type-check` — 0 errors
+- `pnpm --filter @sfp/shared test` — 34/34 passing (Chapter 02 engine tests, unaffected/unchanged)
+- Migration DDL validated by transactional dry-run against live prod (rolled back, zero residue) — see above
+- `deno test` — not run, no Deno runtime in this sandbox (same limitation noted in the 2026-08-25 Chapter 02 session above); nothing Deno-related was touched this session
+- No Chapter 02 decision-engine file was modified
+
+### Next task
+1. When this branch's PR is opened, confirm Supabase Preview (if the GitHub integration is active — a stale pre-existing branch record tied to old PR #20 suggests it was at some point) actually runs the full migration chain clean, or run `supabase db reset` locally with Docker.
+2. Decide what to do with the dead `20260603000000_005_add_ebay_oauth_columns.sql` columns (see "Also found, not fixed" above).
+3. Resume the Chapter 02 next-task list from the session above (Marketplace Insights production check, Deno test execution, zero-cost-item product decision, browser smoke test) — unrelated to this session's repair.
+
+---
+
 ## Session: 2026-08-25 — Chapter 02 Profit & Decision Engine repair (Steps 0–5, 11–13, 16 of the audit plan)
 
 ### What was done

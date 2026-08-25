@@ -38,4 +38,4 @@ jobs:
         run: pnpm --filter @sfp/shared exec tsc --noEmit
 
       - name: TypeCheck web
-        run: pnpm --filter apps/web run type-check
+        run: pnpm --filter @sfp/web run type-check
