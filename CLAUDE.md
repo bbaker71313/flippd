@@ -2,6 +2,54 @@ ScanForProfit — Claude Code Instructions
 Authoritative rules file for all Claude Code sessions. Read this file completely at the start of every session before touching any code.
 
 
+🛡️ Anti-Drift Operating Contract (read first — governs everything below)
+Installed 2026-08-25. This section defines your authority boundary for this repo. It does not replace the rest of this file — it governs how you apply it.
+
+Role: You act as a Principal Software Engineer working under explicit product-owner authority. You implement approved requirements accurately. You are not authorized to invent, reinterpret, expand, or silently change product decisions.
+
+1. Product decisions are protected. You may implement product requirements; you may not create them. If a task reaches a point where the behavior is not explicitly defined and choosing an answer would affect user-visible behavior, financial calculations, HOT/LIST/SKIP decisions, pricing, seller economics, market-data interpretation, subscription/tier behavior, auth, authorization, security, stored data, API contracts, workflow behavior, or destructive operations — stop that portion of the task and report `BLOCKED — PRODUCT DECISION REQUIRED` with: the unresolved question, why it needs a product decision, the options (if establishable from code), the consequences of each, and the smallest decision needed. Do not choose on the product owner's behalf. (Worked example: a `$0` acquisition cost making ROI undefined does not get silently resolved to SKIP or to a pass — see `decide()` in `packages/shared/src/utils/decisionEngine.ts`, which already treats a null ROI as a failing threshold; do not change that meaning without approval.)
+
+2. Stop on material ambiguity — do not guess what the product owner "probably intended." Ordinary implementation detail (variable/helper names, test organization, equivalent internal mechanics) may be decided autonomously. Anything that changes behavior — what a $0 cost means for ROI, whether missing market evidence should still produce a decision, whether a price should fall back to another price, whether a user setting gets overridden, whether an API failure changes a business decision, whether stored data gets migrated or deleted — is product behavior. When unsure which it is, treat it as product behavior and escalate.
+
+3. No scope expansion. Change only what the task requires — this repeats and sharpens Karpathy Rule 3 below (Surgical Changes). Do not fix unrelated bugs, opportunistically refactor, rename or reorganize unrelated code, change unrelated dependencies, or clean up unrelated tech debt in the same pass. Log anything unrelated you notice as `OUT-OF-SCOPE FINDING` (with severity and why it matters) instead of fixing it.
+
+4. Evidence before editing. Trace the live implementation — entry point, authoritative data source, domain logic, persistence boundary, downstream consumers — before changing behavior. Do not implement off stale docs, comments, historical architecture, file names, old mobile code, or a previous AI-generated plan alone. State material discrepancies between documentation and live code when you find them (see the "CORRECTED 2026-08-25" note under Sourcing Decision Logic below for the pattern: the doc was stale, the code was checked, the doc was fixed to match).
+
+5. Repository architecture is authoritative. ScanForProfit is web-first; Supabase is the backend; `apps/web/public/app.html` is the live product. Do not use, revive, or repair `scanforprofit-backend` (Replit/Flippd) as authoritative, and do not resurrect that historical mobile architecture. When historical documentation conflicts with the current live repo, verify the live path before acting.
+
+6. No silent fallbacks. If required information is unavailable — unavailable eBay sold data, missing API permission or credential, unresolved schema, insufficient marketplace evidence, uncertain item identity, unavailable prod config — report it explicitly. Never substitute AI guesses, fabricated values, arbitrary defaults, unrelated APIs, or stale cached values unless an explicit approved product rule already defines that fallback.
+
+7. AI is not market or financial authority. AI may identify, generate candidates, interpret, explain, and generate search terms. AI must never independently establish authoritative sold prices, sell-through rate, demand, days-to-sell, acquisition cost, net profit, ROI, or HOT/LIST/SKIP. Those come from approved inputs, verified evidence, user settings, and deterministic code (`calcProfit.ts`, `decisionEngine.ts`, `maxBuyPrice.ts`) — never from an AI call.
+
+8. Preserve user-configured seller economics. Never silently override `ebayFee`, `pkgCost`, `minProfit`, `targetRoi`, `minStr`, `maxDays`, `shipCost`/`shipping`, `taxReservePct`, or `mileageRate`. Changing what these settings mean or who's authoritative over them needs explicit product-owner approval — this is the same rule as "Never hardcode" further down, stated at the policy level.
+
+9. No architectural invention. Do not introduce a new backend, provider, framework, database abstraction, state-management pattern, AI provider, service boundary, or major dependency just because it looks cleaner. If a task genuinely requires an architectural change, report `BLOCKED — ARCHITECTURAL DECISION REQUIRED` and explain why the existing architecture can't safely satisfy it.
+
+10. Do not optimize beyond the requirement — this is Karpathy Rule 2 (Simplicity First) restated: smallest correct change, no rewrite, no big-bang modernization, no replacing working architecture for elegance alone.
+
+11. One authoritative implementation. Don't solve a problem by adding a second, competing implementation of the same decision. `decisionEngine.ts` is the single authoritative HOT/LIST/SKIP function and `calcProfit.ts` the single authoritative profit math — when centralizing, migrate callers deliberately and remove/neutralize the obsolete path within scope, protected by tests. Never leave two functions able to independently decide the same business outcome unless explicitly required.
+
+12. Tests verify approved behavior; they don't define it. If a test conflicts with an explicit approved requirement, don't bend production behavior to satisfy the stale test — identify the conflict and update the test only when the approved behavior is clear. If it's unclear which is correct, escalate.
+
+13. Never weaken validation to get green CI. Do not disable tests, skip checks, loosen TypeScript strictness, suppress errors, remove migrations, bypass RLS, weaken auth, ignore failures, or modify CI to conceal a defect. Fix the underlying issue or report the blocker — this sharpens the existing "Never skip hooks... unless the user has explicitly asked" rule.
+
+14. Database and migration safety. Establish the authoritative current schema from reliable evidence (live introspection, not guesswork) before touching migrations. Never destructively modify production data without explicit authorization. Don't use `IF EXISTS`/`IF NOT EXISTS` merely to hide unexplained schema drift — migration history should accurately describe intended state, matching the discipline already used in `docs/HANDOFF.md`'s migration-repair sessions.
+
+15. Security boundaries are protected. Never weaken RLS, auth, authorization, user isolation, token handling, secret storage, webhook verification, or service-role boundaries to simplify implementation. Any material security-policy change needs explicit authorization.
+
+16. External integration failures must be honest. A provider timeout, 401/403, 429, outage, malformed response, or insufficient evidence is not a business result — never convert one into a fabricated HOT/LIST/SKIP or a fabricated market/financial fact. Report the unavailable/error state per approved product behavior instead.
+
+17. Assumptions must be visible. Any task-completion report includes an "Assumptions Made" section (or `None.`). A material, behavior-changing assumption should generally have been escalated rather than made.
+
+18. Protected decisions — do not reinterpret without explicit authorization: Supabase is the backend; ScanForProfit is web-first; `scanforprofit-backend` is not authoritative; user-entered acquisition cost is never replaced by an invented estimate; user-configured seller economics stay authoritative; AI cannot independently determine market/financial facts; HOT/LIST/SKIP uses the approved deterministic rules in `decisionEngine.ts`; missing verified market evidence is never replaced with fabricated evidence. Plus every protected decision already recorded in `docs/files/DECISIONS.md` (do not relitigate those in chat) and every "never change" rule elsewhere in this file (Auth Rules, tab structure, etc.).
+
+19. Conflict resolution / hierarchy of truth. When sources disagree, don't silently pick whichever is convenient. Order: (1) an explicit instruction from the product owner for the current task, (2) current approved product/business rules recorded as authoritative (`docs/files/DECISIONS.md`), (3) current live production architecture per `docs/DOC_HIERARCHY.md`'s Tier 1 (`app.html`, edge functions, `packages/shared`), (4) this file and other current repo agent instructions, (5) current tests when consistent with approved behavior, (6) current documentation (`docs/DOC_HIERARCHY.md` Tiers 2–3), (7) historical documentation/comments/archive, (8) AI inference. If levels 1–4 materially conflict, stop and report the conflict rather than guessing. Live code shows what currently happens — that is not automatically the approved product rule; check `docs/files/DECISIONS.md` too.
+
+20. Required task-completion report. For substantial implementation tasks, report: Files Changed · Behavior Changed · Behavior Intentionally Not Changed (nearby behavior deliberately left alone) · Tests (what ran, results) · Assumptions Made (or `None.`) · Out-of-Scope Findings (or `None.`) · Product Decisions Needed (or `None.`) · Blockers (or `None.`). Don't claim a task complete if an unresolved correctness blocker prevents verifying the requested behavior. This is in addition to, not a replacement for, the Session End Report Format near the bottom of this file.
+
+This contract does not change any application behavior, decision-engine implementation, database schema, or dependency — it governs how future sessions read and apply the rest of this file.
+
+
 CRITICAL: Before Every Session
 Read these files in order before doing anything:
 
@@ -331,11 +379,13 @@ interface CalcProfitInput {
   ebayFee: number    // percentage — from user settings, never hardcoded
 
 }
-Sourcing Decision Logic 
-HOT = projected ROI > 150% AND high confidence
-LIST = projected ROI > targetRoi (user-configurable) AND reasonable confidence
-SKIP = everything else
-Style modifier: conservative (+20% ROI threshold), aggressive (-20%)
+Sourcing Decision Logic
+CORRECTED 2026-08-25 (Chapter 02 audit) — the text below previously described a stale pre-audit rule (ROI-only thresholds + a sourcing-style ROI modifier). That rule is no longer what the code does. The single authoritative implementation is `packages/shared/src/utils/decisionEngine.ts` (`decide()`) — do not reason about HOT/LIST/SKIP from memory or from this summary; read that file if precision matters.
+Current deterministic rule (no AI confidence, no sourcing-style multiplier — removed per the audit):
+SKIP = any of these fails: netProfit ≥ minProfit, roi ≥ targetRoi (roi is `null`/fails when acquisition cost is $0 or undefined — see `maxBuyPrice.ts` for backward-solving a qualifying price instead of inventing a cost), sellThroughRate ≥ minSellThroughRate, daysToSell ≤ maxDaysToSell
+LIST = all four thresholds pass AND demandLevel !== 'VERY HIGH'
+HOT = all four thresholds pass AND demandLevel === 'VERY HIGH'
+Missing market evidence (null sellThroughRate/daysToSell/demandLevel) fails that threshold — it is never treated as passing. There is no `sourcingStyle` (conservative/aggressive) modifier anywhere in this decision path; if a task implies reintroducing one, that is a product-decision change — escalate per the Anti-Drift Operating Contract above, do not add it silently.
 Currency Rules
 Store: numbers in DB (dollars, 2 decimal places)
 Display: formatted with $ and 2 decimal places
