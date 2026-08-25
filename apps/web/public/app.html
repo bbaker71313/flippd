@@ -5834,7 +5834,11 @@ async function stitchPhotos(files) {
 // v5.18: multipart/form-data upload of the raw imgFile — no client-side
 // decode (matches invFormDetectItem's memory-safe pattern). The backend
 // converts to base64 server-side, where memory isn't constrained.
-async function callScan(type, hint, imageB64) {
+// `acquisitionCost` is the raw value of the cost input: null when the user
+// left it blank, a number when they entered one — never invented here or on
+// the server. Sent as a string over the wire; the server treats blank/null/
+// malformed identically as "unknown" and never conflates that with a typed 0.
+async function callScan(type, hint, imageB64, acquisitionCost) {
   if (!isUnlocked()) throw new Error('Not logged in. Check your email for the login link.');
   if (!imageB64 && !imgFile) throw new Error('No photo selected');
   let res;
@@ -5843,6 +5847,7 @@ async function callScan(type, hint, imageB64) {
     // and stay under Anthropic's 10MB image limit.
     const body = { type, imageBase64: imageB64 };
     if (hint) body.hint = hint;
+    if (acquisitionCost !== null && acquisitionCost !== undefined) body.acquisitionCost = acquisitionCost;
     res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
@@ -5852,6 +5857,7 @@ async function callScan(type, hint, imageB64) {
     const fd = new FormData();
     fd.append('type', type);
     if (hint) fd.append('hint', hint);
+    if (acquisitionCost !== null && acquisitionCost !== undefined) fd.append('acquisitionCost', String(acquisitionCost));
     fd.append('image', imgFile, imgFile.name || 'photo.jpg');
     // Strip Content-Type — browser sets it with the multipart boundary
     const baseHeaders = getApiHeaders();
@@ -5903,28 +5909,12 @@ Return ONLY valid JSON, no markdown:
 {"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","estimated_weight_lbs":number,"avg_sold_price":number,"price_low":number,"price_high":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important context about market or item"}`;
 }
 
-function calcFinancials(cost,soldPrice) {
-  const fee=soldPrice*(S.ebayFee/100);
-  const shipCost=S.shipping==='free'?S.shipCost:0;
-  const total=cost+S.pkgCost+shipCost+fee;
-  const profit=soldPrice-total; const roi=cost>0?(profit/cost)*100:0;
-  return{fee,shipCost,total,profit,roi};
-}
-function calcMaxCost(avgSoldPrice) {
-  const p = parseFloat(avgSoldPrice) || 0;
-  const shipCost = S.shipping === 'free' ? (S.shipCost || 0) : 0;
-  return p - (p * S.ebayFee / 100) - S.pkgCost - S.minProfit - shipCost;
-}
-
-function getDecision(profit,roi,days,sellThrough,demandLevel,confidence) {
-  const sb={conservative:1.3,balanced:1.0,aggressive:0.75}[S.style]||1.0;
-  const aMP=S.minProfit*sb,aMD=S.maxDays/sb,aMS=S.minStr*sb;
-  const conf=confidence!=null?confidence:100;
-  if(profit<aMP||days>aMD||sellThrough<aMS||conf<50) return 'SKIP';
-  const isHot=(demandLevel==='HIGH'||demandLevel==='VERY HIGH')||profit>=aMP*2||roi>=S.targetRoi*2;
-  if(isHot&&conf>=70) return 'HOT';
-  return 'LIST';
-}
+// Chapter 02 audit: the server is the sole authority for financial math and
+// the HOT/LIST/SKIP decision (packages/shared decisionEngine + financialEngine,
+// mirrored in supabase/functions/_shared/). This client used to recompute both
+// independently (with a sourcing-style multiplier and a client-only shipping
+// bug) and could disagree with what the server logged — removed. Render only
+// the server's `r.decision`, `r.estimatedProfit`, `r.roi`, `r.maxBuyPrice`.
 
 function setBtnLoading(id,txt,purple) {
   const b=document.getElementById(id); if(!b) return;
@@ -5941,11 +5931,15 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
 async function analyze() {
   const txt=document.getElementById('text-input').value.trim();
-  const cost=parseFloat(document.getElementById('cost-input').value)||0;
+  const costRaw=document.getElementById('cost-input').value.trim();
+  // Blank means "I don't know yet" — never conflated with a typed 0, and
+  // never invented server-side from the sale price.
+  const acquisitionCost = costRaw === '' ? null : parseFloat(costRaw);
   if(!txt&&!imgB64){showError('Take a photo or describe the item first.');return;}
   hideError(); setBtnLoading('analyze-btn','Identifying item...',false);
   try {
     await sleep(300); setBtnLoading('analyze-btn','Analyzing eBay market...',false);
+    let r;
     if (imgFile) {
       // Photo scan: stream raw file via multipart — zero client-side decode,
       // eliminates Android WebView OOM. Server converts to base64. Same path
@@ -5963,64 +5957,39 @@ async function analyze() {
       }
       setBtnLoading('analyze-btn','Analyzing eBay market...',false);
       const hint=txt?`Carefully identify this item using all visible details, then analyze for eBay reselling. Extra context: "${txt}"`:'Carefully identify and analyze this specific item for eBay reselling. Study all visible details — brand, model, labels, features.';
-      const r=await callScan('single_scan', hint);
-      setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
-      // Map camelCase server response → snake_case for renderSingle
-      const item={
-        item_name:r.itemName, avg_sold_price:r.estimatedSell,
-        price_low:r.priceLow, price_high:r.priceHigh,
-        sell_through_rate:r.sellThroughRate||0, avg_days_to_sell:r.avgDaysToSell,
-        demand_level:r.demandLevel, confidence:r.confidence,
-        confidence_reason:r.reasoning, search_keywords:r.searchKeywords||[],
-        listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
-        condition_notes:r.conditionNotes||'', category:r.category,
-        brand:r.brand||null, notes:r.notes||'',
-      };
-      // Recalculate profit client-side using the user's actual entered cost and
-      // their configured shipping setting. The server uses an estimated cost
-      // (avgSell×10%) and always deducts ship_cost regardless of who pays —
-      // both cause items to show SKIP when they should be LIST.
-      const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
-      const fin = calcFinancials(useCost, r.estimatedSell || 0);
-      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,item.sell_through_rate,item.demand_level,item.confidence);
-      logScan(dec, fin.roi, cost, false);
-      try {
-        const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
-        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
-      } catch(_){}
-      renderSingle({item,cost,fin,dec});
-      renderScanHistory();
+      r = await callScan('single_scan', hint, undefined, acquisitionCost);
     } else {
       // Text-only scan: typed text_scan handler
       const txRes = await apiFetch(API_BASE, {
         method: 'POST', headers: getApiHeaders(),
-        body: JSON.stringify({ type: 'text_scan', hint: txt })
+        body: JSON.stringify({ type: 'text_scan', hint: txt, acquisitionCost })
       });
       if (!txRes.ok) { const e = await txRes.json().catch(()=>({})); throw new Error(e.error || 'Scan failed'); }
-      const r = await txRes.json();
+      r = await txRes.json();
       if (r.error) throw new Error(r.error);
-      setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
-      const item = {
-        item_name: r.itemName, avg_sold_price: r.estimatedSell,
-        price_low: r.priceLow, price_high: r.priceHigh,
-        sell_through_rate: r.sellThroughRate||0, avg_days_to_sell: r.avgDaysToSell,
-        demand_level: r.demandLevel, confidence: r.confidence,
-        confidence_reason: r.reasoning, search_keywords: r.searchKeywords||[],
-        listing_tips: r.listingTips||[], risk_flags: r.riskFlags||[],
-        condition_notes: r.conditionNotes||'', category: r.category,
-        brand: r.brand||null, notes: r.notes||'',
-      };
-      const useCost = cost > 0 ? cost : (r.estimatedCost || 0);
-      const fin = calcFinancials(useCost, r.estimatedSell || 0);
-      const dec=getDecision(fin.profit,fin.roi,r.avgDaysToSell||0,item.sell_through_rate,item.demand_level,item.confidence);
-      logScan(dec, fin.roi, cost, false);
-      try {
-        const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
-        if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
-      } catch(_){}
-      renderSingle({item,cost,fin,dec});
-      renderScanHistory();
     }
+    setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
+    // Map camelCase server response → snake_case for renderSingle
+    const item={
+      item_name:r.itemName, avg_sold_price:r.estimatedSell,
+      price_low:r.priceLow, price_high:r.priceHigh,
+      sell_through_rate:r.sellThroughRate, avg_days_to_sell:r.avgDaysToSell,
+      demand_level:r.demandLevel, confidence:r.confidence,
+      confidence_reason:r.reasoning, search_keywords:r.searchKeywords||[],
+      listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
+      condition_notes:r.conditionNotes||'', category:r.category,
+      brand:r.brand||null, notes:r.notes||'',
+    };
+    // Server-authoritative — never recomputed client-side.
+    const dec = r.decision;
+    const fin = { profit: r.estimatedProfit, roi: r.roi, fee: r.feeAmount, shipCost: r.shipCostAmount };
+    logScan(dec, fin.roi||0, r.acquisitionCost||0, false);
+    try {
+      const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
+      if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
+    } catch(_){}
+    renderSingle({item, cost:r.acquisitionCost, fin, dec, maxBuyPrice:r.maxBuyPrice, maxBuyPriceLimitedBy:r.maxBuyPriceLimitedBy});
+    renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
@@ -6049,17 +6018,18 @@ async function analyzeShelf() {
     const hint=hintTxt?`Scan this shelf. Context: "${hintTxt}"`:'Scan this shelf and identify every item for eBay resell analysis.';
     const r=await callScan('shelf_scan', hint);
     setBtnLoading('shelf-btn','Ranking items...',true); await sleep(200);
-    // Map camelCase server response → snake_case for renderShelf
+    // Map camelCase server response → snake_case for renderShelf. Every item
+    // here is pre-purchase (no acquisition cost yet), so decision/maxBuyPrice
+    // are the server's deterministic backward-solve result — never a client
+    // recompute, and never an AI-estimated thrift cost.
     const shelfItems=(r.items||[]).map(function(i){
-      const _profit=typeof i.estimatedProfit==='number'?i.estimatedProfit:0;
-      const _roi=i.estimatedCost>0?(_profit/i.estimatedCost*100):0;
       return{
         item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
-        estimated_profit:_profit, estimated_cost_at_thrift:i.estimatedCost,
-        demand_level:i.demandLevel, decision:getDecision(_profit,_roi,0,0,i.demandLevel,i.confidence),
-        decision_reason:i.decisionReason||'', condition_notes:i.conditionNotes||'',
+        max_buy_price:i.maxBuyPrice, max_buy_price_limited_by:i.maxBuyPriceLimitedBy,
+        demand_level:i.demandLevel, decision:i.decision,
+        decision_reason:i.notes||'', condition_notes:i.conditionNotes||'',
         category:i.category, confidence:i.confidence,
-        sell_through_rate:0, avg_days_to_sell:0,
+        sell_through_rate:i.sellThroughRate, avg_days_to_sell:i.avgDaysToSell,
       };
     });
     renderShelf(shelfItems);
@@ -6083,11 +6053,12 @@ function demandClass(lv) {
 // ══════════════════════════════════════════════════
 let lastSingleResult = null;
 
-function renderSingle({item,cost,fin,dec}) {
+function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy}) {
   resetBtn('analyze-btn','Run Profit Scanner','green');
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
-  const shipLine=S.shipping==='free'
+  const costKnown = cost !== null && cost !== undefined;
+  const shipLine=(fin.shipCost>0)
     ?`<span class="dv u-neg">-$${fin.shipCost.toFixed(2)}</span>`
     :`<span class="dv u-pos" style="font-weight:800">Buyer Pays</span>`;
   const D_ICON={HOT:'[ HOT ]',LIST:'[ LIST ]',SKIP:'[ SKIP ]'};
@@ -6099,9 +6070,11 @@ function renderSingle({item,cost,fin,dec}) {
   // Determine what category to map to for inventory
   const invCategory = mapToInvCategory(item.category);
 
-  const maxCostSingle = calcMaxCost(item.avg_sold_price);
-  const maxCostHint = (cost === 0 && maxCostSingle > 0)
-    ? `<div class="d-max-cost">if item is under $${maxCostSingle.toFixed(2)}</div>` : '';
+  // maxBuyPrice comes from the server's deterministic backward-solve — never
+  // invented client-side, and only present when cost was left blank and a
+  // qualifying purchase price actually exists.
+  const maxCostHint = (!costKnown && maxBuyPrice > 0)
+    ? `<div class="d-max-cost">if item is under $${maxBuyPrice.toFixed(2)}</div>` : '';
   document.getElementById('results-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
     <div class="decision-banner is-${dec.toLowerCase()}">
@@ -6126,13 +6099,14 @@ function renderSingle({item,cost,fin,dec}) {
       <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv u-syne u-text-lg">$${item.avg_sold_price?.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${escHtml(item.price_low)} – $${escHtml(item.price_high)}</span></div>
       <hr class="divider">
-      <div class="data-row"><span class="dl">Your Cost</span><span class="dv">$${cost.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">Your Cost</span><span class="dv">${costKnown?`$${cost.toFixed(2)}`:'Not entered'}</span></div>
       <div class="data-row"><span class="dl">eBay Fee (${S.ebayFee}%)</span><span class="dv u-neg">-$${fee.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Packaging</span><span class="dv u-neg">-$${S.pkgCost.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Shipping</span>${shipLine}</div>
       <hr class="divider">
-      <div class="data-row"><span class="dl u-text-md u-bold9">Net Profit</span><span class="dv u-syne u-text-xl ${profitClass(profit)}">$${profit.toFixed(2)}</span></div>
-      <div class="data-row"><span class="dl">ROI</span><span class="dv u-syne u-text-lg ${roiClass(roi)}">${roi.toFixed(0)}%</span></div>
+      <div class="data-row"><span class="dl u-text-md u-bold9">Net Profit</span><span class="dv u-syne u-text-xl ${profit==null?'u-muted':profitClass(profit)}">${profit==null?'—':'$'+profit.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">ROI</span><span class="dv u-syne u-text-lg ${roi==null?'u-muted':roiClass(roi)}">${roi==null?'—':roi.toFixed(0)+'%'}</span></div>
+      ${!costKnown?`<div class="u-text-sm u-muted u-mt-1">Enter your cost above for exact profit/ROI — shown here is the max price that still hits your targets.</div>`:''}
     </div>
     <div class="card">
       <h3 class="card-title">Market Intelligence</h3>
@@ -6229,14 +6203,15 @@ function renderShelf(shelfItems) {
   const skip=shelfItems.filter(i=>i.decision==='SKIP');
   const icon={HOT:'',LIST:'',SKIP:''};
   const ri=(i,idx)=>{
-    const mc=calcMaxCost(i.avg_sold_price);
-    const mcHint=mc>0?`<div class="s-max-cost">if item is under $${mc.toFixed(2)}</div>`:'';
+    // max_buy_price is the server's deterministic backward-solve result —
+    // never invented client-side, since the shelf item hasn't been bought yet.
+    const mc=i.max_buy_price;
+    const mcHint=(mc>0)?`<div class="s-max-cost">if item is under $${Number(mc).toFixed(2)}</div>`:'';
     return `<div class="shelf-item is-${i.decision.toLowerCase()}">
       <span class="s-badge">${icon[i.decision]} ${i.decision}</span>${mcHint}
       <div class="s-name">${escHtml(i.item_name)}</div>
       <div class="s-detail">
         <span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)} sold</span> &nbsp;·&nbsp;
-        Est. profit: <span class="${profitClass(i.estimated_profit)} u-bold9">$${i.estimated_profit?.toFixed(2)}</span> &nbsp;·&nbsp;
         <span class="${demandClass(i.demand_level)}">${escHtml(i.demand_level)} demand</span>
       </div>
       <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${escHtml(i.decision_reason)}</div>
@@ -6269,7 +6244,8 @@ function buyShelfItem(itemIndex) {
   // many items, not the individual one. User will attach a real photo of
   // this specific item later from inventory edit / Photos tab.
   const photos = [];
-  const cost = parseFloat(shelfItem.estimated_cost_at_thrift) || 0;
+  // Never invent an acquisition cost — the user hasn't bought this yet.
+  // Leave cost/profit/ROI blank for them to fill in from the actual receipt.
   const sellPrice = parseFloat(shelfItem.avg_sold_price) || 0;
 
   const newItem = createInventoryItem({
@@ -6278,16 +6254,17 @@ function buyShelfItem(itemIndex) {
     category:      mapToInvCategory(shelfItem.category),
     condition:     'Good',
     platform:      'eBay',
-    cost:          cost.toString(),
+    cost:          '',
     estimated_value: sellPrice,
     sellPrice:     sellPrice > 0 ? sellPrice.toFixed(2) : '',
-    profit:        shelfItem.estimated_profit || 0,
-    roi:           cost > 0 ? Math.round(((shelfItem.estimated_profit||0)/cost)*100) : 0,
+    profit:        0,
+    roi:           0,
     status:        'Unlisted',
     notes:         [
       shelfItem.condition_notes || '',
       `Demand: ${shelfItem.demand_level}.`,
       `Avg days to sell: ${shelfItem.avg_days_to_sell}.`,
+      shelfItem.max_buy_price ? `Buy for $${Number(shelfItem.max_buy_price).toFixed(2)} or less to hit your profit/ROI targets.` : '',
     ].filter(Boolean).join(' ').trim(),
     photos,
     image_url:     photos[0] || null,
@@ -6299,6 +6276,7 @@ function buyShelfItem(itemIndex) {
       demand:         shelfItem.demand_level,
       confidence:     shelfItem.confidence,
       decision:       shelfItem.decision,
+      max_buy_price:  shelfItem.max_buy_price,
       scanned_at:     new Date().toISOString(),
     },
   });
@@ -6438,8 +6416,8 @@ function showBuyConfirm(item, cost, fin, dec) {
     item.risk_flags?.length ? `${item.risk_flags.join(', ')}` : '',
   ].filter(Boolean).join(' ').trim();
 
-  document.getElementById('bc-profit-val').textContent = '$' + fin.profit.toFixed(2);
-  document.getElementById('bc-roi-val').textContent = Math.round(fin.roi) + '%';
+  document.getElementById('bc-profit-val').textContent = fin.profit==null ? '—' : '$' + fin.profit.toFixed(2);
+  document.getElementById('bc-roi-val').textContent = fin.roi==null ? '—' : Math.round(fin.roi) + '%';
   document.getElementById('buy-confirm-modal').style.display = 'flex';
 }
 

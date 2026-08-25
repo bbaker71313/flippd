@@ -22,12 +22,29 @@ test('ebayFee is configurable — fee 0 produces zero eBay fees (never hardcoded
   assert.equal(r.net, 72.75);        // 100 - (20 + 7.25)
 });
 
-test('edge — zero cost: roi guarded to 0 (no divide-by-zero)', () => {
+test('edge — zero cost: roi is null (undefined ratio, not 0%)', () => {
   const r = calcProfit({ sellPrice: 50, cost: 0, pkgCost: 1.25, shipCost: 6, ebayFee: 13 });
   assert.equal(r.ebayFees, 6.5);
   assert.equal(r.net, 36.25);        // 50 - (0 + 7.25 + 6.5... ) => 50 - 13.75
-  assert.equal(r.roi, 0);            // cost not > 0
+  assert.equal(r.roi, null);         // cost not > 0 — never fabricate a 0% return
   assert.equal(r.margin, 72.5);      // 36.25 / 50 * 100
+});
+
+test('invalid input — negative sellPrice throws', () => {
+  assert.throws(() => calcProfit({ sellPrice: -1, cost: 10, pkgCost: 0, shipCost: 0, ebayFee: 13 }));
+});
+
+test('invalid input — negative cost throws', () => {
+  assert.throws(() => calcProfit({ sellPrice: 50, cost: -1, pkgCost: 0, shipCost: 0, ebayFee: 13 }));
+});
+
+test('invalid input — negative ebayFee throws', () => {
+  assert.throws(() => calcProfit({ sellPrice: 50, cost: 10, pkgCost: 0, shipCost: 0, ebayFee: -1 }));
+});
+
+test('invalid input — non-finite number throws', () => {
+  assert.throws(() => calcProfit({ sellPrice: NaN, cost: 10, pkgCost: 0, shipCost: 0, ebayFee: 13 }));
+  assert.throws(() => calcProfit({ sellPrice: Infinity, cost: 10, pkgCost: 0, shipCost: 0, ebayFee: 13 }));
 });
 
 test('edge — zero sellPrice: margin guarded to 0', () => {

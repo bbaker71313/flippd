@@ -2,6 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyJWT, jwtFromCookie } from "../_shared/jwt.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts";
+import { calcProfit } from "../_shared/financialEngine.ts";
+import { decide, type DemandLevel, type DecisionResult } from "../_shared/decisionEngine.ts";
+import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
 
 function ab2b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -87,32 +90,92 @@ async function getOrCreateUser(
   return { ...user, settings: settingsRow ?? DEFAULT_SETTINGS };
 }
 
-function calcProfit(sell: number, cost: number, pkg: number, ship: number, fee: number) {
-  const ebayFees = sell * (fee / 100);
-  const totalFees = ebayFees + pkg + ship;
-  const net = sell - totalFees - cost;
-  const roi = cost > 0 ? (net / cost) * 100 : 0;
-  return { net: r2(net), roi: r2(roi) };
-}
 function r2(n: number) { return Math.round(n * 100) / 100; }
+
+// Distinguishes "user left this blank" from "user typed 0" from a malformed
+// value — all three are represented as null (unknown) except a real,
+// non-negative, finite number. Never returns a fabricated default.
+function parseAcquisitionCost(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
 
 // SEC-017: strip control chars and truncate before injecting user text into AI prompts
 function sanitizeForPrompt(s: string, maxLen = 500): string {
   return s.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, maxLen).trim();
 }
 
-function getDecision(roi: number, confidence: number, s: Settings, net?: number, demandLevel?: string): 'LIST' | 'HOT' | 'SKIP' {
-  const mod = s.sourcing_style === 'conservative' ? 1.2 : s.sourcing_style === 'aggressive' ? 0.8 : 1.0;
-  const target = s.target_roi * mod;
-  const minProfit = s.min_profit * mod;
-  if (net !== undefined && net < minProfit) return 'SKIP';
-  if (roi <= 0) return 'SKIP';
-  const isHot = demandLevel === 'HIGH' || demandLevel === 'VERY HIGH'
-    || (net !== undefined && net >= minProfit * 2)
-    || roi >= s.target_roi * 2;
-  if (isHot && confidence >= 70) return 'HOT';
-  if (roi > target && confidence >= 50) return 'LIST';
-  return 'SKIP';
+// Chapter 02 audit: sourcing-style multipliers must not alter the user's
+// explicit thresholds in the authoritative decision engine. The setting is
+// kept in the UI/DB (unrelated cleanup) but is never read here.
+//
+// Result of running an item through the one authoritative decision path,
+// covering both the "cost entered" and "cost unknown" cases.
+interface ScanEconomics {
+  acquisitionCost: number | null;   // the actual entered cost, or null when left blank
+  net: number | null;               // net profit — null when cost is unknown
+  roi: number | null;               // null when cost unknown OR cost is 0
+  maxBuyPrice: number | null;       // populated only when acquisitionCost is null
+  maxBuyPriceLimitedBy: 'minProfit' | 'targetRoi' | 'both' | 'none' | null;
+  decision: DecisionResult;
+}
+
+// Evaluate the deterministic financial + market qualification for one item.
+// `acquisitionCost` is the user's real entered price, or null/undefined when
+// left blank — it is NEVER invented from sale price (no avgSell*0.10).
+function evaluateScanEconomics(
+  acquisitionCost: number | null | undefined,
+  sellPrice: number,
+  sellThroughRate: number | null,
+  daysToSell: number | null,
+  demandLevel: DemandLevel | null,
+  s: Settings,
+  shipForCalc: number,
+): ScanEconomics {
+  const marketArgs = {
+    sellThroughRate, daysToSell, demandLevel,
+    minProfit: s.min_profit, targetRoi: s.target_roi,
+    minSellThroughRate: (s as unknown as { min_str?: number }).min_str ?? 0,
+    maxDaysToSell: (s as unknown as { stale_days?: number }).stale_days ?? 60,
+  };
+
+  if (acquisitionCost !== null && acquisitionCost !== undefined && acquisitionCost >= 0) {
+    const calc = calcProfit({
+      sellPrice, cost: acquisitionCost, pkgCost: s.pkg_cost,
+      shipCost: shipForCalc, ebayFee: s.ebay_fee,
+    });
+    const decision = decide({ netProfit: calc.net, roi: calc.roi, ...marketArgs });
+    return {
+      acquisitionCost, net: calc.net, roi: calc.roi,
+      maxBuyPrice: null, maxBuyPriceLimitedBy: null, decision,
+    };
+  }
+
+  // Cost left blank — solve backward for the max qualifying purchase price
+  // rather than inventing an acquisition cost.
+  const mb = calcMaxBuyPrice({
+    sellPrice, ebayFee: s.ebay_fee, pkgCost: s.pkg_cost,
+    shipCost: shipForCalc, minProfit: s.min_profit, targetRoi: s.target_roi,
+  });
+  const financialQualifies = mb.maxCost !== null;
+  // Reuse decide()'s own profit/roi comparisons to determine whether *some*
+  // positive acquisition price would clear both financial thresholds — feed
+  // it values that sit exactly at (qualifies) or just below (does not
+  // qualify) the thresholds, so the market-threshold logic (STR/days/demand)
+  // isn't duplicated a second time for this branch.
+  const decision = decide({
+    netProfit: financialQualifies ? s.min_profit : s.min_profit - 1,
+    roi: financialQualifies ? s.target_roi : null,
+    ...marketArgs,
+  });
+  return {
+    acquisitionCost: null, net: null, roi: null,
+    maxBuyPrice: decision.decision === 'SKIP' ? null : mb.maxCost,
+    maxBuyPriceLimitedBy: decision.decision === 'SKIP' ? null : mb.limitedBy,
+    decision,
+  };
 }
 
 function detectImageMime(buf: ArrayBuffer): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
@@ -185,19 +248,98 @@ Return ONLY valid JSON, no markdown:
 
 // Verbatim from FEATURE_TRIAGE.md P-04 (getShelfSys L4718–4731)
 function buildShelfPrompt(s: Settings): string {
+  // Chapter 02 audit: AI identifies and prices items only. The seller hasn't
+  // bought any of these yet, so there is no acquisition cost to reason about
+  // here — profit, ROI, and the buy/skip decision are computed deterministically
+  // server-side from a solved-for maximum qualifying purchase price, never
+  // from an AI-estimated thrift cost.
   return `You are a meticulous eBay sourcing expert scanning a shelf photo. Study EVERY item with care.
 
 For each distinct item visible:
 - Identify as specifically as possible: brand, model, type, era. Do not be generic.
 - Use all visible clues: labels, logos, colors, shapes, text, design era.
 - Provide REALISTIC eBay sold prices — actual sold comps, not retail or asking prices.
+- sell_through_rate = % of listings that actually sell (0-100), not just views.
+- avg_days_to_sell = realistic median days from listing to sale for this specific item.
 - Only include items you can identify with at least 40% confidence.
-- Calculate estimated_profit as: avg_sold_price - estimated_cost_at_thrift - (avg_sold_price * ${s.ebay_fee}/100) - ${s.pkg_cost}
-- Buyer always pays shipping. Min profit threshold for FLIP: $${s.min_profit}. Target ROI for HOT: ${s.target_roi}%.
+- Do NOT calculate profit, ROI, or a buy/skip decision — the seller hasn't paid an acquisition price yet, and that math is computed deterministically elsewhere.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"LIST|HOT|SKIP","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then LIST, then SKIP.`;
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"condition_notes":"string","notes":"one sentence of context or listing considerations"}]`;
+}
+
+// Parses the AI identification/pricing JSON, evaluates the deterministic
+// financial + decision engine against it, persists a fully auditable scan_log
+// row, and returns the response shape shared by single_scan and text_scan.
+//
+// `acquisitionCost` is the user's real entered price (or null when left
+// blank) — this function never invents one from sale price.
+async function finalizeSingleOrTextScan(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  settings: Settings,
+  scanType: 'single' | 'text',
+  ai: Record<string, unknown>,
+  acquisitionCost: number | null,
+) {
+  const avgSell = (ai.avg_sold_price as number) ?? 0;
+  const sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
+  const daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
+  const demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
+  const confidence = (ai.confidence as number) ?? null;
+
+  // Seller-paid shipping cost is included only when the seller actually
+  // bears it ('seller'); buyer-paid shipping contributes $0 seller cost.
+  const shipForCalc = settings.shipping === 'seller' ? settings.ship_cost : 0;
+
+  const econ = evaluateScanEconomics(acquisitionCost, avgSell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
+  // eBay fee/shipping dollar amounts depend only on sell price + settings, so
+  // the client can render the fee breakdown even when cost is unknown.
+  const feeAmount = r2(avgSell * (settings.ebay_fee / 100));
+  const shipCostAmount = shipForCalc;
+
+  const { data: logRow } = await supabase.from('scan_log').insert({
+    user_id: userId, scan_type: scanType, decision: econ.decision.decision,
+    item_name: ai.item_name, category: ai.category,
+    estimated_profit: econ.net, estimated_sell: avgSell,
+    cost: econ.acquisitionCost, roi: econ.roi, confidence, bought: false,
+    raw_response: {
+      ai,
+      decisionAudit: {
+        acquisitionCost: econ.acquisitionCost, maxBuyPrice: econ.maxBuyPrice,
+        maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
+        settingsUsed: settings, marketDataSource: 'ai_estimate',
+        ...econ.decision,
+      },
+    },
+  }).select('id').single();
+
+  return {
+    decision: econ.decision.decision,
+    itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
+    acquisitionCost: econ.acquisitionCost,
+    estimatedSell: avgSell,
+    estimatedProfit: econ.net,
+    roi: econ.roi,
+    feeAmount, shipCostAmount, pkgCost: settings.pkg_cost,
+    maxBuyPrice: econ.maxBuyPrice,
+    maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
+    confidence,
+    reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
+    searchKeywords: ai.search_keywords ?? [],
+    priceLow: ai.price_low, priceHigh: ai.price_high,
+    sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
+    listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
+    conditionNotes: ai.condition_notes ?? '',
+    notes: (ai.notes as string) ?? '',
+    // AI is not a verified eBay market-data source (Marketplace Insights /
+    // Browse / Taxonomy / Catalog integration is not yet wired in) — surfaced
+    // so the client can keep disclosing this honestly rather than implying
+    // verified sold data.
+    marketDataSource: 'ai_estimate',
+    decisionReasons: econ.decision,
+    scanLogId: logRow?.id ?? null,
+  };
 }
 
 async function handleSingleScan(
@@ -207,6 +349,7 @@ async function handleSingleScan(
   settings: Settings,
   images: string[],
   mimeTypes: string[] = [],
+  acquisitionCost: number | null = null,
 ) {
   const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), images, undefined, mimeTypes as ('image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')[]);
   let ai: Record<string, unknown>;
@@ -221,37 +364,7 @@ async function handleSingleScan(
       throw new Error('Could not analyze this photo. Try a clearer photo of a single item.');
     }
   }
-
-  const avgSell = (ai.avg_sold_price as number) ?? 0;
-  const estimatedCost = r2(avgSell * 0.10); // ~typical thrift store cost for display
-  // Only charge shipping when seller pays ('free' shipping offer). When buyer
-  // pays ('buyer'), ship_cost is not a seller expense — always was $0.
-  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
-  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
-  const confidence = (ai.confidence as number) ?? 50;
-  const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
-
-  const { data: logRow } = await supabase.from('scan_log').insert({
-    user_id: userId, scan_type: 'single', decision,
-    item_name: ai.item_name, category: ai.category,
-    estimated_profit: net, estimated_sell: avgSell,
-    roi, confidence, bought: false, raw_response: ai,
-  }).select('id').single();
-
-  return {
-    decision, itemName: ai.item_name, estimatedProfit: net,
-    estimatedSell: avgSell, estimatedCost, confidence, roi,
-    reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
-    category: ai.category, brand: (ai.brand as string) ?? null,
-    searchKeywords: ai.search_keywords ?? [],
-    priceLow: ai.price_low, priceHigh: ai.price_high,
-    sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
-    avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
-    listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
-    conditionNotes: ai.condition_notes ?? '',
-    notes: (ai.notes as string) ?? '',
-    scanLogId: logRow?.id ?? null,
-  };
+  return finalizeSingleOrTextScan(supabase, userId, settings, 'single', ai, acquisitionCost);
 }
 
 async function handleTextScan(
@@ -260,6 +373,7 @@ async function handleTextScan(
   userId: number,
   settings: Settings,
   text: string,
+  acquisitionCost: number | null = null,
 ) {
   const userText = `Identify and price this specific item for eBay resale: "${text.slice(0, 300)}". Provide realistic eBay sold comps — not retail or asking prices.`;
   const raw = await callAnthropic(anthropicKey, buildSinglePrompt(settings), [], 1024, [], userText);
@@ -270,32 +384,7 @@ async function handleTextScan(
     if (m) { try { ai = JSON.parse(m[0]); } catch { throw new Error('Could not analyze this item. Try adding more detail.'); } }
     else throw new Error('Could not analyze this item. Try adding more detail.');
   }
-  const avgSell = (ai.avg_sold_price as number) ?? 0;
-  const estimatedCost = r2(avgSell * 0.10);
-  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
-  const { net, roi } = calcProfit(avgSell, estimatedCost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
-  const confidence = (ai.confidence as number) ?? 50;
-  const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
-  const { data: logRow } = await supabase.from('scan_log').insert({
-    user_id: userId, scan_type: 'text', decision,
-    item_name: ai.item_name, category: ai.category,
-    estimated_profit: net, estimated_sell: avgSell,
-    roi, confidence, bought: false, raw_response: ai,
-  }).select('id').single();
-  return {
-    decision, itemName: ai.item_name, estimatedProfit: net,
-    estimatedSell: avgSell, estimatedCost, confidence, roi,
-    reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
-    category: ai.category, brand: (ai.brand as string) ?? null,
-    searchKeywords: ai.search_keywords ?? [],
-    priceLow: ai.price_low, priceHigh: ai.price_high,
-    sellThroughRate: r2((ai.sell_through_rate as number) ?? 0),
-    avgDaysToSell: ai.avg_days_to_sell, demandLevel: ai.demand_level,
-    listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
-    conditionNotes: ai.condition_notes ?? '',
-    notes: (ai.notes as string) ?? '',
-    scanLogId: logRow?.id ?? null,
-  };
+  return finalizeSingleOrTextScan(supabase, userId, settings, 'text', ai, acquisitionCost);
 }
 
 async function handleDetectItem(
@@ -329,24 +418,37 @@ async function handleShelfScan(
   catch { throw new Error('AI returned invalid JSON'); }
   if (!Array.isArray(aiItems)) throw new Error('AI returned non-array for shelf scan');
 
-  const shipForCalc = settings.shipping === 'free' ? settings.ship_cost : 0;
+  // Seller-paid shipping cost is included only when the seller actually
+  // bears it ('seller'); buyer-paid shipping contributes $0 seller cost.
+  const shipForCalc = settings.shipping === 'seller' ? settings.ship_cost : 0;
+
+  // Shelf items are pre-purchase by definition — acquisition cost is always
+  // unknown, so every item is priced via the max-qualifying-buy-price solver,
+  // never an AI-estimated thrift cost.
   const items = aiItems.map((ai) => {
     const sell = (ai.avg_sold_price as number) ?? 0;
-    const cost = (ai.estimated_cost_at_thrift as number) ?? r2(sell * 0.10);
-    const { net, roi } = calcProfit(sell, cost, settings.pkg_cost, shipForCalc, settings.ebay_fee);
-    const confidence = (ai.confidence as number) ?? 50;
-    const decision = getDecision(roi, confidence, settings, net, ai.demand_level as string | undefined);
+    const sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
+    const daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
+    const demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
+    const confidence = (ai.confidence as number) ?? null;
+
+    const econ = evaluateScanEconomics(null, sell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
+
     return {
-      decision, itemName: ai.item_name, estimatedProfit: net,
-      avgSoldPrice: sell, estimatedCost: cost, roi, confidence,
-      decisionReason: ai.decision_reason ?? '', category: ai.category,
-      conditionNotes: ai.condition_notes ?? '', demandLevel: ai.demand_level,
+      decision: econ.decision.decision,
+      itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
+      avgSoldPrice: sell, maxBuyPrice: econ.maxBuyPrice, maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
+      confidence, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
+      conditionNotes: ai.condition_notes ?? '', notes: (ai.notes as string) ?? '',
+      marketDataSource: 'ai_estimate',
+      decisionReasons: econ.decision,
     };
   });
 
   await supabase.from('scan_log').insert({
     user_id: userId, scan_type: 'shelf', decision: null,
-    bought: false, raw_response: aiItems,
+    bought: false,
+    raw_response: { aiItems, decisionAudit: { settingsUsed: settings, marketDataSource: 'ai_estimate', items: items.map(i => ({ itemName: i.itemName, decision: i.decision, maxBuyPrice: i.maxBuyPrice, ...i.decisionReasons })) } },
   });
 
   return { items };
@@ -1216,6 +1318,7 @@ Deno.serve(async (req: Request) => {
       body = {
         type: form.get('type') as string,
         hint: form.get('hint') as string | null,
+        acquisitionCost: form.get('acquisitionCost') as string | null,
         imageBase64: b64,
         images: b64 ? [b64] : [],
         imageMimeTypes: b64 ? [imageMime] : [],
@@ -1266,6 +1369,12 @@ Deno.serve(async (req: Request) => {
   // SEC-012 — reject sessions issued before the last password reset.
   if ((payload.token_version ?? 0) !== (dbUser.token_version ?? 0)) return json({ error: 'Unauthorized' }, 401);
 
+  // Blank/missing/malformed are all treated as "unknown" (never invented).
+  // Only a genuinely present, non-negative, finite number counts as an
+  // entered acquisition cost — this keeps a user-typed 0 distinct from a
+  // field the user never touched.
+  const acquisitionCost = parseAcquisitionCost(body.acquisitionCost);
+
   const isScan = body.type === 'single_scan' || body.type === 'shelf_scan' || body.type === 'text_scan';
   if (isScan) {
     // §5.1 — atomic increment + monthly reset + limit check in one RPC,
@@ -1291,7 +1400,7 @@ Deno.serve(async (req: Request) => {
         : body.imageBase64 ? [body.imageBase64 as string] : [];
       if (imgs.length === 0) return json({ error: 'No image provided' }, 400);
       const mimes = Array.isArray(body.imageMimeTypes) ? (body.imageMimeTypes as string[]) : [];
-      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes));
+      return json(await handleSingleScan(supabase, anthropicKey, dbUser.id, dbUser.settings, imgs, mimes, acquisitionCost));
     }
     if (body.type === 'shelf_scan') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
@@ -1305,7 +1414,7 @@ Deno.serve(async (req: Request) => {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);
       const text = (body.hint as string) ?? (body.text as string) ?? '';
       if (!text.trim()) return json({ error: 'No item description provided' }, 400);
-      return json(await handleTextScan(supabase, anthropicKey, dbUser.id, dbUser.settings, text));
+      return json(await handleTextScan(supabase, anthropicKey, dbUser.id, dbUser.settings, text, acquisitionCost));
     }
     if (body.type === 'detect_item') {
       if (!anthropicKey) return json({ error: 'AI service not configured' }, 503);

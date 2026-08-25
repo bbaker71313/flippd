@@ -1,16 +1,37 @@
-import type { ProfitCalcResult } from "../types";
+// Deno-native mirror of packages/shared/src/utils/calcProfit.ts.
+//
+// Duplicated intentionally, not accidentally: Supabase Edge Functions run on
+// Deno and this repo has not yet verified that a relative cross-package
+// import (supabase/functions/... -> packages/shared/...) survives the
+// Supabase CLI's bundler in production (see docs/CURRENT_STATE.md "Known
+// issues" — claude-proxy inline calcProfit duplicates packages/shared).
+// Until that is verified, this file is the single authoritative financial
+// calculation for every Edge Function code path, and packages/shared/...
+// is the authoritative version for the rest of the monorepo (web, tests).
+// Keep the two in lockstep — same inputs, same outputs, same rounding.
+//
+// No AI values, no user-settings lookups, no external calls, no
+// decision-making, no sourcing-style multiplier.
 
 export interface CalcProfitInput {
   sellPrice: number
   cost: number
   pkgCost: number
   shipCost: number
-  // Never hardcode eBay fee — always passed in from UserSettings.ebayFee
   ebayFee: number
 }
 
-// Deterministic financial math only. No AI values, no user-settings lookups,
-// no external calls, no decision-making, no sourcing-style multiplier.
+export interface ProfitCalcResult {
+  gross: number
+  ebayFees: number
+  pkgCost: number
+  shipCost: number
+  totalFees: number
+  net: number
+  roi: number | null   // null when cost <= 0 — never fabricate a 0% return
+  margin: number
+}
+
 export function calcProfit(input: CalcProfitInput): ProfitCalcResult {
   const { sellPrice, cost, pkgCost, shipCost, ebayFee } = input
   validateCalcProfitInput(input)
@@ -19,8 +40,6 @@ export function calcProfit(input: CalcProfitInput): ProfitCalcResult {
   const totalFees = pkgCost + shipCost + ebayFees
   const totalCost = cost + totalFees
   const net       = sellPrice - totalCost
-  // ROI is undefined (not 0%) when there was no acquisition cost to measure a
-  // return against — a $0-cost item's ROI is not "0%", it's not a ratio at all.
   const roi       = cost > 0 ? (net / cost) * 100 : null
   const margin    = sellPrice > 0 ? (net / sellPrice) * 100 : 0
 
