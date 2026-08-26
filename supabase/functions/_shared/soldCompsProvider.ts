@@ -138,11 +138,21 @@ class SoldCompsProvider implements SoldMarketDataProvider {
   }
 }
 
-// Factory — returns null when SOLDCOMPS_API_KEY is not configured. Callers
+// The Supabase secret holding this key was set under one of these names —
+// checked in order, first match wins. Not a product decision: same
+// credential, the literal env var name it was stored under just wasn't
+// confirmed when this provider was written. If more than one is ever set
+// at once, whichever is listed first here silently wins — worth collapsing
+// to a single name once confirmed live.
+const SOLDCOMPS_API_KEY_ENV_NAMES = ['SOLD_COMPS_API_KEY', 'SOLD_COMP_API_KEY', 'SOLDCOMPS_API_KEY'];
+
+// Factory — returns null when none of the above are configured. Callers
 // must treat null as SOLDCOMPS_NOT_CONFIGURED, never silently skip to an
 // AI estimate or a fabricated value.
 export function getSoldMarketDataProvider(): SoldMarketDataProvider | null {
-  const apiKey = Deno.env.get('SOLDCOMPS_API_KEY');
-  if (!apiKey) return null;
-  return new SoldCompsProvider(apiKey);
+  for (const name of SOLDCOMPS_API_KEY_ENV_NAMES) {
+    const apiKey = Deno.env.get(name);
+    if (apiKey) return new SoldCompsProvider(apiKey);
+  }
+  return null;
 }
