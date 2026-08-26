@@ -1,6 +1,14 @@
 // eBay Taxonomy API — category resolution. Verified category IDs only;
 // never treats an AI-generated category string as authoritative when a
 // verified category can be resolved (task doc §2).
+//
+// LIVE-VERIFIED 2026-08-26: get_default_category_tree_id returns 200 with
+// {categoryTreeId, categoryTreeVersion} using the production client-
+// credentials token — matches getDefaultCategoryTreeId below. The
+// downstream get_category_suggestions call was not separately exercised
+// live (its prerequisite, the tree-id lookup, was) — same default-scope
+// token, no separate entitlement expected, but treat as unconfirmed if
+// precision matters.
 import { getEbayAppAccessToken, ebayApiBase, EbayAppAuthError } from "./ebayAppAuth.ts";
 import type { CategoryResolution } from "./marketData.ts";
 

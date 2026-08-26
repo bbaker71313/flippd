@@ -50,6 +50,19 @@ Add decisions here when something is locked. Reference `docs/DOC_HIERARCHY.md` f
 **Decision:** ScanForProfit's primary differentiators are shelf scan (one photo ranks everything visible) and the integrated workflow (sourcing → inventory → listing → P&L). Not raw speed or barcode support.
 **Why:** Underpriced.ai does single-item scanning. ThriftMagic does book shelves (slow, unreliable). No competitor does mixed-category shelf scan + full integrated workflow. That is the defensible position.
 
+### P0 market-data rules: sell-through rate, demand thresholds, Best Offer handling
+**Decision (approved 2026-08-26):**
+- **Sell-through rate:** `STR = soldCount90d / (soldCount90d + activeCount) * 100`, where `soldCount90d` is verified matching sold listings from SoldComps (90-day window) and `activeCount` is verified matching active listings from eBay Browse. `null` (never a fabricated 0%) when both counts are zero, or when active-listing evidence is unavailable.
+- **Demand level:** derived from verified STR + verified market-turnover days, evaluated highest tier down — VERY HIGH (STR≥70% & turnover≤30d), HIGH (STR≥50% & turnover≤45d), MEDIUM (STR≥30% & turnover≤90d), LOW (below those). Missing STR or turnover → `null` (unavailable), never LOW. HOT still requires demand = VERY HIGH plus all other thresholds.
+- **Best Offer handling:** `bestOfferAccepted` comps are excluded from the primary median/average sold-price calculation (the displayed price on such a listing is not the confidential accepted amount) but are preserved in evidence via `excludedBestOfferCount` and still count toward sales-velocity (STR/turnover) numerators.
+- **Market turnover (previously approved):** `marketTurnoverDays = activeInventory / averageVerifiedSalesPerDay`, `averageVerifiedSalesPerDay = verifiedSoldCount / soldWindowDays`.
+**Why:** These were the last undefined pieces of the P0 market-data-authority remediation (replacing AI-generated market facts with verified SoldComps/eBay Browse evidence). AI never computes these — see `packages/shared/src/utils/marketMetrics.ts` (`computeSellThroughRate`, `computeDemandLevel`) and its Deno mirror.
+**Do not** reintroduce an AI-confidence-based STR/demand estimate, a `sourcingStyle` modifier on these thresholds, or a Best-Offer down-weighting scheme without new explicit approval.
+
+### SoldComps API secret name
+**Decision (confirmed 2026-08-26):** The Supabase secret is `SOLD_COMPS_API_KEY` (exact name). No fallback aliases.
+**Why:** Two candidate names were floated before the exact one was confirmed; `supabase/functions/_shared/soldCompsProvider.ts` now reads this single name only.
+
 ---
 
 ## Technical Decisions

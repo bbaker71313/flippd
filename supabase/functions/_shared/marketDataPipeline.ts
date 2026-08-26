@@ -3,24 +3,26 @@
 //   item evidence -> provider-agnostic identification -> Catalog/product
 //   resolution -> Taxonomy/category resolution -> SoldComps sold evidence +
 //   Browse active evidence -> comparable matching -> deterministic
-//   price/turnover metrics
+//   price/STR/turnover/demand metrics
 //
-// NOT wired into any live scan handler yet (see session report). Two
-// product decisions block using this for real HOT/LIST/SKIP calls today:
-// the sell-through-rate formula and the demand-level thresholds are both
-// undefined (task doc §8, §10) — MarketMetrics.sellThroughRate/demandLevel
-// are therefore always null, and the existing decide() in decisionEngine.ts
-// fails (never passes) a null STR/demand threshold. Flipping a live scan
-// handler over to this pipeline today would make every scan SKIP. Wire this
-// in only after those two decisions are made AND SOLDCOMPS_API_KEY is
-// configured AND the SoldComps contract (see soldCompsProvider.ts) is
-// confirmed against a real account.
+// Sell-through-rate formula, demand-level thresholds, and the Best Offer
+// exclusion policy are product-owner-approved (2026-08-26) — see
+// marketMetrics.ts computeSellThroughRate/computeDemandLevel. Wired into
+// single/text/shelf scan handlers in claude-proxy/index.ts (see
+// tryVerifiedMarketData there) as of 2026-08-26, after live-verifying the
+// SoldComps and eBay Browse/Taxonomy contracts (Catalog is live-verified but
+// not currently entitled for this app's credentials — see ebayCatalog.ts).
+// On any failure result here, the calling scan handler falls back to the
+// pre-existing AI-estimate path rather than failing the scan outright.
 import { getItemIdentifier, type IdentifyInput } from "./itemIdentification.ts"
 import { catalogSearchByGtin, catalogSearchByKeywords } from "./ebayCatalog.ts"
 import { resolveCategory } from "./ebayTaxonomy.ts"
 import { searchActiveListings } from "./ebayBrowse.ts"
 import { getSoldMarketDataProvider } from "./soldCompsProvider.ts"
-import { computeSoldPriceStats, computeMarketTurnoverDays } from "./marketMetrics.ts"
+import {
+  computeSoldPriceStats, computeMarketTurnoverDays,
+  computeSellThroughRate, computeDemandLevel,
+} from "./marketMetrics.ts"
 import type {
   MarketDataResult, MarketMetrics, CompMatchPrecision, IdentityCandidate,
 } from "./marketData.ts"
@@ -53,6 +55,19 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
   }
 
   const identity = await identifier.identify(input);
+  return resolveVerifiedMarketData(identity);
+}
+
+// Runs everything AFTER identification — Catalog/Taxonomy resolution,
+// SoldComps + Browse evidence, and deterministic price/STR/turnover/demand
+// metrics — against an already-resolved IdentityCandidate. Split out so a
+// caller that already has identification (e.g. a scan handler's existing AI
+// call, which already extracts item_name/brand/model as part of its single
+// vision request) can reuse it here instead of triggering a second,
+// redundant identification call through runMarketDataPipeline/
+// getItemIdentifier(). Both entry points share identical Catalog/Taxonomy/
+// SoldComps/Browse/metrics behavior.
+export async function resolveVerifiedMarketData(identity: IdentityCandidate): Promise<MarketDataResult> {
   const query = buildSoldCompsQuery(identity);
   if (!query.trim()) {
     return { ok: false, reason: 'IDENTIFICATION_UNRESOLVED', detail: 'Identification produced no usable search terms' };
@@ -69,7 +84,7 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
 
   const soldProvider = getSoldMarketDataProvider();
   if (!soldProvider) {
-    return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'None of SOLD_COMPS_API_KEY / SOLD_COMP_API_KEY / SOLDCOMPS_API_KEY is set' };
+    return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'SOLD_COMPS_API_KEY is not set' };
   }
 
   const soldResult = await soldProvider.searchSoldComps({ searchTerms: query });
@@ -88,22 +103,36 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
 
   // Active-market evidence is best-effort: Browse failing does not fail the
   // whole pipeline (sold-price evidence already qualifies), it just leaves
-  // turnover unavailable.
+  // STR/turnover/demand unavailable — a missing active count is never
+  // treated as zero (that would fabricate a 100% STR).
   const activeMarketEvidence = await searchActiveListings({
     query, categoryId: category.categoryId ?? undefined,
   }).catch(() => null);
 
+  // soldCount90d/verifiedSoldCount for STR and turnover is the full set of
+  // verified (schema-validated) sold comps in the window — including
+  // Best-Offer-accepted ones, since a Best Offer sale is still a real sale
+  // for counting sales velocity, even though its price is excluded from the
+  // price-stats median/average (see computeSoldPriceStats).
+  const soldCount90d = soldResult.comps.length;
+
   const turnover = activeMarketEvidence
-    ? computeMarketTurnoverDays(soldPriceStats.compCount, DEFAULT_SOLD_WINDOW_DAYS, activeMarketEvidence.matchingActiveCount)
+    ? computeMarketTurnoverDays(soldCount90d, DEFAULT_SOLD_WINDOW_DAYS, activeMarketEvidence.matchingActiveCount)
     : null;
+
+  const sellThroughRate = activeMarketEvidence
+    ? computeSellThroughRate(soldCount90d, activeMarketEvidence.matchingActiveCount)
+    : null;
+
+  const demandLevel = computeDemandLevel(sellThroughRate, turnover?.marketTurnoverDays ?? null);
 
   const metrics: MarketMetrics = {
     compMatchPrecision: derivePrecision(identity),
     soldPriceStats,
     activeMarketEvidence,
     turnover,
-    sellThroughRate: null, // BLOCKED — see file header
-    demandLevel: null,     // BLOCKED — see file header
+    sellThroughRate,
+    demandLevel,
   };
 
   return { ok: true, identity, catalogMatch, category, metrics };

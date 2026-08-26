@@ -5,6 +5,8 @@ import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts";
 import { calcProfit } from "../_shared/financialEngine.ts";
 import { decide, type DemandLevel, type DecisionResult } from "../_shared/decisionEngine.ts";
 import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
+import { resolveVerifiedMarketData } from "../_shared/marketDataPipeline.ts";
+import type { IdentityCandidate, IdentificationEvidenceKind, MarketDataResult } from "../_shared/marketData.ts";
 
 function ab2b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -268,6 +270,52 @@ Return ONLY a valid JSON array, no markdown:
 [{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"condition_notes":"string","notes":"one sentence of context or listing considerations"}]`;
 }
 
+// Builds an IdentityCandidate from the AI scan response's identification
+// fields (item_name/brand/model_number/category), reusing the identification
+// already done by the single call to buildSinglePrompt/buildShelfPrompt
+// rather than triggering a second, redundant AI identification call. Returns
+// null when there isn't enough identity signal to search a market-data
+// provider with (never sends an empty/near-empty query).
+function identityFromAiScan(ai: Record<string, unknown>, evidence: IdentificationEvidenceKind): IdentityCandidate | null {
+  const itemName = (ai.item_name as string) || null;
+  const brand = (ai.brand as string) || null;
+  const model = (ai.model_number as string) || null;
+  if (!itemName && !brand && !model) return null;
+
+  return {
+    itemName, brand, model, variant: null,
+    gtin: null, gtinKind: null, manufacturerPartNumber: null,
+    likelyEbayCategory: (ai.category as string) || null,
+    categoryHints: ai.category ? [ai.category as string] : [],
+    conditionHints: (ai.condition_notes as string) || null,
+    unresolvedAttributes: [],
+    identityConfidence: (ai.confidence as number) ?? 0,
+    evidenceUsed: [evidence],
+    normalizedSearchTerms: [itemName, brand, model].filter((s): s is string => !!s),
+    providerId: 'anthropic-claude-vision',
+  };
+}
+
+// Attempts the P0 authoritative verified-market-data pipeline for one scanned
+// item. Never throws — a hard provider outage (e.g. eBay app-token endpoint
+// down) is caught and reported as a failure result exactly like any other
+// provider failure, so a transient market-data outage degrades to the
+// existing AI-estimate path instead of failing the whole scan request.
+async function tryVerifiedMarketData(
+  ai: Record<string, unknown>,
+  evidence: IdentificationEvidenceKind,
+): Promise<MarketDataResult> {
+  const identity = identityFromAiScan(ai, evidence);
+  if (!identity) {
+    return { ok: false, reason: 'IDENTIFICATION_UNRESOLVED', detail: 'AI scan response had no usable identity fields' };
+  }
+  try {
+    return await resolveVerifiedMarketData(identity);
+  } catch (err) {
+    return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // Parses the AI identification/pricing JSON, evaluates the deterministic
 // financial + decision engine against it, persists a fully auditable scan_log
 // row, and returns the response shape shared by single_scan and text_scan.
@@ -282,10 +330,41 @@ async function finalizeSingleOrTextScan(
   ai: Record<string, unknown>,
   acquisitionCost: number | null,
 ) {
-  const avgSell = (ai.avg_sold_price as number) ?? 0;
-  const sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
-  const daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
-  const demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
+  // P0: attempt the verified marketplace-evidence pipeline (SoldComps sold
+  // comps + eBay Browse active listings) before falling back to the AI's own
+  // price/STR/days/demand estimate. AI never supplies these once verified
+  // data is available — only when the pipeline can't produce sufficient
+  // verified evidence does the existing (clearly-labeled) AI-estimate path
+  // run, exactly as it did before this pipeline existed.
+  const verified = await tryVerifiedMarketData(ai, scanType === 'single' ? 'visual_ai' : 'text_inference');
+
+  let avgSell: number;
+  let sellThroughRate: number | null;
+  let daysToSell: number | null;
+  let demandLevel: DemandLevel | null;
+  let marketDataSource: 'verified' | 'ai_estimate';
+  let priceLow: number | null;
+  let priceHigh: number | null;
+
+  if (verified.ok) {
+    avgSell = verified.metrics.soldPriceStats.medianSoldPrice as number; // non-null whenever ok:true
+    sellThroughRate = verified.metrics.sellThroughRate;
+    daysToSell = verified.metrics.turnover?.marketTurnoverDays ?? null;
+    demandLevel = verified.metrics.demandLevel;
+    marketDataSource = 'verified';
+    // Verified price range replaces the AI's guessed range — never mix a
+    // verified median with an AI-estimated low/high band.
+    priceLow = verified.metrics.soldPriceStats.soldPriceLow;
+    priceHigh = verified.metrics.soldPriceStats.soldPriceHigh;
+  } else {
+    avgSell = (ai.avg_sold_price as number) ?? 0;
+    sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
+    daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
+    demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
+    marketDataSource = 'ai_estimate';
+    priceLow = (ai.price_low as number) ?? null;
+    priceHigh = (ai.price_high as number) ?? null;
+  }
   const confidence = (ai.confidence as number) ?? null;
 
   // Seller-paid shipping cost is included only when the seller actually
@@ -308,7 +387,8 @@ async function finalizeSingleOrTextScan(
       decisionAudit: {
         acquisitionCost: econ.acquisitionCost, maxBuyPrice: econ.maxBuyPrice,
         maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
-        settingsUsed: settings, marketDataSource: 'ai_estimate',
+        settingsUsed: settings, marketDataSource,
+        verifiedMarketData: verified,
         ...econ.decision,
       },
     },
@@ -327,16 +407,16 @@ async function finalizeSingleOrTextScan(
     confidence,
     reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
     searchKeywords: ai.search_keywords ?? [],
-    priceLow: ai.price_low, priceHigh: ai.price_high,
+    priceLow, priceHigh,
     sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
     listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
     conditionNotes: ai.condition_notes ?? '',
     notes: (ai.notes as string) ?? '',
-    // AI is not a verified eBay market-data source (Marketplace Insights /
-    // Browse / Taxonomy / Catalog integration is not yet wired in) — surfaced
-    // so the client can keep disclosing this honestly rather than implying
-    // verified sold data.
-    marketDataSource: 'ai_estimate',
+    // Tells the client whether the numbers above came from verified
+    // marketplace evidence (SoldComps sold comps + eBay Browse) or the AI's
+    // own estimate (used only when verified evidence was unavailable) — so
+    // the client can keep disclosing this honestly either way.
+    marketDataSource,
     decisionReasons: econ.decision,
     scanLogId: logRow?.id ?? null,
   };
@@ -424,12 +504,31 @@ async function handleShelfScan(
 
   // Shelf items are pre-purchase by definition — acquisition cost is always
   // unknown, so every item is priced via the max-qualifying-buy-price solver,
-  // never an AI-estimated thrift cost.
-  const items = aiItems.map((ai) => {
-    const sell = (ai.avg_sold_price as number) ?? 0;
-    const sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
-    const daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
-    const demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
+  // never an AI-estimated thrift cost. Each item independently attempts the
+  // verified market-data pipeline before falling back to the AI's estimate —
+  // same rule as single/text scan (see finalizeSingleOrTextScan).
+  const items = await Promise.all(aiItems.map(async (ai) => {
+    const verified = await tryVerifiedMarketData(ai, 'visual_ai');
+
+    let sell: number;
+    let sellThroughRate: number | null;
+    let daysToSell: number | null;
+    let demandLevel: DemandLevel | null;
+    let marketDataSource: 'verified' | 'ai_estimate';
+
+    if (verified.ok) {
+      sell = verified.metrics.soldPriceStats.medianSoldPrice as number;
+      sellThroughRate = verified.metrics.sellThroughRate;
+      daysToSell = verified.metrics.turnover?.marketTurnoverDays ?? null;
+      demandLevel = verified.metrics.demandLevel;
+      marketDataSource = 'verified';
+    } else {
+      sell = (ai.avg_sold_price as number) ?? 0;
+      sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
+      daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
+      demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
+      marketDataSource = 'ai_estimate';
+    }
     const confidence = (ai.confidence as number) ?? null;
 
     const econ = evaluateScanEconomics(null, sell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
@@ -440,18 +539,32 @@ async function handleShelfScan(
       avgSoldPrice: sell, maxBuyPrice: econ.maxBuyPrice, maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
       confidence, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
       conditionNotes: ai.condition_notes ?? '', notes: (ai.notes as string) ?? '',
-      marketDataSource: 'ai_estimate',
+      marketDataSource,
+      verifiedMarketData: verified,
       decisionReasons: econ.decision,
     };
-  });
+  }));
 
   await supabase.from('scan_log').insert({
     user_id: userId, scan_type: 'shelf', decision: null,
     bought: false,
-    raw_response: { aiItems, decisionAudit: { settingsUsed: settings, marketDataSource: 'ai_estimate', items: items.map(i => ({ itemName: i.itemName, decision: i.decision, maxBuyPrice: i.maxBuyPrice, ...i.decisionReasons })) } },
+    raw_response: {
+      aiItems,
+      decisionAudit: {
+        settingsUsed: settings,
+        items: items.map(i => ({
+          itemName: i.itemName, decision: i.decision, maxBuyPrice: i.maxBuyPrice,
+          marketDataSource: i.marketDataSource, verifiedMarketData: i.verifiedMarketData,
+          ...i.decisionReasons,
+        })),
+      },
+    },
   });
 
-  return { items };
+  // verifiedMarketData is kept in the scan_log audit trail above (server-side
+  // forensics) but not sent to the client — same minimal response shape as
+  // before this pipeline existed, plus the existing marketDataSource field.
+  return { items: items.map(({ verifiedMarketData: _verifiedMarketData, ...i }) => i) };
 }
 
 async function handleBuyItem(

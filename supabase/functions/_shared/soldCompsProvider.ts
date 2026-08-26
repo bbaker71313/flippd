@@ -5,18 +5,36 @@
 // the decision engine or any caller of this interface.
 //
 // ****************************************************************************
-// CONTRACT NOT LIVE-VERIFIED. This sandbox's network egress to
-// sold-comps.com is blocked, so the exact request shape below (query
-// param name, base path, response envelope) could not be confirmed against
-// https://sold-comps.com/docs directly. It is built from: (a) the exact
-// field list the product owner specified for this task (soldPrice,
-// totalPrice, shippingPrice, shippingType, endedAt, condition, conditionId,
-// buyingFormat, bidCount, bestOfferAccepted, listingType, itemId, listing
-// URL), and (b) third-party corroboration (Bearer `sc_...` API key, GET
-// request, up to 40 results per call). Runtime validation below will
-// reject anything that doesn't match this shape rather than silently
-// trusting it — but a real SOLDCOMPS_API_KEY and one live test call are
-// required before this can be trusted in production. See session report.
+// CONTRACT LIVE-VERIFIED 2026-08-26 via a temporary diagnostic edge function
+// invoked through pg_net (this sandbox's own egress to sold-comps.com is
+// blocked, but Supabase's runtime is not — see session report). Confirmed
+// against a real GET /v1/scrape?keyword=...&limit=... call with the live
+// SOLD_COMPS_API_KEY secret:
+//   - query param is `keyword` (singular), not `keywords`
+//   - response envelope: {keyword, page, totalItems, totalResults,
+//     hasNextPage, autoSelectedCategory, items: [...]}
+//   - soldPrice/totalPrice/shippingPrice arrive as NUMERIC STRINGS ("81",
+//     "95.95"), not numbers — coerced below, never left as unparsed strings
+//   - conditionId arrives as a number (e.g. 1000, 3000)
+//   - endedAt arrives as a date-only string ("2026-08-26"), not a full
+//     ISO 8601 datetime — still Date.parse-able
+//   - listing URL field is `url`, not `listingUrl`
+//   - seller positive-feedback field is `sellerPositivePercent`, not
+//     `sellerFeedbackPercent`
+//   - per-format currency fields are `soldCurrency`/`shippingCurrency`,
+//     no single top-level `currency`
+//   - auth confirmed via 200 + x-ratelimit-remaining/-limit headers (59/60
+//     on first call) — a malformed request returns 400 with a Zod error
+//     body, not 401, so a missing/invalid `keyword` looks like a validation
+//     error, not an auth failure
+//   - pagination confirmed present (`page`, `hasNextPage`) but not wired
+//     into this provider — single page of up to 40 results per call, same
+//     as originally documented; multi-page fetch is a P1 enhancement
+// Not verified live: Best Offer semantics beyond the `bestOfferAccepted`
+// boolean field being present and populated (true on the sampled records);
+// exact 90-day window enforcement (no explicit date-range request param
+// was found/needed — treated as the provider's documented retention, per
+// DEFAULT_SOLD_WINDOW_DAYS in marketDataPipeline.ts, not a request param).
 // ****************************************************************************
 import type { SoldCompListing, MarketDataFailureReason } from "./marketData.ts"
 
@@ -42,41 +60,53 @@ function soldCompsBaseUrl(): string {
   return Deno.env.get('SOLDCOMPS_API_BASE_URL') ?? 'https://api.sold-comps.com/v1/scrape';
 }
 
-// Runtime-validates one raw API record against the field contract. Returns
-// null (dropped, not fabricated) for anything that fails validation —
-// never coerces a missing/malformed price into a guessed number.
-function parseSoldComp(raw: unknown): SoldCompListing | null {
+// Accepts a real number OR a numeric string (SoldComps sends soldPrice/
+// totalPrice/shippingPrice as strings, e.g. "81", "95.95") — never coerces
+// a non-numeric or empty value, that stays null rather than becoming 0.
+function numLike(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+// Runtime-validates one raw API record against the live-verified field
+// contract (see file header). Returns null (dropped, not fabricated) for
+// anything that fails validation — never coerces a missing/malformed price
+// into a guessed number. Exported for direct unit testing.
+export function parseSoldComp(raw: unknown): SoldCompListing | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
 
   const itemId = r.itemId;
-  const soldPrice = r.soldPrice;
+  const soldPrice = numLike(r.soldPrice);
   const endedAt = r.endedAt;
   if (typeof itemId !== 'string' && typeof itemId !== 'number') return null;
-  if (typeof soldPrice !== 'number' || !Number.isFinite(soldPrice) || soldPrice <= 0) return null;
+  if (soldPrice === null || soldPrice <= 0) return null;
   if (typeof endedAt !== 'string' || Number.isNaN(Date.parse(endedAt))) return null;
 
-  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
 
   return {
     itemId: String(itemId),
     title: str(r.title) ?? '',
     soldPrice,
-    totalPrice: num(r.totalPrice),
-    shippingPrice: num(r.shippingPrice),
+    totalPrice: numLike(r.totalPrice),
+    shippingPrice: numLike(r.shippingPrice),
     shippingType: str(r.shippingType),
-    currency: str(r.currency) ?? 'USD',
+    currency: str(r.soldCurrency) ?? str(r.currency) ?? 'USD',
     endedAt: new Date(endedAt).toISOString(),
     condition: str(r.condition),
     conditionId: str(r.conditionId) ?? (typeof r.conditionId === 'number' ? String(r.conditionId) : null),
     buyingFormat: str(r.buyingFormat),
-    bidCount: num(r.bidCount),
+    bidCount: numLike(r.bidCount),
     bestOfferAccepted: r.bestOfferAccepted === true,
     listingType: str(r.listingType),
-    listingUrl: str(r.listingUrl) ?? str(r.url) ?? str(r.link) ?? str(r.itemWebUrl),
-    sellerFeedbackScore: num(r.sellerFeedbackScore),
-    sellerFeedbackPercent: num(r.sellerFeedbackPercent),
+    listingUrl: str(r.url) ?? str(r.listingUrl) ?? str(r.link) ?? str(r.itemWebUrl),
+    sellerFeedbackScore: numLike(r.sellerFeedbackScore),
+    sellerFeedbackPercent: numLike(r.sellerPositivePercent) ?? numLike(r.sellerFeedbackPercent),
   };
 }
 
@@ -90,7 +120,7 @@ class SoldCompsProvider implements SoldMarketDataProvider {
 
     try {
       const qs = new URLSearchParams({
-        keywords: query.searchTerms,
+        keyword: query.searchTerms,
         limit: String(Math.min(query.limit ?? 40, 40)),
       });
       const res = await fetch(`${soldCompsBaseUrl()}?${qs.toString()}`, {
@@ -112,13 +142,15 @@ class SoldCompsProvider implements SoldMarketDataProvider {
         return { ok: false, reason: 'MALFORMED_PROVIDER_RESPONSE', detail: 'SoldComps response was not valid JSON' };
       }
 
+      const d = data as Record<string, unknown>;
+      // `items` is the live-verified envelope key (see file header).
+      // `results`/`listings` kept as defensive fallbacks only.
       const rawList: unknown[] = Array.isArray(data)
         ? data
-        : Array.isArray((data as Record<string, unknown>)?.results)
-          ? (data as Record<string, unknown>).results as unknown[]
-          : Array.isArray((data as Record<string, unknown>)?.listings)
-            ? (data as Record<string, unknown>).listings as unknown[]
-            : [];
+        : Array.isArray(d?.items) ? d.items as unknown[]
+        : Array.isArray(d?.results) ? d.results as unknown[]
+        : Array.isArray(d?.listings) ? d.listings as unknown[]
+        : [];
 
       const comps = rawList.map(parseSoldComp).filter((c): c is SoldCompListing => c !== null);
 
@@ -138,21 +170,15 @@ class SoldCompsProvider implements SoldMarketDataProvider {
   }
 }
 
-// The Supabase secret holding this key was set under one of these names —
-// checked in order, first match wins. Not a product decision: same
-// credential, the literal env var name it was stored under just wasn't
-// confirmed when this provider was written. If more than one is ever set
-// at once, whichever is listed first here silently wins — worth collapsing
-// to a single name once confirmed live.
-const SOLDCOMPS_API_KEY_ENV_NAMES = ['SOLD_COMPS_API_KEY', 'SOLD_COMP_API_KEY', 'SOLDCOMPS_API_KEY'];
+// Confirmed 2026-08-26 (product owner): the Supabase secret is set under
+// this exact name. The prior 3-name fallback is retired now that the name
+// is confirmed — do not reintroduce alternate aliases.
+const SOLDCOMPS_API_KEY_ENV_NAME = 'SOLD_COMPS_API_KEY';
 
-// Factory — returns null when none of the above are configured. Callers
-// must treat null as SOLDCOMPS_NOT_CONFIGURED, never silently skip to an
-// AI estimate or a fabricated value.
+// Factory — returns null when not configured. Callers must treat null as
+// SOLDCOMPS_NOT_CONFIGURED, never silently skip to an AI estimate or a
+// fabricated value.
 export function getSoldMarketDataProvider(): SoldMarketDataProvider | null {
-  for (const name of SOLDCOMPS_API_KEY_ENV_NAMES) {
-    const apiKey = Deno.env.get(name);
-    if (apiKey) return new SoldCompsProvider(apiKey);
-  }
-  return null;
+  const apiKey = Deno.env.get(SOLDCOMPS_API_KEY_ENV_NAME);
+  return apiKey ? new SoldCompsProvider(apiKey) : null;
 }

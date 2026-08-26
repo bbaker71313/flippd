@@ -2,6 +2,7 @@
 // Duplicated intentionally — see financialEngine.ts for why. Keep in lockstep.
 
 import type { SoldCompListing, SoldPriceStats, MarketTurnoverEstimate } from "./marketData.ts"
+import type { DemandLevel } from "./decisionEngine.ts"
 
 export function computeSoldPriceStats(comps: SoldCompListing[]): SoldPriceStats {
   const usable = comps.filter(c => !c.bestOfferAccepted && Number.isFinite(c.soldPrice) && c.soldPrice > 0)
@@ -67,6 +68,31 @@ export function computeMarketTurnoverDays(
     soldCountInWindow,
     activeInventoryCount,
   }
+}
+
+// Approved formula (product-owner-approved 2026-08-26):
+//   STR = soldCount90d / (soldCount90d + activeCount) * 100
+// Returns null (never a fabricated 0%) when both counts are zero.
+export function computeSellThroughRate(
+  soldCount90d: number,
+  activeCount: number,
+): number | null {
+  const denominator = soldCount90d + activeCount
+  if (denominator <= 0) return null
+  return round2((soldCount90d / denominator) * 100)
+}
+
+// Approved thresholds (product-owner-approved 2026-08-26). Evaluated highest
+// tier downward. A missing input returns null (unavailable), never LOW.
+export function computeDemandLevel(
+  sellThroughRate: number | null,
+  marketTurnoverDays: number | null,
+): DemandLevel | null {
+  if (sellThroughRate === null || marketTurnoverDays === null) return null
+  if (sellThroughRate >= 70 && marketTurnoverDays <= 30) return 'VERY HIGH'
+  if (sellThroughRate >= 50 && marketTurnoverDays <= 45) return 'HIGH'
+  if (sellThroughRate >= 30 && marketTurnoverDays <= 90) return 'MEDIUM'
+  return 'LOW'
 }
 
 function round2(n: number): number {

@@ -3,7 +3,10 @@
 // Runner: node --test marketMetrics.test.ts. Pure functions, no network.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeSoldPriceStats, computeMarketTurnoverDays } from './marketMetrics.ts';
+import {
+  computeSoldPriceStats, computeMarketTurnoverDays,
+  computeSellThroughRate, computeDemandLevel,
+} from './marketMetrics.ts';
 import type { SoldCompListing } from '../types/marketData.ts';
 
 function comp(overrides: Partial<SoldCompListing>): SoldCompListing {
@@ -105,4 +108,68 @@ test('turnover — zero active inventory with real sales velocity is 0 days (eve
 
 test('turnover — invalid window throws rather than dividing by zero silently', () => {
   assert.throws(() => computeMarketTurnoverDays(10, 0, 5));
+});
+
+// ── Sell-through rate — approved formula: soldCount90d / (soldCount90d + activeCount) * 100 ──
+
+test('STR — normal case', () => {
+  assert.equal(computeSellThroughRate(30, 70), 30);
+});
+
+test('STR — 100% (all sold, none active)', () => {
+  assert.equal(computeSellThroughRate(20, 0), 100);
+});
+
+test('STR — 0% (nothing sold, some active)', () => {
+  assert.equal(computeSellThroughRate(0, 15), 0);
+});
+
+test('STR — zero sold + positive active is 0%, not fabricated', () => {
+  assert.equal(computeSellThroughRate(0, 5), 0);
+});
+
+test('STR — positive sold + zero active is 100%, not fabricated', () => {
+  assert.equal(computeSellThroughRate(5, 0), 100);
+});
+
+test('STR — zero sold + zero active returns null (insufficient evidence, never a fabricated 0%)', () => {
+  assert.equal(computeSellThroughRate(0, 0), null);
+});
+
+test('STR — rounds to 2 decimal places', () => {
+  assert.equal(computeSellThroughRate(1, 2), 33.33);
+});
+
+// ── Demand level — approved thresholds, evaluated highest tier downward ──
+
+test('demand — 70% STR / 30 days turnover is VERY HIGH', () => {
+  assert.equal(computeDemandLevel(70, 30), 'VERY HIGH');
+});
+
+test('demand — just below 70% STR at 30 days falls to HIGH', () => {
+  assert.equal(computeDemandLevel(69.9, 30), 'HIGH');
+});
+
+test('demand — 70% STR at 31 days (just above VERY HIGH turnover cap) falls to HIGH', () => {
+  assert.equal(computeDemandLevel(70, 31), 'HIGH');
+});
+
+test('demand — 50% STR / 45 days turnover is HIGH', () => {
+  assert.equal(computeDemandLevel(50, 45), 'HIGH');
+});
+
+test('demand — 30% STR / 90 days turnover is MEDIUM', () => {
+  assert.equal(computeDemandLevel(30, 90), 'MEDIUM');
+});
+
+test('demand — below MEDIUM thresholds is LOW', () => {
+  assert.equal(computeDemandLevel(10, 200), 'LOW');
+});
+
+test('demand — missing STR returns null, never LOW', () => {
+  assert.equal(computeDemandLevel(null, 30), null);
+});
+
+test('demand — missing turnover returns null, never LOW', () => {
+  assert.equal(computeDemandLevel(70, null), null);
 });
