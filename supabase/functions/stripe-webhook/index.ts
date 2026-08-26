@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { sendEmail } from "../_shared/sendEmail.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { resolveTierFromPriceId } from "../_shared/stripePricing.ts"
 
 async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
   const parts = sigHeader.split(',').reduce((acc, part) => {
@@ -37,16 +38,6 @@ function timingSafeEqual(a: string, b: string): boolean {
   return out === 0;
 }
 
-// Stripe Price ID → tier mapping (from HANDOFF.md)
-const PRICE_TIER: Record<string, string> = {
-  'price_1Tb4hLId3kJSEdqMH7SYN3a8': 'hustle',  // Hustle monthly
-  'price_1Tb4hOId3kJSEdqMiMUrnFm2': 'hustle',  // Hustle annual
-  'price_1Tb4hRId3kJSEdqMq9XwGKbZ': 'stack',   // Stack monthly
-  'price_1Tb4hTId3kJSEdqMB21L5giT': 'stack',   // Stack annual
-  'price_1Tb4hWId3kJSEdqMFrtyqDkK': 'empire',  // Empire monthly
-  // empire_annual: add price ID here once created in Stripe (no price exists yet)
-};
-
 Deno.serve(async (req: Request) => {
   // SEC-015: local json closes over req for dynamic locked-origin CORS.
   const json = (data: unknown, status = 200) =>
@@ -73,15 +64,32 @@ Deno.serve(async (req: Request) => {
   const isValid = await verifyStripeSignature(rawBody, sigHeader, webhookSecret);
   if (!isValid) return json({ error: 'Invalid Stripe signature' }, 400);
 
-  let event: { type: string; data: { object: Record<string, unknown> } };
+  let event: { id: string; type: string; data: { object: Record<string, unknown> } };
   try { event = JSON.parse(rawBody); }
   catch { return json({ error: 'Invalid JSON' }, 400); }
+
+  if (!event.id) return json({ error: 'Event missing id' }, 400);
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+
+  // P1-B: persistent idempotency claim. Stripe explicitly warns the same
+  // event can be delivered more than once — a duplicate delivery must not
+  // repeat tier updates, subscription changes, or emails.
+  const { data: claim, error: claimErr } = await supabase.rpc('claim_stripe_webhook_event', {
+    p_event_id: event.id,
+    p_event_type: event.type,
+  });
+  if (claimErr) {
+    console.error('stripe-webhook: claim failed', claimErr);
+    return json({ error: 'Idempotency claim failed' }, 500);
+  }
+  if (claim === 'already_succeeded' || claim === 'in_progress') {
+    return json({ received: true, deduped: claim });
+  }
 
   const data = event.data.object as Record<string, unknown>;
 
@@ -100,12 +108,14 @@ Deno.serve(async (req: Request) => {
         });
         const sub = await subRes.json();
         const priceId = (sub.items?.data?.[0]?.price?.id) as string;
-        // §5.5: unknown price ID must not silently downgrade buyer to hustle
-        const tier = PRICE_TIER[priceId];
-        if (!tier) {
+        // §5.5 / P1-B: unknown price ID must not silently downgrade buyer to
+        // hustle or invent a tier — resolved from the same config checkout uses.
+        const resolved = resolveTierFromPriceId(priceId);
+        if (!resolved) {
           console.error(`stripe-webhook: unknown priceId ${priceId} for subscription ${subscriptionId} — no tier assigned`);
           break;
         }
+        const { tier } = resolved;
         const periodEnd = sub.current_period_end
           ? new Date((sub.current_period_end as number) * 1000).toISOString()
           : null;
@@ -147,8 +157,8 @@ Deno.serve(async (req: Request) => {
         const status = data['status'] as string;
         const items = data['items'] as Record<string, unknown>;
         const priceId = (items?.['data'] as Array<Record<string, unknown>>)?.[0]?.['price'] as Record<string, unknown>;
-        // §5.5: unknown price ID — keep current tier, don't silently downgrade
-        const tier = PRICE_TIER[(priceId?.['id'] as string) ?? ''];
+        // §5.5 / P1-B: unknown price ID — keep current tier, don't silently downgrade
+        const tier = resolveTierFromPriceId(priceId?.['id'] as string)?.tier;
         const periodEnd = data['current_period_end']
           ? new Date((data['current_period_end'] as number) * 1000).toISOString()
           : null;
@@ -203,9 +213,17 @@ Deno.serve(async (req: Request) => {
         console.log(`Unhandled event type: ${event.type}`);
     }
 
+    // Only now — after every required business effect above has actually
+    // succeeded — is this event permanently marked complete (P1-B requirement 6).
+    await supabase.rpc('complete_stripe_webhook_event', {
+      p_event_id: event.id, p_success: true, p_error: null,
+    });
     return json({ received: true });
   } catch (err) {
     console.error('Webhook handler error:', err);
+    await supabase.rpc('complete_stripe_webhook_event', {
+      p_event_id: event.id, p_success: false, p_error: String((err as Error)?.message ?? err),
+    });
     return json({ error: 'Handler error' }, 500);
   }
 });

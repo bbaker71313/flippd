@@ -567,12 +567,27 @@ async function handleShelfScan(
   return { items: items.map(({ verifiedMarketData: _verifiedMarketData, ...i }) => i) };
 }
 
-async function handleBuyItem(
+// P1-C: one logical Save/Buy action must create at most one inventory row,
+// even under a double tap, client retry, timeout retry, or reconnect/replay.
+// scanLogId is a natural idempotency key here — one scan produces at most one
+// "bought" inventory row — falling back to an explicit clientOpId when the
+// caller supplies one for a non-scan buy. `client_op_id` is enforced unique
+// per user at the database layer (migration 20260826230000).
+export async function handleBuyItem(
   supabase: ReturnType<typeof createClient>,
   userId: number,
   tier: string,
   body: Record<string, unknown>,
 ) {
+  const clientOpId = body.scanLogId != null ? `scan:${body.scanLogId}`
+    : (body.clientOpId != null ? String(body.clientOpId) : null);
+
+  if (clientOpId) {
+    const { data: existing } = await supabase.from('inventory')
+      .select('id').eq('user_id', userId).eq('client_op_id', clientOpId).maybeSingle();
+    if (existing) return { inventoryId: existing.id };
+  }
+
   const limit = ITEM_LIMITS[tier] ?? null;
   if (limit !== null) {
     const { count } = await supabase
@@ -595,9 +610,19 @@ async function handleBuyItem(
     created_from: 'scan',
     sourcing_meta: body.sourcingMeta ?? null,
     photos: '[]',
+    client_op_id: clientOpId,
   }).select('id').single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Unique-violation on (user_id, client_op_id) means a concurrent duplicate
+    // request already created this row — return it instead of failing (P1-C).
+    if (error.code === '23505' && clientOpId) {
+      const { data: existing } = await supabase.from('inventory')
+        .select('id').eq('user_id', userId).eq('client_op_id', clientOpId).maybeSingle();
+      if (existing) return { inventoryId: existing.id };
+    }
+    throw new Error(error.message);
+  }
 
   if (body.scanLogId) {
     await supabase.from('scan_log')
@@ -610,7 +635,7 @@ async function handleBuyItem(
 
 // ── Inventory handlers ──────────────────────────────────────────────────────
 
-async function handleInventoryList(
+export async function handleInventoryList(
   supabase: ReturnType<typeof createClient>,
   userId: number,
   settings: Settings,
@@ -633,12 +658,27 @@ async function handleInventoryList(
   return { items: items ?? [], itemCount: count ?? 0, settings, tier, pageSize, pageOffset };
 }
 
-async function handleInventoryCreate(
+// P1-C: the web client assigns each locally-created item a stable id
+// (app.html itemForServer/pushItemToServer) before the first save attempt and
+// resends that same id on every retry of the same logical save. Using it as
+// client_op_id — enforced unique per user at the database layer — means a
+// double tap, client retry, timeout retry, or reconnect/replay of the same
+// save can never create more than one inventory row; a duplicate request
+// reuses the already-created row instead of erroring.
+export async function handleInventoryCreate(
   supabase: ReturnType<typeof createClient>,
   userId: number,
   tier: string,
   body: Record<string, unknown>,
 ) {
+  const clientOpId = body.id != null ? String(body.id) : null;
+
+  if (clientOpId) {
+    const { data: existing } = await supabase.from('inventory')
+      .select('*').eq('user_id', userId).eq('client_op_id', clientOpId).maybeSingle();
+    if (existing) return { item: existing };
+  }
+
   // Tier gate — check BEFORE writing
   const limit = ITEM_LIMITS[tier] ?? null;
   if (limit !== null) {
@@ -674,13 +714,23 @@ async function handleInventoryCreate(
     photos,
     created_from: body.createdFrom ?? 'manual',
     photo_count:  Array.isArray(photos) ? photos.length : 0,
+    client_op_id: clientOpId,
   }).select('*').single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Unique-violation on (user_id, client_op_id) means a concurrent duplicate
+    // request already created this row — return it instead of failing (P1-C).
+    if (error.code === '23505' && clientOpId) {
+      const { data: existing } = await supabase.from('inventory')
+        .select('*').eq('user_id', userId).eq('client_op_id', clientOpId).maybeSingle();
+      if (existing) return { item: existing };
+    }
+    throw new Error(error.message);
+  }
   return { item };
 }
 
-async function handleInventoryUpdate(
+export async function handleInventoryUpdate(
   supabase: ReturnType<typeof createClient>,
   userId: number,
   body: Record<string, unknown>,
@@ -708,7 +758,7 @@ async function handleInventoryUpdate(
   return { item };
 }
 
-async function handleInventoryDelete(
+export async function handleInventoryDelete(
   supabase: ReturnType<typeof createClient>,
   userId: number,
   body: Record<string, unknown>,
@@ -729,7 +779,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   'Ready to Export': ['Listed'],
 };
 
-async function handleInventoryStatus(
+export async function handleInventoryStatus(
   supabase: ReturnType<typeof createClient>,
   userId: number,
   body: Record<string, unknown>,
@@ -739,8 +789,14 @@ async function handleInventoryStatus(
   if (!itemId || !newStatus) throw new Error('Missing id or status');
 
   const { data: current, error: fetchErr } = await supabase.from('inventory')
-    .select('status').eq('id', itemId).eq('user_id', userId).single();
+    .select('*').eq('id', itemId).eq('user_id', userId).single();
   if (fetchErr || !current) throw new Error('Item not found');
+
+  // P1-C: a retried status-transition request (double tap, client retry,
+  // reconnect/replay) that finds the item already in the requested state is a
+  // no-op success, not an error — this is what keeps a retried "mark Sold"
+  // from ever producing a second sale effect.
+  if (current.status === newStatus) return { item: current };
 
   const allowed = VALID_TRANSITIONS[current.status as string] ?? [];
   if (!allowed.includes(newStatus)) {
@@ -1395,6 +1451,12 @@ const STATIC_KEYWORDS = [
 const STATIC_CATEGORIES = ['Electronics', 'Clothing', 'Collectibles', 'Home & Garden'];
 const STATIC_TIP = 'Electronics with original boxes sell 30% faster — always include if available.';
 
+// P1-D/P1-K: guarded so this module can be imported by tests (e.g.
+// inventory_isolation_test.ts) without starting an HTTP listener as a
+// side effect. Supabase Edge Functions invoke this file directly as the
+// entrypoint, so import.meta.main is true in production — no deployed
+// behavior changes.
+if (import.meta.main) {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
 
@@ -1573,3 +1635,4 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Internal error' }, 500);
   }
 });
+}
