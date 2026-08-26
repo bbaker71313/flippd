@@ -4,6 +4,76 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-26 — P0 market-data remediation: provider-agnostic identification + eBay Catalog/Taxonomy/Browse + SoldComps architecture (infrastructure only, not wired live)
+
+### Context
+
+Continuation of the Chapter 02 P0 remediation (2026-08-25 sessions below). Product owner confirmed eBay Marketplace Insights production access is denied and approved a replacement architecture: provider-agnostic identification + eBay Catalog + Taxonomy + Browse + **SoldComps** (`api.sold-comps.com`) sold-history data → deterministic ScanForProfit metrics → existing deterministic financial math / `decide()`. Instructions explicitly required stopping and reporting `BLOCKED — PRODUCT DECISION REQUIRED` for anything undefined rather than inventing it, and explicitly forbade wiring this into the live decision path if doing so would fabricate results.
+
+### What was built (new files only — no existing file's runtime behavior changed)
+
+**`packages/shared`** (tested via `node --test`, mirrored into `supabase/functions/_shared` per the existing financialEngine.ts precedent since Deno can't import `packages/`):
+- `src/types/marketData.ts` — provider-agnostic types: `IdentityCandidate`, `CatalogMatch`, `CategoryResolution`, `SoldCompListing`, `ActiveMarketEvidence`, `SoldPriceStats`, `MarketTurnoverEstimate`, `MarketMetrics`, `MarketDataResult`/`MarketDataFailure`. `MarketMetrics.sellThroughRate` and `.demandLevel` are typed as literal `null` — not `number | null` — so nothing can accidentally start populating them before the blocked formula/thresholds are approved.
+- `src/utils/marketMetrics.ts` (+ 12 tests) — `computeSoldPriceStats()` (median/average/range/evidence-quality from verified SoldComps comps; Best-Offer-accepted comps excluded from the primary calc — see Product Decisions below) and `computeMarketTurnoverDays()` (the product-owner-approved formula `activeInventory / averageVerifiedSalesPerDay`, verified against the task's own worked example: 45 sales/90 days, 18 active → 36 days).
+
+**`supabase/functions/_shared`** (new, Deno — could not execute, no Deno runtime in this sandbox, same limitation as every prior session):
+- `marketData.ts`, `marketMetrics.ts` (+ `_test.ts`) — Deno mirrors of the above.
+- `ebayAppAuth.ts` — eBay client-credentials app token (Browse/Catalog/Taxonomy don't need a user's connected account, unlike `ebay-oauth`'s user flow). Reuses the existing `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` secrets — **no new eBay credential required** for this part.
+- `ebayTaxonomy.ts` — `resolveCategory()` via the real Taxonomy API (`get_default_category_tree_id` + `get_category_suggestions`).
+- `ebayCatalog.ts` — `catalogSearchByGtin()` / `catalogSearchByKeywords()`, distinguishes exact (single GTIN match) from probable (keyword) matches, never forces a match.
+- `ebayBrowse.ts` — `searchActiveListings()` — active-listing count/price range, kept structurally distinct from sold evidence.
+- `soldCompsProvider.ts` — `SoldMarketDataProvider` interface + `SoldCompsProvider` implementation with runtime field validation (drops, never fabricates, malformed records) and a `getSoldMarketDataProvider()` factory that returns `null` when `SOLDCOMPS_API_KEY` isn't set. **Contract not live-verified** — see Blockers.
+- `itemIdentification.ts` — `ItemIdentifier` interface; `ClaudeVisionIdentifier` is the only implemented/working adapter (only `ANTHROPIC_API_KEY` exists as a secret today); `OpenAiVisionIdentifier`/`GeminiVisionIdentifier` exist as real classes that throw clearly if selected, so the boundary is real rather than aspirational, not fake working code.
+- `marketDataPipeline.ts` — orchestrates identification → Catalog → Taxonomy → SoldComps + Browse → `computeSoldPriceStats`/`computeMarketTurnoverDays`, returning `MarketDataResult`. **Not called by `claude-proxy` or any live handler** — see below.
+
+### Explicitly NOT wired into the live scan path this session (deliberate, not an oversight)
+
+`claude-proxy/index.ts` and `app.html` are untouched. Flipping any live scan handler over to this new pipeline today would make **every single scan return SKIP**, because `decide()` already (correctly, from the 2026-08-25 session) fails the STR and demand thresholds whenever they're `null`, and this pipeline can only ever produce `null` for both until the two blocked formulas below are approved. That would be a much larger, undisclosed behavior change than "continue P0" authorizes. `marketDataSource` in scan responses is unchanged (`'ai_estimate'`).
+
+### Product Decisions Needed (reported per Anti-Drift Contract §1, not resolved)
+
+1. **Sell-through-rate formula** — no formula/denominator/time-window is defined anywhere in the repo (checked `FEATURE_TRIAGE.md`, `docs/files/DECISIONS.md`, `decisionEngine.ts`) beyond the AI prompt's own prose ("% of listings that actually sell"). `MarketMetrics.sellThroughRate` stays `null` until this is defined; raw sold/active counts are preserved in `SoldPriceStats`/`ActiveMarketEvidence` so the formula can be applied once approved.
+2. **Demand-level thresholds** — no thresholds for LOW/MEDIUM/HIGH/VERY HIGH exist as verified-evidence rules (today `demand_level` is purely an AI-assigned label). `MarketMetrics.demandLevel` stays `null` until thresholds (from sold velocity/active competition/STR/turnover) are approved.
+3. **Best Offer comps — exclude vs. down-weight** — implemented the conservative default (exclude from `computeSoldPriceStats`'s median/average/range, but keep `excludedBestOfferCount` in the evidence so nothing is silently discarded) because down-weighting would require inventing a weight with no basis. This still needs explicit product-owner confirmation per the task instructions ("report BLOCKED... before inventing a weighting rule") — flagging rather than treating my default as approved.
+
+### Blockers
+
+- **`SOLDCOMPS_API_KEY` is not configured** — `getSoldMarketDataProvider()` returns `null`; the pipeline reports `SOLDCOMPS_NOT_CONFIGURED` rather than falling back to anything.
+- **SoldComps API contract not live-verified.** This sandbox's network egress to `sold-comps.com` is blocked (`EGRESS_BLOCKED` from the fetch tool), so `https://sold-comps.com/docs` could not be read directly. `soldCompsProvider.ts` is built from the exact field list the product owner supplied in this task plus third-party search-result corroboration (Bearer `sc_...` key, GET request, ≤40 results/call) — the base path, exact query-param name, and response envelope need confirming against a real account/API key before this is trusted in production. The runtime validator rejects anything that doesn't match rather than silently trusting it.
+- **No Deno runtime in this sandbox** — none of the new `supabase/functions/_shared/*.ts` files could be executed, only type-reviewed (same limitation logged in every prior Chapter 02 session).
+- **eBay Catalog/Taxonomy/Browse calls are also unexecuted** — written against eBay's stable, long-documented endpoints with high confidence, but not smoke-tested against a live `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` from this sandbox.
+
+### Tests / verification
+
+- `packages/shared`: `node --test` — **56/56 passing** (44 pre-existing + 12 new `marketMetrics.test.ts`, including the task doc's own turnover worked example and Best-Offer-exclusion behavior).
+- `npx tsc --noEmit` in `packages/shared`: **0 errors**.
+- `npx tsc --noEmit` in `apps/web`: same pre-existing failures as every prior session (missing `node_modules` — `pnpm install` never run in this sandbox); zero new errors, nothing under `apps/web` was touched.
+- `deno test supabase/functions/_shared/` — **not run**, no Deno runtime available.
+- No live eBay/SoldComps API calls were made (no working credential path exercised).
+
+### Assumptions Made
+
+- Evidence-quality bucketing in `computeSoldPriceStats` (strong ≥8 comps, moderate ≥3, weak <3) is presentational metadata only — it never feeds `HOT`/`LIST`/`SKIP`, price, or profit — so it was picked directly rather than escalated; flagging here for visibility rather than treating it as silent.
+- `DEFAULT_SOLD_WINDOW_DAYS = 90` in `marketDataPipeline.ts` uses SoldComps' documented data-coverage window (up to 90 days per search, per third-party corroboration), not an invented business window — kept distinct from the still-undefined STR window.
+- eBay Catalog/Taxonomy/Browse endpoint paths and request/response shapes were written from well-established, long-stable eBay API documentation (training knowledge), not live-verified this session — flagged as a blocker above rather than asserted as tested.
+
+### Out-of-Scope Findings
+
+- Barcode/OCR identification evidence (task doc's preferred evidence order, rungs 1–3) has no implementation anywhere in the live app — `itemIdentification.ts` currently only reaches rung 6 (visual AI). Not built this session (would require camera/barcode-scan UI work in `app.html`, well beyond "continue the market-data pipeline").
+- `claude-proxy/index.ts` is 1,462 lines, over the repo's own 500-line file limit — pre-existing, unrelated to this session, not touched.
+
+### Next task
+
+1. Get product-owner decisions on the two blocked formulas (STR, demand thresholds) and the Best-Offer exclude-vs-down-weight confirmation.
+2. Obtain/confirm `SOLDCOMPS_API_KEY` and the real API contract (a teammate with un-blocked network access should fetch `https://sold-comps.com/docs` directly and diff it against `soldCompsProvider.ts`'s `parseSoldComp()`).
+3. Once 1–2 are resolved, wire `runMarketDataPipeline()` into `claude-proxy`'s single-item scan handler behind an explicit `marketDataSource: 'verified_ebay_soldcomps'` vs `'ai_estimate'` flag (do not silently replace the AI path) and re-run a manual smoke test before removing the AI-estimate fallback.
+4. Someone with Supabase CLI/deploy access: run `deno test supabase/functions/_shared/` for real (this and prior sessions could only type-review Deno code).
+5. Unrelated, carried over: Stripe E2E verification, PostHog event audit, `apps/mobile` build status (see CURRENT_STATE.md roadmap).
+
+**Final status: P0 NOT COMPLETE.** Infrastructure (identification abstraction, eBay Catalog/Taxonomy/Browse clients, SoldComps provider, deterministic price/turnover metrics) is built and unit-tested where it's pure logic, but three product decisions and one credential remain genuinely blocked, and per this task's own instructions none of them were guessed. No AI-generated market fact can affect authoritative HOT/LIST/SKIP today — confirmed unchanged from the 2026-08-25 session, since nothing new was wired into the live decision path.
+
+---
+
 ## Session: 2026-08-25 — Remove dead eBay OAuth columns from `users` (follow-up to PR #128)
 
 ### What was done
