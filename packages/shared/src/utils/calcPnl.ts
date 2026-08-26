@@ -10,16 +10,24 @@ export function calcPnl(
 ): PnlSummary {
   const { ebayFee, pkgCost, shipping, shipCost, taxReservePct, mileageRate } = settings
 
-  // Revenue and cost from sold items
+  // Revenue and cost from sold items — realized revenue must come from the
+  // actual soldPrice (P0 #3), never the listing/expected sellPrice. A sold
+  // item with no recorded soldPrice is excluded from the dollar totals
+  // rather than having its price fabricated from sellPrice or any estimate.
   let totalRevenue   = 0
   let totalCogs      = 0
   let totalFees      = 0
   let totalPackaging = 0
   let totalShipping  = 0
+  let itemsMissingSoldPrice = 0
 
   for (const item of soldItems) {
-    const sell = item.sellPrice ?? 0
-    const cost = item.cost      ?? 0
+    if (item.soldPrice == null) {
+      itemsMissingSoldPrice++
+      continue
+    }
+    const sell = item.soldPrice
+    const cost = item.cost ?? 0
     totalRevenue   += sell
     totalCogs      += cost
     totalFees      += sell * (ebayFee / 100)
@@ -73,6 +81,7 @@ export function calcPnl(
     itemsSold,
     itemsListed,
     itemsUnlisted,
+    itemsMissingSoldPrice,
     periodLabel,
   }
 }

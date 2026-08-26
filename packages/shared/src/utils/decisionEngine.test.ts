@@ -56,10 +56,31 @@ test('roi slightly below targetRoi fails -> SKIP', () => {
   assert.equal(r.decision, 'SKIP');
 });
 
-test('roi null (zero/unknown cost) never passes ROI threshold', () => {
+// Zero-cost ROI correction (2026-08-26): a genuine $0 acquisition cost makes
+// roi null (see calcProfit). null roi must bypass the ROI threshold, not
+// fail it — a free item is not penalized just because % ROI is undefined.
+test('roi null ($0 acquisition cost) bypasses the ROI threshold — not an automatic SKIP', () => {
   const r = decide({ ...BASE, roi: null });
-  assert.equal(r.roiPass, false);
+  assert.equal(r.roiPass, true);
+  assert.equal(r.decision, 'HOT');
+});
+
+test('$0-cost item passing every other required threshold qualifies as HOT', () => {
+  const r = decide({ ...BASE, roi: null, demandLevel: 'VERY HIGH' });
+  assert.equal(r.decision, 'HOT');
+  assert.equal(r.failingThresholds.length, 0);
+});
+
+test('$0-cost item still SKIPs when another required threshold fails', () => {
+  const r = decide({ ...BASE, roi: null, sellThroughRate: 0 });
+  assert.equal(r.roiPass, true);
+  assert.equal(r.strPass, false);
   assert.equal(r.decision, 'SKIP');
+});
+
+test('normal nonzero-cost ROI threshold behavior is unchanged', () => {
+  assert.equal(decide({ ...BASE, roi: 200, targetRoi: 200 }).roiPass, true);
+  assert.equal(decide({ ...BASE, roi: 199.99, targetRoi: 200 }).decision, 'SKIP');
 });
 
 test('sellThroughRate exactly equal to minSellThroughRate passes', () => {

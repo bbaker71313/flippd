@@ -28,6 +28,7 @@ export function buildInventoryPayload(input: CreateItemInput): InventoryPayload 
     condition: input.condition ?? 'Used',
     cost: Math.max(0, input.cost),
     sellPrice: input.sellPrice ?? null,
+    soldPrice: null, // never sold yet — never inferred from sellPrice (P0 #3)
     status: 'Unlisted',
     platform: input.platform ?? 'eBay',
     notes: input.notes?.trim() ?? null,
