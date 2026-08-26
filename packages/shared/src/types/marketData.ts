@@ -8,6 +8,7 @@
 //
 // No field here is populated by AI. AI may only populate `IdentityCandidate`
 // (see itemIdentification.ts) — never SoldEvidence/ActiveEvidence/MarketMetrics.
+import type { DemandLevel } from "./index"
 
 // ── Identification (provider-agnostic — see itemIdentification.ts) ────────
 
@@ -141,15 +142,16 @@ export interface MarketMetrics {
   soldPriceStats: SoldPriceStats
   activeMarketEvidence: ActiveMarketEvidence | null
   turnover: MarketTurnoverEstimate | null
-  // BLOCKED — no approved formula/denominator/time window exists yet
-  // (see docs/files/DECISIONS.md — report as PRODUCT DECISION REQUIRED).
-  // Raw counts above (soldCountInWindow, activeInventoryCount) are preserved
-  // so the formula can be applied once approved — this field must stay null
-  // until then; never approximate it from turnover or price stats.
-  sellThroughRate: null
-  // BLOCKED — no approved demand-level thresholds exist yet. Never assign a
-  // demand label from AI or from an invented threshold.
-  demandLevel: null
+  // Approved formula (product-owner-approved 2026-08-26):
+  //   STR = soldCount90d / (soldCount90d + activeCount) * 100
+  // null when there is no evidence to divide (both counts zero) — never a
+  // fabricated 0%. See computeSellThroughRate in marketMetrics.ts.
+  sellThroughRate: number | null
+  // Approved thresholds (product-owner-approved 2026-08-26), derived from
+  // verified sellThroughRate + verified marketTurnoverDays only — never from
+  // AI confidence or wording. null when STR or turnover is unavailable — a
+  // missing input is never treated as LOW. See computeDemandLevel.
+  demandLevel: DemandLevel | null
 }
 
 // ── Pipeline failure states — provider failure is not a business decision.

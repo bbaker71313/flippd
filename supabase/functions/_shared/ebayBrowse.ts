@@ -2,6 +2,11 @@
 // competition evidence (task doc §3). Never represents active asking
 // prices as sold prices; kept structurally distinct (ActiveMarketEvidence)
 // from SoldComps sold evidence.
+//
+// LIVE-VERIFIED 2026-08-26: item_summary/search with the production
+// client-credentials token returns 200 with itemSummaries[].{itemId,
+// title, price:{value,currency}, condition, conditionId, itemWebUrl, ...}
+// — matches the parsing below exactly, no changes needed.
 import { getEbayAppAccessToken, ebayApiBase, EbayAppAuthError } from "./ebayAppAuth.ts";
 import type { ActiveMarketEvidence, ActiveListingSummary } from "./marketData.ts";
 

@@ -65,6 +65,15 @@ test('DB sold_price -> domain soldPrice: null vs a real value are handled distin
   assert.equal(r.totalRevenue, 0);
 });
 
+test('$0 acquisition cost — genuine free item still contributes real revenue/profit, never SKIPped or excluded', () => {
+  const freeItem = mkItem({ id: 1, cost: 0, soldPrice: 40 });
+  const r = calcPnl([freeItem], [freeItem], [], SETTINGS, 'All Time');
+  assert.equal(r.itemsMissingSoldPrice, 0);
+  assert.equal(r.totalRevenue, 40);
+  assert.equal(r.totalCogs, 0);
+  assert.ok(r.netProfit > 0);
+});
+
 test('existing unsold-item behavior is unchanged — Listed/Unlisted items never enter revenue calc', () => {
   const sold     = mkItem({ id: 1, status: 'Sold', soldPrice: 50, cost: 10 });
   const listed   = mkItem({ id: 2, status: 'Listed', soldPrice: null, sellPrice: 75 });

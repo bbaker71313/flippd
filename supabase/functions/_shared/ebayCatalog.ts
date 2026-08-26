@@ -3,6 +3,17 @@
 // possible (task doc §2). Distinguishes exact from probable matches and
 // never forces a catalog match onto weak evidence — an unmatched/ambiguous
 // result returns matchType: 'none', it does not fall back to a guess.
+//
+// LIVE-VERIFIED 2026-08-26: the existing production EBAY_CLIENT_ID/SECRET
+// client-credentials token (default api_scope — same token that grants
+// Browse and Taxonomy) gets HTTP 403 "Insufficient permissions to fulfill
+// the request" (eBay errorId 1100) from this endpoint. Catalog access is
+// not currently entitled for this app. This does not fail the pipeline —
+// catalogSearchByGtin/catalogSearchByKeywords already return matchType:
+// 'none' on any non-ok response, and the pipeline treats catalog match as
+// best-effort/informational — but callers should not expect a working
+// catalog match until this is entitled (report as PRODUCT/PLATFORM
+// DECISION, not silently retried with different scopes/paths).
 import { getEbayAppAccessToken, ebayApiBase, EbayAppAuthError } from "./ebayAppAuth.ts";
 import type { CatalogMatch } from "./marketData.ts";
 

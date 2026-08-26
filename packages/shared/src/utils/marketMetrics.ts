@@ -1,15 +1,12 @@
 import type {
   SoldCompListing, SoldPriceStats, MarketTurnoverEstimate,
 } from "../types/marketData"
+import type { DemandLevel } from "../types"
 
 // Deterministic market-metrics math only. No AI values, no network calls,
 // no invented data. Every function here takes already-verified provider
 // evidence (SoldComps sold comps, eBay Browse active counts) and computes a
 // number from it — or returns null/zero when the evidence can't support one.
-//
-// Sell-through rate and demand level are intentionally NOT computed here —
-// no approved formula/denominator/window (STR) or threshold set (demand)
-// exists yet. See packages/shared/src/types/marketData.ts MarketMetrics.
 
 // Best Offer handling (task doc "Best Offer Handling"): a completed listing
 // with bestOfferAccepted === true displays a listing/asking price that is
@@ -93,6 +90,37 @@ export function computeMarketTurnoverDays(
     soldCountInWindow,
     activeInventoryCount,
   }
+}
+
+// Approved formula (product-owner-approved 2026-08-26):
+//   STR = soldCount90d / (soldCount90d + activeCount) * 100
+// soldCount90d/activeCount must both be verified counts from the same 90-day
+// evidence window (SoldComps sold comps, eBay Browse active listings) — never
+// an AI estimate. Returns null (never a fabricated 0%) when there is no
+// evidence at all to form a ratio from (both counts zero).
+export function computeSellThroughRate(
+  soldCount90d: number,
+  activeCount: number,
+): number | null {
+  const denominator = soldCount90d + activeCount
+  if (denominator <= 0) return null
+  return round2((soldCount90d / denominator) * 100)
+}
+
+// Approved thresholds (product-owner-approved 2026-08-26). Evaluated highest
+// tier downward. Both inputs must be verified (STR from computeSellThroughRate,
+// turnover from computeMarketTurnoverDays) — a missing input returns null
+// (unavailable demand), never LOW. AI confidence/wording may never affect
+// this result.
+export function computeDemandLevel(
+  sellThroughRate: number | null,
+  marketTurnoverDays: number | null,
+): DemandLevel | null {
+  if (sellThroughRate === null || marketTurnoverDays === null) return null
+  if (sellThroughRate >= 70 && marketTurnoverDays <= 30) return 'VERY HIGH'
+  if (sellThroughRate >= 50 && marketTurnoverDays <= 45) return 'HIGH'
+  if (sellThroughRate >= 30 && marketTurnoverDays <= 90) return 'MEDIUM'
+  return 'LOW'
 }
 
 function round2(n: number): number {

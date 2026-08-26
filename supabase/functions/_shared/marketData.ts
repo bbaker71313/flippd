@@ -2,6 +2,8 @@
 // Duplicated intentionally — see financialEngine.ts for why (unverified
 // cross-package import through the Supabase CLI bundler). Keep in lockstep.
 
+import type { DemandLevel } from "./decisionEngine.ts"
+
 export type IdentificationEvidenceKind =
   | 'barcode' | 'gtin' | 'upc' | 'ean' | 'isbn'
   | 'model_number' | 'manufacturer_part_number'
@@ -110,8 +112,12 @@ export interface MarketMetrics {
   soldPriceStats: SoldPriceStats
   activeMarketEvidence: ActiveMarketEvidence | null
   turnover: MarketTurnoverEstimate | null
-  sellThroughRate: null   // BLOCKED — no approved formula yet, see HANDOFF.md
-  demandLevel: null       // BLOCKED — no approved thresholds yet, see HANDOFF.md
+  // Approved formula (product-owner-approved 2026-08-26):
+  //   STR = soldCount90d / (soldCount90d + activeCount) * 100
+  sellThroughRate: number | null
+  // Approved thresholds (product-owner-approved 2026-08-26) — see
+  // computeDemandLevel in marketMetrics.ts.
+  demandLevel: DemandLevel | null
 }
 
 export type MarketDataFailureReason =
