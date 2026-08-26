@@ -54,7 +54,8 @@ export interface InventoryItem {
   category: string | null
   condition: ItemCondition | null
   cost: number | null
-  sellPrice: number | null
+  sellPrice: number | null    // listing/expected price — what the seller asked or expects
+  soldPrice: number | null    // actual realized sale price — never inferred from sellPrice
   status: ItemStatus
   platform: string
   photos: string[]
@@ -174,7 +175,7 @@ export interface GrowthReport {
 
 // P&L types — port from ScanForProfit_v5_24.html
 export interface PnlSummary {
-  totalRevenue: number        // sum of sold items sell_price
+  totalRevenue: number        // sum of sold items' actual soldPrice — never listing/expected price
   totalCogs: number           // sum of sold items cost
   totalFees: number           // ebayFee applied to each sale
   totalShipping: number       // shipping costs paid (seller-pays mode only)
@@ -188,6 +189,7 @@ export interface PnlSummary {
   itemsSold: number
   itemsListed: number
   itemsUnlisted: number
+  itemsMissingSoldPrice: number  // Sold items excluded from $ totals — no fabricated soldPrice
   periodLabel: string         // "This Month" | "Last 30 Days" | "All Time"
 }
 
@@ -280,7 +282,7 @@ export type DemandLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY HIGH'
 
 export interface DecisionInputs {
   netProfit: number
-  roi: number | null          // null = unknown/undefined (e.g. zero cost) — never passes ROI threshold
+  roi: number | null          // null = $0 acquisition cost — ROI threshold is bypassed (not failed), see decide()
   sellThroughRate: number | null   // null = unverified/unavailable
   daysToSell: number | null        // null = unverified/unavailable
   demandLevel: DemandLevel | null  // null = unverified/unavailable

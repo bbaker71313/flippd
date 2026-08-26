@@ -2499,6 +2499,10 @@ function mergeServerItem(serverItem) {
   return {
     ...serverItem,
     sellPrice: serverItem.sell_price ?? serverItem.sellPrice ?? '',
+    // soldPrice = actual sale price (P0 #3) — kept distinct from sellPrice
+    // (listing/expected price); null/undefined means genuinely unrecorded,
+    // never fall back to sellPrice here.
+    soldPrice: serverItem.sold_price ?? serverItem.soldPrice ?? null,
     dateAcquired: serverItem.dateAcquired || (serverItem.created_at ? serverItem.created_at.slice(0, 10) : ''),
     createdAt: serverItem.createdAt || serverItem.created_at,
     photos: local?.photos || [],
@@ -2659,6 +2663,17 @@ function calcProfit(cost, price) {
   return p - c - (p * S.ebayFee / 100) - S.pkgCost;
 }
 function profitStr(cost, price) { return calcProfit(cost,price).toFixed(2); }
+
+// Realized P&L for a sold item must use its actual sale price — never fall
+// back to the listing/expected sellPrice when soldPrice is missing (P0 #3).
+// Returns null (not 0) when no sale price is recorded, so callers can
+// exclude the item from $ totals instead of fabricating a value.
+function getSoldPrice(item) {
+  const raw = item.soldPrice ?? item.sold_price;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 // ══════════════════════════════════════════════════
 // INVENTORY — RENDER
@@ -2888,13 +2903,15 @@ function showSoldDetail(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
   const Sv = S;
-  const soldPrice = parseFloat(item.soldPrice || item.sold_price || 0);
+  // Actual sale price only — never fall back to a listing/expected price (P0 #3).
+  const soldPriceVal = getSoldPrice(item);
+  const soldPrice = soldPriceVal ?? 0;
   const cost = parseFloat(item.cost) || 0;
   const ebayFeeAmt = soldPrice * ((Sv.ebayFee || 13) / 100);
   const pkgAmt = Sv.pkgCost || 1.25;
   const shipAmt = (Sv.shipping === 'seller') ? (Sv.shipCost || 6) : 0;
-  const netProfit = soldPrice - cost - ebayFeeAmt - pkgAmt - shipAmt;
-  const roi = cost > 0 ? ((netProfit / cost) * 100).toFixed(0) : 'N/A';
+  const netProfit = soldPriceVal === null ? null : soldPrice - cost - ebayFeeAmt - pkgAmt - shipAmt;
+  const roi = (soldPriceVal !== null && cost > 0) ? ((netProfit / cost) * 100).toFixed(0) : 'N/A';
   const _soldStoredPhotos = (photoMap && photoMap[item.id]) || [];
   const thumbUrl = (item.photo_urls && item.photo_urls[0])
     || (_soldStoredPhotos && _soldStoredPhotos[0])
@@ -2921,14 +2938,15 @@ function showSoldDetail(id) {
     <div class="card" style="margin:12px 0">
       <div style="font-size:10px;letter-spacing:0.14em;font-weight:800;color:var(--muted);margin-bottom:8px">PROFIT BREAKDOWN</div>
       <div style="font-size:13px;line-height:2.2;color:var(--text)">
-        <div class="flex-between"><span>Sale price</span><span>$${soldPrice.toFixed(2)}</span></div>
+        <div class="flex-between"><span>Sale price</span><span>${soldPriceVal === null ? 'Not recorded' : '$'+soldPrice.toFixed(2)}</span></div>
         <div class="flex-between"><span>Cost paid</span><span>−$${cost.toFixed(2)}</span></div>
+        ${soldPriceVal === null ? '' : `
         <div class="flex-between"><span>eBay fee (${Sv.ebayFee||13}%)</span><span>−$${ebayFeeAmt.toFixed(2)}</span></div>
         <div class="flex-between"><span>Packaging</span><span>−$${pkgAmt.toFixed(2)}</span></div>
         ${shipAmt > 0 ? `<div class="flex-between"><span>Shipping</span><span>−$${shipAmt.toFixed(2)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;font-weight:700">
           <span>Net Profit</span><span class="${netProfit >= 0 ? 'u-pos' : 'u-neg'}">$${netProfit.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>
+        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>`}
       </div>
     </div>
     <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistById(${item.id})">Relist This Item</button>`;
@@ -4517,8 +4535,10 @@ function confirmSold() {
   if (!price || isNaN(parseFloat(price))) { alert('Enter the sale price.'); return; }
   const profit = calcProfit(soldModalItem.cost, price);
   const soldAt = new Date().toISOString();
+  // soldPrice is the actual sale price; sellPrice (listing/expected price)
+  // is preserved as-is rather than overwritten by the sale (P0 #3).
   items = items.map(i => i.id === soldModalItem.id
-    ? {...i, status:'Sold', sellPrice:price, soldDate: soldAt, notes:(i.notes||'').replace(/SOLD.*?\./,'').trim() + ` SOLD ${new Date().toLocaleDateString()} for $${price}.`}
+    ? {...i, status:'Sold', soldPrice:price, sold_price:price, soldDate: soldAt, notes:(i.notes||'').replace(/SOLD.*?\./,'').trim() + ` SOLD ${new Date().toLocaleDateString()} for $${price}.`}
     : i
   );
   saveItems();
@@ -4828,16 +4848,22 @@ function renderDashboard() {
   const unlisted  = items.filter(i => i.status === 'Unlisted');
   const Sv = S;
 
+  // Realized P&L uses only sold items with an actual recorded sale price
+  // (P0 #3) — a Sold item missing soldPrice is excluded from $ totals rather
+  // than having its price fabricated from the listing/expected sellPrice.
+  const soldPriced        = sold.filter(i => getSoldPrice(i) !== null);
+  const soldMissingPrice  = sold.length - soldPriced.length;
+
   // KPI computation
-  const totalSales  = sold.reduce((s, i) => s + parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0), 0);
-  const totalCosts  = sold.reduce((s, i) => s + parseFloat(i.cost || 0), 0);
-  const totalFees   = sold.reduce((s, i) => {
-    const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
+  const totalSales  = soldPriced.reduce((s, i) => s + getSoldPrice(i), 0);
+  const totalCosts  = soldPriced.reduce((s, i) => s + parseFloat(i.cost || 0), 0);
+  const totalFees   = soldPriced.reduce((s, i) => {
+    const sp = getSoldPrice(i);
     return s + sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
   }, 0);
   const netProfit   = totalSales - totalCosts - totalFees;
   const margin      = totalSales > 0 ? ((netProfit / totalSales) * 100).toFixed(1) : '0.0';
-  const missingCost = sold.some(i => i.cost == null || i.cost === '' || parseFloat(i.cost) <= 0);
+  const missingCost = soldPriced.some(i => i.cost == null || i.cost === '' || parseFloat(i.cost) <= 0);
   const roi         = (!missingCost && totalCosts > 0) ? ((netProfit / totalCosts) * 100).toFixed(0) : 'N/A';
 
   // Expenses from pnl_expenses (use existing expense data structure)
@@ -4847,10 +4873,10 @@ function renderDashboard() {
 
   // Category breakdown
   const catMap = {};
-  sold.forEach(i => {
+  soldPriced.forEach(i => {
     const cat = i.category || 'Other';
     if (!catMap[cat]) catMap[cat] = { sales: 0, profit: 0, count: 0 };
-    const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
+    const sp = getSoldPrice(i);
     const cost = parseFloat(i.cost || 0);
     const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
     catMap[cat].sales += sp; catMap[cat].profit += sp - cost - fee; catMap[cat].count++;
@@ -4864,20 +4890,20 @@ function renderDashboard() {
     const label = d.toLocaleDateString('en-US', { month: 'short' });
     const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
     const mEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.created_at || i.createdAt); return dt >= mStart && dt <= mEnd; });
+    const mSold  = allSold.filter(i => { const dt = new Date(i.soldDate || i.sold_at || i.created_at || i.createdAt); return dt >= mStart && dt <= mEnd; }).filter(i => getSoldPrice(i) !== null);
     const mProfit = mSold.reduce((s, i) => {
-      const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
+      const sp = getSoldPrice(i);
       const cost = parseFloat(i.cost || 0);
       const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
       return s + sp - cost - fee;
     }, 0);
-    months.push({ label, profit: mProfit, sales: mSold.reduce((s,i)=>s+parseFloat(i.soldPrice||i.sold_price||i.sell_price||0),0) });
+    months.push({ label, profit: mProfit, sales: mSold.reduce((s,i)=>s+getSoldPrice(i),0) });
   }
   const maxMonthVal = Math.max(...months.map(m => Math.max(m.profit, m.sales)), 1);
 
   // Top performers / underperformers
-  const soldWithProfit = sold.map(i => {
-    const sp = parseFloat(i.soldPrice || i.sold_price || i.sell_price || 0);
+  const soldWithProfit = soldPriced.map(i => {
+    const sp = getSoldPrice(i);
     const cost = parseFloat(i.cost || 0);
     const fee = sp * ((Sv.ebayFee || 13) / 100) + (Sv.pkgCost || 1.25);
     return { ...i, _profit: sp - cost - fee };
@@ -4927,6 +4953,7 @@ function renderDashboard() {
       </div>
     </div>
     ${missingCost && sold.length > 0 ? '<div style="font-size:10px;color:var(--muted);font-family:\'IBM Plex Mono\',monospace;margin-top:4px;padding:0 2px">* ROI requires cost entered on all sold items. Open each item in Inventory to add cost.</div>' : ''}
+    ${soldMissingPrice > 0 ? `<div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:4px;padding:0 2px">* ${soldMissingPrice} sold item${soldMissingPrice===1?'':'s'} missing an actual sale price — excluded from totals above, not estimated.</div>` : ''}
 
     <!-- EXPENSE TRACKER -->
     <div class="ph-section-title">Expense Tracker</div>
@@ -5008,10 +5035,10 @@ function renderDashboard() {
     <!-- RECENT SALES -->
     <div class="ph-section-title">Recent Sales</div>
     <div class="ph-card">
-      ${sold.length ? `<table class="ph-table">
+      ${soldPriced.length ? `<table class="ph-table">
         <thead><tr><th>Item</th><th>Sold $</th><th>Profit</th></tr></thead>
-        <tbody>${[...sold].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.created_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.created_at||a.createdAt)).slice(0,10).map(i => {
-          const sp=parseFloat(i.soldPrice||i.sold_price||0),c=parseFloat(i.cost||0),f=sp*((Sv.ebayFee||13)/100)+(Sv.pkgCost||1.25),p=sp-c-f;
+        <tbody>${[...soldPriced].sort((a,b)=>new Date(b.soldDate||b.sold_at||b.created_at||b.createdAt)-new Date(a.soldDate||a.sold_at||a.created_at||a.createdAt)).slice(0,10).map(i => {
+          const sp=getSoldPrice(i),c=parseFloat(i.cost||0),f=sp*((Sv.ebayFee||13)/100)+(Sv.pkgCost||1.25),p=sp-c-f;
           return `<tr>
             <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(i.nickname)}</td>
             <td>$${sp.toFixed(2)}</td>
@@ -7254,13 +7281,15 @@ function showKpiDrillDown(type) {
   }
 
   const rows = soldItems.length ? soldItems.map(i=>{
-    const profit = calcProfit(i.cost, i.sellPrice);
+    // Realized sale price only \u2014 never the listing sellPrice (P0 #3).
+    const sp = getSoldPrice(i);
+    const profit = sp === null ? null : calcProfit(i.cost, sp);
     return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
       <div><div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(i.nickname)}</div>
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${escHtml(i.sku||'')} \u00b7 ${new Date(i.createdAt||i.dateAcquired).toLocaleDateString()}</div></div>
       <div class="text-right">
-        <div style="font-size:13px;font-weight:700;color:var(--green)">$${parseFloat(i.sellPrice||0).toFixed(2)}</div>
-        <div style="font-size:10px;color:${profit>=0?'var(--green)':'var(--red)'};font-family:'IBM Plex Mono',monospace">${profit>=0?'+':''}$${profit.toFixed(2)}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--green)">${sp === null ? 'Not recorded' : '$'+sp.toFixed(2)}</div>
+        ${profit === null ? '' : `<div style="font-size:10px;color:${profit>=0?'var(--green)':'var(--red)'};font-family:'IBM Plex Mono',monospace">${profit>=0?'+':''}$${profit.toFixed(2)}</div>`}
       </div>
     </div>`;
   }).join('') : `<div style="text-align:center;padding:30px;color:var(--muted)">No sales in ${label}</div>`;
@@ -7991,11 +8020,12 @@ function exportFlippdBackup() {
     return [toCsvRow(headers), ...rows.map(r => toCsvRow(headers.map(h => r[h])))].join('\r\n');
   }
 
-  const invHeaders = ['id','item_id','sku','nickname','category','condition','date_acquired','platform','cost','sell_price','status','notes','created_at','listing_title','ebay_category','sold_at','updated_at','photo_count'];
+  const invHeaders = ['id','item_id','sku','nickname','category','condition','date_acquired','platform','cost','sell_price','sold_price','status','notes','created_at','listing_title','ebay_category','sold_at','updated_at','photo_count'];
   const invRows = items.map(i => ({
     id: i.id, item_id: i.item_id||'', sku: i.sku||'', nickname: i.nickname||'', category: i.category||'',
     condition: i.condition||'', date_acquired: i.dateAcquired||i.date_acquired||'', platform: i.platform||'eBay',
-    cost: i.cost||'', sell_price: i.sellPrice||i.sell_price||'', status: i.status||'', notes: i.notes||'',
+    // sell_price = listing/expected price; sold_price = actual sale price (P0 #3) — kept distinct, never merged.
+    cost: i.cost||'', sell_price: i.sellPrice||i.sell_price||'', sold_price: getSoldPrice(i) ?? '', status: i.status||'', notes: i.notes||'',
     created_at: i.createdAt||i.created_at||'', listing_title: i.listingTitle||i.listing_title||'',
     ebay_category: i.ebayCategory||i.ebay_category||'', sold_at: i.soldDate||i.sold_at||'',
     updated_at: i.updatedAt||i.updated_at||'', photo_count: (i.photos||[]).length + (i.photo_urls||[]).length
@@ -8087,9 +8117,13 @@ function sPnlTab(tab) {
 
 function sPnlRender() {
   var sold = items.filter(function(i){return i.status==='Sold';});
-  var totalRev = sold.reduce(function(s,i){return s+(parseFloat(i.sellPrice)||0);},0);
-  var totalProfit = sold.reduce(function(s,i){return s+calcProfit(i.cost,i.sellPrice);},0);
-  var totalFees = sold.reduce(function(s,i){return s+(parseFloat(i.sellPrice)||0)*(S.ebayFee/100);},0);
+  // Realized revenue/profit/fees use the actual soldPrice only — a sold item
+  // with no recorded soldPrice is excluded rather than priced from sellPrice
+  // or fabricated (P0 #3).
+  var soldPriced = sold.filter(function(i){return getSoldPrice(i) !== null;});
+  var totalRev = soldPriced.reduce(function(s,i){return s+getSoldPrice(i);},0);
+  var totalProfit = soldPriced.reduce(function(s,i){return s+calcProfit(i.cost,getSoldPrice(i));},0);
+  var totalFees = soldPriced.reduce(function(s,i){return s+getSoldPrice(i)*(S.ebayFee/100);},0);
   var totalExp = pnlExpenses.reduce(function(s,e){return s+(parseFloat(e.amount)||0);},0);
   var net = totalProfit - totalExp;
   var tax = net > 0 ? net * S.taxReservePct : 0;
@@ -8105,8 +8139,10 @@ function sPnlRender() {
       salesEl.innerHTML = '<div style="text-align:center;padding:32px 16px;border:2px dashed var(--border);border-radius:12px"><div style="font-size:28px;margin-bottom:8px"></div><div style="font-family:Syne,sans-serif;font-weight:900;color:var(--text);margin-bottom:6px">No sales yet</div><div style="font-size:12px;color:var(--muted);line-height:1.6">Mark items as Sold in your inventory to track P&L here.</div></div>';
     } else {
       salesEl.innerHTML = sold.slice().reverse().map(function(i) {
-        var p=calcProfit(i.cost,i.sellPrice);
-        return '<div class="item-card mb-8"><div style="font-weight:600;font-size:13px">'+escHtml(i.nickname||'Item')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Sold $'+parseFloat(i.sellPrice||0).toFixed(2)+' &middot; Cost $'+parseFloat(i.cost||0).toFixed(2)+' &middot; <span style="color:'+(p>=0?'var(--green)':'var(--red)')+'">Profit $'+p.toFixed(2)+'</span></div></div>';
+        var sp = getSoldPrice(i);
+        var soldStr = sp === null ? 'Not recorded' : '$'+sp.toFixed(2);
+        var profitStr = sp === null ? '' : ' &middot; <span style="color:'+(calcProfit(i.cost,sp)>=0?'var(--green)':'var(--red)')+'">Profit $'+calcProfit(i.cost,sp).toFixed(2)+'</span>';
+        return '<div class="item-card mb-8"><div style="font-weight:600;font-size:13px">'+escHtml(i.nickname||'Item')+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Sold '+soldStr+' &middot; Cost $'+parseFloat(i.cost||0).toFixed(2)+profitStr+'</div></div>';
       }).join('');
     }
   }
@@ -8126,12 +8162,14 @@ function sPnlMonthly() {
   var sold = items.filter(function(i){return i.status==='Sold';});
   var byMonth = {};
   sold.forEach(function(i) {
+    var sp = getSoldPrice(i);
+    if (sp === null) return; // no fabricated revenue/profit for a missing sale price (P0 #3)
     var d = new Date(i.createdAt||Date.now());
     var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     var label = d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
     if(!byMonth[key]) byMonth[key]={label:label,revenue:0,profit:0,count:0};
-    byMonth[key].revenue += parseFloat(i.sellPrice)||0;
-    byMonth[key].profit += calcProfit(i.cost,i.sellPrice);
+    byMonth[key].revenue += sp;
+    byMonth[key].profit += calcProfit(i.cost,sp);
     byMonth[key].count++;
   });
   var el = document.getElementById('spnl-mo-content');

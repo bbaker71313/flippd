@@ -14,8 +14,11 @@ import type { DecisionInputs, DecisionResult, ScanDecision } from "../types";
 //
 // A null market value (sellThroughRate/daysToSell/demandLevel unavailable)
 // fails that threshold rather than passing it — missing evidence is not
-// evidence of qualifying. A null roi (zero/undefined acquisition cost) fails
-// the ROI threshold for the same reason.
+// evidence of qualifying. A null roi means a genuine $0 acquisition cost
+// (see calcProfit) — ROI is not a meaningful ratio for a free item, so it is
+// neither fabricated nor treated as a failure: the ROI threshold is bypassed
+// (roiPass = true) and the other thresholds (profit/STR/days/demand) remain
+// fully authoritative.
 export function decide(inputs: DecisionInputs): DecisionResult {
   const {
     netProfit, roi, sellThroughRate, daysToSell, demandLevel,
@@ -23,7 +26,8 @@ export function decide(inputs: DecisionInputs): DecisionResult {
   } = inputs
 
   const profitPass = netProfit >= minProfit
-  const roiPass = roi !== null && roi >= targetRoi
+  // null roi = $0 acquisition cost: bypass, don't fail (see comment above)
+  const roiPass = roi === null ? true : roi >= targetRoi
   const strPass = sellThroughRate !== null && sellThroughRate >= minSellThroughRate
   const daysPass = daysToSell !== null && daysToSell <= maxDaysToSell
   const demandIsVeryHigh = demandLevel === 'VERY HIGH'

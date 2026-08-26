@@ -14,6 +14,11 @@
 // is not evidence of qualifying. Demand alone, or profit/ROI alone, never
 // independently trigger HOT. No sourcing-style multiplier, no AI confidence
 // substituting for a threshold.
+//
+// A null roi means a genuine $0 acquisition cost (see financialEngine.ts) —
+// ROI isn't a meaningful ratio for a free item, so it is neither fabricated
+// nor treated as a failure: the ROI threshold is bypassed (roiPass = true)
+// and the other thresholds stay fully authoritative.
 
 export type DemandLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY HIGH'
 export type ScanDecision = 'HOT' | 'LIST' | 'SKIP'
@@ -47,7 +52,8 @@ export function decide(inputs: DecisionInputs): DecisionResult {
   } = inputs
 
   const profitPass = netProfit >= minProfit
-  const roiPass = roi !== null && roi >= targetRoi
+  // null roi = $0 acquisition cost: bypass, don't fail (see comment above)
+  const roiPass = roi === null ? true : roi >= targetRoi
   const strPass = sellThroughRate !== null && sellThroughRate >= minSellThroughRate
   const daysPass = daysToSell !== null && daysToSell <= maxDaysToSell
   const demandIsVeryHigh = demandLevel === 'VERY HIGH'

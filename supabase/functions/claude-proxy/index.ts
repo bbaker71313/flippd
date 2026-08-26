@@ -638,8 +638,9 @@ async function handleInventoryStatus(
   if (newStatus === 'Listed') updates.listed_at = new Date().toISOString();
   if (newStatus === 'Sold') {
     updates.sold_at = new Date().toISOString();
+    // sold_price is the actual sale price. sell_price is the listing/expected
+    // price and must be preserved as-is — never overwritten by the sale (P0 #3).
     if (body.actualSellPrice != null) {
-      updates.sell_price = body.actualSellPrice;
       updates.sold_price = body.actualSellPrice;
     }
   }
@@ -837,9 +838,14 @@ function calcPnlServer(
   const taxReservePct = settings.tax_reserve_pct ?? 0.25; // never hardcoded
   const mileageRate  = settings.mileage_rate ?? 0.72;     // never hardcoded
 
+  // Realized revenue must come from the actual sold_price (P0 #3), never the
+  // listing/expected sell_price. A Sold item with no recorded sold_price is
+  // excluded from the dollar totals rather than having its price fabricated.
   let totalRevenue = 0, totalCogs = 0, totalFees = 0, totalPackaging = 0, totalShipping = 0;
+  let itemsMissingSoldPrice = 0;
   for (const item of soldItems) {
-    const sell = Number(item.sell_price ?? 0);
+    if (item.sold_price == null) { itemsMissingSoldPrice++; continue; }
+    const sell = Number(item.sold_price);
     const cost = Number(item.cost ?? 0);
     totalRevenue   += sell;
     totalCogs      += cost;
@@ -874,6 +880,7 @@ function calcPnlServer(
     avgDaysToSell,  itemsSold: soldItems.length,
     itemsListed:   allItems.filter(i => i.status === 'Listed').length,
     itemsUnlisted: allItems.filter(i => i.status === 'Unlisted').length,
+    itemsMissingSoldPrice,
     periodLabel,
   };
 }
