@@ -69,7 +69,7 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
 
   const soldProvider = getSoldMarketDataProvider();
   if (!soldProvider) {
-    return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'SOLDCOMPS_API_KEY is not set' };
+    return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'None of SOLD_COMPS_API_KEY / SOLD_COMP_API_KEY / SOLDCOMPS_API_KEY is set' };
   }
 
   const soldResult = await soldProvider.searchSoldComps({ searchTerms: query });

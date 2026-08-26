@@ -4,6 +4,31 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-26 (follow-up) — SoldComps secret name: check all 3 candidate names
+
+### What was done
+
+Direct follow-up to PR #132 (merged to `main` as `d3235be`). Product owner said the SoldComps API key is already set as a Supabase secret, but wasn't certain of the exact name — either `SOLD_COMPS_API_KEY` or `SOLD_COMP_API_KEY`. No tool in this session can list Supabase secret names (Supabase MCP here has no `list_secrets`-equivalent, by design — secret values/names aren't readable via API), so rather than guess a single name, `getSoldMarketDataProvider()` in `supabase/functions/_shared/soldCompsProvider.ts` now checks `SOLD_COMPS_API_KEY`, then `SOLD_COMP_API_KEY`, then the original `SOLDCOMPS_API_KEY` guess, first match wins. This is a technical fix (which literal env var name maps to the one real credential), not a product decision.
+
+`marketDataPipeline.ts`'s `SOLDCOMPS_NOT_CONFIGURED` failure detail message updated to name all three checked variables.
+
+### Files changed
+- `supabase/functions/_shared/soldCompsProvider.ts` — `getSoldMarketDataProvider()` now checks 3 candidate env var names instead of 1
+- `supabase/functions/_shared/marketDataPipeline.ts` — updated failure-detail string to match
+
+### Still blocking (unchanged from PR #132)
+- SoldComps API contract still not live-verified (egress to `sold-comps.com` blocked in this sandbox) — whichever of the 3 names holds the real key, `parseSoldComp()`'s field mapping and the request shape in `SoldCompsProvider.searchSoldComps()` still need confirming against a live call before this provider can be trusted.
+- Sell-through-rate formula, demand-level thresholds, and the Best-Offer exclude-vs-down-weight rule are still undefined — this pipeline remains unwired from `claude-proxy`/`app.html`.
+- No Deno runtime in this sandbox — could not execute `soldCompsProvider.ts` to confirm the env lookup works at runtime, only reviewed the change.
+
+### Tests
+`packages/shared`: `node --test` — 56/56 passing (unaffected, this change only touched Deno-only files). No shared-package file changed.
+
+### Next task
+Whoever has real Supabase project access: confirm which of the 3 names is actually set (`supabase secrets list` via CLI, or the dashboard), and once confirmed, collapse `SOLDCOMPS_API_KEY_ENV_NAMES` down to that single name. Then do the live SoldComps contract check from PR #132's blockers.
+
+---
+
 ## Session: 2026-08-26 — P0 market-data remediation: provider-agnostic identification + eBay Catalog/Taxonomy/Browse + SoldComps architecture (infrastructure only, not wired live)
 
 ### Context
