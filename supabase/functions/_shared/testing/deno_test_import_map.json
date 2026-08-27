@@ -1,0 +1,7 @@
+{
+  "//": "Local-only accommodation for running this repo's Deno tests in sandboxes where deno.land/esm.sh egress is policy-blocked (registry.npmjs.org is allowed). Never referenced by deployed functions or by supabase deploy config — pass explicitly via `deno test --import-map=...`. See docs/HANDOFF.md.",
+  "imports": {
+    "https://deno.land/std@0.224.0/assert/mod.ts": "./assert.ts",
+    "https://esm.sh/@supabase/supabase-js@2": "npm:@supabase/supabase-js@2"
+  }
+}
