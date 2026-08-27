@@ -1535,6 +1535,7 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
       <div id="inv-form-detect-status" style="font-size:12px;color:var(--muted);margin-top:8px;font-family:'IBM Plex Mono',monospace"></div>
       <!-- Change 21: multi-photo gallery (photo_urls + photos) shown during edit -->
       <div id="inv-form-edit-photos" style="display:none;margin-top:10px"></div>
+      <div id="inv-form-shelf-ref-photo" style="display:none;margin-top:10px"></div>
     </div>
 
     <div class="form-grid">
@@ -2333,16 +2334,98 @@ function openPhotoDB() {
   });
 }
 
+// P2-20: low-level write only — reports real success/failure instead of
+// always resolving (the previous `tx.onerror = resolve` treated a failed
+// write the same as a successful one, and photoMap was updated *before* the
+// write was confirmed, so the UI could show a photo as saved when it never
+// reached IndexedDB at all). Never updates photoMap itself — callers use
+// persistPhotos() below, which only does that on confirmed success.
 function savePhotosIDB(itemId, photos) {
-  if (!photos || !photos.length) return Promise.resolve();
-  // Keep module-level photoMap in sync so thumbnails appear immediately after save
-  photoMap[itemId] = photos;
+  if (!photos || !photos.length) return Promise.resolve({ success: true });
   return openPhotoDB().then(function(db) {
-    var tx = db.transaction('photos', 'readwrite');
-    var store = tx.objectStore('photos');
-    store.put({ key: 'item_' + itemId, data: photos });
-    return new Promise(function(resolve) { tx.oncomplete = resolve; tx.onerror = resolve; });
-  }).catch(function(){});
+    return new Promise(function(resolve) {
+      var tx;
+      try {
+        tx = db.transaction('photos', 'readwrite');
+      } catch (err) {
+        resolve({ success: false, code: 'unavailable', error: err && err.message });
+        return;
+      }
+      var store = tx.objectStore('photos');
+      try {
+        store.put({ key: 'item_' + itemId, data: photos });
+      } catch (err) {
+        var code = (err && err.name === 'QuotaExceededError') ? 'quota' : 'unknown';
+        resolve({ success: false, code: code, error: err && err.message });
+        return;
+      }
+      tx.oncomplete = function() { resolve({ success: true }); };
+      tx.onerror = function() {
+        var err = tx.error;
+        var code = (err && err.name === 'QuotaExceededError') ? 'quota' : 'unknown';
+        resolve({ success: false, code: code, error: err && err.message });
+      };
+      tx.onabort = function() { resolve({ success: false, code: 'unknown', error: 'transaction aborted' }); };
+    });
+  }).catch(function(err) {
+    // openPhotoDB() itself rejected — e.g. Safari private browsing throws on indexedDB.open.
+    return { success: false, code: 'unavailable', error: err && err.message };
+  });
+}
+
+// P2-20: per-item explicit save state + the last-attempted photos array
+// (so a retry can resend exactly what failed, and a page refresh doesn't
+// need to guess). 'saved' means confirmed in IndexedDB; a photo is never
+// reported to the user as saved before that.
+var photoSaveStatus = {};   // itemId -> 'pending'|'saving'|'saved'|'failed'
+var _pendingPhotoSaves = {}; // itemId -> photos array awaiting a successful save
+var _photoRetryTimers = {};  // itemId -> setTimeout handle for the one bounded auto-retry
+
+function getPhotoSaveStatus(itemId) { return photoSaveStatus[itemId] || null; }
+
+// The wrapper every caller should use instead of savePhotosIDB directly.
+// isRetry=true suppresses the automatic retry (bounded to one attempt, not
+// an infinite loop) and the "will retry" toast wording.
+function persistPhotos(itemId, photos, isRetry) {
+  if (!photos || !photos.length) return Promise.resolve(true);
+  photoSaveStatus[itemId] = 'saving';
+  _pendingPhotoSaves[itemId] = photos;
+  return savePhotosIDB(itemId, photos).then(function(result) {
+    if (result.success) {
+      // Only now — after IndexedDB actually confirms the write — is this
+      // reflected as saved, and only now does the in-memory cache (which
+      // renderInventory/thumbnails read from) get updated.
+      photoMap[itemId] = photos;
+      photoSaveStatus[itemId] = 'saved';
+      delete _pendingPhotoSaves[itemId];
+      if (_photoRetryTimers[itemId]) { clearTimeout(_photoRetryTimers[itemId]); delete _photoRetryTimers[itemId]; }
+      return true;
+    }
+    photoSaveStatus[itemId] = 'failed';
+    var msg = result.code === 'quota'
+      ? 'Photo storage is full — free up space, then reopen this item to retry.'
+      : (result.code === 'unavailable'
+        ? 'Photo storage is unavailable on this browser (e.g. private browsing) — the photo could not be saved.'
+        : 'Photo failed to save' + (isRetry ? '.' : ' — retrying…'));
+    showToast(msg);
+    if (!isRetry && result.code === 'unknown') {
+      // One bounded automatic retry for a transient failure — never an
+      // infinite loop, and never for the two error classes that won't
+      // resolve themselves (quota/unavailable need the user to act).
+      _photoRetryTimers[itemId] = setTimeout(function() { retryPhotoSave(itemId); }, 3000);
+    }
+    return false;
+  });
+}
+
+// Re-sends exactly the photos that failed — safe against duplication since
+// the underlying IDB write is a put() keyed by item id (an upsert, not an
+// append), so a retry always overwrites the same record rather than adding
+// a second one.
+function retryPhotoSave(itemId) {
+  var pending = _pendingPhotoSaves[itemId];
+  if (!pending || !pending.length) return Promise.resolve(true);
+  return persistPhotos(itemId, pending, true);
 }
 
 function loadPhotosIDB(itemId) {
@@ -2360,8 +2443,43 @@ function loadPhotosIDB(itemId) {
 function deletePhotosIDB(itemId) {
   return openPhotoDB().then(function(db) {
     var tx = db.transaction('photos', 'readwrite');
-    tx.objectStore('photos').delete('item_' + itemId);
+    var store = tx.objectStore('photos');
+    store.delete('item_' + itemId);
+    store.delete('shelfref_' + itemId); // P2-22: clean up the reference photo too, never orphan it
   }).catch(function(){});
+}
+
+// P2-22: shelf-scan source-image carry-through. Stored under a distinct
+// `shelfref_` key in the same IDB object store — never mixed into an item's
+// `photos` array, which is treated elsewhere as the item's own listing
+// photos (photos[0] becomes image_url, the default listing thumbnail). A
+// shelf photo can show several items at once and is a sourcing/reference
+// image, not a clean single-item listing photo — keeping it in a separate
+// key means it can never accidentally become an item's primary photo.
+function saveShelfRefPhotoIDB(itemId, dataUrl) {
+  if (!dataUrl) return Promise.resolve({ success: false });
+  return openPhotoDB().then(function(db) {
+    return new Promise(function(resolve) {
+      var tx;
+      try { tx = db.transaction('photos', 'readwrite'); }
+      catch (err) { resolve({ success: false, error: err && err.message }); return; }
+      try { tx.objectStore('photos').put({ key: 'shelfref_' + itemId, data: dataUrl }); }
+      catch (err) { resolve({ success: false, error: err && err.message }); return; }
+      tx.oncomplete = function() { resolve({ success: true }); };
+      tx.onerror = function() { resolve({ success: false, error: tx.error && tx.error.message }); };
+    });
+  }).catch(function(err) { return { success: false, error: err && err.message }; });
+}
+
+function loadShelfRefPhotoIDB(itemId) {
+  return openPhotoDB().then(function(db) {
+    var tx = db.transaction('photos', 'readonly');
+    var req = tx.objectStore('photos').get('shelfref_' + itemId);
+    return new Promise(function(resolve) {
+      req.onsuccess = function() { resolve(req.result ? req.result.data : null); };
+      req.onerror = function() { resolve(null); };
+    });
+  }).catch(function(){ return null; });
 }
 
 // Module-level photo map — populated by hydratePhotos(), consulted at render time
@@ -2422,7 +2540,7 @@ function loadItems() {
     if (needsMigration) {
       saved.forEach(function(i) {
         if (i.photos && i.photos.length > 0) {
-          savePhotosIDB(i.id, i.photos);
+          persistPhotos(i.id, i.photos);
           i.photos = [];
         }
       });
@@ -2463,7 +2581,7 @@ function saveItems() {
     // Save each item's photos to IndexedDB
     items.forEach(function(item) {
       if (item.photos && item.photos.length > 0) {
-        savePhotosIDB(item.id, item.photos);
+        persistPhotos(item.id, item.photos);
       }
     });
   } catch(e) {
@@ -2565,7 +2683,7 @@ async function pushItemToServer(item) {
       if (typeof photoMap !== 'undefined' && photoMap[oldId]) {
         const photos = photoMap[oldId];
         delete photoMap[oldId];
-        await savePhotosIDB(newId, photos);
+        await persistPhotos(newId, photos);
       }
       saveItems();
       renderInventory();
@@ -2949,7 +3067,7 @@ function relistItem(id) {
   delete newItem.ebayItemId;
   // Copy photos from IndexedDB for the original item into the new item
   if (typeof photoMap !== 'undefined' && photoMap[item.id]) {
-    savePhotosIDB(newId, photoMap[item.id]);
+    persistPhotos(newId, photoMap[item.id]);
     photoMap[newId] = photoMap[item.id];
   }
   items.push(newItem);
@@ -3390,6 +3508,7 @@ function startEdit(id) {
   document.getElementById('inv-form-detect-status').textContent = '';
   // Change 21: multi-photo gallery — show photos from both photo_urls and photos arrays
   invRenderPhotoGallery(item);
+  invRenderShelfRefPhoto(item); // P2-22
   updateProfitPreview();
   showInvView('add');
   window.scrollTo(0, 0);
@@ -3419,6 +3538,26 @@ function invRenderPhotoGallery(item) {
         </div>`;
       }).join('')
     + `</div>`;
+}
+
+// P2-22: shows the shelf photo this item was sourced from, if one was
+// captured. Deliberately kept out of invRenderPhotoGallery/photos[] above —
+// this is a sourcing/reference image (may show several items at once, not
+// just this one), never labeled or treated as one of this item's listing
+// photos.
+async function invRenderShelfRefPhoto(item) {
+  const el = document.getElementById('inv-form-shelf-ref-photo');
+  if (!el) return;
+  if (!item || !item.sourcing_meta || !item.sourcing_meta.has_shelf_reference_photo) {
+    el.style.display = 'none';
+    return;
+  }
+  const dataUrl = await loadShelfRefPhotoIDB(item.id);
+  if (!dataUrl) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<div class="edit-photos-label">SOURCED FROM THIS SHELF PHOTO</div>
+    <div class="u-text-xs u-muted" style="margin-bottom:6px">Reference only — may show other items too. Not one of this item's listing photos.</div>
+    <img src="${escHtml(dataUrl)}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">`;
 }
 
 function editRemovePhoto(itemId, photoIdx) {
@@ -3585,7 +3724,7 @@ function saveInvItem() {
       if (newItem) {
         const pending = window._paPreloadPhotos.slice(0, 4);
         window._paPreloadPhotos = null;
-        savePhotosIDB(newItem.id, pending).then(() => {
+        persistPhotos(newItem.id, pending).then(() => {
           items = items.map(i => i.id === newItem.id ? {...i, photos: pending} : i);
           saveItems();
           editingId = null;
@@ -3859,15 +3998,17 @@ async function paSaveToItem() {
   // Load existing photos from IDB, combine, cap at 4
   const existing = await loadPhotosIDB(paTargetItemId);
   const combined = [...existing, ...saved].slice(0, 4);
-  // Save combined photos to IDB
-  await savePhotosIDB(paTargetItemId, combined);
+  // Save combined photos to IDB — P2-20: only report success once persistence
+  // actually confirms it; persistPhotos() has already shown a failure toast
+  // and queued a retry if this returns false.
+  const ok = await persistPhotos(paTargetItemId, combined);
   // Update item in memory
   items = items.map(i => {
     if (i.id !== paTargetItemId) return i;
     return {...i, photos: combined};
   });
   saveItems();
-  showToast(`${saved.length} photo${saved.length!==1?'s':''} saved to item`);
+  if (ok) showToast(`${saved.length} photo${saved.length!==1?'s':''} saved to item`);
   // Redirect to edit screen showing the updated photos
   const targetId = paTargetItemId;
   paReset();
@@ -5774,13 +5915,27 @@ function handleImage(e) {
   const slotNum = scanImgFiles.length + 1;
   showToast(slotNum === 1 ? 'Photo attached...' : 'Photo ' + slotNum + '/3 added...');
   fileToBase64NoDecodeAndThumb(file).then(async function(res) {
-    const blobUrl = URL.createObjectURL(file);
+    // Defensive: on the rare device where even createObjectURL fails, the
+    // capture must still succeed — just without a thumbnail (placeholder
+    // fallback in renderPhotoStrip). The captured File itself is unaffected
+    // either way since it's read directly from `res.file`, not from this URL.
+    let blobUrl = null;
+    try { blobUrl = URL.createObjectURL(file); } catch(_) {}
     const f = res.file;
-    try { Object.defineProperty(f, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {}
-    // Skip thumbnail decode entirely — createImageBitmap can still OOM-kill
-    // the WebView on low-memory devices (e.g. when screen recording is active),
-    // even at 80×80. The text placeholder in renderPhotoStrip is sufficient.
-    try { Object.defineProperty(f, '_thumbUrl', { value: null, configurable: true }); } catch(_) {}
+    if (blobUrl) { try { Object.defineProperty(f, '_blobUrl', { value: blobUrl, configurable: true }); } catch(_) {} }
+    // P2-20a: reuse the same object URL as the thumbnail source instead of
+    // decoding the photo in JS at all (createImageBitmap + canvas — the
+    // approach that previously OOM-killed the WebView on low-memory devices,
+    // even at an 80×80 target, because some engines still decode full
+    // resolution internally before downsampling). An <img src=blob-url>
+    // rendered into the 80×80 .scan-thumb box via object-fit:cover is
+    // decoded by the browser's own native image pipeline, not a JS-side
+    // pixel buffer — no additional heap allocation beyond the object URL
+    // handle itself, and no base64/duplicate copy of the image is created.
+    // Revocation is already handled everywhere _blobUrl is revoked
+    // (removePhoto, retake, clear), since this is the same URL, not a
+    // second one needing separate cleanup.
+    if (blobUrl) { try { Object.defineProperty(f, '_thumbUrl', { value: blobUrl, configurable: true }); } catch(_) {} }
     scanImgFiles.push(f);
     imgFile = scanImgFiles[0];
     imgB64 = 'HAS_FILE';
@@ -6378,16 +6533,25 @@ function renderShelf(shelfItems) {
   showSrcView('shelf');
 }
 
-function buyShelfItem(itemIndex) {
+async function buyShelfItem(itemIndex) {
   if (!currentShelfItems || !currentShelfItems[itemIndex]) {
     showToast('Item not found');
     return;
   }
   const shelfItem = currentShelfItems[itemIndex];
-  // Shelf items must NOT inherit the shelf photo — the shelf shot shows
-  // many items, not the individual one. User will attach a real photo of
-  // this specific item later from inventory edit / Photos tab.
+  // P2-22: the shelf photo itself is NOT one of this item's listing photos —
+  // a shelf shot can show several items at once, so it must never become
+  // photos[0]/image_url (the item's default listing thumbnail). It's carried
+  // through separately as a labeled sourcing/reference image (see
+  // saveShelfRefPhotoIDB below) so the user can still see what it was
+  // sourced from, without it being mistaken for a clean listing photo. User
+  // still attaches a real listing photo later from inventory edit / Photos tab.
   const photos = [];
+  // Still-available File from the shelf capture, if the user hasn't navigated
+  // away/retaken a photo since scanning (scanImgFiles is cleared on those
+  // actions) — grabbed now, before any further async work, so it can't be
+  // cleared out from under us.
+  const shelfSourceFile = (scanImgFiles && scanImgFiles.length) ? scanImgFiles[0] : null;
   // Never invent an acquisition cost — the user hasn't bought this yet.
   // Leave cost/profit/ROI blank for them to fill in from the actual receipt.
   const sellPrice = parseFloat(shelfItem.avg_sold_price) || 0;
@@ -6431,6 +6595,33 @@ function buyShelfItem(itemIndex) {
   renderFilteredList();
   showInvView('list');
   showToast(`"${newItem.nickname}" added! SKU: ${newItem.sku}`);
+
+  // P2-22: attach the shelf reference photo, if still available. Best-effort
+  // and non-blocking — the item above is already fully created either way,
+  // never held up by or rolled back for this. Reuses makeScanThumb (a small
+  // 80×80 decode with its own graceful-null-on-failure handling, same as the
+  // scanner preview thumbnail) rather than storing the full-resolution shelf
+  // photo — this is a "what was this sourced from" reference, not a listing
+  // photo, so it doesn't need to be full size, and avoids holding a second
+  // large image in memory/storage per bought item.
+  if (shelfSourceFile) {
+    try {
+      const thumb = await makeScanThumb(shelfSourceFile);
+      if (thumb) {
+        const saveResult = await saveShelfRefPhotoIDB(newItem.id, thumb);
+        if (saveResult.success) {
+          newItem.sourcing_meta = {...(newItem.sourcing_meta||{}), has_shelf_reference_photo: true};
+          saveItems();
+          const idx = items.findIndex(i => i.id === newItem.id);
+          if (idx !== -1 && document.getElementById('inv-form-edit-photos')) invRenderPhotoGallery(items[idx]);
+        }
+        // A failed save here is not surfaced with its own toast — the item
+        // itself is already safely created and shown to the user; losing
+        // just the reference photo is a minor, non-blocking degradation, not
+        // a failure of the action the user actually asked for (buy this item).
+      }
+    } catch (e) { console.error('shelf reference photo capture failed:', e); }
+  }
 }
 
 function goSrcBack() { clearImage(); showSrcView('input'); }
