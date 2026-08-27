@@ -19,13 +19,20 @@ export type PhaseStatus = {
   status: 'success' | 'partial' | 'failed' | 'skipped';
   count: number;
   detail?: string;
+  // P2-24: true when this phase's fetch hit its pagination safety ceiling
+  // before exhausting all of eBay's data — the caller must not report this
+  // phase (or the overall sync) as a complete success when this is true.
+  truncated?: boolean;
 };
 
 export function overallSyncStatus(phases: PhaseStatus[]): 'success' | 'partial_failure' | 'failure' {
   const relevant = phases.filter((p) => p.status !== 'skipped');
   if (relevant.length === 0) return 'success';
   if (relevant.every((p) => p.status === 'failed')) return 'failure';
-  if (relevant.every((p) => p.status === 'success')) return 'success';
+  // P2-24: a phase that reconciled everything it fetched but stopped fetching
+  // early (hit its pagination ceiling) is not a complete success — never
+  // report a fully-synced result when data was intentionally truncated.
+  if (relevant.every((p) => p.status === 'success' && !p.truncated)) return 'success';
   return 'partial_failure';
 }
 

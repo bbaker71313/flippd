@@ -141,33 +141,105 @@ export type RawOffer = {
   categoryId?: string | number;
 };
 
+// P2-24: eBay's REST list endpoints (inventory_item, offer, order) cap each
+// response at 200 records and expose `total`/`offset`/`limit` for
+// pagination. A single `limit=200` call silently returned only the first
+// page for any seller with more than 200 records. This walks every page up
+// to a safety ceiling (configurable — EBAY_SYNC_MAX_PAGES, default 25 pages
+// = 5000 records) rather than looping forever; hitting the ceiling is
+// reported as `truncated: true` so a sync is never claimed complete when it
+// wasn't. offset strictly increases every iteration and an empty/short page
+// always stops the loop, so a stuck continuation can't spin.
+const DEFAULT_PAGE_SIZE = 200;
+
+function ebaySyncMaxPages(): number {
+  const raw = Number(Deno.env.get('EBAY_SYNC_MAX_PAGES'));
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 25;
+}
+
+interface PagedEbayResult<T> {
+  ok: boolean;
+  status: number;
+  items: T[];
+  truncated: boolean;
+}
+
+async function fetchEbayPaged<T>(
+  makeUrl: (limit: number, offset: number) => string,
+  headers: Record<string, string>,
+  // deno-lint-ignore no-explicit-any
+  extractItems: (data: any) => T[] | undefined,
+  // deno-lint-ignore no-explicit-any
+  extractTotal: (data: any) => number | undefined,
+  pageSize = DEFAULT_PAGE_SIZE,
+): Promise<PagedEbayResult<T>> {
+  const maxPages = ebaySyncMaxPages();
+  const items: T[] = [];
+  let offset = 0;
+  let lastStatus = 200;
+
+  for (let page = 0; page < maxPages; page++) {
+    const res = await fetchWithRetry(makeUrl(pageSize, offset), { headers });
+    lastStatus = res.status;
+    if (!res.ok) {
+      // A failure on the very first page means the whole fetch failed — no
+      // usable data. A failure partway through means we do have some data,
+      // but stopped before exhausting the list — that's a truncation, not a
+      // clean end, so it must not be reported as a complete fetch.
+      if (page === 0) return { ok: false, status: res.status, items, truncated: false };
+      return { ok: true, status: res.status, items, truncated: true };
+    }
+
+    // deno-lint-ignore no-explicit-any
+    const data = await res.json() as any;
+    const pageItems = extractItems(data) ?? [];
+    items.push(...pageItems);
+    const total = extractTotal(data);
+    offset += pageSize;
+
+    if (pageItems.length === 0) return { ok: true, status: lastStatus, items, truncated: false };
+    if (typeof total === 'number' && items.length >= total) return { ok: true, status: lastStatus, items, truncated: false };
+    if (pageItems.length < pageSize) return { ok: true, status: lastStatus, items, truncated: false };
+    if (page === maxPages - 1) return { ok: true, status: lastStatus, items, truncated: true };
+  }
+  return { ok: true, status: lastStatus, items, truncated: true };
+}
+
 // Best-effort sku->title enrichment for offers. Never a reason to fail a
 // phase — swallow errors and return whatever was gathered (possibly empty).
 export async function fetchInventoryTitleMap(
   apiBase: string,
   headers: Record<string, string>,
-): Promise<Record<string, string>> {
+): Promise<{ titleMap: Record<string, string>; truncated: boolean }> {
   const titleMap: Record<string, string> = {};
+  let truncated = false;
   try {
-    const itemsRes = await fetchWithRetry(`${apiBase}/sell/inventory/v1/inventory_item?limit=200`, { headers });
-    if (itemsRes.ok) {
-      const itemsData = await itemsRes.json();
-      for (const item of (itemsData.inventoryItems ?? [])) {
-        if (item.sku && item.product?.title) titleMap[item.sku] = item.product.title;
-      }
+    // deno-lint-ignore no-explicit-any
+    const { items, truncated: t } = await fetchEbayPaged<any>(
+      (limit, offset) => `${apiBase}/sell/inventory/v1/inventory_item?limit=${limit}&offset=${offset}`,
+      headers,
+      (d) => d.inventoryItems,
+      (d) => d.total,
+    );
+    truncated = t;
+    for (const item of items) {
+      if (item.sku && item.product?.title) titleMap[item.sku] = item.product.title;
     }
   } catch { /* title lookup is best-effort */ }
-  return titleMap;
+  return { titleMap, truncated };
 }
 
 export async function fetchOffers(
   apiBase: string,
   headers: Record<string, string>,
-): Promise<{ ok: boolean; status: number; offers: RawOffer[] }> {
-  const offersRes = await fetchWithRetry(`${apiBase}/sell/inventory/v1/offer?limit=200`, { headers });
-  if (!offersRes.ok) return { ok: false, status: offersRes.status, offers: [] };
-  const offersData = await offersRes.json();
-  return { ok: true, status: offersRes.status, offers: offersData.offers ?? [] };
+): Promise<{ ok: boolean; status: number; offers: RawOffer[]; truncated: boolean }> {
+  const { ok, status, items, truncated } = await fetchEbayPaged<RawOffer>(
+    (limit, offset) => `${apiBase}/sell/inventory/v1/offer?limit=${limit}&offset=${offset}`,
+    headers,
+    (d) => d.offers,
+    (d) => d.total,
+  );
+  return { ok, status, offers: items, truncated };
 }
 
 // Reads the connected seller's eBay username (needed for the Finding API
@@ -211,33 +283,42 @@ export async function resolveSellerUsername(
 
 export type FindingItem = { itemId: string; title: string | null; sellPrice: number | null };
 
-// Paginates the Finding API (max 200 listings / 2 pages, matching the
-// pre-P1-I behavior) and returns a flat, already-parsed item list. Pure
-// transport/parsing — no DB access, no reconciliation decisions.
+// P2-24: previously hard-capped at 2 pages / 200 listings — a seller with
+// more active listings than that silently only got the first 200 synced.
+// Now paginates up to the same configurable safety ceiling as the REST
+// endpoints (ebaySyncMaxPages()) using eBay's own reported totalEntries to
+// know when it's genuinely done, and reports `truncated: true` if the
+// ceiling is hit first rather than claiming a complete fetch. findingPage
+// strictly increases and an empty/short page always stops the loop, so a
+// repeated/stuck page can't spin forever.
 export async function fetchActiveListingsViaFindingApi(
   findingUrl: string,
   appId: string,
   sellerName: string,
-): Promise<{ items: FindingItem[]; err: string | null }> {
+): Promise<{ items: FindingItem[]; err: string | null; truncated: boolean }> {
   const items: FindingItem[] = [];
   let err: string | null = null;
   let findingPage = 1;
   let totalFindings = 0;
-  while (findingPage <= 2) { // max 200 listings (2 pages × 100)
+  const maxPages = ebaySyncMaxPages();
+  while (findingPage <= maxPages) {
     const findUrl = `${findingUrl}?OPERATION-NAME=findItemsAdvanced&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
     const findRes = await fetchWithRetry(findUrl, { headers: { Accept: 'application/json' } });
     if (!findRes.ok) {
       console.error('ebay finding-api http error:', findRes.status, await findRes.text().catch(() => ''));
       err = `HTTP ${findRes.status}`;
-      break;
+      return { items, err, truncated: findingPage > 1 };
     }
     const findData = await findRes.json();
     // Check for API-level errors (eBay returns HTTP 200 even for invalid requests)
     const apiError = findData?.errorMessage?.[0]?.error?.[0]?.message?.[0];
-    if (apiError) { err = apiError; console.error('ebay finding-api error response:', apiError); break; }
+    if (apiError) {
+      console.error('ebay finding-api error response:', apiError);
+      return { items, err: apiError, truncated: findingPage > 1 };
+    }
     const response = findData?.findItemsAdvancedResponse?.[0];
     const foundItems: Record<string, unknown>[] = (response?.searchResult?.[0]?.item ?? []) as Record<string, unknown>[];
-    if (foundItems.length === 0) break;
+    if (foundItems.length === 0) return { items, err, truncated: false };
     for (const fi of foundItems) {
       const itemId = ((fi.itemId as string[]) ?? [])[0] ?? null;
       const title = ((fi.title as string[]) ?? [])[0] ?? null;
@@ -249,10 +330,10 @@ export async function fetchActiveListingsViaFindingApi(
       totalFindings++;
     }
     const totalEntries = parseInt(String(response?.paginationOutput?.[0]?.totalEntries?.[0] ?? '0'), 10);
-    if (totalFindings >= totalEntries || foundItems.length < 100) break;
+    if (totalFindings >= totalEntries || foundItems.length < 100) return { items, err, truncated: false };
     findingPage++;
   }
-  return { items, err };
+  return { items, err, truncated: true };
 }
 
 export type RawOrder = {
@@ -270,12 +351,13 @@ export async function fetchOrders(
   apiBase: string,
   headers: Record<string, string>,
   sinceIso: string,
-): Promise<{ ok: boolean; status: number; orders: RawOrder[] }> {
-  const ordersRes = await fetchWithRetry(
-    `${apiBase}/sell/fulfillment/v1/order?filter=creationdate:[${sinceIso}..]&limit=200`,
-    { headers },
+): Promise<{ ok: boolean; status: number; orders: RawOrder[]; truncated: boolean }> {
+  const { ok, status, items, truncated } = await fetchEbayPaged<RawOrder>(
+    (limit, offset) =>
+      `${apiBase}/sell/fulfillment/v1/order?filter=creationdate:[${sinceIso}..]&limit=${limit}&offset=${offset}`,
+    headers,
+    (d) => d.orders,
+    (d) => d.total,
   );
-  if (!ordersRes.ok) return { ok: false, status: ordersRes.status, orders: [] };
-  const ordersData = await ordersRes.json();
-  return { ok: true, status: ordersRes.status, orders: ordersData.orders ?? [] };
+  return { ok, status, orders: items, truncated };
 }
