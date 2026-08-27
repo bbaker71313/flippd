@@ -1,6 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { signJWT, verifyJWT, getAuthedUserIdChecked, randomHex } from "../_shared/jwt.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import {
+  ebayUrls, ebayCreds, getValidEbayToken,
+  fetchInventoryTitleMap, fetchOffers, resolveSellerUsername,
+  fetchActiveListingsViaFindingApi, fetchOrders,
+} from "../_shared/ebayClient.ts"
+import {
+  type PhaseStatus, overallSyncStatus,
+  reconcileOffersPhase, reconcileActiveListingsPhase, reconcileOrderLines,
+} from "../_shared/ebaySyncReconciliation.ts"
 
 // SEC-015: handler functions call json() with no CORS; Deno.serve wraps with addCors().
 function json(data: unknown, status = 200) {
@@ -18,69 +27,10 @@ const EBAY_SCOPES = [
   'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly',
 ].join(' ');
 
-function ebayUrls() {
-  const sandbox = Deno.env.get('EBAY_SANDBOX') === 'true';
-  return {
-    auth:     sandbox ? 'https://auth.sandbox.ebay.com/oauth2/authorize'          : 'https://auth.ebay.com/oauth2/authorize',
-    token:    sandbox ? 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'   : 'https://api.ebay.com/identity/v1/oauth2/token',
-    api:      sandbox ? 'https://api.sandbox.ebay.com'                             : 'https://api.ebay.com',
-    identity: sandbox ? 'https://apiz.sandbox.ebay.com/commerce/identity/v1/user/': 'https://apiz.ebay.com/commerce/identity/v1/user/',
-    finding:  sandbox ? 'https://svcs.sandbox.ebay.com/services/search/FindingService/v1' : 'https://svcs.ebay.com/services/search/FindingService/v1',
-  };
-}
-
-// P1-A: narrowly-scoped retry for this sync only — bounded exponential
-// backoff, transient failures only (network error, 429, 5xx). Never retries
-// permanent failures (400/401/403/other 4xx/validation errors) per the
-// approved eBay retry policy (DECISIONS.md / remediation prompt).
-async function fetchWithRetry(
-  url: string,
-  init: RequestInit,
-  maxAttempts = 3,
-): Promise<Response> {
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const res = await fetch(url, init);
-      const isTransientHttp = res.status === 429 || res.status >= 500;
-      if (!isTransientHttp || attempt === maxAttempts) return res;
-      lastErr = new Error(`transient HTTP ${res.status}`);
-    } catch (err) {
-      lastErr = err;
-      if (attempt === maxAttempts) throw err;
-    }
-    await new Promise((r) => setTimeout(r, 300 * 2 ** (attempt - 1)));
-  }
-  throw lastErr;
-}
-
-// P1-A: one phase of a multi-phase sync (offers, active listings, orders).
-// A sync is only reported "success" overall when every phase here succeeded —
-// never silently collapse a failed phase into an overall success.
-type PhaseStatus = {
-  name: string;
-  status: 'success' | 'partial' | 'failed' | 'skipped';
-  count: number;
-  detail?: string;
-};
-
-function overallSyncStatus(phases: PhaseStatus[]): 'success' | 'partial_failure' | 'failure' {
-  const relevant = phases.filter((p) => p.status !== 'skipped');
-  if (relevant.length === 0) return 'success';
-  if (relevant.every((p) => p.status === 'failed')) return 'failure';
-  if (relevant.every((p) => p.status === 'success')) return 'success';
-  return 'partial_failure';
-}
-
-function ebayCreds() {
-  const sandbox = Deno.env.get('EBAY_SANDBOX') === 'true';
-  return {
-    clientId:     Deno.env.get(sandbox ? 'EBAY_SANDBOX_CLIENT_ID'     : 'EBAY_CLIENT_ID'),
-    clientSecret: Deno.env.get(sandbox ? 'EBAY_SANDBOX_CLIENT_SECRET' : 'EBAY_CLIENT_SECRET'),
-    ruName:       Deno.env.get(sandbox ? 'EBAY_SANDBOX_RUNAME'        : 'EBAY_RUNAME'),
-  };
-}
-
+// P1-I: Deno.serve is guarded behind import.meta.main (below) so this module
+// can be imported by tests without starting a listener — zero deployed-
+// behavior change. Handler functions are exported for the same reason.
+if (import.meta.main) {
 Deno.serve(async (req: Request) => {
   // SEC-015: addCors injects dynamic locked-origin CORS onto every response,
   // including those returned from handler functions that call the module-level json().
@@ -128,8 +78,9 @@ Deno.serve(async (req: Request) => {
     return addCors(json({ error: 'Internal server error' }, 500));
   }
 });
+}
 
-async function handleAuthorize(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handleAuthorize(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -164,7 +115,7 @@ async function handleAuthorize(req: Request, supabase: ReturnType<typeof createC
   return json({ authUrl });
 }
 
-async function handleCallback(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handleCallback(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const url = new URL(req.url);
   const frontendUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
   const code = url.searchParams.get('code');
@@ -273,7 +224,7 @@ async function handleCallback(req: Request, supabase: ReturnType<typeof createCl
   return Response.redirect(`${frontendUrl}/app.html?ebay_connected=true`, 302);
 }
 
-async function handleStatus(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handleStatus(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -291,7 +242,7 @@ async function handleStatus(req: Request, supabase: ReturnType<typeof createClie
   });
 }
 
-async function handleDisconnect(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handleDisconnect(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -300,47 +251,7 @@ async function handleDisconnect(req: Request, supabase: ReturnType<typeof create
   return json({ success: true });
 }
 
-async function getValidEbayToken(
-  userId: number,
-  supabase: ReturnType<typeof createClient>,
-): Promise<string | null> {
-  // Decrypts via SECURITY DEFINER RPC (SEC-010); returns 0 or 1 row.
-  const { data: rows } = await supabase.rpc('ebay_get_tokens', { p_user_id: userId });
-  const conn = Array.isArray(rows) ? rows[0] : null;
-
-  if (!conn?.access_token) return null;
-
-  const expiresAt = conn.expires_at ? new Date(conn.expires_at) : new Date(0);
-  if (expiresAt > new Date(Date.now() + 60_000)) return conn.access_token;
-
-  // Token expired — refresh it
-  const { clientId, clientSecret } = ebayCreds();
-  if (!clientId || !clientSecret || !conn.refresh_token) return null;
-
-  const refreshRes = await fetch(ebayUrls().token, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-    },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: conn.refresh_token }),
-  });
-
-  if (!refreshRes.ok) return null;
-
-  const refreshData = await refreshRes.json();
-  const newExpires = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
-
-  await supabase.rpc('ebay_update_access_token', {
-    p_user_id: userId,
-    p_access: refreshData.access_token,
-    p_expires: newExpires,
-  });
-
-  return refreshData.access_token;
-}
-
-async function handlePullListings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handlePullListings(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -358,16 +269,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
 
   // Build sku→title map from inventory items (best-effort enrichment only —
   // never a reason to fail a phase).
-  const titleMap: Record<string, string> = {};
-  try {
-    const itemsRes = await fetchWithRetry(`${apiBase}/sell/inventory/v1/inventory_item?limit=200`, { headers: ebayHeaders });
-    if (itemsRes.ok) {
-      const itemsData = await itemsRes.json();
-      for (const item of (itemsData.inventoryItems ?? [])) {
-        if (item.sku && item.product?.title) titleMap[item.sku] = item.product.title;
-      }
-    }
-  } catch { /* title lookup is best-effort */ }
+  const titleMap = await fetchInventoryTitleMap(apiBase, ebayHeaders);
 
   // ── Phase: offers (API-created active + draft listings) ──────────────────
   // P1-A: reconciliation for every offer that already has an eBay listing
@@ -376,210 +278,65 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   // Draft offers with no listing id yet have no eBay identity to protect —
   // they keep the prior best-effort sku-scoped upsert (sku is deliberately
   // not a uniqueness boundary, per the approved relist rule).
-  {
-    let offersOk = 0, offersFailed = 0;
-    try {
-      const offersRes = await fetchWithRetry(`${apiBase}/sell/inventory/v1/offer?limit=200`, { headers: ebayHeaders });
-      if (offersRes.ok) {
-        const offersData = await offersRes.json();
-        for (const offer of (offersData.offers ?? [])) {
-          const isPublished = offer.status === 'PUBLISHED';
-          if (isPublished) active++; else drafted++;
-
-          const listingId: string | null = offer.listing?.listingId ?? null;
-          const sellPrice: number | null = parseFloat(offer.pricingSummary?.price?.value ?? '0') || null;
-          const status = isPublished ? 'Listed' : 'Unlisted';
-          const rawTitle: string | null = offer.sku ? (titleMap[offer.sku] ?? null) : null;
-          const title = rawTitle ? rawTitle.slice(0, 80) : null;
-          const categoryId = offer.categoryId ? parseInt(String(offer.categoryId), 10) : null;
-
-          if (listingId) {
-            const { error } = await supabase.rpc('ebay_reconcile_inventory_row', {
-              p_user_id: userId,
-              p_ebay_item_id: listingId,
-              p_sku: offer.sku ?? null,
-              p_status: status,
-              p_sell_price: sellPrice,
-              p_title: title,
-              p_category_id: categoryId,
-              p_item_id_fallback: `ebay-${listingId}`,
-            });
-            if (error) { offersFailed++; console.error('ebay-oauth: offers reconcile failed', error); }
-            else offersOk++;
-          } else if (offer.sku) {
-            const { data: existing, error: selErr } = await supabase.from('inventory')
-              .select('id').eq('user_id', userId).eq('sku', offer.sku).is('ebay_item_id', null).maybeSingle();
-            if (selErr) { offersFailed++; console.error('ebay-oauth: draft offer lookup failed', selErr); continue; }
-            if (existing) {
-              const { error } = await supabase.from('inventory').update({
-                status,
-                ...(sellPrice ? { sell_price: sellPrice } : {}),
-                ...(title ? { listing_title: title } : {}),
-              }).eq('id', existing.id).eq('user_id', userId);
-              if (error) { offersFailed++; console.error('ebay-oauth: draft offer update failed', error); }
-              else offersOk++;
-            } else {
-              const { error } = await supabase.from('inventory').insert({
-                user_id: userId,
-                item_id: offer.sku,
-                sku: offer.sku,
-                nickname: (title ?? offer.sku).slice(0, 255),
-                listing_title: title,
-                sell_price: sellPrice,
-                status,
-                ebay_category_id: categoryId,
-                platform: 'eBay',
-                created_from: 'ebay_sync',
-              });
-              if (error) { offersFailed++; console.error('ebay-oauth: draft offer insert failed', error); }
-              else offersOk++;
-            }
-          }
-        }
-        phases.push({ name: 'offers', status: offersFailed === 0 ? 'success' : (offersOk > 0 ? 'partial' : 'failed'), count: offersOk, detail: offersFailed ? `${offersFailed} row(s) failed to reconcile` : undefined });
-      } else {
-        phases.push({ name: 'offers', status: 'failed', count: 0, detail: `eBay offers API HTTP ${offersRes.status}` });
-      }
-    } catch (err) {
-      console.error('ebay pull-listings offers error:', err);
-      phases.push({ name: 'offers', status: 'failed', count: offersOk, detail: String((err as Error)?.message ?? err) });
+  try {
+    const { ok, status, offers } = await fetchOffers(apiBase, ebayHeaders);
+    if (ok) {
+      const r = await reconcileOffersPhase(supabase, userId, offers, titleMap);
+      active += r.active; drafted += r.drafted;
+      phases.push({ name: 'offers', status: r.failed === 0 ? 'success' : (r.ok > 0 ? 'partial' : 'failed'), count: r.ok, detail: r.failed ? `${r.failed} row(s) failed to reconcile` : undefined });
+    } else {
+      phases.push({ name: 'offers', status: 'failed', count: 0, detail: `eBay offers API HTTP ${status}` });
     }
+  } catch (err) {
+    console.error('ebay pull-listings offers error:', err);
+    phases.push({ name: 'offers', status: 'failed', count: 0, detail: String((err as Error)?.message ?? err) });
   }
 
   // ── Phase: active listings via eBay Finding API ───────────────────────────
   // The Inventory API above only shows API-created items. The Finding API
   // returns ALL active listings regardless of how they were created —
   // traditional eBay.com listings show up here too. Uses EBAY_CLIENT_ID.
-  {
-    let findingOk = 0, findingFailed = 0;
-    try {
-      const { data: conn } = await supabase
-        .from('ebay_connections')
-        .select('ebay_username')
-        .eq('user_id', userId)
-        .maybeSingle();
-      let sellerName = conn?.ebay_username as string | null;
-      findingSellerName = sellerName;
-
-      // If username wasn't captured during OAuth (identity API may have failed),
-      // fetch it now using the already-valid access token and persist it so
-      // future syncs don't need this fallback.
-      if (!sellerName && accessToken) {
-        try {
-          const idRes = await fetchWithRetry(identityUrl, {
-            headers: { 'Authorization': `Bearer ${accessToken}` },
-          });
-          if (idRes.ok) {
-            const identity = await idRes.json();
-            sellerName = identity.username ?? null;
-            if (sellerName) {
-              const { error } = await supabase.from('ebay_connections').update({ ebay_username: sellerName }).eq('user_id', userId);
-              if (error) console.error('ebay-oauth: persisting lazy-fetched username failed', error);
-            }
-          }
-        } catch (err) {
-          console.error('ebay identity lazy-fetch failed:', err);
-        }
-      }
-
-      findingSellerName = sellerName;
-      const appId = ebayCreds().clientId;
-      if (!appId) {
-        clientIdMissing = true;
-        console.warn('ebay finding-api: client ID not set — active listings will not sync');
-      }
-      if (sellerName && appId) {
-        let findingPage = 1;
-        let totalFindings = 0;
-        while (findingPage <= 2) { // max 200 listings (2 pages × 100)
-          const findUrl = `${findingUrl}?OPERATION-NAME=findItemsAdvanced&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=${encodeURIComponent(appId)}&RESPONSE-DATA-FORMAT=JSON&GLOBAL-ID=EBAY-US&itemFilter%280%29.name=Seller&itemFilter%280%29.value=${encodeURIComponent(sellerName)}&paginationInput.entriesPerPage=100&paginationInput.pageNumber=${findingPage}`;
-          const findRes = await fetchWithRetry(findUrl, { headers: { Accept: 'application/json' } });
-          if (!findRes.ok) {
-            console.error('ebay finding-api http error:', findRes.status, await findRes.text().catch(() => ''));
-            findingApiErr = `HTTP ${findRes.status}`;
-            break;
-          }
-          const findData = await findRes.json();
-          // Check for API-level errors (eBay returns HTTP 200 even for invalid requests)
-          const apiError = findData?.errorMessage?.[0]?.error?.[0]?.message?.[0];
-          if (apiError) { findingApiErr = apiError; console.error('ebay finding-api error response:', apiError); break; }
-          const response = findData?.findItemsAdvancedResponse?.[0];
-          const foundItems: Record<string, unknown>[] = (response?.searchResult?.[0]?.item ?? []) as Record<string, unknown>[];
-          if (foundItems.length === 0) break;
-          for (const fi of foundItems) {
-            const itemId = ((fi.itemId as string[]) ?? [])[0] ?? null;
-            const title = ((fi.title as string[]) ?? [])[0] ?? null;
-            const priceVal = (fi.sellingStatus as Record<string, unknown>[] | null)?.[0];
-            const currentPrice = (priceVal?.currentPrice as Record<string, string>[] | null)?.[0];
-            const sellPrice = currentPrice ? parseFloat(currentPrice['__value__'] ?? '0') || null : null;
-            if (!itemId) continue;
-            const { error } = await supabase.rpc('ebay_reconcile_inventory_row', {
-              p_user_id: userId,
-              p_ebay_item_id: itemId,
-              p_sku: null,
-              p_status: 'Listed',
-              p_sell_price: sellPrice,
-              p_title: title ? title.slice(0, 80) : null,
-              p_category_id: null,
-              p_item_id_fallback: `ebay-${itemId}`,
-            });
-            if (error) { findingFailed++; console.error('ebay-oauth: finding-api reconcile failed', error); }
-            else { findingOk++; active++; }
-            totalFindings++;
-          }
-          const totalEntries = parseInt(String(response?.paginationOutput?.[0]?.totalEntries?.[0] ?? '0'), 10);
-          if (totalFindings >= totalEntries || foundItems.length < 100) break;
-          findingPage++;
-        }
-      }
-      const skipped = !sellerName || !appId;
-      phases.push({
-        name: 'active_listings',
-        status: skipped ? 'skipped' : (findingApiErr && findingOk === 0 ? 'failed' : (findingFailed > 0 ? 'partial' : 'success')),
-        count: findingOk,
-        detail: findingApiErr ?? (clientIdMissing ? 'EBAY_CLIENT_ID not configured' : undefined),
-      });
-    } catch (err) {
-      console.error('ebay finding-api error:', err);
-      phases.push({ name: 'active_listings', status: 'failed', count: findingOk, detail: String((err as Error)?.message ?? err) });
+  try {
+    let sellerName = await resolveSellerUsername(supabase, userId, accessToken, identityUrl);
+    findingSellerName = sellerName;
+    const appId = ebayCreds().clientId;
+    if (!appId) {
+      clientIdMissing = true;
+      console.warn('ebay finding-api: client ID not set — active listings will not sync');
     }
+    let findingOk = 0, findingFailed = 0;
+    if (sellerName && appId) {
+      const { items, err } = await fetchActiveListingsViaFindingApi(findingUrl, appId, sellerName);
+      findingApiErr = err;
+      const r = await reconcileActiveListingsPhase(supabase, userId, items);
+      active += r.active; findingOk = r.ok; findingFailed = r.failed;
+    }
+    const skipped = !sellerName || !appId;
+    phases.push({
+      name: 'active_listings',
+      status: skipped ? 'skipped' : (findingApiErr && findingOk === 0 ? 'failed' : (findingFailed > 0 ? 'partial' : 'success')),
+      count: findingOk,
+      detail: findingApiErr ?? (clientIdMissing ? 'EBAY_CLIENT_ID not configured' : undefined),
+    });
+  } catch (err) {
+    console.error('ebay finding-api error:', err);
+    phases.push({ name: 'active_listings', status: 'failed', count: 0, detail: String((err as Error)?.message ?? err) });
   }
 
   // ── Phase: fulfilled orders (mark matching inventory items as Sold) ──────
-  {
-    let ordersOk = 0, ordersFailed = 0;
-    try {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const ordersRes = await fetchWithRetry(
-        `${apiBase}/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`,
-        { headers: ebayHeaders },
-      );
-      if (ordersRes.ok) {
-        const ordersData = await ordersRes.json();
-        for (const order of (ordersData.orders ?? [])) {
-          for (const item of (order.lineItems ?? [])) {
-            const orderSoldPrice = parseFloat((item.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
-            const { error } = await supabase.rpc('ebay_reconcile_sold_order_line', {
-              p_user_id: userId,
-              p_sku: item.sku ?? null,
-              p_ebay_item_id: item.legacyItemId ?? null,
-              p_title: (item.title as string | null) ?? (item.sku ? `eBay item ${item.sku}` : 'eBay sold item'),
-              p_sold_price: orderSoldPrice,
-              p_sold_at: order.creationDate ?? new Date().toISOString(),
-              p_item_id_fallback: `ebay-order-${order.orderId}-${item.legacyItemId ?? ''}`,
-            });
-            if (error) { ordersFailed++; console.error('ebay-oauth: order reconcile failed', error); }
-            else { ordersOk++; sold++; }
-          }
-        }
-        phases.push({ name: 'orders', status: ordersFailed === 0 ? 'success' : (ordersOk > 0 ? 'partial' : 'failed'), count: ordersOk, detail: ordersFailed ? `${ordersFailed} order line(s) failed to reconcile` : undefined });
-      } else {
-        phases.push({ name: 'orders', status: 'failed', count: 0, detail: `eBay orders API HTTP ${ordersRes.status}` });
-      }
-    } catch (err) {
-      console.error('ebay pull-listings orders error:', err);
-      phases.push({ name: 'orders', status: 'failed', count: ordersOk, detail: String((err as Error)?.message ?? err) });
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const { ok, status, orders } = await fetchOrders(apiBase, ebayHeaders, since);
+    if (ok) {
+      const { synced, failed } = await reconcileOrderLines(supabase, userId, orders);
+      sold += synced;
+      phases.push({ name: 'orders', status: failed === 0 ? 'success' : (synced > 0 ? 'partial' : 'failed'), count: synced, detail: failed ? `${failed} order line(s) failed to reconcile` : undefined });
+    } else {
+      phases.push({ name: 'orders', status: 'failed', count: 0, detail: `eBay orders API HTTP ${status}` });
     }
+  } catch (err) {
+    console.error('ebay pull-listings orders error:', err);
+    phases.push({ name: 'orders', status: 'failed', count: 0, detail: String((err as Error)?.message ?? err) });
   }
 
   return json({
@@ -590,7 +347,7 @@ async function handlePullListings(req: Request, supabase: ReturnType<typeof crea
   });
 }
 
-async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handlePriceChange(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
 
@@ -648,7 +405,7 @@ async function handlePriceChange(req: Request, supabase: ReturnType<typeof creat
   return json({ success: true, offerId, newPrice });
 }
 const EBAY_COND: Record<string, string> = { 'New': 'NEW', 'Like New': 'LIKE_NEW', 'Open Box': 'NEW_OTHER', 'Good': 'USED_GOOD', 'Used': 'USED_GOOD', 'Fair': 'USED_ACCEPTABLE', 'Poor': 'FOR_PARTS_OR_NOT_WORKING' };
-async function handleCreateListing(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handleCreateListing(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
   const { inventoryId } = await req.json().catch(() => ({})) as { inventoryId?: number };
@@ -720,37 +477,20 @@ async function handleCreateListing(req: Request, supabase: ReturnType<typeof cre
   return json({ listingId, listingUrl: `https://www.ebay.com/itm/${listingId}` });
 }
 
-async function handleSyncOrders(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+export async function handleSyncOrders(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
   const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
   if (!userId) return json({ error: 'Unauthorized' }, 401);
   const accessToken = await getValidEbayToken(userId, supabase);
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const { api: syncApiBase } = ebayUrls();
-  const ordersRes = await fetchWithRetry(`${syncApiBase}/sell/fulfillment/v1/order?filter=creationdate:[${since}..]&limit=200`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
-  if (!ordersRes.ok) return json({ error: 'eBay orders API error: ' + ordersRes.status }, 502);
-  const { orders = [] } = await ordersRes.json() as { orders?: Array<Record<string, unknown>> };
+  const { ok, status: httpStatus, orders } = await fetchOrders(syncApiBase, { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }, since);
+  if (!ok) return json({ error: 'eBay orders API error: ' + httpStatus }, 502);
   const ordersFound = orders.length;
   console.log(`handleSyncOrders: userId=${userId} ordersFound=${ordersFound}`);
   // P1-A: same atomic reconciliation RPC as pull-listings' orders phase — a
   // repeated/concurrent sync-orders call can never duplicate a Sold row.
-  let synced = 0, failed = 0;
-  for (const order of orders) {
-    for (const li of (order.lineItems ?? []) as Array<Record<string, unknown>>) {
-      const soldPrice = parseFloat((li.lineItemCost as Record<string, string> | null)?.value ?? '0') || null;
-      const { error } = await supabase.rpc('ebay_reconcile_sold_order_line', {
-        p_user_id: userId,
-        p_sku: (li.sku as string | null) ?? null,
-        p_ebay_item_id: (li.legacyItemId as string | null) ?? null,
-        p_title: (li.title as string | null) ?? (li.sku ? `eBay item ${li.sku}` : 'eBay sold item'),
-        p_sold_price: soldPrice,
-        p_sold_at: (order.creationDate as string) ?? new Date().toISOString(),
-        p_item_id_fallback: `ebay-order-${order.orderId}-${li.legacyItemId ?? ''}`,
-      });
-      if (error) { failed++; console.error('ebay-oauth: sync-orders reconcile failed', error); }
-      else synced++;
-    }
-  }
+  const { synced, failed } = await reconcileOrderLines(supabase, userId, orders);
   const status: 'success' | 'partial_failure' | 'failure' = failed === 0 ? 'success' : (synced > 0 ? 'partial_failure' : 'failure');
-  return json({ synced, status, debug: { ordersFound, ordersApiStatus: ordersRes.status, failed } });
+  return json({ synced, status, debug: { ordersFound, ordersApiStatus: httpStatus, failed } });
 }

@@ -4,6 +4,68 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-27 — P1 completion: service-boundary modularization (P1-I), workflow integration tests (P1-K), Deno tests actually executed
+
+### Context
+Direct follow-up to PR #135 (merged to `main`) — the P1 remediation prompt's own report disclosed two genuinely unfinished items: P1-I (edge-function service-boundary modularization) and P1-K (workflow-level integration tests for the eBay sync and Stripe checkout/webhook paths), plus the fact that the new Deno tests had never actually been executed (no Deno runtime in prior sandboxes). This session installed Deno (via `npm install -g deno` — `deno.land`/`esm.sh`/`jsr.io`/`npm.jsr.io` are all policy-blocked in this sandbox's egress, but `registry.npmjs.org` is allowed), ran the existing suite for real, then completed P1-I and P1-K.
+
+### P1-I — Service-boundary modularization
+**COMPLETE.** Scope: `ebay-oauth/index.ts` (757→496 lines) and `stripe-webhook`/`stripe-checkout` (already small; extracted for testability + one duplication removal).
+- **New `supabase/functions/_shared/ebayClient.ts`** — eBay provider/transport layer: `ebayUrls`, `ebayCreds`, `fetchWithRetry`, `getValidEbayToken` (moved verbatim from ebay-oauth), plus new thin wrappers `fetchInventoryTitleMap`, `fetchOffers`, `resolveSellerUsername`, `fetchActiveListingsViaFindingApi`, `fetchOrders` — pure HTTP/parsing, no DB access.
+- **New `supabase/functions/_shared/ebaySyncReconciliation.ts`** — reconciliation/domain logic: `PhaseStatus`/`overallSyncStatus` (moved), `reconcileOffersPhase`, `reconcileActiveListingsPhase`, `reconcileOrderLines`. **`reconcileOrderLines` deduplicates what were previously two independently-maintained copies** of the same order-line reconciliation loop (one inline in `handlePullListings`'s orders phase, one in `handleSyncOrders`) — a real anti-drift finding (CLAUDE.md rule 11: no two functions independently deciding the same business outcome), fixed as part of this extraction since both callers now share one implementation.
+- `ebay-oauth/index.ts` — `handlePullListings`/`handleSyncOrders` rewritten as thin orchestrators over the two new modules; `Deno.serve` guarded behind `if (import.meta.main)`; all handler functions exported (same pattern claude-proxy adopted last session).
+- **New `supabase/functions/_shared/stripeWebhookSignature.ts`** — `verifyStripeSignature`/`timingSafeEqual` extracted (pure crypto, no DB).
+- `stripe-webhook/index.ts` — the entire business-effect switch extracted into exported `handleStripeWebhookEvent(event, supabase, stripeKey)`; `Deno.serve` now a thin dispatcher; guarded behind `import.meta.main`.
+- `stripe-checkout/index.ts` — extracted into exported `handleCheckoutRequest(req, supabase)`; **the supabase client is now an injected parameter instead of being constructed inside the function** (matching the pattern already used by ebay-oauth/claude-proxy) — necessary to make this handler testable against a fake supabase at all; `Deno.serve` wrapper constructs the real client exactly as before and passes it in. Zero behavior change.
+- **Compatibility:** every response shape, error message, and field name is byte-for-byte unchanged — verified by diffing against the pre-refactor code path and by the full existing + new test suite passing. One acknowledged, disclosed micro-behavior-change: if an exception (not a `{error}` result) is thrown mid-loop inside a reconciliation phase, the phase's error `count`/`detail` in the response now reports the phase's pre-exception-partial-progress as `0` instead of the exact partial count the old inline code happened to have accumulated at the throw point — an edge case of an edge case (supabase-js calls returning errors as data, not throwing, in every normal case); flagged rather than silently accepted.
+
+### P1-K — Workflow-level integration tests
+**COMPLETE** for both named workflows.
+
+**eBay sync workflow** (`supabase/functions/_shared/ebaySyncReconciliation_workflow_test.ts` — 15 tests against the real extracted reconciliation functions; `supabase/functions/ebay-oauth/ebay_sync_endtoend_test.ts` — 5 tests against the real `handlePullListings`/`handleSyncOrders` production handlers end-to-end, real JWT auth, mocked `fetch` standing in for eBay's APIs). Covers: existing-listing reconciliation, repeated/replayed sync of the same item (offers, Finding API listings, and orders — no duplicate rows in any of the three), unambiguous SKU relist, ambiguous SKU relist correctly falls through to insert rather than guessing, sold-order reconciliation, partial eBay API failure handling (one phase fails, others still applied), truthful `success`/`partial_failure`/`failure` status reporting at both the reconciliation-function level and the full HTTP-handler level, no cross-user contamination (two users can legitimately share the same raw `ebay_item_id` string without colliding, since uniqueness is per `(user_id, ebay_item_id)`), and unauthenticated requests rejected before touching eBay or the DB.
+
+**Stripe checkout/webhook workflow** (`supabase/functions/stripe-webhook/stripe_webhook_workflow_test.ts` — 8 tests against the real `handleStripeWebhookEvent`; `supabase/functions/stripe-checkout/stripe_checkout_workflow_test.ts` — 7 tests against the real `handleCheckoutRequest`). Covers: tier/interval → correct price id (monthly and annual, verified against the actual outgoing Stripe request body, not just `stripePricing.ts` in isolation), unconfigured price id fails closed with the exact missing env var name and never calls Stripe, duplicate webhook delivery does not repeat the tier change or re-call Stripe, a delivery still `processing` is acknowledged as `in_progress` without re-running any effect, a previously `failed` event is safely reclaimed and retried to success, a handler exception marks the event `failed` (never `succeeded`) so it can be retried, monthly/annual configuration parity, and — via the checkout handler — that `client_reference_id` always comes from the authenticated session (a spoofed `userId`/`client_reference_id` in the request body is ignored), same for the billing-portal `stripe_customer_id`.
+
+Both suites use `supabase/functions/_shared/testing/fakeSupabase.ts` (a generalized version of the single-table fake from `claude-proxy/inventory_isolation_test.ts`, extended to multiple named tables + a pluggable `.rpc()` dispatcher) plus JS-side mirrors of the actual Postgres RPCs — `fakeEbayReconcileRpc.ts` and `fakeStripeWebhookRpc.ts` — hand-written to match `20260826230000_p1_ebay_sync_and_webhook_idempotency.sql` exactly. **These mirrors are test infrastructure, not a second production implementation**; if that migration's SQL changes, these two files must be updated by hand or the tests will silently verify stale semantics — called out in both files' header comments.
+
+### Deno tests actually executed
+Installed Deno 2.9.5 via `npm install -g deno` (registry.npmjs.org is allowed by this sandbox's egress policy; deno.land/esm.sh/jsr.io/npm.jsr.io are all policy-blocked, confirmed via `$HTTPS_PROXY/__agentproxy/status`). Real `deno.land/std` and `esm.sh/@supabase/supabase-js` imports in every `_test.ts` file can't be fetched here, so local test runs use an explicit import map (`supabase/functions/_shared/testing/deno_test_import_map.json`, passed via `--import-map`, never auto-discovered) that redirects the `deno.land/std/assert` specifier to a small local reimplementation (`_shared/testing/assert.ts` — `assertEquals`/`assertThrows`/`assertRejects`, matching signatures) and the `esm.sh/@supabase/supabase-js@2` specifier to `npm:@supabase/supabase-js@2`. **No production import specifier was changed** — this mapping only applies when explicitly passed to `deno test`/`deno check`, exactly as documented in each file.
+
+`deno test --no-check --node-modules-dir=none --import-map=... supabase/functions/` → **103/103 passing** (0 failed), covering every `_shared` unit test, `claude-proxy`'s isolation tests, and all of this session's new P1-K workflow tests.
+
+One caution while installing: Deno's first run auto-migrated `pnpm-workspace.yaml` into a `workspaces` key in the root `package.json` (a Deno convenience feature, uninvited) — caught immediately via `git status`/`git diff` and reverted before it could be committed; all subsequent `deno` invocations use `--node-modules-dir=none --no-config` specifically to prevent this recurring.
+
+### Full validation this session
+- `deno test --no-check --import-map=... supabase/functions/` — **103/103 passing**, 0 failed (68 pre-existing + 35 new: 15 eBay reconciliation + 5 eBay end-to-end + 8 Stripe webhook + 7 Stripe checkout).
+- `deno check` (real type-check, no `--no-check`) run per touched/new file: `ebayClient.ts`, `ebaySyncReconciliation.ts`, `stripeWebhookSignature.ts`, and every new `_test.ts`/`testing/*.ts` file — **0 errors**. `stripe-webhook/index.ts` — **0 errors** (down from a clean baseline, still clean). `ebay-oauth/index.ts` — **29 errors, down from 49 on the pre-refactor baseline** (same file, checked via `git show HEAD:...`) — all belonging to the same pre-existing class (`ReturnType<typeof createClient>` used as a parameter type resolves against the sandbox's npm-latest `@supabase/supabase-js`, whose stricter generics don't match an unparameterized `createClient()` call — a `deno check`-only artifact of this sandbox's `npm:` import-map workaround, not a real defect; this repo has no generated Database types anywhere, and `.github/workflows/web.yml` never type-checks `supabase/functions/` at all, so nothing here gates real CI). `stripe-checkout/index.ts` — **3 errors, newly present** (baseline was clean) — same root cause: making `supabase` an injected parameter (typed `ReturnType<typeof createClient>`) to enable testing hits the identical pre-existing generic mismatch already carried by `ebay-oauth.ts`/`claude-proxy.ts`; disclosed here rather than silently absorbed. Not fixed — properly resolving it would mean introducing generated Supabase Database types repo-wide, an unrequested architectural change out of scope for P1-I/P1-K.
+- `packages/shared`: `node --test` — **72/72 passing** (unaffected, not touched this session) — `npx tsc --noEmit` — **0 errors**.
+
+### Files Changed
+- New: `supabase/functions/_shared/ebayClient.ts`, `ebaySyncReconciliation.ts`, `stripeWebhookSignature.ts`
+- New: `supabase/functions/_shared/ebaySyncReconciliation_workflow_test.ts`
+- New: `supabase/functions/_shared/testing/{fakeSupabase,fakeEbayReconcileRpc,fakeStripeWebhookRpc,assert}.ts`, `testing/deno_test_import_map.json`
+- New: `supabase/functions/ebay-oauth/ebay_sync_endtoend_test.ts`
+- New: `supabase/functions/stripe-webhook/stripe_webhook_workflow_test.ts`
+- New: `supabase/functions/stripe-checkout/stripe_checkout_workflow_test.ts`
+- Modified: `supabase/functions/ebay-oauth/index.ts` (757→496 lines), `supabase/functions/stripe-webhook/index.ts`, `supabase/functions/stripe-checkout/index.ts`
+
+### Behavior Changed
+None deployed/user-visible. `handleCheckoutRequest` now takes `supabase` as a parameter instead of constructing it internally (internal signature only — `Deno.serve`'s wrapper still constructs the exact same client the exact same way). The one disclosed micro-edge-case above (phase `count` on a mid-loop exception).
+
+### Out-of-Scope Findings
+- `claude-proxy/inventory_isolation_test.ts` (merged in PR #135, not touched this session): its fake supabase's `.update()`/`.delete()` chain returns the inner filter-builder after `.eq()` rather than the update/delete wrapper itself, so a bare `await supabase.from(...).update(patch).eq(...)` — with no trailing `.select()` — resolves through the filter-builder's generic (non-mutating) `then`, not the patch-aware one. In practice this means `handleInventoryUpdate`'s and `handleInventoryDelete`'s *positive* case (the correct user's own row actually gets updated/deleted) is not actually verified by that test file today — only the cross-user-rejection case is, and that one passes regardless of whether the mutation itself works. This exact same bug was caught and fixed in this session's own new `_shared/testing/fakeSupabase.ts` (see the `update()`/`delete()` comment there) before it could produce a false-positive in the new P1-K tests. Not fixed in the already-merged `inventory_isolation_test.ts` per the anti-drift scope rules — flagged here instead.
+
+### Product Decisions Needed
+None.
+
+### Blockers
+None. Both P1-I and P1-K are complete and verified for real (not just type-checked/manually-traced, as prior sessions had to settle for).
+
+### Next task
+Nothing outstanding from the original P1 remediation prompt. If anyone wants to go further: (1) apply the same `.update()`/`.delete()` chain fix to `claude-proxy/inventory_isolation_test.ts` per the Out-of-Scope Finding above; (2) consider whether `supabase/functions/` type-checking should be added to CI now that a working local `deno check` workflow (import map + flags) exists in this repo's history.
+
+---
+
 ## Session: 2026-08-26 (part 4) — P1 remediation: eBay sync idempotency, Stripe webhook idempotency + central pricing, scan/inventory idempotency
 
 ### Context

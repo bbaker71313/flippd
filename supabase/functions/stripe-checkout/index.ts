@@ -8,7 +8,17 @@ import { getAuthedUserIdChecked } from "../_shared/jwt.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { isPaidTier, normalizeInterval, priceEnvVarName, resolvePriceId } from "../_shared/stripePricing.ts"
 
-Deno.serve(async (req: Request) => {
+// P1-I: extracted (and the supabase client made an injectable parameter, same
+// pattern as ebay-oauth/claude-proxy's handlers) so P1-K workflow tests can
+// drive it directly against a fake supabase instead of a live project.
+// Deno.serve is guarded behind import.meta.main so this module can be
+// imported by tests without starting a listener — zero deployed-behavior
+// change; the real client is still constructed the same way, just one level
+// out (see the import.meta.main block below).
+export async function handleCheckoutRequest(
+  req: Request,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
   // SEC-015: local json closes over req for dynamic locked-origin CORS.
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), {
@@ -29,12 +39,6 @@ Deno.serve(async (req: Request) => {
 
   const jwtSecret = Deno.env.get('JWT_SECRET');
   if (!jwtSecret) throw new Error('JWT_SECRET must be set');
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
 
   if (isPortal) {
     const userId = await getAuthedUserIdChecked(req, jwtSecret, supabase);
@@ -123,4 +127,15 @@ Deno.serve(async (req: Request) => {
   if (!stripeRes.ok) return json({ error: (session.error as Record<string, unknown>)?.message ?? 'Stripe error' }, 500);
 
   return json({ url: session.url, sessionId: session.id });
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((req: Request) => {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    return handleCheckoutRequest(req, supabase);
+  });
+}

@@ -2,79 +2,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { sendEmail } from "../_shared/sendEmail.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { resolveTierFromPriceId } from "../_shared/stripePricing.ts"
+import { verifyStripeSignature } from "../_shared/stripeWebhookSignature.ts"
 
-async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
-  const parts = sigHeader.split(',').reduce((acc, part) => {
-    const [k, v] = part.split('=');
-    if (k && v) acc[k] = v;
-    return acc;
-  }, {} as Record<string, string>);
+export type StripeWebhookEvent = { id: string; type: string; data: { object: Record<string, unknown> } };
 
-  const timestamp = parts['t'];
-  const sig = parts['v1'];
-  if (!timestamp || !sig) return false;
-
-  // SEC-019: reject NaN timestamps (parseInt('') = NaN; NaN > 300 = false = bypass)
-  const ts = parseInt(timestamp, 10);
-  if (Number.isNaN(ts)) return false;
-  if (Math.abs(Date.now() / 1000 - ts) > 300) return false;
-
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const expectedSig = await crypto.subtle.sign(
-    'HMAC', key, new TextEncoder().encode(`${timestamp}.${payload}`)
-  );
-  const expectedHex = Array.from(new Uint8Array(expectedSig), b => b.toString(16).padStart(2, '0')).join('');
-  // SEC-019: constant-time compare to prevent timing-channel HMAC bypass
-  return timingSafeEqual(expectedHex, sig);
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let out = 0;
-  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return out === 0;
-}
-
-Deno.serve(async (req: Request) => {
-  // SEC-015: local json closes over req for dynamic locked-origin CORS.
-  const json = (data: unknown, status = 200) =>
-    new Response(JSON.stringify(data), {
-      status,
-      headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
-    });
-
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-
-  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-
-  if (!webhookSecret || !stripeKey) {
-    console.error('Stripe secrets not configured');
-    return json({ error: 'Not configured' }, 503);
-  }
-
-  const sigHeader = req.headers.get('stripe-signature');
-  if (!sigHeader) return json({ error: 'Missing Stripe signature' }, 400);
-
-  const rawBody = await req.text();
-  const isValid = await verifyStripeSignature(rawBody, sigHeader, webhookSecret);
-  if (!isValid) return json({ error: 'Invalid Stripe signature' }, 400);
-
-  let event: { id: string; type: string; data: { object: Record<string, unknown> } };
-  try { event = JSON.parse(rawBody); }
-  catch { return json({ error: 'Invalid JSON' }, 400); }
-
-  if (!event.id) return json({ error: 'Event missing id' }, 400);
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
+// P1-I: the business-effect switch, extracted so P1-K workflow tests can
+// drive it directly (idempotency claim → effects → completion) without
+// constructing raw HTTP requests + valid Stripe signatures. Same behavior as
+// before this extraction — only the transport (CORS, method/signature
+// checks) stays in the Deno.serve wrapper below.
+// deno-lint-ignore no-explicit-any
+export async function handleStripeWebhookEvent(
+  event: StripeWebhookEvent,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  stripeKey: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (!event.id) return { status: 400, body: { error: 'Event missing id' } };
 
   // P1-B: persistent idempotency claim. Stripe explicitly warns the same
   // event can be delivered more than once — a duplicate delivery must not
@@ -85,10 +29,10 @@ Deno.serve(async (req: Request) => {
   });
   if (claimErr) {
     console.error('stripe-webhook: claim failed', claimErr);
-    return json({ error: 'Idempotency claim failed' }, 500);
+    return { status: 500, body: { error: 'Idempotency claim failed' } };
   }
   if (claim === 'already_succeeded' || claim === 'in_progress') {
-    return json({ received: true, deduped: claim });
+    return { status: 200, body: { received: true, deduped: claim } };
   }
 
   const data = event.data.object as Record<string, unknown>;
@@ -218,12 +162,56 @@ Deno.serve(async (req: Request) => {
     await supabase.rpc('complete_stripe_webhook_event', {
       p_event_id: event.id, p_success: true, p_error: null,
     });
-    return json({ received: true });
+    return { status: 200, body: { received: true } };
   } catch (err) {
     console.error('Webhook handler error:', err);
     await supabase.rpc('complete_stripe_webhook_event', {
       p_event_id: event.id, p_success: false, p_error: String((err as Error)?.message ?? err),
     });
-    return json({ error: 'Handler error' }, 500);
+    return { status: 500, body: { error: 'Handler error' } };
   }
+}
+
+// P1-I: Deno.serve is guarded behind import.meta.main so this module can be
+// imported by tests without starting a listener — zero deployed-behavior change.
+if (import.meta.main) {
+Deno.serve(async (req: Request) => {
+  // SEC-015: local json closes over req for dynamic locked-origin CORS.
+  const json = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+    });
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
+  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+
+  if (!webhookSecret || !stripeKey) {
+    console.error('Stripe secrets not configured');
+    return json({ error: 'Not configured' }, 503);
+  }
+
+  const sigHeader = req.headers.get('stripe-signature');
+  if (!sigHeader) return json({ error: 'Missing Stripe signature' }, 400);
+
+  const rawBody = await req.text();
+  const isValid = await verifyStripeSignature(rawBody, sigHeader, webhookSecret);
+  if (!isValid) return json({ error: 'Invalid Stripe signature' }, 400);
+
+  let event: StripeWebhookEvent;
+  try { event = JSON.parse(rawBody); }
+  catch { return json({ error: 'Invalid JSON' }, 400); }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { status, body } = await handleStripeWebhookEvent(event, supabase, stripeKey);
+  return json(body, status);
 });
+}
