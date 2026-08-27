@@ -6,12 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getAuthedUserIdChecked } from "../_shared/jwt.ts"
 import { corsHeaders } from "../_shared/cors.ts"
-
-const PRICE_ID_MAP: Record<string, string> = {
-  hustle_monthly: 'STRIPE_PRICE_HUSTLE_MONTHLY',
-  stack_monthly:  'STRIPE_PRICE_STACK_MONTHLY',
-  empire_monthly: 'STRIPE_PRICE_EMPIRE_MONTHLY',
-};
+import { isPaidTier, normalizeInterval, priceEnvVarName, resolvePriceId } from "../_shared/stripePricing.ts"
 
 Deno.serve(async (req: Request) => {
   // SEC-015: local json closes over req for dynamic locked-origin CORS.
@@ -86,17 +81,23 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); }
   catch { return json({ error: 'Invalid JSON body' }, 400); }
 
-  const tier      = (body.tier as string) ?? 'hustle';
-  const interval  = (body.interval as string) ?? 'monthly';
+  const tierRaw   = (body.tier as string) ?? 'hustle';
+  // Legacy callers may pass a combined key like "stack_annual" — split it so
+  // the same tier/interval config resolution applies either way.
+  const [tierPart, intervalPart] = tierRaw.includes('_') ? tierRaw.split('_', 2) : [tierRaw, undefined];
+  const tier      = tierPart;
+  const interval  = normalizeInterval((body.interval as string) ?? intervalPart);
   const returnUrl = (body.returnUrl as string) ?? 'scanforprofit://subscription/success';
 
-  const normalizedInterval = interval === 'month' ? 'monthly' : interval === 'year' ? 'annual' : interval;
-  const priceKey = tier.includes('_') ? tier : `${tier}_${normalizedInterval}`;
-  const envKey   = PRICE_ID_MAP[priceKey];
-  if (!envKey) return json({ error: `Unknown tier: ${tier}` }, 400);
+  if (!isPaidTier(tier)) return json({ error: `Unknown tier: ${tier}` }, 400);
 
-  const priceId = Deno.env.get(envKey);
-  if (!priceId) return json({ error: `Price ID not configured for ${priceKey}` }, 503);
+  // P1-B: single authoritative tier/interval -> price id config, shared with
+  // stripe-webhook's reverse lookup. Never invent a missing price id — fail
+  // closed and name exactly which secret is missing.
+  const priceId = resolvePriceId(tier, interval);
+  if (!priceId) {
+    return json({ error: `Price ID not configured for ${tier} (${interval}) — set ${priceEnvVarName(tier, interval)}` }, 503);
+  }
 
   const params = new URLSearchParams({
     'mode':                    'subscription',

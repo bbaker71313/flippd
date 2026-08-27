@@ -4,6 +4,44 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-26 (part 4) — P1 remediation: eBay sync idempotency, Stripe webhook idempotency + central pricing, scan/inventory idempotency
+
+### Context
+External P1 remediation prompt covering 11 items (P1-A through P1-K): eBay sync correctness/idempotency, Stripe webhook idempotency + annual billing config, critical-workflow idempotency boundaries, service-role/user-isolation audit, canonical types, provider boundaries, runtime validation, incremental app.html extraction, edge-function modularization, regression test gaps, and workflow integration tests. Given the size, this session focused depth-first on the items with real production correctness/financial risk (P1-A, P1-B, P1-C, P1-D) and did lighter audit-only passes on the rest — see the chat session's full structured report for the item-by-item COMPLETE/PARTIAL/NOT-NEEDED/BLOCKED breakdown. This entry is the file-level summary; do not treat it as replacing that report.
+
+### What changed
+- **New migration** `supabase/migrations/20260826230000_p1_ebay_sync_and_webhook_idempotency.sql`:
+  - `(user_id, ebay_item_id)` partial unique index on `inventory` — the hard uniqueness boundary for one eBay listing identity (approved relist rule). Includes a pre-index dedup step that nulls `ebay_item_id` on older duplicate rows (never deletes data) if any already exist.
+  - `client_op_id` column + partial unique `(user_id, client_op_id)` index on `inventory` — backs the new Save/Buy idempotency key.
+  - `ebay_reconcile_inventory_row()` and `ebay_reconcile_sold_order_line()` RPCs — atomic upsert-or-relist-or-insert, replacing the old in-memory-Map check-then-insert pattern in `ebay-oauth`.
+  - `stripe_webhook_events` table + `claim_stripe_webhook_event()` / `complete_stripe_webhook_event()` RPCs for persisted Stripe webhook idempotency.
+  - **Applied and live-verified** on PR #135's Supabase preview branch (`sitzzfnurngthafnpypu`, auto-created by the Supabase-for-Git integration, real Postgres 17): confirmed both unique indexes, `client_op_id` column, `stripe_webhook_events` table, and all 4 RPCs exist, then exercised them against throwaway test rows (deleted afterward) — repeated `ebay_reconcile_inventory_row` calls for the same `ebay_item_id` update one row rather than duplicating; an unambiguous same-sku relist correctly relinks the existing row; an ambiguous same-sku case (2 existing matches) correctly falls through to a new row instead of guessing; a raw duplicate `(user_id, ebay_item_id)` insert is rejected by the unique index with `23505`; `ebay_reconcile_sold_order_line` is likewise idempotent; and the Stripe webhook claim/complete cycle correctly returns `claimed` → `in_progress` (concurrent duplicate) → `already_succeeded` (post-completion redelivery) → `claimed` again after a `failed` completion (safe retry). Still needs applying to the actual production project (`dqgfpchkheznvanfgsmx`) at merge time — this was verified on the ephemeral per-PR preview branch only.
+- `supabase/functions/_shared/stripePricing.ts` (new) — single authoritative tier×interval → Stripe price-id config (env-var-sourced) and its exact reverse lookup, used by both `stripe-checkout` and `stripe-webhook` so they can never diverge onto separate hardcoded maps. Annual price IDs are new, optional-per-tier env vars (`STRIPE_PRICE_*_ANNUAL`) — unset ⇒ fails closed, never invents a price.
+- `supabase/functions/stripe-webhook/index.ts` — persisted idempotency claim/complete around every event; price-id→tier resolution now goes through `stripePricing.ts` instead of a hardcoded map.
+- `supabase/functions/stripe-checkout/index.ts` — same central config; annual checkout now works for all three paid tiers when the corresponding secret is configured (previously only monthly existed in the checkout map at all).
+- `supabase/functions/ebay-oauth/index.ts` — `handlePullListings`/`handleSyncOrders` rewritten to use the new RPCs (DB-enforced concurrency guard instead of in-memory Maps), return a structured per-phase status (`offers`/`active_listings`/`orders`, each success/partial/failed/skipped) plus an overall `status` (`success`/`partial_failure`/`failure`) — additive fields, existing `active`/`drafted`/`sold`/`clientIdMissing` response contract unchanged. Added a narrowly-scoped bounded-retry helper (transient failures only — network error/429/5xx, never 4xx) for the eBay HTTP calls in this sync path only.
+- `supabase/functions/claude-proxy/index.ts` — `handleInventoryCreate` and `handleBuyItem` are now idempotent via `client_op_id` (created client-side already, in `app.html`'s `pushItemToServer`/`itemForServer` — **no frontend change needed**); a retried/duplicate request reuses the existing row instead of creating a second one. `handleInventoryStatus` treats a retry into the already-current status as a no-op success instead of an error (prevents a second sale-transition effect on retry). Inventory handlers (`handleInventoryList/Create/Update/Delete/Status`, `handleBuyItem`) are now `export`ed and the module's `Deno.serve(...)` is guarded behind `if (import.meta.main)` so the file can be imported by tests without starting a listener — zero deployed-behavior change.
+- `supabase/functions/_shared/stripePricing_test.ts`, `supabase/functions/claude-proxy/inventory_isolation_test.ts` (new Deno tests) — pricing-config parity/fail-closed behavior, and cross-user isolation + idempotency regression tests for the inventory handlers (User A cannot read/update/delete/hijack User B's rows; duplicate client_op_id reuses the row; two users sharing the same client-side id never collide).
+- `.env.example` — documented the new `STRIPE_PRICE_*_MONTHLY`/`STRIPE_PRICE_*_ANNUAL` secret names.
+
+### Verified this session
+- `npx tsc --noEmit` (manual, minimal Deno global + `import.meta.main` stub, matching the pattern from the 2026-08-26 P0 sessions) against every touched Deno file — **0 new errors** (one pre-existing, unrelated `marketDataPipeline.ts` error confirmed via `git diff` to predate this session, not touched).
+- `packages/shared`: `node --test` — **72/72 passing**, unaffected (not touched this session).
+- `stripePricing.ts` logic (not just types) executed for real under a small Node+Deno-env-shim harness — all resolution/fail-closed/reverse-lookup assertions passed.
+- The new `inventory_isolation_test.ts` and `stripePricing_test.ts` Deno tests were **not executed** — no Deno runtime in this sandbox (same blocker every session). Verified by manual trace against the exact production code paths instead. **First action for whoever has Deno**: `deno test supabase/functions/_shared/ supabase/functions/claude-proxy/`.
+- The new migration was applied automatically to PR #135's Supabase preview branch and live-verified there (RPCs exercised against real Postgres 17, test rows cleaned up afterward) — see above. Not yet applied to the production project.
+
+### Not done this session (see chat report for full detail)
+P1-E/F/G/H/I were audit-only (existing P0 work already satisfies most of E/F; G has a real gap — Stripe webhook payload fields still use `as` casts, not full schema validation; H was deliberately not touched — no P1 fix required an app.html change; I got a light touch, not the full service-boundary file split). P1-J found the existing test suite already covers nearly the entire required matrix from prior sessions' work — added only the new tests above. P1-K (full workflow-level integration tests for both named workflows) was **not built** — would need either live Supabase or a much larger mock harness; flagged as remaining P1 work.
+
+### Next task
+1. Migration is live-verified on the PR preview branch (see above) — still needs applying to the production project (`dqgfpchkheznvanfgsmx`) when this merges.
+2. Configure `STRIPE_PRICE_*_ANNUAL` secrets for any tier that should offer annual billing (checkout now supports it as soon as they exist) — **do not** turn on new annual UI in `app.html` until the existing broken annual-toggle UI issue (noted elsewhere in this file / CLAUDE.md) is separately fixed; this session only fixed the backend config.
+3. Run `deno test supabase/functions/_shared/ supabase/functions/claude-proxy/` for real (still not executed — verified via manual trace + live RPC exercise on the SQL side only).
+4. Full workflow-level integration tests (P1-K) and the remaining service-role file-split modularization (P1-I) are the largest genuinely unfinished pieces.
+
+---
+
 ## Session: 2026-08-26 (part 3) — Approved product rules implemented, SoldComps live-verified, market-data pipeline wired into single/text/shelf scans
 
 ### Context
