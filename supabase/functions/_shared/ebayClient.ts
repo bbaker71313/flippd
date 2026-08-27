@@ -48,6 +48,17 @@ export async function fetchWithRetry(
   throw lastErr;
 }
 
+function isFresh(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false;
+  return new Date(expiresAt) > new Date(Date.now() + 60_000);
+}
+
+// P2-25: Edge Functions may run on multiple instances, so an in-memory lock
+// can't prevent two concurrent requests from both deciding a refresh is
+// needed and both refreshing at once. ebay_claim_token_refresh() is a
+// DB-level single-flight boundary (row lock, one row per user) — only one
+// caller gets claimed=true and actually talks to eBay; everyone else either
+// gets the already-fresh token back or waits briefly and re-reads it.
 // deno-lint-ignore no-explicit-any
 export async function getValidEbayToken(
   userId: number,
@@ -59,32 +70,64 @@ export async function getValidEbayToken(
   const conn = Array.isArray(rows) ? rows[0] : null;
 
   if (!conn?.access_token) return null;
+  if (isFresh(conn.expires_at)) return conn.access_token;
 
-  const expiresAt = conn.expires_at ? new Date(conn.expires_at) : new Date(0);
-  if (expiresAt > new Date(Date.now() + 60_000)) return conn.access_token;
+  const { data: claimRows } = await supabase.rpc('ebay_claim_token_refresh', { p_user_id: userId });
+  const claim = Array.isArray(claimRows) ? claimRows[0] : null;
+  if (!claim) return null;
 
-  // Token expired — refresh it
+  if (!claim.claimed) {
+    // Someone else already refreshed it (fresh token returned) — done.
+    if (isFresh(claim.expires_at) && claim.access_token) return claim.access_token;
+    // Someone else's claim is still live — wait briefly for them to finish, then re-read once.
+    await new Promise((r) => setTimeout(r, 400));
+    const { data: rows2 } = await supabase.rpc('ebay_get_tokens', { p_user_id: userId });
+    const conn2 = Array.isArray(rows2) ? rows2[0] : null;
+    return isFresh(conn2?.expires_at) ? conn2.access_token : null;
+  }
+
+  // We hold the claim — perform the actual refresh. A failure below always
+  // releases the claim via ebay_complete_token_refresh(success=false) so a
+  // crashed/errored refresh can never permanently deadlock this user; the
+  // stale-claim TTL in ebay_claim_token_refresh is the second-layer recovery
+  // if this process dies before reaching that call at all.
   const { clientId, clientSecret } = ebayCreds();
-  if (!clientId || !clientSecret || !conn.refresh_token) return null;
+  if (!clientId || !clientSecret || !conn.refresh_token) {
+    await supabase.rpc('ebay_complete_token_refresh', {
+      p_user_id: userId, p_access: null, p_expires: null, p_success: false,
+    });
+    return null;
+  }
 
-  const refreshRes = await fetch(ebayUrls().token, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-    },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: conn.refresh_token }),
-  });
+  let refreshRes: Response;
+  try {
+    refreshRes = await fetch(ebayUrls().token, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+      },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: conn.refresh_token }),
+    });
+  } catch {
+    await supabase.rpc('ebay_complete_token_refresh', {
+      p_user_id: userId, p_access: null, p_expires: null, p_success: false,
+    });
+    return null;
+  }
 
-  if (!refreshRes.ok) return null;
+  if (!refreshRes.ok) {
+    await supabase.rpc('ebay_complete_token_refresh', {
+      p_user_id: userId, p_access: null, p_expires: null, p_success: false,
+    });
+    return null;
+  }
 
   const refreshData = await refreshRes.json();
   const newExpires = new Date(Date.now() + refreshData.expires_in * 1000).toISOString();
 
-  await supabase.rpc('ebay_update_access_token', {
-    p_user_id: userId,
-    p_access: refreshData.access_token,
-    p_expires: newExpires,
+  await supabase.rpc('ebay_complete_token_refresh', {
+    p_user_id: userId, p_access: refreshData.access_token, p_expires: newExpires, p_success: true,
   });
 
   return refreshData.access_token;
