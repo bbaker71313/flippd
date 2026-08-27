@@ -4,6 +4,68 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-27 (part 4) — P3 remediation (P3-33 through P3-40) complete
+
+### Context
+External P3 remediation prompt covering 8 items (P3-33 through P3-40): one authoritative tier configuration source, removing the duplicated calcProfit implementation (or proving why not yet), fixing CLAUDE.md's stale mobile/Flippd startup instructions, reducing documentation duplication, removing proven-dead code, centralizing provider configuration, increasing frontend type safety, and gradual frontend architecture alignment. P0/P1/P2 remediation (see prior entries) already complete — this session did not redo that work. One commit per item, in order.
+
+### P3 Status Matrix
+| Item | Status | Evidence |
+|---|---|---|
+| P3-33 One authoritative tier config | COMPLETE | New `_shared/tierCatalog.ts` (limits + display catalog); `tierLimits.ts` deleted; `auth`/`me` response adds `paidTiers`/`tierPricing`; app.html's `TIER_INFO` no longer hardcodes price/limits (was wrong — claimed 500 items for Hustle, real limit 250); fixed a real bug where the subscription usage line always showed "unlimited" (`user.limits.scansPerMonth` was never set by the backend); unknown tier now fails closed to scout's limits instead of `?? null` resolving to unlimited. 4 new tests. |
+| P3-34 Remove duplicated calcProfit | **PARTIAL / BLOCKED** | Live-verified via this session's Supabase MCP deploy access: a diagnostic function importing `packages/shared/.../calcProfit.ts` via a relative path failed to bundle, and this project's own already-deployed functions show 3 different upload-root depths depending on deploy mechanism — the cross-package import path is not safe today, not just "unverified." Did not delete the server mirror. Brought `financialEngine_test.ts` to full parity with `calcProfit.test.ts` (7 new tests) and rewrote the header comment with the evidence. |
+| P3-35 Fix CLAUDE.md stale mobile/Flippd instructions | COMPLETE | SESSION START check #2 required a deleted `apps/mobile/components/ui/` directory (would fail every session) — replaced with `app.html`/`supabase/functions/` checks, verified all 5 checks pass for real. Also fixed 4 more places describing the deleted mobile scaffold as if it still existed on disk. |
+| P3-36 Reduce documentation duplication | COMPLETE | Built a duplication map; most categories already well-factored. Found and fixed the one real drift: `ARCHITECTURE.md` still said "JWT, 90-day sessions" / "JWT in localStorage" (both wrong since P2-29/SEC-015) and had two competing client-storage tables. Registered `ARCHITECTURE.md` in `DOC_HIERARCHY.md`'s tier table and `CURRENT_STATE.md`'s doc index (both were missing it). |
+| P3-37 Remove dead code/obsolete comments | COMPLETE | Removed 6 confirmed-dead functions from app.html (`getSingleSys`/`getShelfSys` — superseded by claude-proxy's server-side copies; `checkEbayOAuthCallback` — superseded by an inline IIFE doing the same job; `relistItem` — superseded by `confirmRelist`; `exportListingsToCSV` — superseded by the newer CSV queue system; `setSubInterval`/`_subInterval` — referenced a nonexistent DOM element, no toggle UI exists) and one dead/wrong `TIER_LIMITS` const from `packages/shared/types/index.ts`. Fixed two doc entries (`DECISIONS.md`, `DOC_AUDIT.md`) still describing the P2-21-fixed "Access code required" toast as unfixed. 12 candidates kept as UNCERTAIN (logged, not removed) — see Out-of-Scope Findings. |
+| P3-38 Centralize provider configuration | COMPLETE | New `_shared/aiConfig.ts` (`CLAUDE_MODEL`/`ANTHROPIC_MESSAGES_URL`) replaces 6 independent literal-string call sites. `ebayAppAuth.ts`'s `ebayApiBase()`/`ebayTokenUrl()` now delegate to `ebayClient.ts`'s `ebayUrls()` instead of reimplementing the same sandbox/prod switch. Documented 12 real, currently-used env vars in `.env.example` that were completely undocumented (EBAY_CLIENT_SECRET, EBAY_RUNAME, EBAY_SANDBOX*, SOLD_COMPS_API_KEY, SOLDCOMPS_API_BASE_URL, IDENTIFICATION_PROVIDER, CRON_SECRET, FRONTEND_URL, RESEND_FROM_EMAIL). 2 new tests. |
+| P3-39 Increase type safety in live frontend | COMPLETE | New `apps/web/public/scanResultContract.js` — runtime-validated scan-response contract (decision must be HOT/LIST/SKIP, numeric fields must be finite, demand level must be one of 4 real values, nullable-by-business-semantics fields distinguished from always-required ones). Wired into `analyze()`/`analyzeShelf()`, replacing unvalidated inline field mapping. 12 new tests via `node --test`. |
+| P3-40 Gradual frontend architecture alignment | COMPLETE (stage 1 of a staged plan) | Same extraction as P3-39 — scan-result normalization was the highest-risk, most clearly-bounded first boundary (matches the prompt's own example). Loaded via `<script src>`, no bundler, `app.html` stays fully functional. A 4-stage plan for future extractions is documented in the commit message (next: inventory mutation payload construction). |
+
+### Files Changed (by area)
+- **New shared modules:** `supabase/functions/_shared/tierCatalog.ts`, `aiConfig.ts` (+ `aiConfig_test.ts`), `apps/web/public/scanResultContract.js` (+ `scanResultContract.test.js`)
+- **Deleted:** `supabase/functions/_shared/tierLimits.ts` (superseded by `tierCatalog.ts`)
+- **Modified shared modules:** `stripePricing.ts` (exported `PAID_TIERS`), `shared_test.ts`, `financialEngine.ts` (+ test parity), `ebayAppAuth.ts`, `itemIdentification.ts`
+- **Edge functions:** `auth/index.ts` (tier catalog in `/me` response, fail-closed limits), `claude-proxy/index.ts` (fail-closed limits, `aiConfig.ts` model/URL)
+- **Frontend:** `apps/web/public/app.html` (P3-33 subscription panel now server-sourced, P3-37 dead-function removal, P3-39/40 scan-result contract wiring)
+- **Shared package:** `packages/shared/src/constants/tiers.ts` (documented relationship to runtime source), `packages/shared/src/types/index.ts` (removed dead `TIER_LIMITS`)
+- **Docs:** `CLAUDE.md` (P3-35 stale mobile checks), `docs/ARCHITECTURE.md` (P3-36 auth/storage drift), `docs/DOC_HIERARCHY.md`, `docs/CURRENT_STATE.md`, `docs/DOC_AUDIT.md`, `docs/files/DECISIONS.md` (P3-37 stale toast note), `.env.example` (P3-38 undocumented secrets)
+
+### Live Supabase deploy verification (P3-34)
+This session used `mcp__Supabase__deploy_edge_function`/`list_edge_functions` (not used in any prior session for this purpose) to actually test the calcProfit cross-package-import blocker instead of repeating "unverified." A diagnostic function (never left deployed — the deploy call itself failed to bundle, so no live version was ever created) importing `../../../packages/shared/src/utils/calcProfit.ts` failed with "Module not found." More useful: `list_edge_functions` on this project's own ACTIVE functions shows their bundled `entrypoint_path`s rooted at 3 different depths (`source/<fn>/index.ts`, `source/functions/<fn>/index.ts`, `source/supabase/functions/<fn>/index.ts`) depending on which past deploy mechanism produced them — meaning the number of `../` segments needed to reach `packages/shared/` is not stable across deploy tools. Full detail in `financialEngine.ts`'s header comment.
+
+### Testing
+- `deno test --no-check --node-modules-dir=none --allow-env --allow-read --allow-net --import-map=supabase/functions/_shared/testing/deno_test_import_map.json supabase/functions/` → **186/186 passing** (177 pre-existing baseline this session + a few along the way + 9 new this session: 4 tierCatalog + 2 aiConfig + 3 financialEngine already counted in the 177→184 jump before aiConfig's own 2).
+- `packages/shared`: `node --test` → **72/72 passing** (unaffected). `npx tsc --noEmit` → 0 errors.
+- `node --test apps/web/public/scanResultContract.test.js` → **12/12 passing** (new — plain JS, no compile step, run directly).
+- `node --check` on the extracted main `<script>` block after every `app.html` edit, plus `node --check` on the new `scanResultContract.js` directly — same disclosed limitation as prior sessions: syntax-only, no live browser/backend smoke test was possible in this sandbox.
+- `deno check` per touched file: clean except the same pre-existing sandbox-only `ReturnType<typeof createClient>` artifact class documented in prior sessions, plus one newly-noticed pre-existing TS4115 on `EbayAppAuthError`'s constructor (confirmed via `git show HEAD:...` identical on the untouched line — not introduced this session).
+- `deno.lock` reverted after every local test run, never committed (same sandbox-only-artifact discipline as every prior session).
+
+### Assumptions Made
+1. **P3-33's `packages/shared/src/constants/tiers.ts` annual price mismatch** (its `priceYearly` differs from `app.html`'s old hardcoded `year` field) was left unreconciled rather than picking one number, because neither value is displayed anywhere live (no annual-billing UI exists — see `CURRENT_STATE.md`'s Billing note) — judged this as "nothing to reconcile against" rather than a product decision requiring escalation, since reconciling two numbers that are both currently inert doesn't change any live behavior either way.
+2. **P3-34's outcome (PARTIAL/BLOCKED, not COMPLETE)** was not treated as requiring escalation — the remediation prompt explicitly names this exact outcome as acceptable ("mark the item PARTIAL/BLOCKED rather than pretending it is complete") and specifies what to do instead (reduce duplication as far as safely possible), which is what was done.
+3. **P3-39/P3-40 were combined into one commit** rather than split, since the prompt's own cross-item rule allows "one commit per P3 item or tightly coupled sub-item" and both items point at literally the same extraction (P3-39's priority list starts with "scanner results"/"profit/ROI values"; P3-40's example list names "scan-result normalization").
+
+### Out-of-Scope Findings
+1. **12 more app.html functions have zero call sites** (`setCatFilter`, `setStatusFilter`, `renderProfitChart`, `renderTrendLine`, `renderBestWorst`, `setCsvWindow`, `saveCsvReminder`, `showKpiDrillDown`, `showSourcingDrillDown`, `showInventoryDrillDown`, `showPhotosDrillDown`, `setImportMode`) but — unlike the 6 removed this session — no superseding live implementation was found for any of them. Each could equally be an unwired real feature (a bug: forgot to add the trigger) rather than legacy dead code; deleting on a guess would risk destroying a feature someone meant to finish. Recommend a dedicated follow-up: check each one against the UI it's presumably meant to serve (dashboard KPI cards, CSV reminder settings, chart placeholders) to decide fix-the-wiring vs. remove.
+2. **`docs/DOC_AUDIT.md` is a 2026-06-24 point-in-time snapshot** that `DOC_HIERARCHY.md` says should be "updated after each doc cleanup phase" but has not been touched despite the P0/P1/P2/P3 phases since. Added a staleness warning to its header and fixed the one row this session had direct evidence for; did not re-verify the rest (dozens of rows) — recommend a dedicated re-audit session.
+3. **`send_export_reminders`→`export-reminder` missing `x-cron-secret` header bug** (flagged in the P2 session's HANDOFF entry) — still not fixed, unrelated to any P3 item.
+4. **`roiClass()`/`daysClass()`/`strClass()` in app.html use hardcoded thresholds** instead of the user's actual settings (flagged in the P2 session's HANDOFF entry) — still not fixed, cosmetic only (color-coding, not the actual decision), unrelated to any P3 item.
+5. **`FEATURE_TRIAGE.md`'s header still claims Phase 4 mobile RN is complete** (already flagged as stale in `DOC_HIERARCHY.md` with a workaround note) — not re-verified or fixed this session, logged in the P3-36 commit message rather than expanding that pass into a second doc's cleanup.
+
+### Product Decisions Needed
+None.
+
+### Blockers
+None that block the reported status — P3-34's calcProfit consolidation is explicitly reported as PARTIAL/BLOCKED per the remediation prompt's own accepted outcome for this case, not silently worked around.
+
+### Next task
+Nothing outstanding from the P3 remediation prompt's required scope. If continuing: (1) investigate the 12 UNCERTAIN dead-code candidates from P3-37's Out-of-Scope Finding #1; (2) a dedicated `DOC_AUDIT.md` re-audit; (3) P3-40's stage 2 (inventory mutation payload construction) whenever that area next needs touching for another reason; (4) re-attempt P3-34's cross-package import once the repo has a single, verified deploy mechanism with a stable upload root.
+
+**P3 COMPLETE — VERIFIED** (P3-34 explicitly PARTIAL/BLOCKED per the prompt's own accepted outcome for a verified-unsafe cross-package import; all other 7 items COMPLETE; all tests passing; no approved business behavior silently changed).
+
+---
+
 ## Session: 2026-08-27 (part 3) — P2 remediation (P2-18 through P2-32) complete
 
 ### Context
