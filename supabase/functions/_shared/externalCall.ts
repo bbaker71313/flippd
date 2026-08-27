@@ -6,16 +6,20 @@
 
 export type ExternalCallErrorKind = 'timeout' | 'aborted' | 'network' | 'http' | 'parse';
 
+const MAX_ERROR_BODY_CHARS = 2000;
+
 export class ExternalCallError extends Error {
   readonly kind: ExternalCallErrorKind;
   readonly status?: number;
   readonly retryable: boolean;
   readonly attempts: number;
+  /** Raw response body (truncated), only for kind='http' — lets a caller surface a provider's own error detail (e.g. Stripe's `error.message`). Never populated from request data, so it can't leak our own secrets. */
+  readonly bodyText?: string;
 
   constructor(
     kind: ExternalCallErrorKind,
     message: string,
-    opts: { status?: number; retryable: boolean; attempts: number; cause?: unknown },
+    opts: { status?: number; retryable: boolean; attempts: number; cause?: unknown; bodyText?: string },
   ) {
     super(message);
     this.name = 'ExternalCallError';
@@ -23,6 +27,7 @@ export class ExternalCallError extends Error {
     this.status = opts.status;
     this.retryable = opts.retryable;
     this.attempts = opts.attempts;
+    this.bodyText = opts.bodyText;
     if (opts.cause !== undefined) this.cause = opts.cause;
   }
 }
@@ -161,6 +166,7 @@ async function attemptOnce<T>(
     const status = res.status;
     const retryable = status === 429 || status >= 500;
     const retryAfterMs = retryable ? parseRetryAfter(res.headers.get('Retry-After')) : undefined;
+    const bodyText = await res.text().catch(() => '');
     return {
       ok: false,
       retryAfterMs,
@@ -168,6 +174,7 @@ async function attemptOnce<T>(
         status,
         retryable,
         attempts: attempt + 1,
+        bodyText: bodyText.slice(0, MAX_ERROR_BODY_CHARS),
       }),
     };
   }

@@ -7519,9 +7519,12 @@ function renderSubscriptionPanel() {
 const STRIPE_BASE = 'https://dqgfpchkheznvanfgsmx.supabase.co/functions/v1/stripe-checkout';
 async function startCheckout(tier, interval) {
   try {
+    // P2-26: one attemptId per checkout click so the server can derive a stable
+    // Stripe Idempotency-Key for this attempt (a later click gets a new id).
+    var attemptId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '_' + Math.random().toString(36).slice(2));
     var res = await fetch(STRIPE_BASE, {
       method: 'POST', headers: getApiHeaders(),
-      body: JSON.stringify({ tier: tier, interval: interval, userId: window._currentUser?.id, returnUrl: window.location.origin + '/app.html' })
+      body: JSON.stringify({ tier: tier, interval: interval, attemptId: attemptId, userId: window._currentUser?.id, returnUrl: window.location.origin + '/app.html' })
     });
     var data = await res.json();
     if(data.url) window.location.href = data.url;
