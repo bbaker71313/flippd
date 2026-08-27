@@ -4,6 +4,96 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-27 (part 6) — P0 production Edge Function deployment-drift remediation
+
+### Context
+External incident: the live production scanner failed client-side with `scanResultContract: decisionAvailable must be a boolean, got undefined`. Investigation confirmed `claude-proxy` was deployed at v83 while `main` had already advanced through the full P0–P3 + Chapter 02 remediation (prior HANDOFF entries). Task: bring all repo-managed production Edge Functions into alignment with `main`, verify, and add an anti-drift mechanism — not a business-logic change.
+
+### Root cause
+No CI/CD step deploys `supabase/functions/` — `.github/workflows/web.yml` only typechecks `apps/web`/`packages/shared` (paths filter excludes `supabase/**` entirely). Every prior deployment was therefore manual/ad hoc, done via whichever tool/session/cwd happened to be available at the time. `mcp__Supabase__list_edge_functions` showed the live functions' bundled `entrypoint_path`s rooted at 3 different depths (`source/<fn>/index.ts`, `source/functions/<fn>/index.ts`, `source/supabase/functions/<fn>/index.ts`) — direct evidence of this drift, already flagged in the P3-34 session but not remediated at the deployment-process level until now.
+
+### Deployment-drift matrix (as found, before this session's redeploys)
+
+| Function | Live version (before) | Repo-managed? | Drift detected | Evidence |
+|---|---:|---|---|---|
+| `auth` | 65 | Yes | Yes | Imported deleted `_shared/tierLimits.ts`; `signJWT` default 90 days (`90*24*60*60`) not 30; inline pre-P2-28 rate limiting, no `_shared/authRateLimit.ts`; `sendEmail` returned `void` not `EmailSendResult` (no P2-27 durable retry) |
+| `claude-proxy` | 83 | Yes | **Yes — P0** | `estimatedCost = r2(avgSell*0.10)` present; old `getDecision(` path present; imported deleted `tierLimits.ts`; zero occurrences of `resolveScanResultCore`/`decisionAvailable`/`decisionStatus`/`tierCatalog`/`financialEngine`/`decisionEngine`/`marketDataPipeline`/`aiConfig` — bundle only contained `index.ts`+`jwt.ts`+`cors.ts`+`tierLimits.ts`, nothing else |
+| `stripe-checkout` | 63 | Yes | Yes | Inline hardcoded `PRICE_ID_MAP` + raw `fetch` to Stripe, no `stripePricing.ts`/`stripeIdempotency.ts`/`externalCall.ts` (missing P1-B centralized pricing, P2-26 idempotency, P2-18 reliability wrapper) |
+| `stripe-webhook` | 60 | Yes | Yes | Inline `verifyStripeSignature`/hardcoded `PRICE_TIER` price-ID map, not the extracted `stripeWebhookSignature.ts`/`stripePricing.ts`; no webhook-event idempotency claim/complete RPC calls |
+| `ebay-oauth` | 70 | Yes | Yes | Inline `ebayUrls()`/`ebayCreds()`, not `_shared/ebayClient.ts`; `getValidEbayToken` was a plain function with no P2-25 DB-row-lock single-flight; no `ebaySyncReconciliation.ts` phase functions, no P2-24 pagination |
+| `cron` | 3 | Yes | Yes | `sendEmail` returned `void`; no `processEmailQueue`/P2-27 durable-email retry-queue processing |
+| `export-reminder` | 30 | Yes | **Yes — security gap** | Live version had **no `CRON_SECRET` check at all** — any caller could POST an arbitrary `userId` and trigger an email send. Current `main` has the SEC-004 fail-closed check; it was simply never deployed. |
+| `ebay-marketplace-insights-diagnostic` | 2 | No (diagnostic) | Not assessed | Out of scope per task — diagnostic function, not touched |
+| `ebay-diag` | 8 | No (diagnostic) | Not assessed | Out of scope per task — diagnostic function, not touched |
+
+### Fix
+All 7 repo-managed functions redeployed from `main` @ `cbddb78c564b5e6687e05c83edbf4bbe1459c4ce` (== `origin/main` at session start — this session's branch already contained it) via `mcp__Supabase__deploy_edge_function`, each with its complete relative-dependency closure assembled by hand-tracing every `import`/`import type` in the current repo tree (no packages/shared reach-through anywhere in `supabase/functions/` — the P3-34 cross-package-import blocker doesn't apply here, only the `_shared/*.ts` Deno-native mirrors are used). `verify_jwt` preserved as `false` for every function (each does its own in-body cookie/secret auth — Stripe webhook signature, cron/export-reminder shared secret, everything else JWT-cookie) — not changed casually per the task's explicit instruction.
+
+**`claude-proxy` (the P0)** went through two deploy attempts: the first (v84) accidentally omitted `_shared/marketData.ts` from the upload — bundling still succeeded because every reference to that file across the codebase is a type-only import (`import type {...} from "./marketData.ts"`), which TypeScript/esbuild erases entirely before emitting JS, so there was no runtime impact — but it was redeployed (v85) with the complete 21-file set anyway for source-tree correctness.
+
+| Function | Old version | New version |
+|---|---:|---:|
+| auth | 65 | 66 |
+| claude-proxy | 83 | 85 |
+| stripe-checkout | 63 | 64 |
+| stripe-webhook | 60 | 61 |
+| ebay-oauth | 70 | 71 |
+| cron | 3 | 4 |
+| export-reminder | 30 | 31 |
+
+### `claude-proxy` proof (post-deploy, fetched live bundle)
+Present: `resolveScanResultCore` (1), `decisionAvailable` (1), `decisionStatus` (1), `tierCatalog` (1), `financialEngine` (1), `decisionEngine` (1), `marketDataPipeline` (1), `aiConfig` (1), plus all 21 files including `_shared/marketData.ts`.
+Absent: `estimatedCost = r2` (0), `getDecision(` (0), `tierLimits.ts` (0).
+
+`auth` post-deploy confirmed: `DEFAULT_SESSION_SECONDS = 30 * 24 * 60 * 60` (not 90), imports `tierCatalog.ts`/`authRateLimit.ts` (not `tierLimits.ts`).
+`export-reminder` post-deploy confirmed: the `CRON_SECRET`/`x-cron-secret` check is now present and fail-closed.
+
+### Tests (all run before any deployment)
+- `deno test --no-check --node-modules-dir=none --allow-env --allow-read --allow-net --import-map=supabase/functions/_shared/testing/deno_test_import_map.json supabase/functions/` → **194/194 passing**.
+- `packages/shared`: `npx tsc --noEmit` → 0 errors. `node --test` → **72/72 passing**.
+- `node --test apps/web/public/scanResultContract.test.js` → **21/21 passing**.
+- `node --check apps/web/public/scanResultContract.js` and `node --check` on all 3 extracted `<script>` blocks in `app.html` → all pass.
+- Deno was not pre-installed this session; installed via `npm install -g deno` (registry.npmjs.org reachable). No `pnpm-workspace.yaml` mutation this time (checked via `git status` immediately after install).
+
+### Production smoke tests
+**Not run against a live HTTP endpoint.** This sandbox's egress proxy blocks direct connections to `*.supabase.co` (confirmed via `curl $HTTPS_PROXY/__agentproxy/status` — `recentRelayFailures` shows repeated `connect_rejected`/403 to `dqgfpchkheznvanfgsmx.supabase.co:443`), the same limitation prior sessions hit trying to reach `claude-proxy` directly. Verification instead relied on re-fetching each deployed function's actual bundle source via `mcp__Supabase__get_edge_function` and grepping for the markers listed above — this proves the code that will run is correct, but does not exercise a live request/response cycle.
+
+**MANUAL AUTHENTICATED SMOKE TEST REQUIRED:**
+1. Log in to production (scanforprofit.com/app.html) and run a single-item scan. Expect either a normal HOT/LIST/SKIP result (`decisionAvailable: true`) or, if verified market data can't be found for the item, the "no verified recommendation" card (`decisionAvailable: false`, `decisionStatus: 'insufficient_market_data'`) — **not** the `decisionAvailable must be a boolean, got undefined` client error that triggered this incident.
+2. Confirm a shelf scan renders without error and buckets any unverified items into the "Needs Verification" section rather than crashing.
+3. Confirm login still works and the session cookie lasts the expected 30 days (not immediately relevant to test same-day, but worth knowing the JWT default changed).
+
+### Anti-drift mechanism added
+1. **`scripts/deploy-edge-functions.sh`** (new) — deterministic Supabase CLI deploy, always run from the repo root against a fixed function-name list, so the upload root can no longer vary by cwd/tool the way it did before. Not executed in this sandbox (no Supabase CLI installed, no access token) — the actual deploy this session used `mcp__Supabase__deploy_edge_function` directly. The script is untested by this session; a human should do one dry run.
+2. **`supabase/DEPLOYED.md`** (new) — append-only manifest the script writes to after every successful deploy: function name, deployed git SHA, timestamp. Seeded by hand this session with the SHA/version-before/version-after table above, since the deploy itself predated the script's existence. This is the repeatable answer to "which git commit is this Edge Function running."
+3. **`supabase/config.toml`** — added top-level `project_id = "dqgfpchkheznvanfgsmx"` (was missing) and `[functions.cron]`/`[functions.export-reminder]` sections (previously only 5 of 7 functions were declared — a future `supabase functions deploy cron` without this entry would have defaulted to `verify_jwt = true` and broken its shared-secret auth model).
+
+### Assumptions made
+- None of the redeployed code differs in behavior from what's already tested and documented in prior HANDOFF sessions (P0–P3, Chapter 02) — this session deployed already-approved `main`, it did not write new application logic.
+- `_shared/marketData.ts`'s omission from the first `claude-proxy` deploy attempt (v84) is genuinely harmless (type-only imports, verified by grepping every import site) rather than a masked problem — judged safe to note and move past rather than escalate, since v85 fixed it moot anyway.
+
+### Out-of-scope findings
+1. **`marketDataPipeline.ts`'s header comment is stale** — it still says "On any failure result here, the calling scan handler falls back to the pre-existing AI-estimate path rather than failing the scan outright," which described the pre-Chapter-02 behavior. The actual code (and the Chapter 02 fix) no longer treats the AI estimate as a fallback *decision path* — it's carried informationally only via `resolveScanResultCore`. Comment-only drift, not a behavior bug; flagging for a future doc-hygiene pass rather than fixing here (out of scope for a deployment-drift task).
+2. **`docs/CURRENT_STATE.md`'s migration count** ("Migrations 009–016 live") was already stale before this session — the live database has 25 migrations, through `20260827133707_p2_security_advisor_cleanup`. Corrected as part of this session's required doc updates (directly in scope — the task requires `CURRENT_STATE.md` be updated with production function versions, and this line sits immediately next to that).
+3. **Stripe Checkout/webhook price-ID risk (flagged mid-session, not a code defect):** `main`'s `stripe-checkout`/`stripe-webhook` resolve Stripe price IDs from `STRIPE_PRICE_{HUSTLE,STACK,EMPIRE}_{MONTHLY,ANNUAL}` env vars via `stripePricing.ts`, replacing the previously-live hardcoded literal price-ID map. This session has no way to read Supabase secret values (by design) to confirm those env vars are actually set to the correct live Stripe price IDs. Both the old and new code fail closed on an unrecognized price (no invented tier), so this isn't a security regression — but if those secrets are unset or wrong, real checkout/webhook processing could silently stop assigning tiers correctly. **Product decision / manual check needed**, not something this session could verify or safely guess at.
+
+### Product decisions needed
+1. Confirm the 6 `STRIPE_PRICE_*` env vars are set in Supabase secrets to the correct live Stripe price IDs before relying on `stripe-checkout`/`stripe-webhook` for real subscriptions (see Out-of-Scope Finding #3 above). This session could not check.
+2. A human should run `./scripts/deploy-edge-functions.sh` once as a dry run to confirm the Supabase CLI flow actually works end-to-end (this session could not test it — no CLI installed, no access token).
+
+### Blockers
+None that block the reported status. Live HTTP smoke testing is blocked by this sandbox's network policy (see Production smoke tests above) — not a code or deployment blocker, and flagged for manual follow-up rather than silently skipped.
+
+### Next task
+1. Manual authenticated smoke test on production (see checklist above).
+2. Confirm Stripe price-ID secrets (Product Decision #1).
+3. Dry-run `scripts/deploy-edge-functions.sh` once with the Supabase CLI to validate it (Product Decision #2).
+4. Fix the stale `marketDataPipeline.ts` header comment (Out-of-Scope Finding #1) whenever that file is next touched for another reason.
+
+**P0 PRODUCTION EDGE FUNCTION DEPLOYMENT DRIFT — FIXED AND VERIFIED** (verified via bundle-source re-fetch + marker grep, not a live HTTP smoke test — see Manual Authenticated Smoke Test Required above for what's still outstanding).
+
+---
+
 ## Session: 2026-08-27 (part 5) — Chapter 02 follow-up: AI-market-authority defect fixed
 
 ### Context
