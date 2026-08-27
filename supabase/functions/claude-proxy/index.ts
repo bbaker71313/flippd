@@ -8,6 +8,7 @@ import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
 import { resolveVerifiedMarketData } from "../_shared/marketDataPipeline.ts";
 import type { IdentityCandidate, IdentificationEvidenceKind, MarketDataResult } from "../_shared/marketData.ts";
 import { computeStaleInventoryItems, type StaleCandidateRow } from "../_shared/staleInventory.ts";
+import { CLAUDE_MODEL, ANTHROPIC_MESSAGES_URL } from "../_shared/aiConfig.ts";
 
 function ab2b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -202,7 +203,7 @@ async function callAnthropic(
   const textPrompt = userText ?? (images.length > 1
     ? `Analyze these ${images.length} photos of the same item from different angles.`
     : 'Analyze this image.');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -210,7 +211,7 @@ async function callAnthropic(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: CLAUDE_MODEL,
       max_tokens: maxTokens,
       system,
       messages: [{
@@ -909,11 +910,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   "shippingNote": "Buyer pays shipping"
 }`;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: CLAUDE_MODEL,
       max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -984,14 +985,14 @@ async function handleKeywordsGet(
 
   let kwResult: Record<string, unknown>;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json', 'x-api-key': anthropicKey,
         'anthropic-version': '2023-06-01', 'anthropic-beta': 'web-search-2025-03-05',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 800,
+        model: CLAUDE_MODEL, max_tokens: 800,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -1278,10 +1279,10 @@ Based on this real seller data AND your knowledge of current eBay reselling tren
 
   let ai: Record<string, unknown>;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }),
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error?.message ?? 'Anthropic error');

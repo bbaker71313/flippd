@@ -9,6 +9,7 @@
 // silently-skipped auth step.
 
 import { externalCall, ExternalCallError } from "./externalCall.ts";
+import { ebayUrls } from "./ebayClient.ts";
 
 interface EbayAppToken {
   accessToken: string
@@ -19,16 +20,16 @@ interface EbayAppToken {
 // in which case a fresh token is fetched. Never persisted, never logged.
 let cachedToken: EbayAppToken | null = null
 
+// P3-38: sandbox/prod URL switching is centralized in ebayClient.ts's
+// ebayUrls() — this used to reimplement the exact same EBAY_SANDBOX check
+// independently (two copies of the same provider config, drift risk each
+// time an endpoint or the sandbox flag's semantics change).
 export function ebayApiBase(): string {
-  return Deno.env.get('EBAY_SANDBOX') === 'true'
-    ? 'https://api.sandbox.ebay.com'
-    : 'https://api.ebay.com';
+  return ebayUrls().api;
 }
 
 function ebayTokenUrl(): string {
-  return Deno.env.get('EBAY_SANDBOX') === 'true'
-    ? 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
-    : 'https://api.ebay.com/identity/v1/oauth2/token';
+  return ebayUrls().token;
 }
 
 export class EbayAppAuthError extends Error {
