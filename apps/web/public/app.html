@@ -3000,7 +3000,7 @@ function showSoldDetail(id) {
         ${shipAmt > 0 ? `<div class="flex-between"><span>Shipping</span><span>−$${shipAmt.toFixed(2)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;font-weight:700">
           <span>Net Profit</span><span class="${netProfit >= 0 ? 'u-pos' : 'u-neg'}">$${netProfit.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi}%</span></div>`}
+        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px"><span>ROI</span><span>${roi === 'N/A' ? 'N/A' : roi + '%'}</span></div>`}
       </div>
     </div>
     <button class="btn btn-amber" style="width:100%;margin-top:8px" onclick="document.getElementById('sold-detail-overlay').remove();openRelistById(${item.id})">Relist This Item</button>`;
@@ -3476,7 +3476,8 @@ function createInventoryItem(data) {
   const cost      = parseFloat(data.cost) || 0;
   const sellPrice = parseFloat(data.sellPrice || data.estimated_value) || 0;
   const profit    = data.profit !== undefined ? data.profit : calcProfit(cost, sellPrice);
-  const roi       = data.roi   !== undefined ? data.roi   : (cost > 0 ? Math.round((profit/cost)*100) : 0);
+  // P2-31: null (never 0/fabricated) when acquisition cost is genuinely $0/unknown.
+  const roi       = data.roi   !== undefined ? data.roi   : (cost > 0 ? Math.round((profit/cost)*100) : null);
 
   const newItem = {
     id:              Date.now(),
@@ -6061,7 +6062,7 @@ async function analyze() {
     // Server-authoritative — never recomputed client-side.
     const dec = r.decision;
     const fin = { profit: r.estimatedProfit, roi: r.roi, fee: r.feeAmount, shipCost: r.shipCostAmount };
-    logScan(dec, fin.roi||0, r.acquisitionCost||0, false);
+    logScan(dec, fin.roi, r.acquisitionCost||0, false); // P2-31: preserve fin.roi's null (server-authoritative) — do not coerce to 0
     try {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
@@ -6242,12 +6243,15 @@ function mapToInvCategory(aiCat) {
 
 function logScan(dec, roi, cost, bought) {
   // Instructions now always visible
+  // P2-31: preserve null roi (genuine $0/unknown cost) — never coerce to a
+  // fabricated 0%, which would be indistinguishable from a real break-even scan.
+  const roiVal = (roi === null || roi === undefined) ? null : roi;
   const log = JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
-  log.push({ ts: Date.now(), dec, roi: roi||0, cost: cost||0, bought: !!bought });
+  log.push({ ts: Date.now(), dec, roi: roiVal, cost: cost||0, bought: !!bought });
   // Keep last 500 scans
   if (log.length > 500) log.splice(0, log.length - 500);
   localStorage.setItem('sfp_scan_log', JSON.stringify(log));
-  if (window.posthog) posthog.capture('scan_complete', { decision: dec, roi: roi||0, cost: cost||0, bought: !!bought });
+  if (window.posthog) posthog.capture('scan_complete', { decision: dec, roi: roiVal, cost: cost||0, bought: !!bought });
 }
 
 function buyItem() {
@@ -6336,7 +6340,7 @@ function buyShelfItem(itemIndex) {
     estimated_value: sellPrice,
     sellPrice:     sellPrice > 0 ? sellPrice.toFixed(2) : '',
     profit:        0,
-    roi:           0,
+    roi:           null, // P2-31: cost is blank/unknown at this point — never fabricate 0% ROI.
     status:        'Unlisted',
     notes:         [
       shelfItem.condition_notes || '',
@@ -6534,7 +6538,7 @@ function confirmBuyItem() {
     nickname: name, title: name, category, condition,
     platform: 'eBay', cost: cost.toString(),
     estimated_value: sellPrice, sellPrice: sellPrice > 0 ? sellPrice.toFixed(2) : '',
-    profit: calcProfit(cost, sellPrice), roi: cost > 0 ? Math.round((calcProfit(cost,sellPrice)/cost)*100) : 0,
+    profit: calcProfit(cost, sellPrice), roi: cost > 0 ? Math.round((calcProfit(cost,sellPrice)/cost)*100) : null, // P2-31: never fabricate 0% ROI for a $0 cost
     status: 'Unlisted', notes, photos, image_url: photos[0]||null,
     created_from: 'sourcing',
     sourcing_meta: {
@@ -7359,7 +7363,7 @@ function showSourcingDrillDown() {
         <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace">${new Date(s.ts).toLocaleTimeString()}</div></div>
       <div class="text-right">
         <span style="background:${s.dec==='LIST'||s.dec==='HOT'?'var(--green-bg)':'var(--red-bg)'};color:${s.dec==='LIST'||s.dec==='HOT'?'var(--green-border)':'var(--red)'};padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700">${s.dec}</span>
-        ${s.roi ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${s.roi}% ROI</div>` : ''}
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.roi != null ? s.roi + '% ROI' : 'N/A ROI'}</div>
       </div>
     </div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--muted)">No scans yet today</div>';
   showDrillDownModal(`Today\'s Scans (${scans.length})`, rows);
