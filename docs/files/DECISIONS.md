@@ -18,7 +18,7 @@ Add decisions here when something is locked. Reference `docs/DOC_HIERARCHY.md` f
 **Decision:** There are no early-access codes, invite codes, or gatekeeper passwords for the app.
 **How users get in:** Go to `scanforprofit.com/app.html` → Sign Up → verify email → log in with password. Session is a JWT stored client-side.
 **Waitlist vs app access:** The landing page "Get early access" CTA captures waitlist emails — that is **not** an app unlock code. Do not document or build access-code flows.
-**Legacy:** Pre-JWT access codes are rejected at session restore. One stale toast ("Access code required") remains in `app.html` — tracked in `docs/DOC_AUDIT.md` for cleanup.
+**Legacy:** Pre-JWT access codes are rejected at session restore. The stale "Access code required" toast was fixed in `app.html` (P2-21, 2026-08-27) — it now shows "Please log in first."
 
 ### Live product is the web app (app.html), not the RN scaffold
 **Decision:** The shipped product is `apps/web/public/app.html` at `/app.html`. The Expo mobile app in `apps/mobile/` is a future rebuild reference — not live, not authoritative for feature status.

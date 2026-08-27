@@ -4,6 +4,15 @@
 **Method:** Code review of `app.html` + edge functions, cross-reference against all `.md` docs, link existence check, stale-keyword grep.  
 **Next action:** Phase 3 — fix CLAUDE.md header + FEATURE_TRIAGE header; archive legacy docs.
 
+**Staleness warning (added P3-36/37, 2026-08-27):** this is a point-in-time
+snapshot from 2026-06-24. Several P0/P1/P2/P3 remediation sessions have
+shipped fixes since (see `docs/HANDOFF.md`) without this file being
+re-audited — it was not kept current the way `DOC_HIERARCHY.md` says it
+should be. Do not treat an unconfirmed row below as still-open without
+checking the live code first. One row confirmed resolved this session is
+marked below; the rest were not re-verified — flagged as an out-of-scope
+finding rather than expanding this pass into a full re-audit.
+
 ---
 
 ## Executive summary
@@ -105,7 +114,7 @@ Legend: ✅ Live · 🟡 Built but unverified E2E · ⬜ Not built · 🗄️ De
 |------|-------|----------|
 | `README.md` L18–22 | "Enter your early access code" — **false**; auth is email + password | P0 |
 | `README.md` L89 | "Early Access" version label | P1 |
-| `apps/web/public/app.html` L3164 | Toast: "Access code required" — legacy; should say "Log in required" | P1 |
+| `apps/web/public/app.html` L3164 | ~~Toast: "Access code required" — legacy~~ **RESOLVED P2-21 (2026-08-27):** now shows "Please log in first" — verified no "Access code required" string remains in `app.html`. | Done |
 | `apps/web/public/index.html` | "Get early access" waitlist CTA — **valid** (waitlist ≠ app code) | OK |
 | `docs/files/LAUNCH_CHECKLIST.md` | References early access users/discounts — review at launch | P2 |
 

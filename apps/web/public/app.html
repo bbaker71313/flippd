@@ -3047,34 +3047,11 @@ function markAsListed(id) {
 }
 
 
-function relistItem(id) {
-  const item = items.find(i => i.id === id);
-  if (!item) return;
-  const newId = Date.now();
-  const newItem = {
-    ...item,
-    id: newId,
-    status: 'Unlisted',
-    dateAcquired: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString(),
-    listed_at: null,
-    sold_at: null,
-  };
-  // Clear sold fields and eBay ID so this is treated as a fresh listing
-  delete newItem.soldPrice; delete newItem.sold_price;
-  delete newItem.soldDate; delete newItem.sold_date;
-  delete newItem.ebay_item_id;
-  delete newItem.ebayItemId;
-  // Copy photos from IndexedDB for the original item into the new item
-  if (typeof photoMap !== 'undefined' && photoMap[item.id]) {
-    persistPhotos(newId, photoMap[item.id]);
-    photoMap[newId] = photoMap[item.id];
-  }
-  items.push(newItem);
-  saveItems();
-  renderInventoryHome();
-  showToast('New listing created in Unlisted — original stays in Sold');
-}
+// P3-37: relistItem(id) removed — dead code, zero call sites anywhere in
+// this file (not even an onclick reference). The live "relist" feature is
+// confirmRelist() (wired to the "Relist as New" button, resets the
+// existing row's status in place rather than cloning a new item) — this
+// older clone-into-a-new-row implementation was superseded and orphaned.
 
 // Change 13: Read-only detail view for Sold items
 function showSoldDetail(id) {
@@ -4959,68 +4936,11 @@ async function generateListingWithAI(item, condition) {
   return { title: l.title, description: l.description, conditionNote: l.conditionNote };
 }
 
-function exportListingsToCSV() {
-  const readyItems = items.filter(i => i.status === 'Ready to Export' && i.listing);
-  
-  if (readyItems.length === 0) {
-    showToast('No listings ready for export');
-    return;
-  }
-  
-  const rows = [
-    '#INFO,Version=0.0.2,Template= eBay-draft-listings-template_US,,,,,,,,',
-    '#INFO Action and Category ID are required fields...',
-    '#INFO After you\'ve successfully uploaded...',
-    '#INFO,,,,,,,,,,',
-    'Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8),Custom label (SKU),Category ID,Title,UPC,Price,Quantity,Item photo URL,Condition ID,Description,Format'
-  ];
-  
-  readyItems.forEach(item => {
-    const listing = item.listing;
-    const categoryId = EBAY_LEAF_CATEGORIES[listing.ebayCategory] || '';
-    const description = '<p>' + listing.description.replace(/\n/g, '</p><p>') + '</p>';
-    
-    const row = [
-      'Draft',
-      item.sku || '',
-      categoryId,
-      listing.title,
-      '',
-      item.sellPrice || '0',
-      '1',
-      '',
-      listing.ebayConditionId,
-      description,
-      'FixedPrice'
-    ];
-    
-    rows.push(row.map(cell => {
-      if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
-        return '"' + cell.replace(/"/g, '""') + '"';
-      }
-      return cell;
-    }).join(','));
-  });
-  
-  const csv = rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', 'eBay-listings-' + new Date().toISOString().slice(0, 10) + '.csv');
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  readyItems.forEach(item => {
-    item.status = 'Listed';
-  });
-  saveItems();
-  
-  showToast('Exported ' + readyItems.length + ' listings');
-  renderInventory();
-}
+// P3-37: exportListingsToCSV() removed — dead code, zero call sites. The
+// live eBay CSV export flow is the newer selectable-queue system
+// (getCsvCandidates/renderCsvPreview/generateAndDownloadCSV, confirmed
+// wired to the Photos tab's export UI) — this older single-shot
+// "export everything Ready to Export" implementation was superseded.
 
 function toggleListingDetail(itemId) {
   const el = document.getElementById('listing-detail-' + itemId);
@@ -5430,18 +5350,11 @@ async function checkEbayStatus() {
   }
 }
 
-function checkEbayOAuthCallback() {
-  const params = new URLSearchParams(location.search);
-  if (params.get('ebay_connected') === 'true') {
-    showToast('Connected to eBay!');
-  }
-  if (params.get('ebay_error')) {
-    showToast('eBay connection failed: ' + params.get('ebay_error'));
-  }
-  if (params.has('ebay_connected') || params.has('ebay_error')) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-}
+// P3-37: checkEbayOAuthCallback() removed — dead code, zero call sites.
+// The eBay OAuth redirect (?ebay_connected=/?ebay_error=) is actually
+// handled by an inline IIFE further down this file that does the exact
+// same toast + URL-cleanup job — this named function was an earlier
+// version left orphaned when that IIFE was added.
 
 function showEbaySyncPanel(){
   document.getElementById('ebay-sync-panel').style.display='flex';
@@ -6127,28 +6040,14 @@ async function callScan(type, hint, imageB64, acquisitionCost) {
 }
 
 
-function getSingleSys() {
-  return `You are a meticulous eBay sourcing expert with deep product knowledge. Your job is to ACCURATELY identify items and provide REALISTIC eBay sold market data — not retail prices.
-
-IDENTIFICATION (critical):
-- Study EVERY visible detail in the photo: brand logos, model numbers on labels/tags, serial plates, color, size, design era, materials, distinctive features.
-- Identify the EXACT make, model, and variant — not just a generic category. "Camera" is wrong. "Minolta X-700 35mm SLR Film Camera" is right.
-- Use any text description to confirm or narrow your photo identification.
-- If you cannot identify specifics, say so clearly in confidence_reason and set confidence below 60.
-
-PRICING (critical):
-- avg_sold_price = median of recent actual eBay SOLD listings, not asking price or retail.
-- price_low/price_high = realistic 20th-80th percentile of actual sold comps.
-- sell_through_rate = % of listings that actually sell (0-100), not just views.
-- avg_days_to_sell = realistic median days from listing to sale for this specific item.
-
-This seller's fee structure: ${S.ebayFee}% eBay fee + $${S.pkgCost} packaging. Buyer always pays shipping.
-Minimum profitable sale for this seller: their cost + fees + $${S.minProfit} profit.
-
-Return ONLY valid JSON, no markdown:
-{"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","estimated_weight_lbs":number,"avg_sold_price":number,"price_low":number,"price_high":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important context about market or item"}`;
-}
-
+// P3-37: getSingleSys() (the single-item scan system prompt) was removed
+// from here — dead code, zero call sites. The AI call goes through the
+// claude-proxy Edge Function (never from the client — see DECISIONS.md),
+// which has its own live copy of this exact prompt
+// (supabase/functions/claude-proxy/index.ts, "Verbatim from
+// FEATURE_TRIAGE.md P-03"). This client-side copy was a leftover from
+// before that move, made unreachable by the Chapter 02 audit noted below.
+//
 // Chapter 02 audit: the server is the sole authority for financial math and
 // the HOT/LIST/SKIP decision (packages/shared decisionEngine + financialEngine,
 // mirrored in supabase/functions/_shared/). This client used to recompute both
@@ -6233,21 +6132,11 @@ async function analyze() {
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
 
-function getShelfSys() {
-  return `You are a meticulous eBay sourcing expert scanning a shelf photo. Study EVERY item with care.
-
-For each distinct item visible:
-- Identify as specifically as possible: brand, model, type, era. Do not be generic.
-- Use all visible clues: labels, logos, colors, shapes, text, design era.
-- Provide REALISTIC eBay sold prices — actual sold comps, not retail or asking prices.
-- Only include items you can identify with at least 40% confidence.
-- Calculate estimated_profit as: avg_sold_price - estimated_cost_at_thrift - (avg_sold_price * ${S.ebayFee}/100) - ${S.pkgCost}
-- Buyer always pays shipping. Min profit threshold for FLIP: $${S.minProfit}. Target ROI for HOT: ${S.targetRoi}%.
-
-Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"estimated_cost_at_thrift":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","decision":"LIST|HOT|SKIP","decision_reason":"one specific sentence with reasoning","estimated_profit":number,"confidence":number,"condition_notes":"string"}]
-Sort: HOT first, then LIST, then SKIP.`;
-}
+// P3-37: getShelfSys() (the shelf-scan system prompt) removed for the same
+// reason as getSingleSys() above — dead code, zero call sites, superseded
+// by claude-proxy/index.ts's live server-side copy ("Verbatim from
+// FEATURE_TRIAGE.md P-04"). This orphaned copy still said "FLIP" (retired
+// terminology, see DECISIONS.md) — itself evidence nothing was reading it.
 
 async function analyzeShelf() {
   if(!imgB64){showError('Take a shelf photo first.');return;}
@@ -7746,8 +7635,6 @@ async function saveAndGenerateListing() {
 // ══════════════════════════════════════════════════
 // SUBSCRIPTION PANEL
 // ══════════════════════════════════════════════════
-var _subInterval = 'month';
-
 // P3-33: presentation-only metadata (color, tagline, marketing bullets).
 // Name, monthly price, and scan/inventory limits are NOT hardcoded here —
 // they come from window._currentUser.tierPricing, sent by the /auth/me
@@ -7763,14 +7650,11 @@ var TIER_INFO = {
     extraFeatures:['Everything in Stack','10 team seats','API access','Priority support'] }
 };
 
-function setSubInterval(interval) {
-  _subInterval = interval;
-  var mb = document.getElementById('sub-bill-month');
-  var yb = document.getElementById('sub-bill-year');
-  if(mb){ mb.style.background = interval==='month'?'var(--accent)':'transparent'; mb.style.color = interval==='month'?'#fff':'var(--muted)'; }
-  if(yb){ yb.style.background = interval==='year'?'var(--accent)':'transparent'; yb.style.color = interval==='year'?'#fff':'var(--muted)'; }
-  renderSubTierCards();
-}
+// P3-37: setSubInterval()/_subInterval were dead code — no annual-billing
+// toggle UI exists (only a static, non-interactive "Monthly" label; see
+// CURRENT_STATE.md's "Billing" note), setSubInterval() was never called
+// from anywhere, and it referenced a #sub-bill-year element that doesn't
+// exist. Checkout is monthly-only today, so 'month' is inlined below.
 
 function renderSubTierCards() {
   var container = document.getElementById('sub-tier-cards');
@@ -7803,7 +7687,7 @@ function renderSubTierCards() {
       '</ul>' +
       (isCurrent ?
         '<div style="text-align:center;padding:10px;color:var(--muted);font-size:12px;font-family:\'IBM Plex Mono\',monospace">Your current plan</div>' :
-        '<button onclick="startCheckout(\''+t+'\',\''+_subInterval+'\')" style="width:100%;background:'+d.color+';color:#fff;border:none;padding:12px;border-radius:8px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:700;cursor:pointer">Upgrade to ' + p.label + ' \u2192</button>'
+        '<button onclick="startCheckout(\''+t+'\',\'month\')" style="width:100%;background:'+d.color+';color:#fff;border:none;padding:12px;border-radius:8px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:700;cursor:pointer">Upgrade to ' + p.label + ' \u2192</button>'
       ) +
     '</div>';
   }).join('');
