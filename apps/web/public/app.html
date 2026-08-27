@@ -485,7 +485,6 @@ body::before{
 .action-btn:active{transform:scale(0.94) translateY(1px)}
 .action-buy{background:var(--green);color:#000;border-color:var(--green-border);box-shadow:0 0 15px rgba(0,230,118,0.3)}
 .action-pass{background:var(--red);color:#fff;border-color:#aa0000}
-.action-watch{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow)}
 
 /* ══ INVENTORY ══ */
 .inv-filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
@@ -3249,7 +3248,7 @@ function invFormClearPhoto() {
 
 async function invFormDetectItem() {
   if (!invFormImgFile) return;
-  if (!isUnlocked()) { showToast('Access code required'); return; }
+  if (!isUnlocked()) { showToast('Please log in first'); return; } // P2-21: stale pre-JWT copy — auth is email+password, not access codes (docs/DOC_AUDIT.md)
   const btn = document.getElementById('inv-form-detect-btn');
   const status = document.getElementById('inv-form-detect-status');
   btn.disabled = true; btn.textContent = 'Detecting...';
@@ -6210,7 +6209,7 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,market
     ${decisionExplanation}
     ${sourceBadge}
 
-    <!-- BUY / PASS / WATCH ACTIONS -->
+    <!-- BUY / SKIP ACTIONS (P2-21: a third "Watch" action was planned but never shipped — comment corrected, nothing to remove) -->
     <div class="buy-action-bar">
       <div class="buy-action-title">What do you want to do?</div>
       <div class="buy-action-sub">Tap Buy to add this item to your inventory automatically.</div>

@@ -267,7 +267,7 @@ AI proxy: Edge Function calls Anthropic API server-side
 Payments
 Platform: Stripe
 Tiers: Scout (free) · Hustle ($19/mo) · Stack ($49/mo) · Empire ($199/mo)
-Billing: Annual pricing vars set in Supabase; toggle UI broken in app.html — fix pending. Do not add new annual UI until fixed.
+Billing: Annual pricing (STRIPE_PRICE_*_ANNUAL, stripePricing.ts) is configured server-side but app.html currently has no annual toggle UI at all (checkout is monthly-only) — the previously-noted "broken toggle" no longer exists in the live file (verified 2026-08-27, P2-21). Do not add annual UI without a product decision on how it should work.
 Video Ads
 Framework: Remotion 4 (@sfp/video)
 Compositions: HeroVideo, SquareAd, StoryAd, TikTokAd, YouTubePreroll
