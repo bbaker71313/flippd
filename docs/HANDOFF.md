@@ -4,6 +4,27 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-27 (part 2) — Production migration confirmed live; pinned search_path on 4 P1 functions
+
+### Context
+Direct follow-up after PR #136 merged. User asked to apply the P1 migration to production and confirm it's live.
+
+### Production migration status
+The `20260826230000_p1_ebay_sync_and_webhook_idempotency.sql` migration was **already live on production** (`dqgfpchkheznvanfgsmx`) by the time this was checked — the Supabase-for-Git integration auto-applied it on merge to `main`, recorded as migration version `20260827115246`. Verified directly via `execute_sql`: both unique indexes, `inventory.client_op_id`, `stripe_webhook_events` (RLS enabled, 0 policies — by design), and all 4 RPCs all present. No manual `apply_migration` was needed for this part.
+
+### New: search_path hardening
+Running `get_advisors` (security) against production surfaced a real, previously-unchecked finding: the 4 new RPCs (`ebay_reconcile_inventory_row`, `ebay_reconcile_sold_order_line`, `claim_stripe_webhook_event`, `complete_stripe_webhook_event`) had a mutable `search_path` (linter `0011_function_search_path_mutable`) — the same class this repo already fixed for other functions in `012_harden_function_search_path.sql`, just not applied to these new ones. Flagged to the user; they asked to fix it.
+
+New migration `supabase/migrations/20260827122422_harden_p1_reconciliation_function_search_path.sql` — `CREATE OR REPLACE` on all 4 functions, adding `SET search_path = ''` only (bodies otherwise byte-identical; every object reference in them was already schema-qualified as `public.inventory`/`public.stripe_webhook_events`, so this is provably behavior-neutral). Applied directly to production via `apply_migration`. Verified: `pg_proc.proconfig` now shows `search_path=""` on all 4; `get_advisors` re-run shows the 4 `function_search_path_mutable` warnings gone (remaining findings — RLS-enabled-no-policy INFO on 2 tables by design, `send_export_reminders` SECURITY DEFINER exposure, leaked-password-protection — are all pre-existing and unrelated). Functionally smoke-tested the Stripe claim→in_progress→complete→already_succeeded cycle directly against production with a disposable event id, cleaned up immediately after (0 rows remaining). Did not inject synthetic rows into the real `users`/`inventory` tables to smoke-test the eBay reconciliation functions — judged unnecessary given the change is a mechanical, provably no-op `search_path` addition with zero unqualified identifiers in either function body, and unnecessary risk to add test data to production's real user-linked tables for a change this narrow.
+
+### Files Changed
+- New: `supabase/migrations/20260827122422_harden_p1_reconciliation_function_search_path.sql`
+
+### Blockers
+None.
+
+---
+
 ## Session: 2026-08-27 — P1 completion: service-boundary modularization (P1-I), workflow integration tests (P1-K), Deno tests actually executed
 
 ### Context
