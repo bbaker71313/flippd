@@ -24,6 +24,12 @@ function rateLimitedResponse(req: Request, message: string, windowSeconds: numbe
 // app (scanforprofit.com) and Edge Functions (supabase.co) are different origins.
 // Custom X-Sfp-Client header is the CSRF guard (non-simple header → preflight → blocks
 // cross-site form/img POSTs that can't set custom headers).
+// P2-29: Max-Age (2592000s = 30 days) must stay equal to jwt.ts's
+// DEFAULT_SESSION_SECONDS — the cookie and the JWT payload's own `exp` are
+// two independent expirations, and prior to this alignment the JWT (90 days)
+// silently outlived the cookie (30 days) by 60 days, meaning an extracted
+// raw token (outside the cookie — e.g. an XSS bug, a copied dev-tools value)
+// would still verify long after the cookie itself would have expired.
 function authCookie(token: string): string {
   return `sfp_auth=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`;
 }

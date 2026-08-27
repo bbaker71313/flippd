@@ -287,7 +287,7 @@ Brand: docs/BRAND_IDENTITY.md
 🔐 Auth Rules (critical — never change)
 Auth is email verification + username/password
 NOT magic link — removed in backend v3.0.0
-JWT 90-day sessions
+JWT 30-day sessions (shortened from 90 days 2026-08-27, P2-29 — aligned with the auth cookie's own 30-day Max-Age; see supabase/functions/_shared/jwt.ts for the session-lifetime policy: absolute lifetime only, no renewal/refresh, no idle expiry)
 Live endpoints: POST /auth/register, GET /auth/verify, POST /auth/login
 Dead endpoints — never reference: /auth/request-link, /auth/verify-link
 

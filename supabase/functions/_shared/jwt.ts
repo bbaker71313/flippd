@@ -15,10 +15,31 @@ export function randomHex(bytes: number): string {
   return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// P2-29: session policy — absolute lifetime only, no renewal/refresh and no
+// idle-based expiry (the product doesn't track activity for this). A session
+// is valid for exactly DEFAULT_SESSION_SECONDS from login, then the user
+// must re-authenticate; there is no silent token refresh. This default must
+// stay equal to authCookie()'s Max-Age in auth/index.ts — a JWT that outlives
+// its cookie is a dead value the browser never presents, but a JWT that
+// expires *before* the cookie does nothing wrong either; the real risk this
+// closes is the other direction (a JWT that outlives the cookie would still
+// verify if the raw token were ever extracted/replayed outside the cookie,
+// e.g. via an XSS bug or a copied dev-tools value, for as long as it remains
+// unexpired). Callers needing a shorter-lived, special-purpose token (email
+// verification, password reset, the eBay OAuth `state` CSRF token) already
+// pass an explicit expiresInSeconds override — this default only governs the
+// login session token.
+//
+// Rotating JWT_SECRET immediately invalidates every previously-issued
+// token (HMAC verification fails), forcing every logged-in user to
+// re-authenticate — expected and unavoidable with a single shared signing
+// secret; there is no rotation-with-grace-period support.
+const DEFAULT_SESSION_SECONDS = 30 * 24 * 60 * 60;
+
 export async function signJWT(
   payload: Record<string, unknown>,
   secret: string,
-  expiresInSeconds = 90 * 24 * 60 * 60,
+  expiresInSeconds = DEFAULT_SESSION_SECONDS,
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
