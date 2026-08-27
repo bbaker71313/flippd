@@ -7,6 +7,7 @@ import { decide, type DemandLevel, type DecisionResult } from "../_shared/decisi
 import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
 import { resolveVerifiedMarketData } from "../_shared/marketDataPipeline.ts";
 import type { IdentityCandidate, IdentificationEvidenceKind, MarketDataResult } from "../_shared/marketData.ts";
+import { computeStaleInventoryItems, type StaleCandidateRow } from "../_shared/staleInventory.ts";
 
 function ab2b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -1200,24 +1201,19 @@ async function handleGrowthReport(
   const ebayFees = revenue * ((settings.ebay_fee ?? 13) / 100);
   const pkgFees  = sold.length * (settings.pkg_cost ?? 1.25);
 
-  // Pull stale items (>60 days)
+  // Pull stale items (>60 days) — P2-23: see computeStaleInventoryItems for
+  // why Listed items age from listed_at, not created_at.
   const maxDays = (settings as unknown as Record<string, unknown>).stale_days
     ? Number((settings as unknown as Record<string, unknown>).stale_days)
     : 60;
-  const cutoff = new Date(Date.now() - maxDays * 86400000).toISOString();
-  const { data: staleRows } = await supabase.from('inventory')
-    .select('sku, nickname, created_at')
+  const { data: staleCandidates } = await supabase.from('inventory')
+    .select('sku, nickname, status, created_at, listed_at')
     .eq('user_id', userId)
-    .in('status', ['Unlisted', 'Listed'])
-    .lt('created_at', cutoff)
-    .order('created_at', { ascending: true })
-    .limit(5);
+    .in('status', ['Unlisted', 'Listed']);
 
-  const staleItems = (staleRows ?? []).map(r => ({
-    sku: r.sku ?? '',
-    nickname: sanitizeForPrompt(r.nickname ?? 'Unknown', 100),
-    days: Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / 86400000),
-  }));
+  const staleItems = computeStaleInventoryItems(
+    (staleCandidates ?? []) as StaleCandidateRow[], maxDays,
+  ).map(r => ({ ...r, nickname: sanitizeForPrompt(r.nickname, 100) }));
 
   // Pull top scanned categories (last 30 days)
   const { data: scanRows } = await supabase.from('scan_log')
