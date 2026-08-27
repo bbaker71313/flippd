@@ -4,15 +4,20 @@ import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked, randomHex } 
 import { sendDurableEmail } from "../_shared/sendEmail.ts"
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { rateLimitBucket, inMemoryRateLimitOk } from "../_shared/authRateLimit.ts"
 
 // SEC-015: dynamic CORS per request (locked-origin, credentialed). req is optional
 // only for the cold-start catch block where the request context may be unavailable.
-function json(data: unknown, status = 200, req?: Request) {
+function json(data: unknown, status = 200, req?: Request, extraHeaders?: Record<string, string>) {
   const cors = req ? corsHeaders(req) : {};
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json', ...(extraHeaders ?? {}) },
   });
+}
+
+function rateLimitedResponse(req: Request, message: string, windowSeconds: number) {
+  return json({ error: message, retryAfterSeconds: windowSeconds }, 429, req, { 'Retry-After': String(windowSeconds) });
 }
 
 // SEC-015: 30-day httpOnly cookie carrying the JWT. SameSite=None required because
@@ -27,11 +32,10 @@ function clearAuthCookie(): string {
   return 'sfp_auth=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0';
 }
 
-// SEC-011 — IP-based rate limiting for auth endpoints.
-function clientIp(req: Request): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-}
-
+// SEC-011 / P2-28 — IP-based rate limiting for auth endpoints. clientIp's
+// trust assumption, rateLimitBucket's unknown-client handling, and the
+// in-memory DB-outage fallback live in _shared/authRateLimit.ts (pure,
+// unit-tested there without needing bcryptjs or a live Deno.serve handler).
 async function rateLimitOk(
   supabase: ReturnType<typeof createClient>,
   bucket: string, max: number, windowSeconds: number,
@@ -39,8 +43,10 @@ async function rateLimitOk(
   const { data, error } = await supabase.rpc('check_rate_limit', {
     p_bucket: bucket, p_max: max, p_window_seconds: windowSeconds,
   });
-  // Fail open on infra error — a broken limiter must not lock everyone out.
-  if (error) { console.error('rate limit check failed:', error); return true; }
+  if (error) {
+    console.error('rate limit check failed, using in-memory fallback:', error);
+    return inMemoryRateLimitOk(bucket, max, windowSeconds);
+  }
   return data === true;
 }
 
@@ -121,7 +127,7 @@ Deno.serve(async (req: Request) => {
 });
 
 async function handleRegister(req: Request, supabase: ReturnType<typeof createClient>, _secret: string) {
-  if (!await rateLimitOk(supabase, `register:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429, req);
+  if (!await rateLimitOk(supabase, rateLimitBucket('register', req), 5, 3600)) return rateLimitedResponse(req, 'Too many attempts. Please try again later.', 3600);
   const body = await req.json().catch(() => ({}));
   const { name: rawName, username, email, password } = body;
   const name = rawName ?? username;
@@ -203,7 +209,7 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
 }
 
 async function handleLogin(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  if (!await rateLimitOk(supabase, `login:${clientIp(req)}`, 10, 900)) return json({ error: 'Too many login attempts. Please try again in a few minutes.' }, 429, req);
+  if (!await rateLimitOk(supabase, rateLimitBucket('login', req), 10, 900)) return rateLimitedResponse(req, 'Too many login attempts. Please try again in a few minutes.', 900);
   const body = await req.json().catch(() => ({}));
   const { username, password } = body;
 
@@ -336,7 +342,7 @@ async function handleSaveSettings(req: Request, supabase: ReturnType<typeof crea
 }
 
 async function handleResetRequest(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  if (!await rateLimitOk(supabase, `reset:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429, req);
+  if (!await rateLimitOk(supabase, rateLimitBucket('reset-request', req), 5, 3600)) return rateLimitedResponse(req, 'Too many attempts. Please try again later.', 3600);
   const body = await req.json().catch(() => ({}));
   const { email } = body;
   if (!email) return json({ error: 'Email is required' }, 400, req);
@@ -376,6 +382,13 @@ async function handleResetRequest(req: Request, supabase: ReturnType<typeof crea
 }
 
 async function handleResetConfirm(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  // P2-28: previously unprotected — the reset token itself is a 32-byte
+  // random hex value (effectively unguessable regardless of rate limiting),
+  // but this endpoint is still an auth-abuse surface worth the same
+  // defense-in-depth as the others.
+  if (!await rateLimitOk(supabase, rateLimitBucket('reset-confirm', req), 10, 900)) {
+    return rateLimitedResponse(req, 'Too many attempts. Please try again in a few minutes.', 900);
+  }
   const body = await req.json().catch(() => ({}));
   const { token, password } = body;
   if (!token || !password) return json({ error: 'Token and password are required' }, 400, req);
