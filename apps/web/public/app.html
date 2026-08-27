@@ -2256,6 +2256,10 @@ posthog.init('phc_z7sM2xU7ZMGGGMWmWTuUPhHuJrzQB3CbKCe99S55VcPM', {
   </div>
 </div>
 
+<!-- P3-39/P3-40: scan-result contract + runtime validation, extracted from
+     analyze()/analyzeShelf() below. See scanResultContract.js for why this
+     is a plain <script src> file rather than a TS import (no build step). -->
+<script src="scanResultContract.js"></script>
 <script>
 // ══════════════════════════════════════════════════
 // CONSTANTS
@@ -6108,26 +6112,18 @@ async function analyze() {
       if (r.error) throw new Error(r.error);
     }
     setBtnLoading('analyze-btn','Calculating profit...',false); await sleep(200);
-    // Map camelCase server response → snake_case for renderSingle
-    const item={
-      item_name:r.itemName, avg_sold_price:r.estimatedSell,
-      price_low:r.priceLow, price_high:r.priceHigh,
-      sell_through_rate:r.sellThroughRate, avg_days_to_sell:r.avgDaysToSell,
-      demand_level:r.demandLevel, confidence:r.confidence,
-      confidence_reason:r.reasoning, search_keywords:r.searchKeywords||[],
-      listing_tips:r.listingTips||[], risk_flags:r.riskFlags||[],
-      condition_notes:r.conditionNotes||'', category:r.category,
-      brand:r.brand||null, notes:r.notes||'',
-    };
-    // Server-authoritative — never recomputed client-side.
-    const dec = r.decision;
-    const fin = { profit: r.estimatedProfit, roi: r.roi, fee: r.feeAmount, shipCost: r.shipCostAmount };
-    logScan(dec, fin.roi, r.acquisitionCost||0, false); // P2-31: preserve fin.roi's null (server-authoritative) — do not coerce to 0
+    // P3-39/P3-40: validated camelCase -> snake_case mapping, extracted to
+    // scanResultContract.js. Server-authoritative — never recomputed
+    // client-side. Throws (caught below, shown as an error) rather than
+    // rendering a malformed decision/profit if the response shape is wrong.
+    const normalized = ScanResultContract.normalizeSingleScanResult(r);
+    const item = normalized.item, dec = normalized.dec, fin = normalized.fin;
+    logScan(dec, fin.roi, normalized.cost||0, false); // P2-31: preserve fin.roi's null (server-authoritative) — do not coerce to 0
     try {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
     } catch(_){}
-    renderSingle({item, cost:r.acquisitionCost, fin, dec, maxBuyPrice:r.maxBuyPrice, maxBuyPriceLimitedBy:r.maxBuyPriceLimitedBy, marketDataSource:r.marketDataSource, decisionReasons:r.decisionReasons});
+    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons});
     renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
@@ -6147,24 +6143,14 @@ async function analyzeShelf() {
     const hint=hintTxt?`Scan this shelf. Context: "${hintTxt}"`:'Scan this shelf and identify every item for eBay resell analysis.';
     const r=await callScan('shelf_scan', hint);
     setBtnLoading('shelf-btn','Ranking items...',true); await sleep(200);
-    // Map camelCase server response → snake_case for renderShelf. Every item
-    // here is pre-purchase (no acquisition cost yet), so decision/maxBuyPrice
-    // are the server's deterministic backward-solve result — never a client
-    // recompute, and never an AI-estimated thrift cost.
-    const shelfItems=(r.items||[]).map(function(i){
-      return{
-        item_name:i.itemName, avg_sold_price:i.avgSoldPrice,
-        max_buy_price:i.maxBuyPrice, max_buy_price_limited_by:i.maxBuyPriceLimitedBy,
-        demand_level:i.demandLevel, decision:i.decision,
-        decision_reason:i.notes||'', condition_notes:i.conditionNotes||'',
-        category:i.category, confidence:i.confidence,
-        sell_through_rate:i.sellThroughRate, avg_days_to_sell:i.avgDaysToSell,
-        // P2-32: carried through so the shelf list can label each item's
-        // evidence honestly and explain a SKIP — same server-authoritative
-        // fields the single-scan result already uses.
-        market_data_source:i.marketDataSource, decision_reasons:i.decisionReasons,
-      };
-    });
+    // P3-39/P3-40: validated camelCase -> snake_case mapping for renderShelf,
+    // extracted to scanResultContract.js. Every item here is pre-purchase
+    // (no acquisition cost yet), so decision/maxBuyPrice are the server's
+    // deterministic backward-solve result — never a client recompute, never
+    // an AI-estimated thrift cost. market_data_source/decision_reasons
+    // (P2-32) carried through so the shelf list can label each item's
+    // evidence honestly and explain a SKIP.
+    const shelfItems = ScanResultContract.normalizeShelfScanResult(r);
     renderShelf(shelfItems);
   } catch(e){resetBtn('shelf-btn','Run Profit Scanner','purple');showError('Error: '+(e.message||'Try again.'));}
 }
