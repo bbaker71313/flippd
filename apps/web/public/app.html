@@ -405,6 +405,13 @@ body::before{
   font-size:11px;color:var(--muted);margin-bottom:12px;
   font-weight:600;letter-spacing:0.04em;
 }
+/* P2-32: distinct treatment for verified marketplace evidence vs an AI estimate —
+   never let the two look the same, since they carry very different trust levels. */
+.source-badge-verified{background:var(--green-bg);border-color:var(--green-border);color:var(--green-border)}
+.skip-reasons{background:var(--red-bg);border:1px solid var(--red);border-radius:3px;padding:10px 12px;margin-top:10px}
+.skip-reasons .sr-title{font-size:11px;font-weight:800;letter-spacing:0.08em;color:var(--red);margin-bottom:4px}
+.skip-reasons ul{margin:0;padding-left:18px;font-size:12px;color:var(--text);line-height:1.7}
+.pass-reasons{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6}
 
 .data-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
 .data-row:last-child{border-bottom:none}
@@ -6067,7 +6074,7 @@ async function analyze() {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
     } catch(_){}
-    renderSingle({item, cost:r.acquisitionCost, fin, dec, maxBuyPrice:r.maxBuyPrice, maxBuyPriceLimitedBy:r.maxBuyPriceLimitedBy});
+    renderSingle({item, cost:r.acquisitionCost, fin, dec, maxBuyPrice:r.maxBuyPrice, maxBuyPriceLimitedBy:r.maxBuyPriceLimitedBy, marketDataSource:r.marketDataSource, decisionReasons:r.decisionReasons});
     renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
@@ -6109,6 +6116,10 @@ async function analyzeShelf() {
         decision_reason:i.notes||'', condition_notes:i.conditionNotes||'',
         category:i.category, confidence:i.confidence,
         sell_through_rate:i.sellThroughRate, avg_days_to_sell:i.avgDaysToSell,
+        // P2-32: carried through so the shelf list can label each item's
+        // evidence honestly and explain a SKIP — same server-authoritative
+        // fields the single-scan result already uses.
+        market_data_source:i.marketDataSource, decision_reasons:i.decisionReasons,
       };
     });
     renderShelf(shelfItems);
@@ -6132,7 +6143,35 @@ function demandClass(lv) {
 // ══════════════════════════════════════════════════
 let lastSingleResult = null;
 
-function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy}) {
+// P2-32: human-readable labels for decisionEngine.ts's failingThresholds —
+// server-authoritative list, this only supplies wording. Distinguishes an
+// actual below-target value from unavailable/insufficient market evidence
+// (decisionEngine treats both as a failed threshold, but they are different
+// situations and must be described honestly, never both as "low confidence").
+function buildDecisionExplanation(dec, dr, item, fin, S) {
+  if (!dr) return '';
+  if (dec === 'SKIP') {
+    const reasons = (dr.failingThresholds||[]).map(t => {
+      if (t === 'profit') return `Net profit ($${(fin.profit ?? 0).toFixed(2)}) is below your minimum ($${Number(S.minProfit).toFixed(2)})`;
+      if (t === 'roi') return `ROI (${fin.roi==null?'N/A':fin.roi.toFixed(0)+'%'}) is below your target (${S.targetRoi}%)`;
+      if (t === 'sellThroughRate') return item.sell_through_rate == null
+        ? 'Sell-through rate is unavailable — insufficient verified market evidence'
+        : `Sell-through rate (${item.sell_through_rate}%) is below your minimum (${S.minStr ?? 0}%)`;
+      if (t === 'daysToSell') return item.avg_days_to_sell == null
+        ? 'Days-to-sell is unavailable — insufficient verified market evidence'
+        : `Days-to-sell (${item.avg_days_to_sell}) is above your maximum (${S.maxDays})`;
+      return t;
+    });
+    if (!reasons.length) return '';
+    return `<div class="skip-reasons"><div class="sr-title">WHY SKIP</div><ul>${reasons.map(r=>`<li>${escHtml(r)}</li>`).join('')}</ul></div>`;
+  }
+  // HOT/LIST: explain the pass state from the deterministic result, never from AI wording.
+  const parts = ['Profit, ROI, sell-through, and days-to-sell targets all passed'];
+  parts.push(dr.demandIsVeryHigh ? 'demand is VERY HIGH (qualifies for HOT)' : 'demand is not VERY HIGH (LIST, not HOT)');
+  return `<div class="pass-reasons">${escHtml(parts.join(' — '))}.</div>`;
+}
+
+function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons}) {
   resetBtn('analyze-btn','Run Profit Scanner','green');
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
@@ -6154,6 +6193,13 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy}) {
   // qualifying purchase price actually exists.
   const maxCostHint = (!costKnown && maxBuyPrice > 0)
     ? `<div class="d-max-cost">if item is under $${maxBuyPrice.toFixed(2)}</div>` : '';
+  // P2-32: never claim verified marketplace evidence backs this scan unless
+  // it actually does — marketDataSource is server-authoritative (SoldComps +
+  // eBay Browse when available, the AI's own estimate only as a fallback).
+  const sourceBadge = marketDataSource === 'verified'
+    ? `<div class="source-badge source-badge-verified">[ VERIFIED ] eBay sold listings + active market data</div>`
+    : `<div class="source-badge">[ AI ESTIMATE ] Verified market data unavailable — confirm with real eBay sold listings before buying</div>`;
+  const decisionExplanation = buildDecisionExplanation(dec, decisionReasons, item, fin, S);
   document.getElementById('results-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
     <div class="decision-banner is-${dec.toLowerCase()}">
@@ -6161,7 +6207,8 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy}) {
       <div class="u-flex-col"><div class="d-label">${D_LBL[dec]}</div><div class="d-name">${escHtml(item.item_name)}</div>${maxCostHint}</div>
       <div class="conf-pill">${escHtml(item.confidence)}%</div>
     </div>
-    <div class="source-badge">[ AI ] Estimated · Buyer pays shipping · Verify with real eBay data</div>
+    ${decisionExplanation}
+    ${sourceBadge}
 
     <!-- BUY / PASS / WATCH ACTIONS -->
     <div class="buy-action-bar">
@@ -6195,7 +6242,7 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy}) {
       <div class="data-row"><span class="dl">Category</span><span class="dv">${escHtml(item.category)}</span></div>
       ${item.brand?`<div class="data-row"><span class="dl">Brand</span><span class="dv">${escHtml(item.brand)}</span></div>`:''}
       <div class="u-mt-3">
-        <div class="u-text-base u-soft u-mb-1" style="font-weight:600">AI Confidence: ${escHtml(item.confidence)}%</div>
+        <div class="u-text-base u-soft u-mb-1" style="font-weight:600">AI Item Identification Confidence: ${escHtml(item.confidence)}%</div>
         <div class="conf-bar-bg"><div class="conf-bar-fill ${confClass(item.confidence)}" style="width:${escHtml(item.confidence)}%"></div></div>
         <div class="u-text-base u-muted u-mt-1" style="line-height:1.5">${escHtml(item.confidence_reason)}</div>
       </div>
@@ -6284,19 +6331,35 @@ function renderShelf(shelfItems) {
   const list=shelfItems.filter(i=>i.decision==='LIST');
   const skip=shelfItems.filter(i=>i.decision==='SKIP');
   const icon={HOT:'',LIST:'',SKIP:''};
+  // P2-32: short labels for a compact shelf card — same failingThresholds
+  // source as the single-scan explanation, phrased for a not-yet-purchased
+  // item (no entered cost to reference).
+  const SHELF_SKIP_LABEL={
+    profit:'no purchase price meets your min profit',
+    roi:'no purchase price meets your target ROI',
+    sellThroughRate:'sell-through rate unavailable or too low',
+    daysToSell:'days-to-sell unavailable or too long',
+  };
   const ri=(i,idx)=>{
     // max_buy_price is the server's deterministic backward-solve result —
     // never invented client-side, since the shelf item hasn't been bought yet.
     const mc=i.max_buy_price;
     const mcHint=(mc>0)?`<div class="s-max-cost">if item is under $${Number(mc).toFixed(2)}</div>`:'';
+    const evidenceTag = i.market_data_source === 'verified'
+      ? `<span class="u-text-xs" style="color:var(--green-border);font-weight:700;margin-left:6px">[VERIFIED]</span>`
+      : `<span class="u-text-xs u-muted" style="font-weight:700;margin-left:6px">[AI EST]</span>`;
+    const skipReasons = (i.decision==='SKIP' && i.decision_reasons && i.decision_reasons.failingThresholds)
+      ? i.decision_reasons.failingThresholds.map(t=>SHELF_SKIP_LABEL[t]||t).join('; ')
+      : '';
     return `<div class="shelf-item is-${i.decision.toLowerCase()}">
-      <span class="s-badge">${icon[i.decision]} ${i.decision}</span>${mcHint}
+      <span class="s-badge">${icon[i.decision]} ${i.decision}</span>${evidenceTag}${mcHint}
       <div class="s-name">${escHtml(i.item_name)}</div>
       <div class="s-detail">
         <span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)} sold</span> &nbsp;·&nbsp;
         <span class="${demandClass(i.demand_level)}">${escHtml(i.demand_level)} demand</span>
       </div>
       <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${escHtml(i.decision_reason)}</div>
+      ${skipReasons?`<div class="u-text-xs" style="color:var(--red);margin-top:4px;font-weight:600">Why SKIP: ${escHtml(skipReasons)}</div>`:''}
       ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">${escHtml(i.condition_notes)}</div>`:''}
       ${i.decision!=='SKIP'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">List → Add to Inventory</button>`:''}
     </div>`;
