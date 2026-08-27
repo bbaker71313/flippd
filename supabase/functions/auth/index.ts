@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
 import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked, randomHex } from "../_shared/jwt.ts"
-import { sendEmail } from "../_shared/sendEmail.ts"
+import { sendDurableEmail } from "../_shared/sendEmail.ts"
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
@@ -45,24 +45,31 @@ async function rateLimitOk(
 }
 
 
-async function sendVerificationEmail(to: string, token: string): Promise<void> {
+async function sendVerificationEmail(
+  supabase: ReturnType<typeof createClient>, to: string, token: string,
+): Promise<void> {
   // Use SUPABASE_URL (always set in Edge Functions) so the verify link always hits the auth
   // function regardless of what APP_URL or FRONTEND_URL are set to in secrets.
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? 'https://dqgfpchkheznvanfgsmx.supabase.co';
   const verifyLink = `${supabaseUrl}/functions/v1/auth/verify?token=${token}`;
-  await sendEmail(
+  // P2-27: sendDurableEmail queues a retry if the immediate send fails — this
+  // is important transactional mail a new user is waiting on.
+  await sendDurableEmail(supabase, {
     to,
-    'Verify your ScanForProfit account',
-    `<h2>Welcome to ScanForProfit!</h2><p>Click below to verify your email.</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Verify My Account &rarr;</a></p><p>This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
-  );
+    subject: 'Verify your ScanForProfit account',
+    html: `<h2>Welcome to ScanForProfit!</h2><p>Click below to verify your email.</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Verify My Account &rarr;</a></p><p>This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
+    category: 'verification',
+  });
 }
 
-async function sendWelcomeEmail(to: string, username: string): Promise<void> {
+async function sendWelcomeEmail(
+  supabase: ReturnType<typeof createClient>, to: string, username: string,
+): Promise<void> {
   const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
-  await sendEmail(
+  await sendDurableEmail(supabase, {
     to,
-    'You\'re in — start scanning for profit',
-    `<h2>Your account is verified, ${username}!</h2>
+    subject: 'You\'re in — start scanning for profit',
+    html: `<h2>Your account is verified, ${username}!</h2>
 <p>You're on a 7-day free trial with unlimited scans. Here's what to do first:</p>
 <ol>
   <li>Open the app and tap <strong>Scout</strong></li>
@@ -71,7 +78,8 @@ async function sendWelcomeEmail(to: string, username: string): Promise<void> {
 </ol>
 <p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Start Scanning &rarr;</a></p>
 <p style="color:#888;font-size:12px;">Questions? Reply to this email — we read every one.</p>`,
-  );
+    category: 'welcome',
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -131,7 +139,7 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
       const token = randomHex(32);
       const expires = new Date(Date.now() + 86400000).toISOString();
       await supabase.from('users').update({ verification_token: token, verification_token_expires: expires }).eq('id', existingEmail.id);
-      await sendVerificationEmail(email, token).catch(console.error);
+      await sendVerificationEmail(supabase, email, token);
       return json({ error: 'An account with this email exists but is unverified. We resent your verification link.', field: 'email' }, 409, req);
     }
     return json({ error: 'An account with this email already exists.', field: 'email' }, 409, req);
@@ -158,7 +166,7 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
     return json({ error: 'Registration failed. Please try again.' }, 500, req);
   }
 
-  await sendVerificationEmail(email, token).catch(console.error);
+  await sendVerificationEmail(supabase, email, token);
   return json({ success: true, message: 'Check your email to verify your account before logging in.' }, 200, req);
 }
 
@@ -188,7 +196,7 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
     .maybeSingle();
 
   if (verifiedUser) {
-    sendWelcomeEmail(verifiedUser.email, verifiedUser.username).catch(console.error);
+    sendWelcomeEmail(supabase, verifiedUser.email, verifiedUser.username).catch(console.error);
   }
 
   return Response.redirect(`${appUrl}?verified=true`, 302);

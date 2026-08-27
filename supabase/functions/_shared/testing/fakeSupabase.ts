@@ -37,6 +37,10 @@ export function makeFakeSupabase(
       eq(col: string, val: unknown) { and((r) => r[col] === val); return builder; },
       neq(col: string, val: unknown) { and((r) => r[col] !== val); return builder; },
       is(col: string, val: null) { and((r) => (r[col] ?? null) === val); return builder; },
+      // deno-lint-ignore no-explicit-any
+      lte(col: string, val: unknown) { and((r) => (r[col] as any) <= (val as any)); return builder; },
+      // deno-lint-ignore no-explicit-any
+      gte(col: string, val: unknown) { and((r) => (r[col] as any) >= (val as any)); return builder; },
       order() { return builder; },
       limit() { return builder; },
       select(_cols?: string) { return builder; },
