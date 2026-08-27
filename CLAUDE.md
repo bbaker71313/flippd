@@ -63,20 +63,32 @@ Do NOT create duplicate files. Do NOT recreate files that already exist — upda
 SESSION START — MANDATORY VERIFICATION (do not skip, do not reorder)
 Run all 5 checks before writing a single line of code. Show output for each. If any check fails, STOP and report. Do not proceed until resolved.
 
+Rewritten 2026-08-27 (P3-35): the previous version of check #2 required
+`apps/mobile/components/ui/` — a 13-file React Native scaffold that was
+deleted 2026-06-29 (see `docs/CURRENT_STATE.md` changelog) because the RN
+rebuild was abandoned and the live product became `app.html`. That check
+would fail in every session against current `main`, which is exactly the
+stale-architecture contradiction the Anti-Drift Operating Contract's rule 4
+(evidence before editing) and rule 5 (repository architecture is
+authoritative) exist to catch. Replaced with checks against what is
+actually live today.
+
 # 1. Confirm shared package name — must be @sfp/shared
 
 cat packages/shared/package.json | grep '"name"'
 
 # Expected: "name": "@sfp/shared"
 
-# 2. Confirm all 13 UI component files exist
+# 2. Confirm the live web product and Supabase Edge Functions exist
 
-ls apps/mobile/components/ui/
+ls apps/web/public/app.html supabase/functions/
 
-# Expected: BottomSheet.tsx, Button.tsx, Card.tsx, EmptyState.tsx,
-#           index.ts, Input.tsx, ItemCard.tsx, OnboardingSheet.tsx,
-#           PaywallModal.tsx, ProfitBadge.tsx, ScanResult.tsx,
-#           SettingsForm.tsx, TabBar.tsx (13 files total)
+# Expected: apps/web/public/app.html present; supabase/functions/ lists
+#           _shared, auth, claude-proxy, cron, ebay-oauth, export-reminder,
+#           stripe-checkout, stripe-webhook
+# If apps/web/public/app.html is missing → STOP. The live product's location
+# has changed — verify docs/ARCHITECTURE.md and docs/CURRENT_STATE.md before
+# proceeding; do not assume any other file is now authoritative.
 
 # 3. Confirm git is initialized and has a clean working tree
 
@@ -96,7 +108,8 @@ git ls-files .env
 
 ls docs/
 
-# Expected: marketing/ and files/ folders present, plus HANDOFF.md, FEATURE_TRIAGE.md, BRAND_IDENTITY.md
+# Expected: marketing/ and files/ folders present, plus HANDOFF.md, CURRENT_STATE.md,
+#           DOC_HIERARCHY.md, FEATURE_TRIAGE.md, files/DECISIONS.md, BRAND_IDENTITY.md
 # If marketing/ or files/ are missing → create them: mkdir -p docs/marketing docs/files
 
 STOP RULE: If any check produces unexpected output, do not continue. Document the failure in docs/HANDOFF.md and wait for instruction. Do not guess. Do not self-fix without reporting first.
@@ -117,35 +130,8 @@ scanforprofit/
 
 ├── apps/
 
-│   ├── mobile/                    # React Native + Expo (not shipped — reference scaffold only)
-
-│   │   ├── app/                   # Expo Router screens
-
-│   │   │   ├── (auth)/            # _layout.tsx, login.tsx, register.tsx, verify.tsx
-
-│   │   │   ├── (onboarding)/      # _layout.tsx, how-it-works.tsx,
-
-│   │   │   │                      # identity.tsx, permission.tsx,
-
-│   │   │   │                      # result.tsx, upgrade.tsx
-
-│   │   │   └── (tabs)/            # scout.tsx, inventory.tsx,
-
-│   │   │                          # listing.tsx, trends.tsx, stats.tsx
-
-│   │   ├── components/
-
-│   │   │   └── ui/                # Button, Card, Input, BottomSheet,
-
-│   │   │                          # TabBar, ScanResult, ProfitBadge,
-
-│   │   │                          # ItemCard, EmptyState
-
-│   │   ├── lib/                   # supabase.ts, theme.ts, auth.ts
-
-│   │   ├── app.json               # EAS project: cc487254-9654-4930-ac52-37ffba835a20
-
-│   │   └── eas.json
+│   (no mobile/ — the RN scaffold was deleted 2026-06-29, 60 files, never shipped;
+│    a future mobile rebuild starts fresh from apps/web/public/app.html as reference)
 
 │   ├── web/                       # Next.js 15 App Router
 
@@ -222,7 +208,7 @@ scanforprofit/
 
 ├── .github/
 
-│   └── workflows/                 # mobile.yml (EAS build), web.yml (TypeScript check)
+│   └── workflows/                 # web.yml (TypeScript check) — no mobile.yml (apps/mobile/ deleted 2026-06-29)
 
 ├── .env                           # Never commit — all keys from env
 
@@ -238,7 +224,7 @@ Hard rule: No file may exceed 500 lines. Refactor into sub-modules before hittin
 
 
 💻 Tech Stack
-Mobile
+Mobile — NOT SHIPPED. The `apps/mobile/` scaffold was deleted 2026-06-29 (RN rebuild abandoned; see the locked architecture decision below). Nothing in this repo today runs this stack — it is kept here only as the intended stack for a *future* mobile rebuild that will use `app.html` as its source reference, not as a description of current code.
 Framework: React Native + Expo SDK 52
 Navigation: Expo Router 4
 Styling: NativeWind 4 (Tailwind classes — no StyleSheet)
@@ -582,10 +568,11 @@ eBay Developer Portal: https://developer.ebay.com/develop/apis
 
 🚀 Current Build Status
 
-ARCHITECTURE NOTE (2026-06-17): The React Native mobile app built in Phase 04 was
-scrapped — the output was unusable. The live product is apps/web/public/app.html
-(Live at scanforprofit.com/app.html). RN scaffold exists in apps/mobile/ but is not
-shipped; live product is app.html. Mobile will be rebuilt from app.html as reference.
+ARCHITECTURE NOTE (2026-06-17, updated 2026-06-29): The React Native mobile app built in
+Phase 04 was scrapped — the output was unusable. The live product is apps/web/public/app.html
+(Live at scanforprofit.com/app.html). The apps/mobile/ RN scaffold was deleted 2026-06-29
+(60 files, never shipped) — mobile is not started, not "not started with a scaffold on disk."
+A future mobile rebuild will use app.html as its reference, starting from nothing.
 Authoritative current state: docs/CURRENT_STATE.md.
 
 Phase
@@ -599,13 +586,13 @@ Brand & Architecture
 ✅ Complete
 03
 Design
-✅ Complete (brand/tokens done; mobile components are reference scaffolds only)
+✅ Complete (brand/tokens done; mobile RN scaffold that referenced them was deleted 2026-06-29)
 04
 Build Web App (app.html)
 ✅ Live on Vercel — 7 Edge Functions active, RLS on all tables
 05
 Build Mobile App
-⬜ Not started — RN scaffold exists; live product is app.html
+⬜ Not started — no scaffold on disk (deleted 2026-06-29); live product is app.html
 06
 Launch
 ⬜ Not started
