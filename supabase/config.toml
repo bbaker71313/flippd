@@ -1,3 +1,5 @@
+project_id = "dqgfpchkheznvanfgsmx"
+
 [functions.auth]
 verify_jwt = false
 
@@ -11,4 +13,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ebay-oauth]
+verify_jwt = false
+
+[functions.cron]
+verify_jwt = false
+
+[functions.export-reminder]
 verify_jwt = false
