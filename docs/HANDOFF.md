@@ -4,6 +4,58 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-27 (part 5) — Chapter 02 follow-up: AI-market-authority defect fixed
+
+### Context
+External follow-up remediation prompt: one verified remaining Chapter 02 defect. P0–P3 remediation (prior entries) already complete and not redone here.
+
+### Root cause
+`claude-proxy/index.ts`'s single/text scan (`finalizeSingleOrTextScan`) and shelf scan (`handleShelfScan`) handlers attempted the verified market-data pipeline (`resolveVerifiedMarketData`) first, but on failure fell back to Claude's own `avg_sold_price`/`sell_through_rate`/`avg_days_to_sell`/`demand_level` and fed those directly into `evaluateScanEconomics()` → `decide()` — the same authoritative deterministic decision engine used for verified evidence. Because the AI's values are never `null` (unlike genuinely-missing evidence), they passed straight through `decide()`'s null-means-unavailable checks and could produce a fully authoritative-looking HOT/LIST/SKIP, net profit, ROI, and max-buy-price from an unverified guess. The response was labeled `marketDataSource: 'ai_estimate'`, but the label didn't stop the value from being authoritative — it just disclosed after the fact.
+
+### Fix
+Added `resolveScanResultCore()` — the single gate now shared by single/text and shelf scan — which calls `evaluateScanEconomics`/`decide`/`calcMaxBuyPrice` **only when `verified.ok === true`**. When verification fails, every authoritative field (`decision`, `estimatedProfit`, `roi`, `maxBuyPrice`, `maxBuyPriceLimitedBy`, and the market fields `sellThroughRate`/`avgDaysToSell`/`demandLevel`/`estimatedSell`/`priceLow`/`priceHigh`) is forced to `null`, and the response reports `decisionAvailable: false` / `decisionStatus: 'insufficient_market_data'`. The AI's own guess is preserved only in a new, structurally separate `aiEstimate` field (never passed into any financial/decision function), so it can still be shown as informational context.
+
+`evaluateScanEconomics()`/`decide()`/`calcMaxBuyPrice()`/`calcProfit()` themselves were **not changed** — same formulas, same thresholds, same zero-cost ROI semantics. Only the call site changed: whether the gate is entered at all.
+
+### Files changed
+- **`supabase/functions/claude-proxy/index.ts`** — new exported `resolveScanResultCore()` (+ `ScanResultCore`/`AiMarketEstimate` types); `finalizeSingleOrTextScan` and `handleShelfScan` rewritten to go through it instead of duplicating the verified/AI-estimate branch inline; `scan_log.raw_response.decisionAudit` now records `decisionAvailable`/`decisionStatus`/`aiEstimate` for forensic audit trail.
+- **`supabase/functions/claude-proxy/marketAuthorityGate_test.ts`** (new) — 8 Deno tests, including the exact regression fixture (cheap acquisition cost + AI estimate shaped to qualify for HOT) that would have produced a fabricated HOT before this fix.
+- **`apps/web/public/scanResultContract.js`** — added `decisionAvailable`/`decisionStatus`/`aiEstimate` validation, a nullable-decision path (`asNullableDecision`), and cross-field invariants (decision non-null iff decisionAvailable). **Also fixed a pre-existing, never-live-tested contract bug:** `decisionReasons` was validated with `asStringArray` even though the server has always sent the full `decisionEngine.ts` `DecisionResult` object here — that mismatch meant the validator would throw on every real single/text scan response once actually exercised end-to-end (per `CURRENT_STATE.md`, the verified-pipeline scan path was never smoke-tested against a live request until now). Replaced with a proper `asDecisionReasons` validator. Fixing this was necessary to write a passing regression test for the verified path (requirement 1) and is the same field this task was already required to touch — not a separate scope expansion.
+- **`apps/web/public/scanResultContract.test.js`** — fixtures updated to the real server shape (object `decisionReasons`, not `[]`); 8 new tests for the insufficient-evidence shape, malformed-combination rejection, and mixed verified/unverified shelf arrays.
+- **`apps/web/public/app.html`** — new `renderInsufficientEvidence()` render path (separate function; the existing `renderSingle()` verified-path body is untouched, called only when `decisionAvailable !== false`); `renderShelf()` adds a 4th "Needs Verification" bucket for `decision === null` items instead of assuming every item is HOT/LIST/SKIP; new neutral (`is-unverified`) CSS variants alongside the existing hot/list/skip ones.
+- **Docs:** `docs/CURRENT_STATE.md`, `docs/files/DECISIONS.md`, this file.
+
+### Behavior before / after
+- **Before:** unverified scan with a cheap acquisition cost + an AI estimate shaped to look strong (high STR, short days, VERY HIGH demand) → `decision: 'HOT'`, real-looking profit/ROI/max-buy-price, labeled `marketDataSource: 'ai_estimate'` but otherwise indistinguishable in the UI from a verified HOT.
+- **After:** the identical input → `decision: null`, `decisionAvailable: false`, `decisionStatus: 'insufficient_market_data'`, profit/ROI/maxBuyPrice all `null`; the UI shows a distinct "NO VERIFIED RECOMMENDATION" card with the AI's guess clearly labeled informational-only. Verified-path behavior (when `resolveVerifiedMarketData` succeeds) is byte-for-byte unchanged — same formulas, same thresholds, same response fields.
+
+### Testing
+- `deno test --no-check --no-config --node-modules-dir=none --allow-env --allow-read --allow-net --import-map=supabase/functions/_shared/testing/deno_test_import_map.json supabase/functions/` → **194/194 passing** (186 pre-existing baseline + 8 new `marketAuthorityGate_test.ts`).
+- `node --test apps/web/public/scanResultContract.test.js` → **21/21 passing** (13 pre-existing + 8 new).
+- `node --check apps/web/public/scanResultContract.js` and `node --check` on all 3 extracted `<script>` blocks in `app.html` (lines ~10–29, ~1131–1135, ~2270–8473) → all pass.
+- `packages/shared`: `npx tsc --noEmit` → 0 errors (unaffected — not touched this session); `node --test --experimental-strip-types "src/**/*.test.ts"` → **72/72 passing** (unaffected, run as a baseline sanity check).
+- `deno check` on `claude-proxy/index.ts` still reports the same pre-existing ~64–65 `supabase-js` generic-type errors under this sandbox's local-only npm-mapped import map (confirmed identical count on unmodified `main` via `git stash`) — a documented environment-only limitation (see `financialEngine.ts`'s header and this repo's `--no-check` convention for `deno test`), not something this session's change affects.
+- Deno was not pre-installed in this sandbox session; installed on demand via `npx -y deno@latest` (network-reachable this session, unlike some prior sessions per earlier entries below). **Caution repeated from a prior session:** Deno's first run auto-migrates `pnpm-workspace.yaml` into `package.json`'s `workspaces` key uninvited — this happened again this session, was caught via `git status` immediately, and reverted before committing. Use `--no-config --node-modules-dir=none` on every invocation to avoid it recurring.
+- **Not done:** live/browser smoke test against a real scan request (same sandbox limitation as every prior session — `claude-proxy` is not reachable directly here).
+
+### Assumptions made
+- Fee/shipping-cost amounts (`feeAmount`/`shipCostAmount`) are treated as authoritative-only fields, forced to `null` when unverified, on the same footing as profit/ROI/max-buy-price — even though they're simple percentage arithmetic on settings, they're derived from the (unverified) sell price and would otherwise look like a real breakdown next to a "no recommendation" state. If this is wrong (product owner wants the fee/shipping breakdown always shown), that's a small, isolated change to `resolveScanResultCore()`.
+- The new response field names (`decisionAvailable`, `decisionStatus: 'ok'|'insufficient_market_data'`, `aiEstimate`) are new API surface, not covered by an existing naming convention in `DECISIONS.md` — chosen to match the task prompt's own suggested naming.
+
+### Out-of-scope findings
+- None beyond the `decisionReasons` contract bug above, which was fixed as directly in-scope (same field, required to make the requested regression tests pass) rather than logged and left.
+
+### Product decisions needed
+None — the task prompt's "Locked Product Rule" (AI may identify/explain, never independently establish authoritative market/financial facts or decisions) was specific enough to implement directly.
+
+### Blockers
+None — implemented, tested (to the extent this sandbox allows), and documented.
+
+### Next task
+Live/browser smoke test of a real single, text, and shelf scan (verified and unverified paths) against production or a staging `claude-proxy` deployment — no session so far has had direct network access to do this.
+
+---
+
 ## Session: 2026-08-27 (part 4) — P3 remediation (P3-33 through P3-40) complete
 
 ### Context
