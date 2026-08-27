@@ -2569,17 +2569,71 @@ async function pushItemToServer(item) {
   }
 }
 
+// P2-19: the server rejects a stale write (item changed elsewhere since it
+// was loaded — e.g. another open tab) with 409 + the item's current state
+// instead of silently applying an overwrite. Pull that current state into
+// the local copy so the next edit/save starts from the real version rather
+// than looping on the same conflict, and let the caller decide what to tell
+// the user.
+function syncInventoryItemFromServer(serverItem) {
+  if (!serverItem || serverItem.id == null) return;
+  const merged = mergeServerItem(serverItem);
+  const idx = items.findIndex(i => i.id === merged.id);
+  if (idx !== -1) items[idx] = { ...items[idx], ...merged };
+  saveItems();
+}
+
 async function updateItemOnServer(item) {
   if (!isUnlocked()) return;
   try {
     const res = await apiFetch(API_BASE, {
       method: 'POST',
       headers: getApiHeaders(),
-      body: JSON.stringify({ type: 'inventory_update', id: item.id, ...itemForServer(item) })
+      body: JSON.stringify({ type: 'inventory_update', id: item.id, expectedVersion: item.version, ...itemForServer(item) })
     });
-    if (!res.ok) console.warn('Failed to update item on server:', res.status);
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      syncInventoryItemFromServer(data.item);
+      renderInventory();
+      showToast('This item changed elsewhere — refreshed to the latest version. Please redo your edit.');
+      return;
+    }
+    if (!res.ok) { console.warn('Failed to update item on server:', res.status); return; }
+    const data = await res.json().catch(() => ({}));
+    if (data.item) syncInventoryItemFromServer(data.item); // keeps local version current for the next save
   } catch (err) {
     console.warn('Update on server failed:', err.message);
+  }
+}
+
+// P2-19: status transitions (e.g. marking Sold) already apply optimistically
+// to local state before this call, so on a 409 conflict we retry once with
+// the server's current version rather than silently dropping the intended
+// transition — the user's action (mark this item Sold) is still what they
+// asked for, just re-applied against fresh version metadata. A second
+// conflict is surfaced rather than retried again.
+async function postInventoryStatus(id, status, expectedVersion, actualSellPrice, isRetry) {
+  try {
+    const body = { type: 'inventory_status', id: id, status: status, expectedVersion: expectedVersion };
+    if (actualSellPrice != null) body.actualSellPrice = actualSellPrice;
+    const res = await apiFetch(API_BASE, {
+      method: 'POST', headers: getApiHeaders(), body: JSON.stringify(body)
+    });
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      syncInventoryItemFromServer(data.item);
+      if (!isRetry && data.item) {
+        return postInventoryStatus(id, status, data.item.version, actualSellPrice, true);
+      }
+      renderInventory();
+      showToast('This item changed elsewhere — please check its status.');
+      return;
+    }
+    if (!res.ok) { console.warn('Failed to update item status on server:', res.status); return; }
+    const data = await res.json().catch(() => ({}));
+    if (data.item) syncInventoryItemFromServer(data.item);
+  } catch (err) {
+    console.warn('Status update on server failed:', err.message);
   }
 }
 
@@ -4557,11 +4611,8 @@ function confirmSold() {
   // Persist sold status + sale price to server so syncFromServer reflects the sale
   var soldId = soldModalItem.id;
   var soldPrice = parseFloat(price);
-  apiFetch(API_BASE, {
-    method: 'POST',
-    headers: getApiHeaders(),
-    body: JSON.stringify({ type: 'inventory_status', id: soldId, status: 'Sold', actualSellPrice: soldPrice })
-  }).catch(function() {});
+  var soldExpectedVersion = soldModalItem.version;
+  postInventoryStatus(soldId, 'Sold', soldExpectedVersion, soldPrice);
   closeSoldModal();
   renderInventory();
   showToast('Sale recorded! +$' + profit.toFixed(2));

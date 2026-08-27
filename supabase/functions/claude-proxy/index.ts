@@ -730,6 +730,21 @@ export async function handleInventoryCreate(
   return { item };
 }
 
+// P2-19: fetches the current row and throws the standard 409 conflict shape
+// when it no longer exists or its version has moved past what the caller
+// expected — shared by handleInventoryUpdate and handleInventoryStatus so the
+// two mutation paths report a stale write identically.
+async function inventoryConflictOrNotFound(
+  supabase: ReturnType<typeof createClient>,
+  userId: number,
+  itemId: number,
+): Promise<never> {
+  const { data: latest } = await supabase.from('inventory')
+    .select('*').eq('id', itemId).eq('user_id', userId).maybeSingle();
+  if (!latest) throw new HttpError('Item not found', 404);
+  throw new HttpError('conflict', 409, { code: 'stale_version', item: latest });
+}
+
 export async function handleInventoryUpdate(
   supabase: ReturnType<typeof createClient>,
   userId: number,
@@ -737,8 +752,10 @@ export async function handleInventoryUpdate(
 ) {
   const itemId = body.id as number;
   if (!itemId) throw new Error('Missing item id');
+  const expectedVersion = body.expectedVersion as number | undefined;
+  if (expectedVersion == null) throw new HttpError('expectedVersion is required', 400);
 
-  const updates: Record<string, unknown> = {};
+  const updates: Record<string, unknown> = { version: expectedVersion + 1 };
   if (body.nickname  !== undefined) updates.nickname   = body.nickname;
   if (body.category  !== undefined) updates.category   = body.category;
   if (body.condition !== undefined) updates.condition  = body.condition;
@@ -751,10 +768,13 @@ export async function handleInventoryUpdate(
     updates.photo_count = Array.isArray(body.photos) ? body.photos.length : 0;
   }
 
+  // Version match is part of the WHERE clause, so a stale write matches zero
+  // rows atomically — no separate read-then-write race window.
   const { data: item, error } = await supabase.from('inventory')
-    .update(updates).eq('id', itemId).eq('user_id', userId)
-    .select('*').single();
+    .update(updates).eq('id', itemId).eq('user_id', userId).eq('version', expectedVersion)
+    .select('*').maybeSingle();
   if (error) throw new Error(error.message);
+  if (!item) return inventoryConflictOrNotFound(supabase, userId, itemId);
   return { item };
 }
 
@@ -786,7 +806,9 @@ export async function handleInventoryStatus(
 ) {
   const itemId    = body.id as number;
   const newStatus = body.status as string;
+  const expectedVersion = body.expectedVersion as number | undefined;
   if (!itemId || !newStatus) throw new Error('Missing id or status');
+  if (expectedVersion == null) throw new HttpError('expectedVersion is required', 400);
 
   const { data: current, error: fetchErr } = await supabase.from('inventory')
     .select('*').eq('id', itemId).eq('user_id', userId).single();
@@ -795,7 +817,8 @@ export async function handleInventoryStatus(
   // P1-C: a retried status-transition request (double tap, client retry,
   // reconnect/replay) that finds the item already in the requested state is a
   // no-op success, not an error — this is what keeps a retried "mark Sold"
-  // from ever producing a second sale effect.
+  // from ever producing a second sale effect. Nothing changes, so no version
+  // check is needed on this path.
   if (current.status === newStatus) return { item: current };
 
   const allowed = VALID_TRANSITIONS[current.status as string] ?? [];
@@ -803,7 +826,7 @@ export async function handleInventoryStatus(
     throw new Error(`Cannot transition from ${current.status} to ${newStatus}`);
   }
 
-  const updates: Record<string, unknown> = { status: newStatus };
+  const updates: Record<string, unknown> = { status: newStatus, version: expectedVersion + 1 };
   if (newStatus === 'Listed') updates.listed_at = new Date().toISOString();
   if (newStatus === 'Sold') {
     updates.sold_at = new Date().toISOString();
@@ -814,10 +837,13 @@ export async function handleInventoryStatus(
     }
   }
 
+  // P2-19: version match is part of the WHERE clause — atomic, no
+  // read-then-write race window between the fetch above and this update.
   const { data: item, error } = await supabase.from('inventory')
-    .update(updates).eq('id', itemId).eq('user_id', userId)
-    .select('*').single();
+    .update(updates).eq('id', itemId).eq('user_id', userId).eq('version', expectedVersion)
+    .select('*').maybeSingle();
   if (error) throw new Error(error.message);
+  if (!item) return inventoryConflictOrNotFound(supabase, userId, itemId);
   return { item };
 }
 
