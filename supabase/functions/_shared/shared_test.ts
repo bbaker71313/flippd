@@ -2,7 +2,15 @@
 // No live Supabase — pure crypto + constants.
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { b64url, signJWT, verifyJWT, getAuthedUserIdChecked } from "./jwt.ts";
-import { SCAN_LIMITS, ITEM_LIMITS } from "./tierLimits.ts";
+import {
+  SCAN_LIMITS,
+  ITEM_LIMITS,
+  resolveScanLimit,
+  resolveItemLimit,
+  TIER_ORDER,
+  PAID_TIERS,
+  paidTierCatalog,
+} from "./tierCatalog.ts";
 
 const SECRET = "test-secret-not-production";
 
@@ -94,4 +102,36 @@ Deno.test("getAuthedUserIdChecked rejects when user row missing", async () => {
 Deno.test("tier limits match CLAUDE.md spec (single source of truth)", () => {
   assertEquals(SCAN_LIMITS, { trial: null, scout: 25, hustle: 250, stack: null, empire: null });
   assertEquals(ITEM_LIMITS, { trial: null, scout: 10, hustle: 250, stack: null, empire: null });
+});
+
+// P3-33
+Deno.test("resolveScanLimit/resolveItemLimit: known tiers resolve to their exact configured limit", () => {
+  for (const tier of TIER_ORDER) {
+    assertEquals(resolveScanLimit(tier), SCAN_LIMITS[tier]);
+    assertEquals(resolveItemLimit(tier), ITEM_LIMITS[tier]);
+  }
+});
+
+Deno.test("resolveScanLimit/resolveItemLimit: unknown tier fails closed to scout's limits, never unlimited", () => {
+  assertEquals(resolveScanLimit("made_up_tier"), SCAN_LIMITS.scout);
+  assertEquals(resolveItemLimit("made_up_tier"), ITEM_LIMITS.scout);
+  assertEquals(resolveScanLimit(undefined), SCAN_LIMITS.scout);
+  assertEquals(resolveScanLimit(null), SCAN_LIMITS.scout);
+});
+
+Deno.test("PAID_TIERS matches the tiers stripePricing.ts can bill, and TIER_ORDER lists every tier exactly once", () => {
+  assertEquals(PAID_TIERS, ["hustle", "stack", "empire"]);
+  assertEquals(TIER_ORDER, ["trial", "scout", "hustle", "stack", "empire"]);
+  assertEquals(new Set(TIER_ORDER).size, TIER_ORDER.length);
+});
+
+Deno.test("paidTierCatalog: every paid tier has consistent label/price/limits, monthly price matches CLAUDE.md", () => {
+  const catalog = paidTierCatalog();
+  assertEquals(catalog.hustle, { label: "Hustle", priceMonthly: 19, scansPerMonth: 250, inventoryItems: 250 });
+  assertEquals(catalog.stack, { label: "Stack", priceMonthly: 49, scansPerMonth: null, inventoryItems: null });
+  assertEquals(catalog.empire, { label: "Empire", priceMonthly: 199, scansPerMonth: null, inventoryItems: null });
+  for (const tier of PAID_TIERS) {
+    assertEquals(catalog[tier].scansPerMonth, SCAN_LIMITS[tier]);
+    assertEquals(catalog[tier].inventoryItems, ITEM_LIMITS[tier]);
+  }
 });

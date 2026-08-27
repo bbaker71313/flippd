@@ -212,17 +212,6 @@ export interface GrowthCache {
   expiresAt: string
 }
 
-export const TIER_LIMITS: Record<UserTier, {
-  scans: number | 'unlimited'
-  items: number | 'unlimited'
-}> = {
-  trial:  { scans: 'unlimited', items: 'unlimited' },
-  scout:  { scans: 25,          items: 10 },
-  hustle: { scans: 'unlimited', items: 500 },
-  stack:  { scans: 'unlimited', items: 'unlimited' },
-  empire: { scans: 'unlimited', items: 'unlimited' },
-}
-
 // AI-generated eBay listing draft
 export interface ListingDraft {
   itemId: number | null

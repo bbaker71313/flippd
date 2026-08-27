@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
 import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked, randomHex } from "../_shared/jwt.ts"
 import { sendDurableEmail } from "../_shared/sendEmail.ts"
-import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
+import { resolveScanLimit, resolveItemLimit, paidTierCatalog, PAID_TIERS } from "../_shared/tierCatalog.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { rateLimitBucket, inMemoryRateLimitOk } from "../_shared/authRateLimit.ts"
 
@@ -313,8 +313,12 @@ async function handleMe(req: Request, supabase: ReturnType<typeof createClient>,
     tier: user.tier,
     trialEndsAt: user.trial_ends_at,
     scansThisMonth: user.scan_count_month,
-    scanLimit: SCAN_LIMITS[user.tier] ?? null,
-    inventoryLimit: ITEM_LIMITS[user.tier] ?? null,
+    scanLimit: resolveScanLimit(user.tier),
+    inventoryLimit: resolveItemLimit(user.tier),
+    // P3-33: canonical tier display metadata (label, monthly price, limits)
+    // for the subscription panel — the frontend must not hardcode its own copy.
+    paidTiers: PAID_TIERS,
+    tierPricing: paidTierCatalog(),
     subscription: user.stripe_subscription_id ? {
       id: user.stripe_subscription_id,
       status: user.subscription_status,

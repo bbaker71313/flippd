@@ -10,6 +10,7 @@
 // implements only the visual-AI rung (no barcode scanner or OCR pipeline
 // exists in the live app yet) — see session report "Out-of-Scope Findings".
 import type { IdentityCandidate, IdentificationEvidenceKind } from "./marketData.ts"
+import { CLAUDE_MODEL, ANTHROPIC_MESSAGES_URL } from "./aiConfig.ts"
 
 export interface IdentifyInput {
   images: string[]                 // base64, no data: prefix
@@ -34,7 +35,7 @@ async function callAnthropicVision(apiKey: string, input: IdentifyInput): Promis
     type: 'image' as const,
     source: { type: 'base64' as const, media_type: input.mimeTypes[i] ?? 'image/jpeg', data },
   }));
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -42,7 +43,7 @@ async function callAnthropicVision(apiKey: string, input: IdentifyInput): Promis
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: CLAUDE_MODEL,
       max_tokens: 768,
       system: IDENTIFY_SYSTEM_PROMPT,
       messages: [{

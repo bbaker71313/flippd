@@ -1,14 +1,29 @@
 // Deno-native mirror of packages/shared/src/utils/calcProfit.ts.
 //
-// Duplicated intentionally, not accidentally: Supabase Edge Functions run on
-// Deno and this repo has not yet verified that a relative cross-package
-// import (supabase/functions/... -> packages/shared/...) survives the
-// Supabase CLI's bundler in production (see docs/CURRENT_STATE.md "Known
-// issues" — claude-proxy inline calcProfit duplicates packages/shared).
-// Until that is verified, this file is the single authoritative financial
-// calculation for every Edge Function code path, and packages/shared/...
-// is the authoritative version for the rest of the monorepo (web, tests).
-// Keep the two in lockstep — same inputs, same outputs, same rounding.
+// Duplicated intentionally, not accidentally (P3-34, 2026-08-27): a relative
+// cross-package import (supabase/functions/... -> packages/shared/...) is
+// NOT safe to rely on for a production deploy today. Live-verified this
+// session via the Supabase MCP deploy tool (`mcp__Supabase__deploy_edge_function`)
+// against project dqgfpchkheznvanfgsmx — a function whose entrypoint imported
+// `../../../packages/shared/src/utils/calcProfit.ts` failed to bundle
+// ("Module not found: file:///packages/shared/src/utils/calcProfit.ts").
+// More importantly, `mcp__Supabase__list_edge_functions` on this project's
+// own ACTIVE functions shows their bundled `entrypoint_path`s were rooted at
+// three DIFFERENT upload-root depths depending on which deploy mechanism/
+// session deployed them (some at `source/<fn>/index.ts`, some at
+// `source/functions/<fn>/index.ts`, others at
+// `source/supabase/functions/<fn>/index.ts`) — meaning how many `../`
+// segments are needed to reach `packages/shared/` is not stable across
+// deploy tools, so a relative import that resolves under one deploy
+// mechanism can silently fail to bundle (or resolve to the wrong file)
+// under another. Until this repo standardizes on one deploy mechanism with
+// a guaranteed upload root (or adopts an import map with an absolute/pinned
+// path), this file is the single authoritative financial calculation for
+// every Edge Function code path, and packages/shared/... is the
+// authoritative version for the rest of the monorepo (web, tests).
+// Keep the two in lockstep — same inputs, same outputs, same rounding —
+// enforced by parity test fixtures in financialEngine_test.ts matching
+// packages/shared/src/utils/calcProfit.test.ts.
 //
 // No AI values, no user-settings lookups, no external calls, no
 // decision-making, no sourcing-style multiplier.
