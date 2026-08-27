@@ -1,7 +1,7 @@
 # ScanForProfit — Architecture
 
-**Last updated:** June 2026  
-**Authoritative source for what's live:** [`docs/CURRENT_STATE.md`](CURRENT_STATE.md)
+**Last updated:** 2026-08-27 (P3-36 — corrected stale auth/storage claims: JWT moved to an httpOnly cookie and 30-day sessions in 2026-06-30/2026-08-27; this file still said localStorage/90-day)  
+**Authoritative for:** structural/architectural facts (monorepo layout, stack, edge functions, tables, client storage model). For day-to-day "what's live right now" status, `docs/CURRENT_STATE.md` wins if the two ever disagree — see [`docs/DOC_HIERARCHY.md`](DOC_HIERARCHY.md).
 
 ---
 
@@ -53,12 +53,12 @@ scanforprofit/                     pnpm 11 workspaces + Turborepo
 | Live product | `app.html` — vanilla HTML/CSS/JS |
 | Hosting | Vercel (Next.js 15 shell; `/app.html` served as static file) |
 | Database | Supabase PostgreSQL 17 (project: `dqgfpchkheznvanfgsmx`) |
-| Auth | Supabase Auth — email verification + password (JWT, 90-day sessions) |
+| Auth | Custom email verification + password auth (JWT in an httpOnly `sfp_auth` cookie, 30-day absolute session — see `docs/CURRENT_STATE.md`'s "Auth model" for the full current detail) |
 | AI | Claude Sonnet via `claude-proxy` Edge Function (never called from client) |
 | Payments | Stripe via `stripe-checkout` + `stripe-webhook` Edge Functions |
 | eBay | `ebay-oauth` Edge Function (OAuth 2.0) |
 | Email | Resend + React Email via `export-reminder` Edge Function |
-| Client storage | JWT + settings in `localStorage`; photos in IndexedDB; inventory on Supabase |
+| Client storage | See "Client storage model" below |
 
 ---
 
@@ -91,7 +91,7 @@ All secrets (Anthropic API key, Stripe keys, eBay credentials) live in Supabase 
 | `waitlist` | Landing page email captures |
 | `ebay_connections` | eBay OAuth tokens per user |
 
-RLS enabled on all tables. 9 migrations applied (see `supabase/migrations/`).
+RLS enabled on all tables. See `supabase/migrations/` for the current, authoritative migration list — do not hardcode a count here, it goes stale.
 
 ---
 
@@ -99,7 +99,8 @@ RLS enabled on all tables. 9 migrations applied (see `supabase/migrations/`).
 
 | Data | Where stored |
 |------|-------------|
-| JWT session token | `localStorage` |
+| JWT session token | httpOnly `sfp_auth` cookie (`Secure; SameSite=None`) — never `localStorage`, never readable by JS (SEC-015) |
+| `sfp_session` UI flag (client-side hint that a session may exist — server always re-validates) | `localStorage` |
 | User settings cache | `localStorage` |
 | Item photos | IndexedDB (browser) |
 | Inventory, expenses, scan history | Supabase PostgreSQL (server) |

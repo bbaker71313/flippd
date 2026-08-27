@@ -206,6 +206,7 @@ Full agent/dev rules: [`CLAUDE.md`](../CLAUDE.md)
 | Doc | Purpose |
 |-----|---------|
 | [`CURRENT_STATE.md`](CURRENT_STATE.md) | This file — what's live now |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Structural facts: monorepo layout, stack, edge functions, DB tables, client storage model |
 | [`DOC_HIERARCHY.md`](DOC_HIERARCHY.md) | Which doc wins when sources disagree |
 | [`DOC_AUDIT.md`](DOC_AUDIT.md) | Stale doc inventory + fix queue |
 | [`FEATURE_TRIAGE.md`](FEATURE_TRIAGE.md) | Feature specs + AI prompts (port verbatim) |

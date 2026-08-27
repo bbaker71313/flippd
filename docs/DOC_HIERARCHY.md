@@ -27,6 +27,7 @@ When two docs disagree, **the higher tier wins**. Fix the lower tier — do not 
 | File | Authoritative for | Update when |
 |------|-------------------|-------------|
 | `docs/CURRENT_STATE.md` | Plain-English summary: what's live, what's not, how to sign up, stack overview | Weekly or at each release |
+| `docs/ARCHITECTURE.md` | Structural/architectural facts: monorepo layout, stack table, edge function list, DB tables, client storage model | When the monorepo layout, stack, or storage model changes. If this ever disagrees with `CURRENT_STATE.md` on live status, `CURRENT_STATE.md` wins — fix this file to match. |
 | `docs/DOC_AUDIT.md` | Known doc debt: stale claims, broken links, grep hits | After each doc cleanup phase |
 | `docs/DOC_HIERARCHY.md` | This file — doc architecture and update rules | When doc structure changes |
 
