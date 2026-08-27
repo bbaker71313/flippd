@@ -969,10 +969,14 @@ body::before{
 .shelf-item.is-hot  { background: rgba(0,230,118,0.10); border-color: var(--green-border); }
 .shelf-item.is-list { background: var(--green-bg);      border-color: rgba(0,230,118,0.3); }
 .shelf-item.is-skip { background: var(--red-bg);        border-color: #550000; }
+/* Chapter 02: unverified evidence is neither pass nor fail — deliberately
+   neutral, never colored like SKIP (which would imply a real recommendation). */
+.shelf-item.is-unverified { background: var(--bg); border-color: var(--border); }
 
 .shelf-item.is-hot  .s-badge { background: var(--green);  color: #000; }
 .shelf-item.is-list .s-badge { background: var(--green);   color: #000; }
 .shelf-item.is-skip .s-badge { background: var(--red);     color: #fff; }
+.shelf-item.is-unverified .s-badge { background: var(--muted); color: #000; }
 
 /* Buy button inside a shelf item */
 .shelf-buy-btn {
@@ -995,6 +999,7 @@ body::before{
 .shelf-section-hdr.is-hot  { color: var(--green-border); }
 .shelf-section-hdr.is-list { color: var(--green); }
 .shelf-section-hdr.is-skip { color: var(--red); }
+.shelf-section-hdr.is-unverified { color: var(--muted); }
 
 /* Shelf summary stat cards (HOT/LIST/SKIP counts at top) */
 .shelf-stat-num {
@@ -1003,6 +1008,7 @@ body::before{
 .shelf-stat-num.is-hot  { color: var(--green-border); }
 .shelf-stat-num.is-list { color: var(--green); }
 .shelf-stat-num.is-skip { color: var(--red); }
+.shelf-stat-num.is-unverified { color: var(--muted); }
 
 /* ══ GROUP D — INVENTORY DETAIL / STATUS CARD STATES ════════════════════
    showDetail() header structure + inv-status-card dark-theme variants.   */
@@ -6123,7 +6129,7 @@ async function analyze() {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
     } catch(_){}
-    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons});
+    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, aiEstimate:normalized.aiEstimate});
     renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
@@ -6200,8 +6206,64 @@ function buildDecisionExplanation(dec, dr, item, fin, S) {
   return `<div class="pass-reasons">${escHtml(parts.join(' — '))}.</div>`;
 }
 
-function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons}) {
+// Chapter 02 AI-market-authority fix: when the server found no verified
+// marketplace evidence, decisionAvailable is false and dec/fin/maxBuyPrice
+// are all null (never a HOT/LIST/SKIP fabricated from the AI's own guess —
+// see resolveScanResultCore in claude-proxy/index.ts). Render an honest
+// "no recommendation" state instead of a decision banner, with the AI's
+// estimate shown only as clearly-labeled informational context.
+function renderInsufficientEvidence({item,cost,aiEstimate}) {
+  // Buy/showBuyConfirm already render null fin.profit/fin.roi/item.avg_sold_price
+  // as "—"/blank, so the manual add-to-inventory flow works the same as the
+  // verified path — the user can still add it and price it themselves.
+  lastSingleResult = {item, cost, fin: {profit:null, roi:null, fee:null, shipCost:null}, dec:null};
+  const costKnown = cost !== null && cost !== undefined;
+  const est = aiEstimate || {};
+  const estRow = (label, val, suffix) => (val==null) ? '' :
+    `<div class="data-row"><span class="dl">${label}</span><span class="dv">${escHtml(val)}${suffix||''}</span></div>`;
+  document.getElementById('results-content').innerHTML=`
+    <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
+    <div class="decision-banner">
+      <span class="d-icon">[ ? ]</span>
+      <div class="u-flex-col"><div class="d-label">NO VERIFIED RECOMMENDATION</div><div class="d-name">${escHtml(item.item_name)}</div></div>
+      <div class="conf-pill">${escHtml(item.confidence)}%</div>
+    </div>
+    <div class="source-badge">[ INSUFFICIENT EVIDENCE ] Verified eBay sold/active listing data was not available for this item — HOT/LIST/SKIP, profit, ROI, and max-buy-price cannot be determined. Anything below is the AI's own estimate, informational only — confirm with real eBay sold listings before buying.</div>
+
+    <div class="buy-action-bar">
+      <div class="buy-action-title">What do you want to do?</div>
+      <div class="buy-action-sub">You can still add this to inventory manually and price it yourself.</div>
+      <div class="buy-action-btns">
+        <button class="action-btn action-buy" onclick="buyItem()">LIST<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
+        <button class="action-btn action-pass" onclick="goSrcBack()">SKIP<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Move On</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Your Cost</h3>
+      <div class="data-row"><span class="dl">Entered Cost</span><span class="dv">${costKnown?`$${Number(cost).toFixed(2)}`:'Not entered'}</span></div>
+      <div class="u-text-sm u-muted u-mt-1">Net profit, ROI, and max-buy price require verified market evidence, which isn't available for this item.</div>
+    </div>
+    <div class="card">
+      <h3 class="card-title">AI Estimate (Informational Only — Not Verified)</h3>
+      ${estRow('Est. Sold Price', est.avgSoldPrice!=null?`$${Number(est.avgSoldPrice).toFixed(2)}`:null)}
+      ${est.priceLow!=null&&est.priceHigh!=null?`<div class="data-row"><span class="dl">Price Range</span><span class="dv">$${escHtml(est.priceLow)} – $${escHtml(est.priceHigh)}</span></div>`:''}
+      ${estRow('Sell-Through Rate', est.sellThroughRate, '%')}
+      ${estRow('Avg Days to Sell', est.avgDaysToSell, ' days')}
+      ${estRow('Demand', est.demandLevel)}
+      <div class="u-text-sm u-muted u-mt-2">These numbers came from the AI's own guess, not verified eBay sold/active listings — do not treat them as a real recommendation.</div>
+    </div>
+    <div class="card">
+      <h3 class="card-title">Check This</h3>
+      <div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${escHtml(item.condition_notes||'Inspect for cracks, missing parts, damage, and verify it powers on / functions correctly.')}</div>
+    </div>
+    ${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${escHtml(item.notes)}</div></div>`:''}`;
+  showSrcView('results');
+}
+
+function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,aiEstimate}) {
   resetBtn('analyze-btn','Run Profit Scanner','green');
+  if (decisionAvailable === false) { renderInsufficientEvidence({item, cost, aiEstimate}); return; }
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const costKnown = cost !== null && cost !== undefined;
@@ -6359,7 +6421,11 @@ function renderShelf(shelfItems) {
   const hot=shelfItems.filter(i=>i.decision==='HOT');
   const list=shelfItems.filter(i=>i.decision==='LIST');
   const skip=shelfItems.filter(i=>i.decision==='SKIP');
-  const icon={HOT:'',LIST:'',SKIP:''};
+  // Chapter 02 AI-market-authority fix: an item with no verified evidence
+  // gets decision:null — it is neither a real SKIP nor ranked alongside
+  // HOT/LIST, just honestly called out as unverified.
+  const unverified=shelfItems.filter(i=>i.decision===null);
+  const icon={HOT:'',LIST:'',SKIP:'',UNVERIFIED:'?'};
   // P2-32: short labels for a compact shelf card — same failingThresholds
   // source as the single-scan explanation, phrased for a not-yet-purchased
   // item (no entered cost to reference).
@@ -6370,6 +6436,9 @@ function renderShelf(shelfItems) {
     daysToSell:'days-to-sell unavailable or too long',
   };
   const ri=(i,idx)=>{
+    const isUnverified = i.decision===null;
+    const cssState = isUnverified ? 'unverified' : i.decision.toLowerCase();
+    const badgeLabel = isUnverified ? 'UNVERIFIED' : i.decision;
     // max_buy_price is the server's deterministic backward-solve result —
     // never invented client-side, since the shelf item hasn't been bought yet.
     const mc=i.max_buy_price;
@@ -6380,14 +6449,17 @@ function renderShelf(shelfItems) {
     const skipReasons = (i.decision==='SKIP' && i.decision_reasons && i.decision_reasons.failingThresholds)
       ? i.decision_reasons.failingThresholds.map(t=>SHELF_SKIP_LABEL[t]||t).join('; ')
       : '';
-    return `<div class="shelf-item is-${i.decision.toLowerCase()}">
-      <span class="s-badge">${icon[i.decision]} ${i.decision}</span>${evidenceTag}${mcHint}
+    const detailLine = isUnverified
+      ? `<span class="u-muted u-bold9">No verified market data</span>`
+      : `<span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)} sold</span> &nbsp;·&nbsp; <span class="${demandClass(i.demand_level)}">${escHtml(i.demand_level)} demand</span>`;
+    const reasonLine = isUnverified
+      ? 'Verified eBay sold/active listing data was not found — no HOT/LIST/SKIP recommendation. Any AI estimate is informational only; confirm real sold comps before buying.'
+      : escHtml(i.decision_reason);
+    return `<div class="shelf-item is-${cssState}">
+      <span class="s-badge">${icon[isUnverified?'UNVERIFIED':i.decision]} ${badgeLabel}</span>${evidenceTag}${mcHint}
       <div class="s-name">${escHtml(i.item_name)}</div>
-      <div class="s-detail">
-        <span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)} sold</span> &nbsp;·&nbsp;
-        <span class="${demandClass(i.demand_level)}">${escHtml(i.demand_level)} demand</span>
-      </div>
-      <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${escHtml(i.decision_reason)}</div>
+      <div class="s-detail">${detailLine}</div>
+      <div class="u-text-sm u-soft u-mt-1" style="line-height:1.5">${reasonLine}</div>
       ${skipReasons?`<div class="u-text-xs" style="color:var(--red);margin-top:4px;font-weight:600">Why SKIP: ${escHtml(skipReasons)}</div>`:''}
       ${i.condition_notes?`<div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-style:italic">${escHtml(i.condition_notes)}</div>`:''}
       ${i.decision!=='SKIP'?`<button class="shelf-buy-btn" onclick="buyShelfItem(${idx})">List → Add to Inventory</button>`:''}
@@ -6396,7 +6468,7 @@ function renderShelf(shelfItems) {
   document.getElementById('shelf-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Scan</button>
     <div class="u-syne u-bold9" style="font-size:var(--text-2xl);margin-bottom:var(--space-1);color:var(--text)">Shelf Report</div>
-    <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+list.length} worth buying · ${skip.length} to skip</div>
+    <div class="u-muted" style="font-size:var(--text-base);margin-bottom:var(--space-4);font-weight:500">${shelfItems.length} items · ${hot.length+list.length} worth buying · ${skip.length} to skip${unverified.length?` · ${unverified.length} unverified`:''}</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-bottom:var(--space-4)">
       <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-hot">${hot.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">HOT</div></div>
       <div class="card u-center" style="padding:14px 6px"><div class="shelf-stat-num is-list">${list.length}</div><div class="u-text-xs u-muted" style="margin-top:var(--space-1);font-weight:700">LIST</div></div>
@@ -6404,7 +6476,8 @@ function renderShelf(shelfItems) {
     </div>
     ${hot.length?`<div class="shelf-section-hdr is-hot">Grab These First</div>${hot.map((i,idx)=>ri(i,idx)).join('')}`:''}
     ${list.length?`<div class="shelf-section-hdr is-list u-mt-3">Worth Listing</div>${list.map((i,idx)=>ri(i,hot.length+idx)).join('')}`:''}
-    ${skip.length?`<div class="shelf-section-hdr is-skip u-mt-3">Skip These</div>${skip.map((i,idx)=>ri(i,hot.length+list.length+idx)).join('')}`:''}`;
+    ${skip.length?`<div class="shelf-section-hdr is-skip u-mt-3">Skip These</div>${skip.map((i,idx)=>ri(i,hot.length+list.length+idx)).join('')}`:''}
+    ${unverified.length?`<div class="shelf-section-hdr is-unverified u-mt-3">Needs Verification</div>${unverified.map((i,idx)=>ri(i,hot.length+list.length+skip.length+idx)).join('')}`:''}`;
   showSrcView('shelf');
 }
 

@@ -129,7 +129,7 @@ interface ScanEconomics {
 // Evaluate the deterministic financial + market qualification for one item.
 // `acquisitionCost` is the user's real entered price, or null/undefined when
 // left blank — it is NEVER invented from sale price (no avgSell*0.10).
-function evaluateScanEconomics(
+export function evaluateScanEconomics(
   acquisitionCost: number | null | undefined,
   sellPrice: number,
   sellThroughRate: number | null,
@@ -179,6 +179,105 @@ function evaluateScanEconomics(
     maxBuyPrice: decision.decision === 'SKIP' ? null : mb.maxCost,
     maxBuyPriceLimitedBy: decision.decision === 'SKIP' ? null : mb.limitedBy,
     decision,
+  };
+}
+
+// AI's own informational price/STR/days/demand guess — kept structurally
+// separate from any authoritative field, never fed into calcProfit/decide/
+// calcMaxBuyPrice. Populated only when verified evidence was unavailable.
+interface AiMarketEstimate {
+  avgSoldPrice: number | null;
+  priceLow: number | null;
+  priceHigh: number | null;
+  sellThroughRate: number | null;
+  avgDaysToSell: number | null;
+  demandLevel: DemandLevel | null;
+}
+
+// Result of the single authoritative gate below: everything a scan response
+// needs, with every authoritative field (decision, profit, ROI, max-buy-price)
+// forced to null/unavailable whenever verified market evidence wasn't found —
+// never populated from an AI estimate.
+export interface ScanResultCore {
+  decision: DecisionResult['decision'] | null;
+  decisionAvailable: boolean;
+  decisionStatus: 'ok' | 'insufficient_market_data';
+  decisionReasons: DecisionResult | null;
+  acquisitionCost: number | null;
+  estimatedSell: number | null;
+  estimatedProfit: number | null;
+  roi: number | null;
+  feeAmount: number | null;
+  shipCostAmount: number | null;
+  maxBuyPrice: number | null;
+  maxBuyPriceLimitedBy: 'minProfit' | 'targetRoi' | 'both' | 'none' | null;
+  priceLow: number | null;
+  priceHigh: number | null;
+  sellThroughRate: number | null;
+  avgDaysToSell: number | null;
+  demandLevel: DemandLevel | null;
+  marketDataSource: 'verified' | 'ai_estimate';
+  aiEstimate: AiMarketEstimate | null;
+}
+
+// THE single authoritative gate deciding whether a scanned item's HOT/LIST/SKIP
+// decision, net profit, ROI, and max-buy-price may be computed at all: only
+// when verified marketplace evidence (SoldComps sold comps + eBay Browse
+// active listings) is available. This is the fix for the Chapter 02
+// AI-market-authority defect — previously, when verification failed, the AI's
+// own (non-null) sell_through_rate/avg_days_to_sell/demand_level/avg_sold_price
+// were fed straight into evaluateScanEconomics()/decide(): those values are
+// never null, so they sailed straight through decide()'s null-means-missing
+// checks and could produce a fully authoritative-looking HOT/LIST/SKIP from an
+// unverified AI guess. Used by both single/text and shelf scan — one
+// implementation, not two independently-maintained copies of this rule (see
+// CLAUDE.md Anti-Drift Contract rule 11).
+export function resolveScanResultCore(
+  verified: MarketDataResult,
+  ai: Record<string, unknown>,
+  acquisitionCost: number | null,
+  settings: Settings,
+  shipForCalc: number,
+): ScanResultCore {
+  const aiEstimate: AiMarketEstimate = {
+    avgSoldPrice: (ai.avg_sold_price as number) ?? null,
+    priceLow: (ai.price_low as number) ?? null,
+    priceHigh: (ai.price_high as number) ?? null,
+    sellThroughRate: ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null,
+    avgDaysToSell: ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null,
+    demandLevel: (ai.demand_level as DemandLevel | undefined) ?? null,
+  };
+
+  if (!verified.ok) {
+    return {
+      decision: null, decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+      decisionReasons: null, acquisitionCost,
+      estimatedSell: null, estimatedProfit: null, roi: null,
+      feeAmount: null, shipCostAmount: null,
+      maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+      priceLow: null, priceHigh: null, sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
+      marketDataSource: 'ai_estimate', aiEstimate,
+    };
+  }
+
+  const avgSell = verified.metrics.soldPriceStats.medianSoldPrice as number; // non-null whenever ok:true
+  const sellThroughRate = verified.metrics.sellThroughRate;
+  const daysToSell = verified.metrics.turnover?.marketTurnoverDays ?? null;
+  const demandLevel = verified.metrics.demandLevel;
+  const priceLow = verified.metrics.soldPriceStats.soldPriceLow;
+  const priceHigh = verified.metrics.soldPriceStats.soldPriceHigh;
+
+  const econ = evaluateScanEconomics(acquisitionCost, avgSell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
+  const feeAmount = r2(avgSell * (settings.ebay_fee / 100));
+
+  return {
+    decision: econ.decision.decision, decisionAvailable: true, decisionStatus: 'ok',
+    decisionReasons: econ.decision, acquisitionCost: econ.acquisitionCost,
+    estimatedSell: avgSell, estimatedProfit: econ.net, roi: econ.roi,
+    feeAmount, shipCostAmount: shipForCalc,
+    maxBuyPrice: econ.maxBuyPrice, maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
+    priceLow, priceHigh, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
+    marketDataSource: 'verified', aiEstimate: null,
   };
 }
 
@@ -339,87 +438,66 @@ async function finalizeSingleOrTextScan(
   // verified evidence does the existing (clearly-labeled) AI-estimate path
   // run, exactly as it did before this pipeline existed.
   const verified = await tryVerifiedMarketData(ai, scanType === 'single' ? 'visual_ai' : 'text_inference');
-
-  let avgSell: number;
-  let sellThroughRate: number | null;
-  let daysToSell: number | null;
-  let demandLevel: DemandLevel | null;
-  let marketDataSource: 'verified' | 'ai_estimate';
-  let priceLow: number | null;
-  let priceHigh: number | null;
-
-  if (verified.ok) {
-    avgSell = verified.metrics.soldPriceStats.medianSoldPrice as number; // non-null whenever ok:true
-    sellThroughRate = verified.metrics.sellThroughRate;
-    daysToSell = verified.metrics.turnover?.marketTurnoverDays ?? null;
-    demandLevel = verified.metrics.demandLevel;
-    marketDataSource = 'verified';
-    // Verified price range replaces the AI's guessed range — never mix a
-    // verified median with an AI-estimated low/high band.
-    priceLow = verified.metrics.soldPriceStats.soldPriceLow;
-    priceHigh = verified.metrics.soldPriceStats.soldPriceHigh;
-  } else {
-    avgSell = (ai.avg_sold_price as number) ?? 0;
-    sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
-    daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
-    demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
-    marketDataSource = 'ai_estimate';
-    priceLow = (ai.price_low as number) ?? null;
-    priceHigh = (ai.price_high as number) ?? null;
-  }
   const confidence = (ai.confidence as number) ?? null;
 
   // Seller-paid shipping cost is included only when the seller actually
   // bears it ('seller'); buyer-paid shipping contributes $0 seller cost.
   const shipForCalc = settings.shipping === 'seller' ? settings.ship_cost : 0;
 
-  const econ = evaluateScanEconomics(acquisitionCost, avgSell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
-  // eBay fee/shipping dollar amounts depend only on sell price + settings, so
-  // the client can render the fee breakdown even when cost is unknown.
-  const feeAmount = r2(avgSell * (settings.ebay_fee / 100));
-  const shipCostAmount = shipForCalc;
+  // The single authoritative gate: HOT/LIST/SKIP, net profit, ROI, and
+  // max-buy-price are computed ONLY when verified evidence is available.
+  // When it isn't, `core` reports decisionAvailable:false and every
+  // authoritative field null — the AI's own estimate is carried separately
+  // in `core.aiEstimate`, informational only, never fed into this math.
+  const core = resolveScanResultCore(verified, ai, acquisitionCost, settings, shipForCalc);
 
   const { data: logRow } = await supabase.from('scan_log').insert({
-    user_id: userId, scan_type: scanType, decision: econ.decision.decision,
+    user_id: userId, scan_type: scanType, decision: core.decision,
     item_name: ai.item_name, category: ai.category,
-    estimated_profit: econ.net, estimated_sell: avgSell,
-    cost: econ.acquisitionCost, roi: econ.roi, confidence, bought: false,
+    estimated_profit: core.estimatedProfit, estimated_sell: core.estimatedSell,
+    cost: core.acquisitionCost, roi: core.roi, confidence, bought: false,
     raw_response: {
       ai,
       decisionAudit: {
-        acquisitionCost: econ.acquisitionCost, maxBuyPrice: econ.maxBuyPrice,
-        maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
-        settingsUsed: settings, marketDataSource,
-        verifiedMarketData: verified,
-        ...econ.decision,
+        decisionAvailable: core.decisionAvailable, decisionStatus: core.decisionStatus,
+        acquisitionCost: core.acquisitionCost, maxBuyPrice: core.maxBuyPrice,
+        maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
+        settingsUsed: settings, marketDataSource: core.marketDataSource,
+        verifiedMarketData: verified, aiEstimate: core.aiEstimate,
+        decisionReasons: core.decisionReasons,
       },
     },
   }).select('id').single();
 
   return {
-    decision: econ.decision.decision,
+    decision: core.decision,
+    decisionAvailable: core.decisionAvailable,
+    decisionStatus: core.decisionStatus,
     itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
-    acquisitionCost: econ.acquisitionCost,
-    estimatedSell: avgSell,
-    estimatedProfit: econ.net,
-    roi: econ.roi,
-    feeAmount, shipCostAmount, pkgCost: settings.pkg_cost,
-    maxBuyPrice: econ.maxBuyPrice,
-    maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
+    acquisitionCost: core.acquisitionCost,
+    estimatedSell: core.estimatedSell,
+    estimatedProfit: core.estimatedProfit,
+    roi: core.roi,
+    feeAmount: core.feeAmount, shipCostAmount: core.shipCostAmount, pkgCost: settings.pkg_cost,
+    maxBuyPrice: core.maxBuyPrice,
+    maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
     confidence,
     reasoning: (ai.confidence_reason as string) ?? (ai.notes as string) ?? '',
     searchKeywords: ai.search_keywords ?? [],
-    priceLow, priceHigh,
-    sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
+    priceLow: core.priceLow, priceHigh: core.priceHigh,
+    sellThroughRate: core.sellThroughRate, avgDaysToSell: core.avgDaysToSell, demandLevel: core.demandLevel,
     listingTips: ai.listing_tips ?? [], riskFlags: ai.risk_flags ?? [],
     conditionNotes: ai.condition_notes ?? '',
     notes: (ai.notes as string) ?? '',
     // Tells the client whether the numbers above came from verified
-    // marketplace evidence (SoldComps sold comps + eBay Browse) or the AI's
-    // own estimate (used only when verified evidence was unavailable) — so
+    // marketplace evidence (SoldComps sold comps + eBay Browse) or the scan
+    // has no authoritative market data at all (decisionAvailable:false) — so
     // the client can keep disclosing this honestly either way.
-    marketDataSource,
-    decisionReasons: econ.decision,
+    marketDataSource: core.marketDataSource,
+    // Informational only when present (decisionAvailable:false) — never an
+    // authoritative substitute for the (null) fields above.
+    aiEstimate: core.aiEstimate,
+    decisionReasons: core.decisionReasons,
     scanLogId: logRow?.id ?? null,
   };
 }
@@ -511,39 +589,26 @@ async function handleShelfScan(
   // same rule as single/text scan (see finalizeSingleOrTextScan).
   const items = await Promise.all(aiItems.map(async (ai) => {
     const verified = await tryVerifiedMarketData(ai, 'visual_ai');
-
-    let sell: number;
-    let sellThroughRate: number | null;
-    let daysToSell: number | null;
-    let demandLevel: DemandLevel | null;
-    let marketDataSource: 'verified' | 'ai_estimate';
-
-    if (verified.ok) {
-      sell = verified.metrics.soldPriceStats.medianSoldPrice as number;
-      sellThroughRate = verified.metrics.sellThroughRate;
-      daysToSell = verified.metrics.turnover?.marketTurnoverDays ?? null;
-      demandLevel = verified.metrics.demandLevel;
-      marketDataSource = 'verified';
-    } else {
-      sell = (ai.avg_sold_price as number) ?? 0;
-      sellThroughRate = ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null;
-      daysToSell = ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null;
-      demandLevel = (ai.demand_level as DemandLevel | undefined) ?? null;
-      marketDataSource = 'ai_estimate';
-    }
     const confidence = (ai.confidence as number) ?? null;
 
-    const econ = evaluateScanEconomics(null, sell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
+    // Same single authoritative gate as single/text scan (resolveScanResultCore)
+    // — a shelf item's decision/maxBuyPrice is computed only when verified
+    // evidence backs it; an unverified item gets decisionAvailable:false and
+    // no HOT/LIST/SKIP, never a decision derived from the AI's own estimate.
+    const core = resolveScanResultCore(verified, ai, null, settings, shipForCalc);
 
     return {
-      decision: econ.decision.decision,
+      decision: core.decision,
+      decisionAvailable: core.decisionAvailable,
+      decisionStatus: core.decisionStatus,
       itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
-      avgSoldPrice: sell, maxBuyPrice: econ.maxBuyPrice, maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
-      confidence, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
+      avgSoldPrice: core.estimatedSell, maxBuyPrice: core.maxBuyPrice, maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
+      confidence, sellThroughRate: core.sellThroughRate, avgDaysToSell: core.avgDaysToSell, demandLevel: core.demandLevel,
       conditionNotes: ai.condition_notes ?? '', notes: (ai.notes as string) ?? '',
-      marketDataSource,
+      marketDataSource: core.marketDataSource,
+      aiEstimate: core.aiEstimate,
       verifiedMarketData: verified,
-      decisionReasons: econ.decision,
+      decisionReasons: core.decisionReasons,
     };
   }));
 
@@ -555,9 +620,10 @@ async function handleShelfScan(
       decisionAudit: {
         settingsUsed: settings,
         items: items.map(i => ({
-          itemName: i.itemName, decision: i.decision, maxBuyPrice: i.maxBuyPrice,
+          itemName: i.itemName, decision: i.decision, decisionAvailable: i.decisionAvailable,
+          decisionStatus: i.decisionStatus, maxBuyPrice: i.maxBuyPrice,
           marketDataSource: i.marketDataSource, verifiedMarketData: i.verifiedMarketData,
-          ...i.decisionReasons,
+          aiEstimate: i.aiEstimate, decisionReasons: i.decisionReasons,
         })),
       },
     },

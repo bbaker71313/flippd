@@ -34,6 +34,7 @@
 
   var VALID_DECISIONS = ['HOT', 'LIST', 'SKIP'];
   var VALID_DEMAND_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'];
+  var VALID_DECISION_STATUSES = ['ok', 'insufficient_market_data'];
 
   function fail(field, expected, value) {
     throw new Error('scanResultContract: ' + field + ' must be ' + expected + ', got ' + JSON.stringify(value));
@@ -72,6 +73,65 @@
     return v;
   }
 
+  // Chapter 02 AI-market-authority fix: the server now returns decision:null
+  // whenever verified market evidence was unavailable — no authoritative
+  // HOT/LIST/SKIP exists for that scan. null is allowed ONLY here (not for
+  // the plain asDecision above, which still guards other required-decision
+  // call sites against a silently-missing field).
+  function asNullableDecision(v, field) {
+    if (v === null || v === undefined) return null;
+    return asDecision(v, field);
+  }
+
+  function asBoolean(v, field) {
+    if (typeof v !== 'boolean') fail(field, 'a boolean', v);
+    return v;
+  }
+
+  function asDecisionStatus(v, field) {
+    if (VALID_DECISION_STATUSES.indexOf(v) === -1) fail(field, "'ok' or 'insufficient_market_data'", v);
+    return v;
+  }
+
+  // The deterministic decisionEngine.ts DecisionResult object (decision +
+  // each threshold's pass/fail + failingThresholds) — null when no
+  // authoritative decision was made (insufficient verified evidence). This
+  // replaces a pre-existing contract bug where this field was validated as a
+  // plain string array (asStringArray) even though the server has always
+  // sent the full DecisionResult object here — that mismatch meant this
+  // validator would throw on every single/text scan response once actually
+  // exercised end-to-end (never live-verified until this session's fix).
+  function asDecisionReasons(v, field) {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== 'object' || Array.isArray(v)) fail(field, 'a decision-reasons object or null', v);
+    return {
+      decision: asDecision(v.decision, field + '.decision'),
+      profitPass: asBoolean(v.profitPass, field + '.profitPass'),
+      roiPass: asBoolean(v.roiPass, field + '.roiPass'),
+      strPass: asBoolean(v.strPass, field + '.strPass'),
+      daysPass: asBoolean(v.daysPass, field + '.daysPass'),
+      demandIsVeryHigh: asBoolean(v.demandIsVeryHigh, field + '.demandIsVeryHigh'),
+      failingThresholds: asStringArray(v.failingThresholds, field + '.failingThresholds'),
+    };
+  }
+
+  // Chapter 02: the AI's own price/STR/days/demand guess, kept structurally
+  // separate from the authoritative fields above. Present only when
+  // decisionStatus is 'insufficient_market_data'; null once verified
+  // evidence exists (the AI guess is superseded, not merged with it).
+  function asAiEstimate(v, field) {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== 'object' || Array.isArray(v)) fail(field, 'an AI-estimate object or null', v);
+    return {
+      avg_sold_price: asNullableNumber(v.avgSoldPrice, field + '.avgSoldPrice'),
+      price_low: asNullableNumber(v.priceLow, field + '.priceLow'),
+      price_high: asNullableNumber(v.priceHigh, field + '.priceHigh'),
+      sell_through_rate: asNullableNumber(v.sellThroughRate, field + '.sellThroughRate'),
+      avg_days_to_sell: asNullableNumber(v.avgDaysToSell, field + '.avgDaysToSell'),
+      demand_level: asDemandLevel(v.demandLevel, field + '.demandLevel'),
+    };
+  }
+
   // Demand level is nullable (unverified market evidence — see DECISIONS.md
   // P0 rules) but a *present* value must be one of the four real levels.
   function asDemandLevel(v, field) {
@@ -102,12 +162,26 @@
       brand: asString(r.brand, 'brand', null),
       notes: asString(r.notes, 'notes', ''),
     };
-    var dec = asDecision(r.decision, 'decision');
+    // Chapter 02 fix: decision is null exactly when verified market evidence
+    // was unavailable (decisionAvailable:false) — never a fabricated
+    // HOT/LIST/SKIP built from the AI's own market estimate.
+    var decisionAvailable = asBoolean(r.decisionAvailable, 'decisionAvailable');
+    var decisionStatus = asDecisionStatus(r.decisionStatus, 'decisionStatus');
+    var dec = asNullableDecision(r.decision, 'decision');
+    if (decisionAvailable && dec === null) fail('decision', 'a real decision when decisionAvailable is true', dec);
+    if (!decisionAvailable && dec !== null) fail('decision', 'null when decisionAvailable is false', dec);
+
+    var profit = asNullableNumber(r.estimatedProfit, 'estimatedProfit');
+    var fee = asNullableNumber(r.feeAmount, 'feeAmount');
+    var shipCost = asNullableNumber(r.shipCostAmount, 'shipCostAmount');
+    if (decisionAvailable && (profit === null || fee === null || shipCost === null)) {
+      fail('estimatedProfit/feeAmount/shipCostAmount', 'finite numbers when decisionAvailable is true', { profit: profit, fee: fee, shipCost: shipCost });
+    }
     var fin = {
-      profit: asNumber(r.estimatedProfit, 'estimatedProfit'),
-      roi: asNullableNumber(r.roi, 'roi'), // null = $0 acquisition cost (P2-31) — never coerce to 0
-      fee: asNumber(r.feeAmount, 'feeAmount'),
-      shipCost: asNumber(r.shipCostAmount, 'shipCostAmount'),
+      profit: profit,
+      roi: asNullableNumber(r.roi, 'roi'), // null = $0 acquisition cost (P2-31) or unavailable — never coerce to 0
+      fee: fee,
+      shipCost: shipCost,
     };
     return {
       item: item,
@@ -117,7 +191,10 @@
       maxBuyPrice: asNullableNumber(r.maxBuyPrice, 'maxBuyPrice'),
       maxBuyPriceLimitedBy: asString(r.maxBuyPriceLimitedBy, 'maxBuyPriceLimitedBy', null),
       marketDataSource: asString(r.marketDataSource, 'marketDataSource', null),
-      decisionReasons: asStringArray(r.decisionReasons, 'decisionReasons'),
+      decisionAvailable: decisionAvailable,
+      decisionStatus: decisionStatus,
+      decisionReasons: asDecisionReasons(r.decisionReasons, 'decisionReasons'),
+      aiEstimate: asAiEstimate(r.aiEstimate, 'aiEstimate'),
     };
   }
 
@@ -127,13 +204,18 @@
   // backward-solved maxBuyPrice.
   function normalizeShelfScanItem(i) {
     if (!i || typeof i !== 'object') fail('shelf scan item', 'an object', i);
+    var decisionAvailable = asBoolean(i.decisionAvailable, 'decisionAvailable');
+    var decisionStatus = asDecisionStatus(i.decisionStatus, 'decisionStatus');
+    var decision = asNullableDecision(i.decision, 'decision');
+    if (decisionAvailable && decision === null) fail('decision', 'a real decision when decisionAvailable is true', decision);
+    if (!decisionAvailable && decision !== null) fail('decision', 'null when decisionAvailable is false', decision);
     return {
       item_name: asString(i.itemName, 'itemName', ''),
       avg_sold_price: asNullableNumber(i.avgSoldPrice, 'avgSoldPrice'),
       max_buy_price: asNullableNumber(i.maxBuyPrice, 'maxBuyPrice'),
       max_buy_price_limited_by: asString(i.maxBuyPriceLimitedBy, 'maxBuyPriceLimitedBy', null),
       demand_level: asDemandLevel(i.demandLevel, 'demandLevel'),
-      decision: asDecision(i.decision, 'decision'),
+      decision: decision,
       decision_reason: asString(i.notes, 'notes', ''),
       condition_notes: asString(i.conditionNotes, 'conditionNotes', ''),
       category: asString(i.category, 'category', null),
@@ -141,7 +223,10 @@
       sell_through_rate: asNullableNumber(i.sellThroughRate, 'sellThroughRate'),
       avg_days_to_sell: asNullableNumber(i.avgDaysToSell, 'avgDaysToSell'),
       market_data_source: asString(i.marketDataSource, 'marketDataSource', null),
-      decision_reasons: asStringArray(i.decisionReasons, 'decisionReasons'),
+      decision_available: decisionAvailable,
+      decision_status: decisionStatus,
+      decision_reasons: asDecisionReasons(i.decisionReasons, 'decisionReasons'),
+      ai_estimate: asAiEstimate(i.aiEstimate, 'aiEstimate'),
     };
   }
 

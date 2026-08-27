@@ -3,6 +3,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeSingleScanResult, normalizeShelfScanResult, normalizeShelfScanItem } = require('./scanResultContract.js');
 
+function decisionReasonsFor(decision, overrides) {
+  return Object.assign({
+    decision: decision, profitPass: true, roiPass: true, strPass: true, daysPass: true,
+    demandIsVeryHigh: decision === 'HOT', failingThresholds: [],
+  }, overrides || {});
+}
+
 function baseSingleScan(overrides) {
   return Object.assign({
     itemName: 'Minolta X-700 35mm SLR Film Camera',
@@ -14,7 +21,32 @@ function baseSingleScan(overrides) {
     decision: 'LIST',
     estimatedProfit: 42.5, roi: 298.75, feeAmount: 13, shipCostAmount: 6,
     acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
-    marketDataSource: 'verified', decisionReasons: [],
+    marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
+    decisionReasons: decisionReasonsFor('LIST'), aiEstimate: null,
+  }, overrides || {});
+}
+
+// A scan where verified market evidence was unavailable — every authoritative
+// field is null/decisionAvailable:false, with the AI's own guess carried only
+// informationally in aiEstimate. Mirrors what claude-proxy's
+// resolveScanResultCore() actually returns on the unverified path.
+function insufficientEvidenceSingleScan(overrides) {
+  return Object.assign({
+    itemName: 'Minolta X-700 35mm SLR Film Camera',
+    estimatedSell: null, priceLow: null, priceHigh: null,
+    sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
+    confidence: 55, reasoning: 'low confidence — no verified comps found',
+    searchKeywords: [], listingTips: [], riskFlags: [],
+    conditionNotes: '', category: 'Cameras', brand: 'Minolta', notes: '',
+    decision: null,
+    estimatedProfit: null, roi: null, feeAmount: null, shipCostAmount: null,
+    acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+    marketDataSource: 'ai_estimate', decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+    decisionReasons: null,
+    aiEstimate: {
+      avgSoldPrice: 100, priceLow: 80, priceHigh: 120,
+      sellThroughRate: 90, avgDaysToSell: 5, demandLevel: 'VERY HIGH',
+    },
   }, overrides || {});
 }
 
@@ -85,7 +117,22 @@ function baseShelfItem(overrides) {
     demandLevel: 'VERY HIGH', decision: 'HOT', notes: 'strong comps',
     conditionNotes: '', category: 'Clothing', confidence: 70,
     sellThroughRate: 75, avgDaysToSell: 10,
-    marketDataSource: 'verified', decisionReasons: [],
+    marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
+    decisionReasons: decisionReasonsFor('HOT'), aiEstimate: null,
+  }, overrides || {});
+}
+
+// Mirrors an unverified shelf item — see insufficientEvidenceSingleScan above.
+function insufficientEvidenceShelfItem(overrides) {
+  return Object.assign({
+    itemName: 'Unmarked Ceramic Vase', avgSoldPrice: null,
+    maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+    demandLevel: null, decision: null, notes: '',
+    conditionNotes: '', category: 'Collectibles', confidence: 45,
+    sellThroughRate: null, avgDaysToSell: null,
+    marketDataSource: 'ai_estimate', decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+    decisionReasons: null,
+    aiEstimate: { avgSoldPrice: 30, priceLow: 20, priceHigh: 45, sellThroughRate: 80, avgDaysToSell: 8, demandLevel: 'HIGH' },
   }, overrides || {});
 }
 
@@ -105,4 +152,68 @@ test('normalizeShelfScanItem: invalid decision throws, never defaults to SKIP si
 
 test('normalizeShelfScanResult: throws if items is present but not an array', () => {
   assert.throws(() => normalizeShelfScanResult({ items: 'not-an-array' }), /items/);
+});
+
+// ── Chapter 02 AI-market-authority fix: decisionAvailable / insufficient-evidence state ──
+
+test('normalizeSingleScanResult: verified scan (decisionAvailable:true) accepted with real decisionReasons object', () => {
+  const out = normalizeSingleScanResult(baseSingleScan());
+  assert.equal(out.decisionAvailable, true);
+  assert.equal(out.decisionStatus, 'ok');
+  assert.equal(out.dec, 'LIST');
+  assert.deepEqual(out.decisionReasons.failingThresholds, []);
+  assert.equal(out.aiEstimate, null);
+});
+
+test('normalizeSingleScanResult: insufficient-evidence scan is a valid, distinct result shape', () => {
+  const out = normalizeSingleScanResult(insufficientEvidenceSingleScan());
+  assert.equal(out.decisionAvailable, false);
+  assert.equal(out.decisionStatus, 'insufficient_market_data');
+  assert.equal(out.dec, null);
+  assert.equal(out.fin.profit, null);
+  assert.equal(out.fin.roi, null);
+  assert.equal(out.maxBuyPrice, null);
+  assert.equal(out.decisionReasons, null);
+  // AI's own guess survives, but only informationally and separately.
+  assert.equal(out.aiEstimate.avg_sold_price, 100);
+  assert.equal(out.aiEstimate.demand_level, 'VERY HIGH');
+  assert.equal(out.item.avg_sold_price, null); // never merged into the authoritative item fields
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:true with a null decision (malformed combination)', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ decision: null })), /decision/);
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:false with a non-null decision (malformed combination)', () => {
+  assert.throws(() => normalizeSingleScanResult(insufficientEvidenceSingleScan({ decision: 'SKIP' })), /decision/);
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:true with a null estimatedProfit (never a silent gap in authoritative economics)', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ estimatedProfit: null })), /estimatedProfit/);
+});
+
+test('normalizeSingleScanResult: rejects an unrecognized decisionStatus', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ decisionStatus: 'unknown_status' })), /decisionStatus/);
+});
+
+test('normalizeSingleScanResult: rejects a decisionReasons that is not the DecisionResult shape (e.g. a bare array)', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ decisionReasons: [] })), /decisionReasons/);
+});
+
+test('normalizeShelfScanResult: verified and insufficient-evidence items coexist correctly in one mixed shelf response', () => {
+  const out = normalizeShelfScanResult({
+    items: [baseShelfItem(), insufficientEvidenceShelfItem(), baseShelfItem({ decision: 'SKIP', decisionReasons: decisionReasonsFor('SKIP') })],
+  });
+  assert.equal(out.length, 3);
+  assert.equal(out[0].decision, 'HOT');
+  assert.equal(out[0].decision_available, true);
+  assert.equal(out[1].decision, null);
+  assert.equal(out[1].decision_available, false);
+  assert.equal(out[1].decision_status, 'insufficient_market_data');
+  assert.equal(out[1].ai_estimate.demand_level, 'HIGH');
+  assert.equal(out[2].decision, 'SKIP');
+});
+
+test('normalizeShelfScanItem: rejects decisionAvailable:false with a non-null decision', () => {
+  assert.throws(() => normalizeShelfScanItem(insufficientEvidenceShelfItem({ decision: 'LIST' })), /decision/);
 });
