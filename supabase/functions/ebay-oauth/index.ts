@@ -269,7 +269,7 @@ export async function handlePullListings(req: Request, supabase: ReturnType<type
 
   // Build sku→title map from inventory items (best-effort enrichment only —
   // never a reason to fail a phase).
-  const titleMap = await fetchInventoryTitleMap(apiBase, ebayHeaders);
+  const { titleMap } = await fetchInventoryTitleMap(apiBase, ebayHeaders);
 
   // ── Phase: offers (API-created active + draft listings) ──────────────────
   // P1-A: reconciliation for every offer that already has an eBay listing
@@ -279,11 +279,18 @@ export async function handlePullListings(req: Request, supabase: ReturnType<type
   // they keep the prior best-effort sku-scoped upsert (sku is deliberately
   // not a uniqueness boundary, per the approved relist rule).
   try {
-    const { ok, status, offers } = await fetchOffers(apiBase, ebayHeaders);
+    const { ok, status, offers, truncated } = await fetchOffers(apiBase, ebayHeaders);
     if (ok) {
       const r = await reconcileOffersPhase(supabase, userId, offers, titleMap);
       active += r.active; drafted += r.drafted;
-      phases.push({ name: 'offers', status: r.failed === 0 ? 'success' : (r.ok > 0 ? 'partial' : 'failed'), count: r.ok, detail: r.failed ? `${r.failed} row(s) failed to reconcile` : undefined });
+      // P2-24: a truncated fetch never reports 'success' — never claim a fully
+      // complete sync when the offers list was cut off at the safety ceiling.
+      const status_ = r.failed > 0 ? (r.ok > 0 ? 'partial' : 'failed') : (truncated ? 'partial' : 'success');
+      const detailParts = [
+        r.failed ? `${r.failed} row(s) failed to reconcile` : null,
+        truncated ? 'hit the pagination safety ceiling — more offers may exist beyond what was fetched' : null,
+      ].filter(Boolean);
+      phases.push({ name: 'offers', status: status_, count: r.ok, detail: detailParts.length ? detailParts.join('; ') : undefined, truncated });
     } else {
       phases.push({ name: 'offers', status: 'failed', count: 0, detail: `eBay offers API HTTP ${status}` });
     }
@@ -304,19 +311,29 @@ export async function handlePullListings(req: Request, supabase: ReturnType<type
       clientIdMissing = true;
       console.warn('ebay finding-api: client ID not set — active listings will not sync');
     }
-    let findingOk = 0, findingFailed = 0;
+    let findingOk = 0, findingFailed = 0, findingTruncated = false;
     if (sellerName && appId) {
-      const { items, err } = await fetchActiveListingsViaFindingApi(findingUrl, appId, sellerName);
+      const { items, err, truncated } = await fetchActiveListingsViaFindingApi(findingUrl, appId, sellerName);
       findingApiErr = err;
+      findingTruncated = truncated;
       const r = await reconcileActiveListingsPhase(supabase, userId, items);
       active += r.active; findingOk = r.ok; findingFailed = r.failed;
     }
     const skipped = !sellerName || !appId;
+    const activeStatus = skipped
+      ? 'skipped'
+      : (findingApiErr && findingOk === 0 ? 'failed' : (findingFailed > 0 ? 'partial' : (findingTruncated ? 'partial' : 'success')));
+    const activeDetailParts = [
+      findingApiErr,
+      clientIdMissing ? 'EBAY_CLIENT_ID not configured' : null,
+      findingTruncated ? 'hit the pagination safety ceiling — more active listings may exist beyond what was fetched' : null,
+    ].filter(Boolean);
     phases.push({
       name: 'active_listings',
-      status: skipped ? 'skipped' : (findingApiErr && findingOk === 0 ? 'failed' : (findingFailed > 0 ? 'partial' : 'success')),
+      status: activeStatus,
       count: findingOk,
-      detail: findingApiErr ?? (clientIdMissing ? 'EBAY_CLIENT_ID not configured' : undefined),
+      detail: activeDetailParts.length ? activeDetailParts.join('; ') : undefined,
+      truncated: findingTruncated,
     });
   } catch (err) {
     console.error('ebay finding-api error:', err);
@@ -326,11 +343,16 @@ export async function handlePullListings(req: Request, supabase: ReturnType<type
   // ── Phase: fulfilled orders (mark matching inventory items as Sold) ──────
   try {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const { ok, status, orders } = await fetchOrders(apiBase, ebayHeaders, since);
+    const { ok, status, orders, truncated } = await fetchOrders(apiBase, ebayHeaders, since);
     if (ok) {
       const { synced, failed } = await reconcileOrderLines(supabase, userId, orders);
       sold += synced;
-      phases.push({ name: 'orders', status: failed === 0 ? 'success' : (synced > 0 ? 'partial' : 'failed'), count: synced, detail: failed ? `${failed} order line(s) failed to reconcile` : undefined });
+      const status_ = failed > 0 ? (synced > 0 ? 'partial' : 'failed') : (truncated ? 'partial' : 'success');
+      const detailParts = [
+        failed ? `${failed} order line(s) failed to reconcile` : null,
+        truncated ? 'hit the pagination safety ceiling — more orders may exist beyond what was fetched' : null,
+      ].filter(Boolean);
+      phases.push({ name: 'orders', status: status_, count: synced, detail: detailParts.length ? detailParts.join('; ') : undefined, truncated });
     } else {
       phases.push({ name: 'orders', status: 'failed', count: 0, detail: `eBay orders API HTTP ${status}` });
     }
@@ -484,13 +506,16 @@ export async function handleSyncOrders(req: Request, supabase: ReturnType<typeof
   if (!accessToken) return json({ error: 'eBay not connected — connect in Settings' }, 400);
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const { api: syncApiBase } = ebayUrls();
-  const { ok, status: httpStatus, orders } = await fetchOrders(syncApiBase, { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }, since);
+  const { ok, status: httpStatus, orders, truncated } = await fetchOrders(syncApiBase, { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }, since);
   if (!ok) return json({ error: 'eBay orders API error: ' + httpStatus }, 502);
   const ordersFound = orders.length;
-  console.log(`handleSyncOrders: userId=${userId} ordersFound=${ordersFound}`);
+  console.log(`handleSyncOrders: userId=${userId} ordersFound=${ordersFound} truncated=${truncated}`);
   // P1-A: same atomic reconciliation RPC as pull-listings' orders phase — a
   // repeated/concurrent sync-orders call can never duplicate a Sold row.
   const { synced, failed } = await reconcileOrderLines(supabase, userId, orders);
-  const status: 'success' | 'partial_failure' | 'failure' = failed === 0 ? 'success' : (synced > 0 ? 'partial_failure' : 'failure');
-  return json({ synced, status, debug: { ordersFound, ordersApiStatus: httpStatus, failed } });
+  // P2-24: a truncated fetch is never reported as a complete success, even
+  // when every order it did fetch reconciled cleanly.
+  const status: 'success' | 'partial_failure' | 'failure' =
+    failed > 0 ? (synced > 0 ? 'partial_failure' : 'failure') : (truncated ? 'partial_failure' : 'success');
+  return json({ synced, status, truncated, debug: { ordersFound, ordersApiStatus: httpStatus, failed } });
 }

@@ -38,6 +38,12 @@ export function assertEquals(actual: unknown, expected: unknown, msg?: string): 
   }
 }
 
+export function assertNotEquals(actual: unknown, expected: unknown, msg?: string): void {
+  if (deepEqual(actual, expected)) {
+    throw new Error(msg ?? `assertNotEquals failed: both were ${format(actual)}`);
+  }
+}
+
 export function assertThrows(fn: () => unknown, ErrorClass?: ErrorClass, msgIncludes?: string): Error {
   try {
     fn();

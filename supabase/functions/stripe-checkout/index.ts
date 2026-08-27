@@ -7,6 +7,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getAuthedUserIdChecked } from "../_shared/jwt.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { isPaidTier, normalizeInterval, priceEnvVarName, resolvePriceId } from "../_shared/stripePricing.ts"
+import { deriveCheckoutIdempotencyKey } from "../_shared/stripeIdempotency.ts"
+import { externalCall, ExternalCallError } from "../_shared/externalCall.ts"
+
+function stripeErrorMessage(err: unknown, fallback: string): string {
+  if (!(err instanceof ExternalCallError) || !err.bodyText) return fallback;
+  try {
+    const parsed = JSON.parse(err.bodyText) as Record<string, unknown>;
+    const inner = parsed.error as Record<string, unknown> | undefined;
+    return (inner?.message as string) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 // P1-I: extracted (and the supabase client made an injectable parameter, same
 // pattern as ebay-oauth/claude-proxy's handlers) so P1-K workflow tests can
@@ -60,18 +73,28 @@ export async function handleCheckoutRequest(
       return_url: returnUrl + '/app.html',
     });
 
-    const portalRes = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${stripeKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: portalParams.toString(),
-    });
-
-    const portalSession = await portalRes.json() as Record<string, unknown>;
-    if (!portalRes.ok) {
-      return json({ error: (portalSession.error as Record<string, unknown>)?.message ?? 'Stripe portal error' }, 500);
+    let portalSession: Record<string, unknown>;
+    try {
+      // Creating an extra billing-portal login link on retry is harmless (no
+      // duplicate side effect), so this is safe to mark isIdempotent for the
+      // P2-18 bounded transient retry — no Stripe Idempotency-Key needed
+      // (P2-26 scopes the idempotency *key* requirement to Checkout Session
+      // creation, which does have a duplicate-subscription-risk side effect).
+      portalSession = await externalCall<Record<string, unknown>>(
+        'https://api.stripe.com/v1/billing_portal/sessions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${stripeKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: portalParams.toString(),
+        },
+        { timeoutMs: 10_000, maxRetries: 2, isIdempotent: true },
+        (r) => r.json() as Promise<Record<string, unknown>>,
+      );
+    } catch (err) {
+      return json({ error: stripeErrorMessage(err, 'Stripe portal error') }, 500);
     }
 
     return json({ url: portalSession.url });
@@ -114,17 +137,40 @@ export async function handleCheckoutRequest(
 
   params.set('client_reference_id', String(userId));
 
-  const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${stripeKey}`,
-      'Content-Type':  'application/x-www-form-urlencoded',
-    },
-    body: params.toString(),
+  // P2-26: idempotency key scoped to (server-derived userId, tier, interval,
+  // client attemptId) — a retried submission of the same click reuses the
+  // same Stripe Checkout Session instead of creating a duplicate, while a
+  // different tier/interval or a later deliberate attempt (new attemptId)
+  // gets a fresh one. userId always comes from the verified JWT above, never
+  // from the request body, so a client can't forge this key to collide with
+  // another user's checkout.
+  const idempotencyKey = await deriveCheckoutIdempotencyKey({
+    userId: String(userId),
+    tier,
+    interval,
+    attemptId: typeof body.attemptId === 'string' ? body.attemptId : null,
   });
 
-  const session = await stripeRes.json() as Record<string, unknown>;
-  if (!stripeRes.ok) return json({ error: (session.error as Record<string, unknown>)?.message ?? 'Stripe error' }, 500);
+  let session: Record<string, unknown>;
+  try {
+    session = await externalCall<Record<string, unknown>>(
+      'https://api.stripe.com/v1/checkout/sessions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${stripeKey}`,
+          'Content-Type':  'application/x-www-form-urlencoded',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: params.toString(),
+      },
+      // Idempotency-Key makes this POST safe to retry on a transient failure.
+      { timeoutMs: 15_000, maxRetries: 2, isIdempotent: true },
+      (r) => r.json() as Promise<Record<string, unknown>>,
+    );
+  } catch (err) {
+    return json({ error: stripeErrorMessage(err, 'Stripe error') }, 500);
+  }
 
   return json({ url: session.url, sessionId: session.id });
 }

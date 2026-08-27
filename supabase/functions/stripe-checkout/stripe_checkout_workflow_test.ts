@@ -40,12 +40,14 @@ async function authedRequest(path: string, body: Record<string, unknown>) {
 function mockStripeFetch(sessionJson: Record<string, unknown>, status = 200) {
   const original = globalThis.fetch;
   const calls: string[] = [];
+  const headerCalls: Headers[] = [];
   globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     calls.push(String(init?.body ?? ""));
+    headerCalls.push(new Headers(init?.headers));
     return Promise.resolve(new Response(JSON.stringify(sessionJson), { status }));
   }) as typeof fetch;
-  return { restore: () => { globalThis.fetch = original; }, calls };
+  return { restore: () => { globalThis.fetch = original; }, calls, headerCalls };
 }
 
 Deno.test("checkout: tier+interval resolve to the correct Stripe price id (monthly)", async () => {
@@ -120,6 +122,37 @@ Deno.test("checkout: missing CSRF header is rejected before auth or any Stripe c
     const res = await handleCheckoutRequest(req, supabase as any);
     assertEquals(res.status, 403);
     assertEquals(calls.length, 0);
+  } finally { restore(); }
+});
+
+Deno.test("checkout: sends a Stripe Idempotency-Key header, stable across a retry of the same attempt", async () => {
+  const supabase = makeCheckoutSupabase();
+  const { restore, headerCalls } = mockStripeFetch({ url: "https://checkout.stripe.com/x", id: "cs_1" });
+  try {
+    const req1 = await authedRequest("", { tier: "hustle", interval: "monthly", attemptId: "click_1" });
+    await handleCheckoutRequest(req1, supabase as any);
+    const req2 = await authedRequest("", { tier: "hustle", interval: "monthly", attemptId: "click_1" });
+    await handleCheckoutRequest(req2, supabase as any);
+
+    const key1 = headerCalls[0].get("Idempotency-Key");
+    const key2 = headerCalls[1].get("Idempotency-Key");
+    if (!key1) throw new Error("expected an Idempotency-Key header on the Stripe checkout request");
+    assertEquals(key1, key2, "retrying the same attemptId must reuse the same Idempotency-Key");
+  } finally { restore(); }
+});
+
+Deno.test("checkout: a different tier produces a different Idempotency-Key even with the same attemptId", async () => {
+  const supabase = makeCheckoutSupabase();
+  const { restore, headerCalls } = mockStripeFetch({ url: "https://checkout.stripe.com/x", id: "cs_1" });
+  try {
+    const req1 = await authedRequest("", { tier: "hustle", interval: "monthly", attemptId: "click_1" });
+    await handleCheckoutRequest(req1, supabase as any);
+    const req2 = await authedRequest("", { tier: "stack", interval: "monthly", attemptId: "click_1" });
+    await handleCheckoutRequest(req2, supabase as any);
+
+    const key1 = headerCalls[0].get("Idempotency-Key");
+    const key2 = headerCalls[1].get("Idempotency-Key");
+    assertEquals(key1 !== key2, true, "changing tier must change the logical checkout operation");
   } finally { restore(); }
 });
 

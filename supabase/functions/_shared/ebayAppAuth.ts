@@ -8,6 +8,8 @@
 // If those secrets are not set, callers get an explicit error, never a
 // silently-skipped auth step.
 
+import { externalCall, ExternalCallError } from "./externalCall.ts";
+
 interface EbayAppToken {
   accessToken: string
   expiresAt: number // epoch ms
@@ -50,29 +52,34 @@ export async function getEbayAppAccessToken(): Promise<string> {
   }
 
   const basicAuth = btoa(`${clientId}:${clientSecret}`);
-  let res: Response;
+  let data: { access_token?: string; expires_in?: number };
   try {
-    res = await fetch(ebayTokenUrl(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${basicAuth}`,
+    // client_credentials grant is safe to retry (no side effect beyond
+    // minting a token), so it's marked isIdempotent for P2-18's transient
+    // bounded retry despite being a POST.
+    data = await externalCall<{ access_token?: string; expires_in?: number }>(
+      ebayTokenUrl(),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`,
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          scope: 'https://api.ebay.com/oauth/api_scope',
+        }),
       },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        scope: 'https://api.ebay.com/oauth/api_scope',
-      }),
-    });
+      { timeoutMs: 10_000, maxRetries: 2, isIdempotent: true },
+      (r) => r.json() as Promise<{ access_token?: string; expires_in?: number }>,
+    );
   } catch (err) {
+    if (err instanceof ExternalCallError) {
+      throw new EbayAppAuthError(`eBay app token request failed: ${err.kind}${err.status ? ` ${err.status}` : ''}`, err);
+    }
     throw new EbayAppAuthError('eBay app token request failed (network)', err);
   }
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new EbayAppAuthError(`eBay app token request failed: ${res.status} ${body}`.slice(0, 500));
-  }
-
-  const data = await res.json() as { access_token?: string; expires_in?: number };
   if (!data.access_token || !data.expires_in) {
     throw new EbayAppAuthError('eBay app token response missing access_token/expires_in');
   }

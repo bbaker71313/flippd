@@ -34,6 +34,25 @@ Deno.test("verifyJWT rejects malformed token", async () => {
   await assertRejects(() => verifyJWT("not.a.jwt.token", SECRET), Error, "Invalid token");
 });
 
+// P2-29
+Deno.test("signJWT: default session lifetime is 30 days, aligned with auth/index.ts's cookie Max-Age (2592000s)", async () => {
+  const before = Math.floor(Date.now() / 1000);
+  const token = await signJWT({ sub: 1 }, SECRET);
+  const payload = await verifyJWT(token, SECRET);
+  const lifetimeSeconds = (payload.exp as number) - before;
+  const THIRTY_DAYS = 30 * 24 * 60 * 60;
+  // Allow a small margin for test execution time, but this must not be 90 days.
+  assertEquals(Math.abs(lifetimeSeconds - THIRTY_DAYS) < 5, true);
+});
+
+Deno.test("signJWT: an explicit expiresInSeconds override (e.g. a password-reset or OAuth-state token) is unaffected by the session default", async () => {
+  const before = Math.floor(Date.now() / 1000);
+  const token = await signJWT({ sub: 1, purpose: "password_reset" }, SECRET, 3600);
+  const payload = await verifyJWT(token, SECRET);
+  const lifetimeSeconds = (payload.exp as number) - before;
+  assertEquals(Math.abs(lifetimeSeconds - 3600) < 5, true);
+});
+
 // Minimal fake supabase whose users.token_version is `dbVersion`.
 function fakeSupabase(dbVersion: number | null) {
   return {

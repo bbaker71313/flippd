@@ -267,7 +267,7 @@ AI proxy: Edge Function calls Anthropic API server-side
 Payments
 Platform: Stripe
 Tiers: Scout (free) · Hustle ($19/mo) · Stack ($49/mo) · Empire ($199/mo)
-Billing: Annual pricing vars set in Supabase; toggle UI broken in app.html — fix pending. Do not add new annual UI until fixed.
+Billing: Annual pricing (STRIPE_PRICE_*_ANNUAL, stripePricing.ts) is configured server-side but app.html currently has no annual toggle UI at all (checkout is monthly-only) — the previously-noted "broken toggle" no longer exists in the live file (verified 2026-08-27, P2-21). Do not add annual UI without a product decision on how it should work.
 Video Ads
 Framework: Remotion 4 (@sfp/video)
 Compositions: HeroVideo, SquareAd, StoryAd, TikTokAd, YouTubePreroll
@@ -287,7 +287,7 @@ Brand: docs/BRAND_IDENTITY.md
 🔐 Auth Rules (critical — never change)
 Auth is email verification + username/password
 NOT magic link — removed in backend v3.0.0
-JWT 90-day sessions
+JWT 30-day sessions (shortened from 90 days 2026-08-27, P2-29 — aligned with the auth cookie's own 30-day Max-Age; see supabase/functions/_shared/jwt.ts for the session-lifetime policy: absolute lifetime only, no renewal/refresh, no idle expiry)
 Live endpoints: POST /auth/register, GET /auth/verify, POST /auth/login
 Dead endpoints — never reference: /auth/request-link, /auth/verify-link
 

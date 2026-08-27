@@ -1,24 +1,35 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import bcrypt from "https://esm.sh/bcryptjs"
 import { signJWT, verifyJWT, jwtFromCookie, getAuthedUserIdChecked, randomHex } from "../_shared/jwt.ts"
-import { sendEmail } from "../_shared/sendEmail.ts"
+import { sendDurableEmail } from "../_shared/sendEmail.ts"
 import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { rateLimitBucket, inMemoryRateLimitOk } from "../_shared/authRateLimit.ts"
 
 // SEC-015: dynamic CORS per request (locked-origin, credentialed). req is optional
 // only for the cold-start catch block where the request context may be unavailable.
-function json(data: unknown, status = 200, req?: Request) {
+function json(data: unknown, status = 200, req?: Request, extraHeaders?: Record<string, string>) {
   const cors = req ? corsHeaders(req) : {};
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json', ...(extraHeaders ?? {}) },
   });
+}
+
+function rateLimitedResponse(req: Request, message: string, windowSeconds: number) {
+  return json({ error: message, retryAfterSeconds: windowSeconds }, 429, req, { 'Retry-After': String(windowSeconds) });
 }
 
 // SEC-015: 30-day httpOnly cookie carrying the JWT. SameSite=None required because
 // app (scanforprofit.com) and Edge Functions (supabase.co) are different origins.
 // Custom X-Sfp-Client header is the CSRF guard (non-simple header → preflight → blocks
 // cross-site form/img POSTs that can't set custom headers).
+// P2-29: Max-Age (2592000s = 30 days) must stay equal to jwt.ts's
+// DEFAULT_SESSION_SECONDS — the cookie and the JWT payload's own `exp` are
+// two independent expirations, and prior to this alignment the JWT (90 days)
+// silently outlived the cookie (30 days) by 60 days, meaning an extracted
+// raw token (outside the cookie — e.g. an XSS bug, a copied dev-tools value)
+// would still verify long after the cookie itself would have expired.
 function authCookie(token: string): string {
   return `sfp_auth=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`;
 }
@@ -27,11 +38,10 @@ function clearAuthCookie(): string {
   return 'sfp_auth=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0';
 }
 
-// SEC-011 — IP-based rate limiting for auth endpoints.
-function clientIp(req: Request): string {
-  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-}
-
+// SEC-011 / P2-28 — IP-based rate limiting for auth endpoints. clientIp's
+// trust assumption, rateLimitBucket's unknown-client handling, and the
+// in-memory DB-outage fallback live in _shared/authRateLimit.ts (pure,
+// unit-tested there without needing bcryptjs or a live Deno.serve handler).
 async function rateLimitOk(
   supabase: ReturnType<typeof createClient>,
   bucket: string, max: number, windowSeconds: number,
@@ -39,30 +49,39 @@ async function rateLimitOk(
   const { data, error } = await supabase.rpc('check_rate_limit', {
     p_bucket: bucket, p_max: max, p_window_seconds: windowSeconds,
   });
-  // Fail open on infra error — a broken limiter must not lock everyone out.
-  if (error) { console.error('rate limit check failed:', error); return true; }
+  if (error) {
+    console.error('rate limit check failed, using in-memory fallback:', error);
+    return inMemoryRateLimitOk(bucket, max, windowSeconds);
+  }
   return data === true;
 }
 
 
-async function sendVerificationEmail(to: string, token: string): Promise<void> {
+async function sendVerificationEmail(
+  supabase: ReturnType<typeof createClient>, to: string, token: string,
+): Promise<void> {
   // Use SUPABASE_URL (always set in Edge Functions) so the verify link always hits the auth
   // function regardless of what APP_URL or FRONTEND_URL are set to in secrets.
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? 'https://dqgfpchkheznvanfgsmx.supabase.co';
   const verifyLink = `${supabaseUrl}/functions/v1/auth/verify?token=${token}`;
-  await sendEmail(
+  // P2-27: sendDurableEmail queues a retry if the immediate send fails — this
+  // is important transactional mail a new user is waiting on.
+  await sendDurableEmail(supabase, {
     to,
-    'Verify your ScanForProfit account',
-    `<h2>Welcome to ScanForProfit!</h2><p>Click below to verify your email.</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Verify My Account &rarr;</a></p><p>This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
-  );
+    subject: 'Verify your ScanForProfit account',
+    html: `<h2>Welcome to ScanForProfit!</h2><p>Click below to verify your email.</p><p><a href="${verifyLink}" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Verify My Account &rarr;</a></p><p>This link expires in 24 hours. If you didn't sign up, ignore this email.</p>`,
+    category: 'verification',
+  });
 }
 
-async function sendWelcomeEmail(to: string, username: string): Promise<void> {
+async function sendWelcomeEmail(
+  supabase: ReturnType<typeof createClient>, to: string, username: string,
+): Promise<void> {
   const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
-  await sendEmail(
+  await sendDurableEmail(supabase, {
     to,
-    'You\'re in — start scanning for profit',
-    `<h2>Your account is verified, ${username}!</h2>
+    subject: 'You\'re in — start scanning for profit',
+    html: `<h2>Your account is verified, ${username}!</h2>
 <p>You're on a 7-day free trial with unlimited scans. Here's what to do first:</p>
 <ol>
   <li>Open the app and tap <strong>Scout</strong></li>
@@ -71,7 +90,8 @@ async function sendWelcomeEmail(to: string, username: string): Promise<void> {
 </ol>
 <p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Start Scanning &rarr;</a></p>
 <p style="color:#888;font-size:12px;">Questions? Reply to this email — we read every one.</p>`,
-  );
+    category: 'welcome',
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -113,7 +133,7 @@ Deno.serve(async (req: Request) => {
 });
 
 async function handleRegister(req: Request, supabase: ReturnType<typeof createClient>, _secret: string) {
-  if (!await rateLimitOk(supabase, `register:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429, req);
+  if (!await rateLimitOk(supabase, rateLimitBucket('register', req), 5, 3600)) return rateLimitedResponse(req, 'Too many attempts. Please try again later.', 3600);
   const body = await req.json().catch(() => ({}));
   const { name: rawName, username, email, password } = body;
   const name = rawName ?? username;
@@ -131,7 +151,7 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
       const token = randomHex(32);
       const expires = new Date(Date.now() + 86400000).toISOString();
       await supabase.from('users').update({ verification_token: token, verification_token_expires: expires }).eq('id', existingEmail.id);
-      await sendVerificationEmail(email, token).catch(console.error);
+      await sendVerificationEmail(supabase, email, token);
       return json({ error: 'An account with this email exists but is unverified. We resent your verification link.', field: 'email' }, 409, req);
     }
     return json({ error: 'An account with this email already exists.', field: 'email' }, 409, req);
@@ -158,7 +178,7 @@ async function handleRegister(req: Request, supabase: ReturnType<typeof createCl
     return json({ error: 'Registration failed. Please try again.' }, 500, req);
   }
 
-  await sendVerificationEmail(email, token).catch(console.error);
+  await sendVerificationEmail(supabase, email, token);
   return json({ success: true, message: 'Check your email to verify your account before logging in.' }, 200, req);
 }
 
@@ -188,14 +208,14 @@ async function handleVerify(req: Request, supabase: ReturnType<typeof createClie
     .maybeSingle();
 
   if (verifiedUser) {
-    sendWelcomeEmail(verifiedUser.email, verifiedUser.username).catch(console.error);
+    sendWelcomeEmail(supabase, verifiedUser.email, verifiedUser.username).catch(console.error);
   }
 
   return Response.redirect(`${appUrl}?verified=true`, 302);
 }
 
 async function handleLogin(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  if (!await rateLimitOk(supabase, `login:${clientIp(req)}`, 10, 900)) return json({ error: 'Too many login attempts. Please try again in a few minutes.' }, 429, req);
+  if (!await rateLimitOk(supabase, rateLimitBucket('login', req), 10, 900)) return rateLimitedResponse(req, 'Too many login attempts. Please try again in a few minutes.', 900);
   const body = await req.json().catch(() => ({}));
   const { username, password } = body;
 
@@ -328,7 +348,7 @@ async function handleSaveSettings(req: Request, supabase: ReturnType<typeof crea
 }
 
 async function handleResetRequest(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
-  if (!await rateLimitOk(supabase, `reset:${clientIp(req)}`, 5, 3600)) return json({ error: 'Too many attempts. Please try again later.' }, 429, req);
+  if (!await rateLimitOk(supabase, rateLimitBucket('reset-request', req), 5, 3600)) return rateLimitedResponse(req, 'Too many attempts. Please try again later.', 3600);
   const body = await req.json().catch(() => ({}));
   const { email } = body;
   if (!email) return json({ error: 'Email is required' }, 400, req);
@@ -368,6 +388,13 @@ async function handleResetRequest(req: Request, supabase: ReturnType<typeof crea
 }
 
 async function handleResetConfirm(req: Request, supabase: ReturnType<typeof createClient>, jwtSecret: string) {
+  // P2-28: previously unprotected — the reset token itself is a 32-byte
+  // random hex value (effectively unguessable regardless of rate limiting),
+  // but this endpoint is still an auth-abuse surface worth the same
+  // defense-in-depth as the others.
+  if (!await rateLimitOk(supabase, rateLimitBucket('reset-confirm', req), 10, 900)) {
+    return rateLimitedResponse(req, 'Too many attempts. Please try again in a few minutes.', 900);
+  }
   const body = await req.json().catch(() => ({}));
   const { token, password } = body;
   if (!token || !password) return json({ error: 'Token and password are required' }, 400, req);

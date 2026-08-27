@@ -4,6 +4,78 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-27 (part 3) — P2 remediation (P2-18 through P2-32) complete
+
+### Context
+External P2 remediation prompt covering 15 items (P2-18 through P2-32, plus the P2-20a sub-item) — external-call reliability, inventory concurrency, photo persistence + scanner thumbnail, dead-UI audit, shelf-image carry-through, stale-listing semantics, eBay pagination, eBay token-refresh locking, Stripe Checkout idempotency, email reliability, auth abuse controls, session lifetime, Supabase security-advisor cleanup, zero-cost ROI UI, and confidence/evidence UI labeling. All 15 items (16 counting P2-20a) were implemented and verified this session, one commit per item. This entry summarizes; see individual commit messages for full per-item detail (file-level "what/why," not just "what changed").
+
+This session had two capabilities prior P0/P1 sessions lacked: a working local Deno test runner (installed `deno` via `npm install -g deno` — registry.npmjs.org is allowed, deno.land/esm.sh are policy-blocked, same import-map workaround as before) and **live Supabase MCP access** (`get_advisors`, `apply_migration`, `execute_sql` all worked against production `dqgfpchkheznvanfgsmx`), so P2-30 was live-verified and applied directly to production, not just written and left for a future session to apply.
+
+### P2 Status Matrix
+| Item | Status | Evidence |
+|---|---|---|
+| P2-18 External-call wrapper | COMPLETE | `_shared/externalCall.ts`, 12 tests; migrated sendEmail, ebayAppAuth, ebayBrowse, both Stripe calls onto it |
+| P2-19 Inventory optimistic concurrency | COMPLETE | `version` column + expectedVersion contract, 409 conflict, 7 tests |
+| P2-20 Photo persistence recoverability | COMPLETE | `persistPhotos()`/status map/bounded retry in app.html; no automated UI test harness in this repo |
+| P2-20a Scanner photo thumbnail | COMPLETE | reused the object URL already created for upload as the thumbnail source — no new decode |
+| P2-21 Dead/misleading UI audit | COMPLETE | dead `.action-watch` CSS removed, stale "Access code required" toast fixed, stale CLAUDE.md annual-toggle note corrected |
+| P2-22 Shelf image carry-through | COMPLETE | `saveShelfRefPhotoIDB`/`shelfref_` key, labeled reference display in item edit |
+| P2-23 Stale-listing semantics | COMPLETE | `computeStaleInventoryItems()`, 7 tests |
+| P2-24 eBay pagination | COMPLETE | `fetchEbayPaged()`, configurable ceiling + truthful truncation, 15 tests |
+| P2-25 eBay token-refresh single-flight | COMPLETE | DB row-lock claim/complete RPCs, 5 tests incl. real overlapping-promise concurrency test |
+| P2-26 Stripe Checkout idempotency | COMPLETE | `deriveCheckoutIdempotencyKey()`, 9 tests |
+| P2-27 Email reliability | COMPLETE | structured `EmailSendResult`, `sendDurableEmail`/`email_delivery_log` retry queue, 10 tests |
+| P2-28 Auth abuse controls | COMPLETE | trusted-IP-source fix, bounded in-memory fail-open fallback, reset-confirm coverage added, 9 tests |
+| P2-29 Session lifetime | COMPLETE | JWT default 90d→30d (aligned with cookie), documented policy, 2 tests |
+| P2-30 Supabase advisor cleanup | COMPLETE | classified + fixed, applied to production, live-verified via `get_advisors` re-run |
+| P2-31 Zero-cost ROI UI | COMPLETE | audited/fixed 6 client-side paths that diverged from calcProfit.ts's null semantics |
+| P2-32 Confidence/evidence UI | COMPLETE | dynamic verified/AI-estimate badge (was previously a static "always AI" badge), SKIP-reason display, both scan surfaces |
+
+### Files Changed (by area)
+- **New shared modules:** `supabase/functions/_shared/externalCall.ts`, `stripeIdempotency.ts`, `staleInventory.ts`, `authRateLimit.ts` (+ `_test.ts` for each)
+- **Modified shared modules:** `sendEmail.ts`, `ebayAppAuth.ts`, `ebayBrowse.ts`, `ebayClient.ts`, `ebaySyncReconciliation.ts` (+ workflow test), `jwt.ts`, `shared_test.ts`, `testing/fakeSupabase.ts`, `testing/assert.ts` (added `assertNotEquals`)
+- **Edge functions:** `auth/index.ts`, `cron/index.ts`, `stripe-checkout/index.ts` (+ workflow test), `stripe-webhook/index.ts`, `ebay-oauth/index.ts`, `claude-proxy/index.ts` (inventory handlers + `inventory_isolation_test.ts`, growth-report staleness)
+- **Migrations (5 new):** `20260827130000_p2_email_delivery_log.sql`, `20260827131500_p2_inventory_optimistic_concurrency.sql`, `20260827132500_p2_ebay_token_refresh_single_flight.sql`, `20260827133500_p2_security_advisor_cleanup.sql` (**applied to production**, not just written — see P2-30 below)
+- **Frontend:** `apps/web/public/app.html` (P2-19 client version handling, P2-20/20a/22 photo persistence + thumbnail + shelf carry-through, P2-21 dead-UI fixes, P2-26 attemptId, P2-31/32 ROI + evidence UI)
+- **Docs:** `CLAUDE.md` (JWT session length, annual-toggle note), `.env.example` (`EBAY_SYNC_MAX_PAGES`)
+
+### P2-30 — applied directly to production, live-verified
+Classified every live `get_advisors` finding (not mechanical "chase to green"):
+- `send_export_reminders()` SECURITY DEFINER executable by anon/authenticated → **FIX**, revoked.
+- `item-photos` storage bucket: `public=true` with an unscoped `SELECT` policy open to `public` (anyone could list/read every user's photos) and unscoped `INSERT`/`DELETE` open to any `authenticated` user (no ownership check — any logged-in user could overwrite/delete anyone else's photos) → **FIX**. Verified via code search that nothing in the live app touches this bucket (photos are IndexedDB-only) before locking it down — `public=false`, all three policies dropped, service-role only.
+- `auth_rate_limits`/`stripe_webhook_events` RLS-no-policy → **INTENTIONAL — DOCUMENTED** via `COMMENT ON TABLE`.
+- Leaked-password protection → **NOT APPLICABLE**: verified via code search that no client code anywhere calls `supabase.auth.signUp`/`signInWithPassword`/any GoTrue method — this app's real login is 100% custom (`public.users.password` bcrypt + custom JWT). Not toggled (wouldn't protect anything real, and isn't SQL-settable anyway).
+
+Re-ran `get_advisors` after applying: both SECURITY DEFINER warnings gone, bucket confirmed `public=false` with 0 policies. The two documented RLS-no-policy INFOs and the leaked-password WARN remain, as expected.
+
+### Testing
+- `deno test --no-check --node-modules-dir=none --allow-env --allow-read --allow-net --import-map=supabase/functions/_shared/testing/deno_test_import_map.json supabase/functions/` → **173/173 passing** (103 pre-existing baseline + 70 new this session).
+- `packages/shared`: `node --test` → **72/72 passing** (unaffected, not touched). `npx tsc --noEmit -p packages/shared` → 0 errors.
+- `deno check` per touched file: clean except the same pre-existing sandbox-only artifact class already documented in earlier HANDOFF entries (`ReturnType<typeof createClient>` vs the npm-fallback import-map's stricter supabase-js generics — confirmed via `git stash`/diff on several files that these errors predate this session's changes; `.github/workflows/web.yml` never type-checks `supabase/functions/` anyway). `auth/index.ts` additionally couldn't fully `deno check` even with the npm-fallback map because `bcryptjs` has no npm-redirect in the local import map (esm.sh itself is policy-blocked) — functional correctness verified via `deno test` instead.
+- `node --check` on the extracted `<script>` block after every `app.html` edit (repo has no automated UI test harness for it — every app.html change this session was inline-reviewed + syntax-checked, not test-covered; flagged as a testing limitation, not silently claimed as tested).
+- `deno.lock` reverted after every local test run (`git checkout -- deno.lock`) — the npm-fallback import map is sandbox-only local test infra, never referenced by deployed functions; committing lockfile drift from it would be sandbox pollution, same lesson as the `pnpm-workspace.yaml` auto-migration caught in a prior session.
+
+### Assumptions Made
+1. **P2-29 session-length number (30 days).** The prompt said "shorten and explicitly configure" without a number. Chose to align the JWT default to the *existing* cookie Max-Age (30 days) rather than pick an arbitrary new value — this is a real reduction from 90 days and closes the actual gap the audit named (JWT outliving its cookie), without inventing a new number. Flagged rather than silently escalated because CLAUDE.md's Anti-Drift Contract lists "auth" among things needing a product decision when behavior isn't explicitly defined — judged this as ordinary implementation detail within an explicit "shorten and align" mandate, not a new product decision, but noting it here so it's easy to revisit if 30 days isn't the intended number.
+2. **P2-22 shelf reference photo is a small thumbnail (via `makeScanThumb`), not the full-resolution shelf photo**, and is session-independent (persisted to IndexedDB, not just a page-lifetime blob URL) — judged the better reading of "preserve the relevant source shelf image reference" given this codebase's own documented production OOM history with full-size in-memory image handling.
+3. **P2-27 durable email retry piggybacks on `cron/index.ts`'s existing invocation schedule** rather than adding new pg_cron→edge-function wiring. No scheduler config for `cron`'s own invocation exists in this repo (unlike `send_export_reminders`, which pg_cron calls directly) — whatever already invokes `cron` on a schedule in production (outside this repo, e.g. a hosting-provider cron dashboard) now also drains the email queue for free, without introducing new, unverifiable pg_cron-to-edge-function secret-passing.
+
+### Out-of-Scope Findings
+1. `send_export_reminders()`'s own `net.http_post` call to `export-reminder` doesn't include the `x-cron-secret` header that `export-reminder/index.ts` requires — meaning the scheduled hourly export-reminder call likely gets 401'd today. Pre-existing (confirmed via the migration file, unrelated to any P2 item), not fixed here.
+2. `roiClass()`/`daysClass()`/`strClass()` in app.html use hardcoded thresholds (e.g. `r >= 200`) instead of reading the user's actual `S.targetRoi`/`S.maxDays`/`S.minStr` settings — cosmetic (color-coding only, not the actual HOT/LIST/SKIP decision, which is fully server-authoritative), pre-existing, not part of any P2 item.
+3. `getPhotoSaveStatus()`/`photoSaveStatus` (P2-20) is populated and drives retry/toast logic, but isn't yet read by any dedicated visual "saving/failed" indicator in the item card UI beyond the toast — a reasonable follow-up if a persistent per-item status badge is wanted.
+
+### Product Decisions Needed
+None — the two contract-adjacent judgment calls (P2-29's 30-day number, whether to enable Supabase's leaked-password toggle for P2-30) were resolved within existing information (aligning two already-chosen numbers; verifying the toggle doesn't protect the real auth path at all) rather than requiring new input.
+
+### Blockers
+None.
+
+### Next task
+Nothing outstanding from the P2 remediation prompt. If continuing: (1) fix the `send_export_reminders`→`export-reminder` missing-header Out-of-Scope Finding above; (2) consider a dedicated per-item photo-save-status UI indicator beyond the toast (P2-20 follow-up); (3) P3 items per `docs/files/DECISIONS.md`'s remediation plan structure, once explicitly requested.
+
+---
+
 ## Session: 2026-08-27 (part 2) — Production migration confirmed live; pinned search_path on 4 P1 functions
 
 ### Context

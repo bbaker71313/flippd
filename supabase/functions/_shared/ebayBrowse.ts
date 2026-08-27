@@ -8,6 +8,7 @@
 // title, price:{value,currency}, condition, conditionId, itemWebUrl, ...}
 // — matches the parsing below exactly, no changes needed.
 import { getEbayAppAccessToken, ebayApiBase, EbayAppAuthError } from "./ebayAppAuth.ts";
+import { externalCall } from "./externalCall.ts";
 import type { ActiveMarketEvidence, ActiveListingSummary } from "./marketData.ts";
 
 interface BrowseItemSummary {
@@ -41,13 +42,14 @@ export async function searchActiveListings(params: BrowseSearchParams): Promise<
     if (params.conditionIds?.length) filters.push(`conditionIds:{${params.conditionIds.join('|')}}`);
     if (filters.length) qs.set('filter', filters.join(','));
 
-    const res = await fetch(
+    // GET is inherently safe to retry — bounded transient retry via P2-18.
+    const data = await externalCall<{ itemSummaries?: BrowseItemSummary[]; total?: number }>(
       `${ebayApiBase()}/buy/browse/v1/item_summary/search?${qs.toString()}`,
       { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' } },
-    );
-    if (!res.ok) return EMPTY_EVIDENCE;
-
-    const data = await res.json() as { itemSummaries?: BrowseItemSummary[]; total?: number };
+      { timeoutMs: 10_000, maxRetries: 2 },
+      (r) => r.json() as Promise<{ itemSummaries?: BrowseItemSummary[]; total?: number }>,
+    ).catch(() => null);
+    if (!data) return EMPTY_EVIDENCE;
     const items = data.itemSummaries ?? [];
 
     const sampledListings: ActiveListingSummary[] = items

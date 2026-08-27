@@ -232,3 +232,17 @@ Deno.test("overallSyncStatus: skipped phases are excluded, not counted as failur
     { name: 'active_listings', status: 'skipped', count: 0 },
   ]), 'success');
 });
+
+// P2-24
+Deno.test("overallSyncStatus: a truncated phase (hit the pagination ceiling) is never reported as a full success", () => {
+  assertEquals(overallSyncStatus([
+    { name: 'offers', status: 'success', count: 200, truncated: true },
+    { name: 'orders', status: 'success', count: 5 },
+  ]), 'partial_failure');
+});
+
+Deno.test("overallSyncStatus: no phase truncated -> still success", () => {
+  assertEquals(overallSyncStatus([
+    { name: 'offers', status: 'success', count: 200, truncated: false },
+  ]), 'success');
+});

@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { sendEmail } from "../_shared/sendEmail.ts"
+import { sendDurableEmail } from "../_shared/sendEmail.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { resolveTierFromPriceId } from "../_shared/stripePricing.ts"
 import { verifyStripeSignature } from "../_shared/stripeWebhookSignature.ts"
@@ -82,14 +82,15 @@ export async function handleStripeWebhookEvent(
           const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
           const emailTo = customerEmail ?? lookupValue;
           if (emailTo) {
-            sendEmail(
-              emailTo,
-              `You're now on ${tierLabel} — welcome to the upgrade`,
-              `<h2>You're on ${tierLabel}! 🎉</h2>
+            sendDurableEmail(supabase, {
+              to: emailTo,
+              subject: `You're now on ${tierLabel} — welcome to the upgrade`,
+              html: `<h2>You're on ${tierLabel}! 🎉</h2>
 <p>Your account has been upgraded. Everything is ready — no setup needed.</p>
 <p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Open ScanForProfit &rarr;</a></p>
 <p style="color:#888;font-size:12px;">Questions? Reply to this email.</p>`,
-            ).catch(console.error);
+              category: 'billing',
+            }).catch(console.error);
           }
         }
         break;
@@ -140,15 +141,16 @@ export async function handleStripeWebhookEvent(
           .from('users').select('email, username').eq('stripe_customer_id', customerId).maybeSingle();
         if (failedUser?.email) {
           const appUrl = Deno.env.get('FRONTEND_URL') ?? 'https://scanforprofit.com';
-          sendEmail(
-            failedUser.email,
-            'Payment failed — update your billing info',
-            `<h2>We couldn't process your payment</h2>
+          sendDurableEmail(supabase, {
+            to: failedUser.email,
+            subject: 'Payment failed — update your billing info',
+            html: `<h2>We couldn't process your payment</h2>
 <p>Hi ${failedUser.username ?? 'there'},</p>
 <p>Your last payment failed. To keep your subscription active, please update your billing information.</p>
 <p><a href="${appUrl}/app.html" style="display:inline-block;padding:12px 24px;background:#d4a843;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Update Billing &rarr;</a></p>
 <p style="color:#888;font-size:12px;">If you think this is a mistake, reply to this email and we'll sort it out.</p>`,
-          ).catch(console.error);
+            category: 'billing',
+          }).catch(console.error);
         }
         break;
       }
