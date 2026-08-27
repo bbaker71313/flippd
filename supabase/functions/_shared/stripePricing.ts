@@ -17,7 +17,7 @@ const TIER_INTERVAL_ENV: Record<PaidTier, Record<BillingInterval, string>> = {
   empire: { monthly: 'STRIPE_PRICE_EMPIRE_MONTHLY', annual: 'STRIPE_PRICE_EMPIRE_ANNUAL' },
 };
 
-const PAID_TIERS: PaidTier[] = ['hustle', 'stack', 'empire'];
+export const PAID_TIERS: PaidTier[] = ['hustle', 'stack', 'empire'];
 const INTERVALS: BillingInterval[] = ['monthly', 'annual'];
 
 export function isPaidTier(tier: string): tier is PaidTier {

@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyJWT, jwtFromCookie } from "../_shared/jwt.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { SCAN_LIMITS, ITEM_LIMITS } from "../_shared/tierLimits.ts";
+import { resolveScanLimit, resolveItemLimit } from "../_shared/tierCatalog.ts";
 import { calcProfit } from "../_shared/financialEngine.ts";
 import { decide, type DemandLevel, type DecisionResult } from "../_shared/decisionEngine.ts";
 import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
@@ -589,7 +589,7 @@ export async function handleBuyItem(
     if (existing) return { inventoryId: existing.id };
   }
 
-  const limit = ITEM_LIMITS[tier] ?? null;
+  const limit = resolveItemLimit(tier);
   if (limit !== null) {
     const { count } = await supabase
       .from('inventory').select('*', { count: 'exact', head: true })
@@ -681,7 +681,7 @@ export async function handleInventoryCreate(
   }
 
   // Tier gate — check BEFORE writing
-  const limit = ITEM_LIMITS[tier] ?? null;
+  const limit = resolveItemLimit(tier);
   if (limit !== null) {
     const { count } = await supabase
       .from('inventory').select('*', { count: 'exact', head: true })
@@ -1583,7 +1583,7 @@ Deno.serve(async (req: Request) => {
   if (isScan) {
     // §5.1 — atomic increment + monthly reset + limit check in one RPC,
     // replacing the read-then-write race. p_limit null = unlimited.
-    const limit = SCAN_LIMITS[dbUser.tier] ?? null;
+    const limit = resolveScanLimit(dbUser.tier);
     const { error: incErr } = await supabase.rpc('increment_scan_count', {
       p_user_id: dbUser.id,
       p_limit: limit,

@@ -1,5 +1,17 @@
 import type { UserTier } from "../types";
 
+// P3-33: this module is not currently imported by any live runtime path
+// (app.html has no build step and cannot import TS; the Supabase Edge
+// Functions runtime's ability to safely consume packages/shared via a
+// cross-package import is unverified — see P3-34/HANDOFF.md). The runtime
+// source of truth for scan/inventory limits and Stripe-billed pricing is
+// `supabase/functions/_shared/tierCatalog.ts` (limits) and
+// `supabase/functions/_shared/stripePricing.ts` (price IDs) — kept in
+// lockstep with this file by hand until that import path is proven safe.
+// `scansPerMonth`/`inventoryItems`/`priceMonthly` below match those files.
+// `priceYearly` does not: annual billing has no live UI (see
+// CURRENT_STATE.md), so there is no live value to reconcile it against —
+// do not treat it as authoritative until annual UI is approved and wired.
 export interface TierConfig {
   tier: UserTier;
   label: string;
