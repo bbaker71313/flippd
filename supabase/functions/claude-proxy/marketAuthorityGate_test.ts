@@ -164,3 +164,41 @@ Deno.test("verified path: $0 acquisition cost still solves max-buy-price, not tr
   assertEquals(core.decisionAvailable, true);
   assertEquals(core.roi, null); // calcProfit: roi null when cost <= 0
 });
+
+// ── Decision Integrity remediation (Release A): weak-evidence HOT cap ──────
+// A verified result shaped exactly like verifiedHotResult() but with only 1
+// sold comp (evidenceQuality: 'weak') must not reach HOT — a 1-sold/0-active
+// sample must not carry the same authority as the 12-sold/5-active fixture
+// above, even though every threshold otherwise passes.
+function verifiedWeakEvidenceHotShapedResult(): MarketDataSuccess {
+  const base = verifiedHotResult();
+  return {
+    ...base,
+    metrics: {
+      ...base.metrics,
+      soldPriceStats: { ...base.metrics.soldPriceStats, compCount: 1, evidenceQuality: 'weak' },
+    },
+  };
+}
+
+Deno.test("verified path: weak evidenceQuality (small comp sample) caps HOT-shaped result at LIST", () => {
+  const core = resolveScanResultCore(verifiedWeakEvidenceHotShapedResult(), AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0);
+  assertEquals(core.decisionAvailable, true);
+  assertEquals(core.decision, 'LIST'); // not HOT, despite VERY HIGH demand + all thresholds passing
+  assertEquals(core.decisionReasons?.hotCappedByEvidence, true);
+  assertEquals(core.evidenceQuality, 'weak');
+});
+
+Deno.test("verified path: strong evidenceQuality (unchanged fixture) still reaches HOT", () => {
+  const core = resolveScanResultCore(verifiedHotResult(), AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0);
+  assertEquals(core.decision, 'HOT');
+  assertEquals(core.decisionReasons?.hotCappedByEvidence, false);
+  assertEquals(core.evidenceQuality, 'strong');
+  assertEquals(core.compMatchPrecision, 'exact_model');
+});
+
+Deno.test("unverified single scan: evidenceQuality/compMatchPrecision are null (no verified metrics exist)", () => {
+  const core = resolveScanResultCore(NOT_VERIFIED, AI_HOT_LOOKING_ESTIMATE, 1, SETTINGS, 0);
+  assertEquals(core.evidenceQuality, null);
+  assertEquals(core.compMatchPrecision, null);
+});

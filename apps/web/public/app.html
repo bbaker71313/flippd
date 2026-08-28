@@ -6129,7 +6129,7 @@ async function analyze() {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
     } catch(_){}
-    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, aiEstimate:normalized.aiEstimate});
+    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, aiEstimate:normalized.aiEstimate, evidenceQuality:normalized.evidenceQuality, compMatchPrecision:normalized.compMatchPrecision});
     renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
@@ -6202,7 +6202,11 @@ function buildDecisionExplanation(dec, dr, item, fin, S) {
   }
   // HOT/LIST: explain the pass state from the deterministic result, never from AI wording.
   const parts = ['Profit, ROI, sell-through, and days-to-sell targets all passed'];
-  parts.push(dr.demandIsVeryHigh ? 'demand is VERY HIGH (qualifies for HOT)' : 'demand is not VERY HIGH (LIST, not HOT)');
+  if (dr.hotCappedByEvidence) {
+    parts.push('demand is VERY HIGH, but the verified sold-comp sample is too small to trust at HOT — showing as LIST until more sold data is available');
+  } else {
+    parts.push(dr.demandIsVeryHigh ? 'demand is VERY HIGH (qualifies for HOT)' : 'demand is not VERY HIGH (LIST, not HOT)');
+  }
   return `<div class="pass-reasons">${escHtml(parts.join(' — '))}.</div>`;
 }
 
@@ -6261,7 +6265,7 @@ function renderInsufficientEvidence({item,cost,aiEstimate}) {
   showSrcView('results');
 }
 
-function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,aiEstimate}) {
+function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,aiEstimate,evidenceQuality,compMatchPrecision}) {
   resetBtn('analyze-btn','Run Profit Scanner','green');
   if (decisionAvailable === false) { renderInsufficientEvidence({item, cost, aiEstimate}); return; }
   lastSingleResult = {item,cost,fin,dec};
@@ -6284,12 +6288,22 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,market
   // qualifying purchase price actually exists.
   const maxCostHint = (!costKnown && maxBuyPrice > 0)
     ? `<div class="d-max-cost">if item is under $${maxBuyPrice.toFixed(2)}</div>` : '';
-  // P2-32: never claim verified marketplace evidence backs this scan unless
-  // it actually does — marketDataSource is server-authoritative (SoldComps +
-  // eBay Browse when available, the AI's own estimate only as a fallback).
-  const sourceBadge = marketDataSource === 'verified'
-    ? `<div class="source-badge source-badge-verified">[ VERIFIED ] eBay sold listings + active market data</div>`
-    : `<div class="source-badge">[ AI ESTIMATE ] Verified market data unavailable — confirm with real eBay sold listings before buying</div>`;
+  // P2-32 / Decision Integrity remediation §16.1: never claim verified
+  // marketplace evidence backs this scan unless it actually does, AND never
+  // collapse "provider data is genuine" and "evidence passed relevance/
+  // sample-size qualification" into one blanket [ VERIFIED ] label —
+  // evidenceQuality is server-authoritative (marketMetrics.ts
+  // computeSoldPriceStats, same bucketing the decision engine's
+  // weak-evidence-caps-HOT gate uses).
+  const isLimitedEvidence = evidenceQuality === 'weak' || evidenceQuality === 'none';
+  const sourceBadge = marketDataSource !== 'verified'
+    ? `<div class="source-badge">[ AI ESTIMATE ] Verified market data unavailable — confirm with real eBay sold listings before buying</div>`
+    : isLimitedEvidence
+      ? `<div class="source-badge">[ LIMITED EVIDENCE ] Real eBay sold/active listings, but too few matching comps to fully trust — confirm with more sold listings before buying</div>`
+      : `<div class="source-badge source-badge-verified">[ VERIFIED ] eBay sold listings + active market data</div>`;
+  const broadMatchNote = (marketDataSource === 'verified' && (compMatchPrecision === 'product_family' || compMatchPrecision === 'substitute'))
+    ? `<div class="u-text-xs u-muted u-mt-1">Comps matched at the ${compMatchPrecision === 'product_family' ? 'product-family' : 'substitute'} level, not an exact model match — pricing may not reflect this specific item.</div>`
+    : '';
   const decisionExplanation = buildDecisionExplanation(dec, decisionReasons, item, fin, S);
   document.getElementById('results-content').innerHTML=`
     <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
@@ -6300,11 +6314,12 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,market
     </div>
     ${decisionExplanation}
     ${sourceBadge}
+    ${broadMatchNote}
 
     <!-- BUY / SKIP ACTIONS (P2-21: a third "Watch" action was planned but never shipped — comment corrected, nothing to remove) -->
     <div class="buy-action-bar">
       <div class="buy-action-title">What do you want to do?</div>
-      <div class="buy-action-sub">Tap Buy to add this item to your inventory automatically.</div>
+      <div class="buy-action-sub">Tap List to add this item to your inventory.</div>
       <div class="buy-action-btns">
         <button class="action-btn action-buy" onclick="buyItem()">LIST<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
         <button class="action-btn action-pass" onclick="goSrcBack()">SKIP<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Move On</span></button>
@@ -6313,7 +6328,7 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,market
 
     <div class="card">
       <h3 class="card-title">Financial Breakdown</h3>
-      <div class="data-row"><span class="dl">Avg Sold Price</span><span class="dv u-syne u-text-lg">$${item.avg_sold_price?.toFixed(2)}</span></div>
+      <div class="data-row"><span class="dl">Expected Sold Price</span><span class="dv u-syne u-text-lg">$${item.avg_sold_price?.toFixed(2)}</span></div>
       <div class="data-row"><span class="dl">Price Range</span><span class="dv">$${escHtml(item.price_low)} – $${escHtml(item.price_high)}</span></div>
       <hr class="divider">
       <div class="data-row"><span class="dl">Your Cost</span><span class="dv">${costKnown?`$${cost.toFixed(2)}`:'Not entered'}</span></div>
@@ -6329,7 +6344,7 @@ function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,market
       <h3 class="card-title">Market Intelligence</h3>
       <div class="data-row"><span class="dl">Demand</span><span class="dv u-text-md ${demandClass(item.demand_level)}">${escHtml(item.demand_level)}</span></div>
       <div class="data-row"><span class="dl">Sell-Through Rate</span><span class="dv ${strClass(item.sell_through_rate)}">${escHtml(item.sell_through_rate)}%</span></div>
-      <div class="data-row"><span class="dl">Avg Days to Sell</span><span class="dv ${daysClass(item.avg_days_to_sell)}">${escHtml(item.avg_days_to_sell)} days</span></div>
+      <div class="data-row"><span class="dl">Estimated Days to Sell</span><span class="dv ${daysClass(item.avg_days_to_sell)}">${escHtml(item.avg_days_to_sell)} days</span></div>
       <div class="data-row"><span class="dl">Category</span><span class="dv">${escHtml(item.category)}</span></div>
       ${item.brand?`<div class="data-row"><span class="dl">Brand</span><span class="dv">${escHtml(item.brand)}</span></div>`:''}
       <div class="u-mt-3">
@@ -6443,9 +6458,15 @@ function renderShelf(shelfItems) {
     // never invented client-side, since the shelf item hasn't been bought yet.
     const mc=i.max_buy_price;
     const mcHint=(mc>0)?`<div class="s-max-cost">if item is under $${Number(mc).toFixed(2)}</div>`:'';
-    const evidenceTag = i.market_data_source === 'verified'
-      ? `<span class="u-text-xs" style="color:var(--green-border);font-weight:700;margin-left:6px">[VERIFIED]</span>`
-      : `<span class="u-text-xs u-muted" style="font-weight:700;margin-left:6px">[AI EST]</span>`;
+    // Decision Integrity remediation §16.1: same honest evidence label as the
+    // single-scan source badge — weak/none evidenceQuality is provider-real
+    // data, but not enough of a sample to call "VERIFIED" without caveat.
+    const shelfLimitedEvidence = i.evidence_quality === 'weak' || i.evidence_quality === 'none';
+    const evidenceTag = i.market_data_source !== 'verified'
+      ? `<span class="u-text-xs u-muted" style="font-weight:700;margin-left:6px">[AI EST]</span>`
+      : shelfLimitedEvidence
+        ? `<span class="u-text-xs" style="color:var(--yellow);font-weight:700;margin-left:6px">[LIMITED EVIDENCE]</span>`
+        : `<span class="u-text-xs" style="color:var(--green-border);font-weight:700;margin-left:6px">[VERIFIED]</span>`;
     const skipReasons = (i.decision==='SKIP' && i.decision_reasons && i.decision_reasons.failingThresholds)
       ? i.decision_reasons.failingThresholds.map(t=>SHELF_SKIP_LABEL[t]||t).join('; ')
       : '';

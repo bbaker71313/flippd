@@ -131,3 +131,40 @@ test('high confidence is not a decision input at all — function has no confide
   const r = decide(BASE);
   assert.ok(!('confidence' in r));
 });
+
+// Decision Integrity remediation (Release A): weak/none evidenceQuality caps
+// an otherwise-HOT decision at LIST — a small sold-comp sample must never
+// carry the same authority as a large one.
+test('weak evidenceQuality caps an otherwise-HOT decision at LIST', () => {
+  const r = decide({ ...BASE, evidenceQuality: 'weak' });
+  assert.equal(r.decision, 'LIST');
+  assert.equal(r.demandIsVeryHigh, true); // raw demand signal unchanged
+  assert.equal(r.hotCappedByEvidence, true);
+  assert.equal(r.failingThresholds.length, 0); // not a SKIP — thresholds all passed
+});
+
+test('none evidenceQuality caps an otherwise-HOT decision at LIST', () => {
+  const r = decide({ ...BASE, evidenceQuality: 'none' });
+  assert.equal(r.decision, 'LIST');
+  assert.equal(r.hotCappedByEvidence, true);
+});
+
+test('moderate/strong evidenceQuality does not cap HOT', () => {
+  assert.equal(decide({ ...BASE, evidenceQuality: 'moderate' }).decision, 'HOT');
+  assert.equal(decide({ ...BASE, evidenceQuality: 'strong' }).decision, 'HOT');
+  assert.equal(decide({ ...BASE, evidenceQuality: 'strong' }).hotCappedByEvidence, false);
+});
+
+test('omitted evidenceQuality is unrestricted (backward compatible) — still reaches HOT', () => {
+  const r = decide(BASE); // BASE has no evidenceQuality field
+  assert.equal(r.decision, 'HOT');
+  assert.equal(r.hotCappedByEvidence, false);
+});
+
+test('weak evidenceQuality does not turn a LIST into a SKIP, and does not affect SKIP', () => {
+  // Demand not VERY HIGH -> already LIST regardless of evidence.
+  assert.equal(decide({ ...BASE, demandLevel: 'HIGH', evidenceQuality: 'weak' }).decision, 'LIST');
+  // A failing threshold still SKIPs even with weak evidence (evidence quality
+  // only ever restricts HOT, never overrides a genuine SKIP).
+  assert.equal(decide({ ...BASE, netProfit: 0, evidenceQuality: 'weak' }).decision, 'SKIP');
+});

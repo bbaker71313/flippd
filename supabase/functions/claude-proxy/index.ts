@@ -3,7 +3,7 @@ import { verifyJWT, jwtFromCookie } from "../_shared/jwt.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { resolveScanLimit, resolveItemLimit } from "../_shared/tierCatalog.ts";
 import { calcProfit } from "../_shared/financialEngine.ts";
-import { decide, type DemandLevel, type DecisionResult } from "../_shared/decisionEngine.ts";
+import { decide, type DemandLevel, type DecisionResult, type EvidenceQuality } from "../_shared/decisionEngine.ts";
 import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
 import { resolveVerifiedMarketData } from "../_shared/marketDataPipeline.ts";
 import type { IdentityCandidate, IdentificationEvidenceKind, MarketDataResult } from "../_shared/marketData.ts";
@@ -137,9 +137,13 @@ export function evaluateScanEconomics(
   demandLevel: DemandLevel | null,
   s: Settings,
   shipForCalc: number,
+  // Decision Integrity remediation (Release A): comp-sample-size evidence
+  // quality (marketMetrics.ts computeSoldPriceStats). Optional — omitted for
+  // any caller that doesn't have it, which decide() treats as unrestricted.
+  evidenceQuality?: EvidenceQuality | null,
 ): ScanEconomics {
   const marketArgs = {
-    sellThroughRate, daysToSell, demandLevel,
+    sellThroughRate, daysToSell, demandLevel, evidenceQuality,
     minProfit: s.min_profit, targetRoi: s.target_roi,
     minSellThroughRate: (s as unknown as { min_str?: number }).min_str ?? 0,
     maxDaysToSell: (s as unknown as { stale_days?: number }).stale_days ?? 60,
@@ -218,6 +222,12 @@ export interface ScanResultCore {
   demandLevel: DemandLevel | null;
   marketDataSource: 'verified' | 'ai_estimate';
   aiEstimate: AiMarketEstimate | null;
+  // Decision Integrity remediation (Release A) — carried through so the UI
+  // can show an honest evidence label instead of a blanket "VERIFIED" claim,
+  // and explain a HOT capped to LIST by a small comp sample. Both null
+  // whenever marketDataSource is 'ai_estimate' (no verified metrics exist).
+  evidenceQuality: EvidenceQuality | null;
+  compMatchPrecision: string | null;
 }
 
 // THE single authoritative gate deciding whether a scanned item's HOT/LIST/SKIP
@@ -257,6 +267,7 @@ export function resolveScanResultCore(
       maxBuyPrice: null, maxBuyPriceLimitedBy: null,
       priceLow: null, priceHigh: null, sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
       marketDataSource: 'ai_estimate', aiEstimate,
+      evidenceQuality: null, compMatchPrecision: null,
     };
   }
 
@@ -266,8 +277,9 @@ export function resolveScanResultCore(
   const demandLevel = verified.metrics.demandLevel;
   const priceLow = verified.metrics.soldPriceStats.soldPriceLow;
   const priceHigh = verified.metrics.soldPriceStats.soldPriceHigh;
+  const evidenceQuality = verified.metrics.soldPriceStats.evidenceQuality;
 
-  const econ = evaluateScanEconomics(acquisitionCost, avgSell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc);
+  const econ = evaluateScanEconomics(acquisitionCost, avgSell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc, evidenceQuality);
   const feeAmount = r2(avgSell * (settings.ebay_fee / 100));
 
   return {
@@ -278,6 +290,7 @@ export function resolveScanResultCore(
     maxBuyPrice: econ.maxBuyPrice, maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
     priceLow, priceHigh, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
     marketDataSource: 'verified', aiEstimate: null,
+    evidenceQuality, compMatchPrecision: verified.metrics.compMatchPrecision,
   };
 }
 
@@ -498,6 +511,10 @@ async function finalizeSingleOrTextScan(
     // authoritative substitute for the (null) fields above.
     aiEstimate: core.aiEstimate,
     decisionReasons: core.decisionReasons,
+    // Decision Integrity remediation (Release A): lets the client show an
+    // honest evidence label instead of a blanket "VERIFIED" claim.
+    evidenceQuality: core.evidenceQuality,
+    compMatchPrecision: core.compMatchPrecision,
     scanLogId: logRow?.id ?? null,
   };
 }
@@ -609,6 +626,8 @@ async function handleShelfScan(
       aiEstimate: core.aiEstimate,
       verifiedMarketData: verified,
       decisionReasons: core.decisionReasons,
+      evidenceQuality: core.evidenceQuality,
+      compMatchPrecision: core.compMatchPrecision,
     };
   }));
 

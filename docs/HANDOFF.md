@@ -4,6 +4,67 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-28 — Decision Integrity remediation, Release A (P0 correctness stop-gap)
+
+### Context
+An uploaded implementation plan ("ScanForProfit — Decision Integrity & Identification Remediation") documented defects found during a live scan of a GE transistor radio: a failed eBay Browse lookup could be silently converted into "0 active listings," which then produced a fabricated 100% sell-through rate, 0-day turnover, VERY HIGH demand, and HOT — from a provider outage, not real market evidence. The plan is a 25-phase, multi-week remediation (multi-stage AI identification, a full comp-matching hierarchy, SoldComps pagination correctness, identity qualification gates, etc.). Most of those phases have open product-decision points the plan itself flags for escalation (e.g. exact evidence-quality thresholds, per-category identity-qualification rules). This session scoped to exactly the plan's own recommended first release — **Release A, "correctness stop-gap"** (plan §20) — the well-specified, non-product-decision items that stop the worst false-positive HOT/LIST/SKIP outcomes. Release B (real comp matching + condition filtering), Release C (multi-stage identification), and Release D (SoldComps pagination/count correctness) are NOT done — see Next Task.
+
+### Root causes confirmed live in code before this session (traced, not assumed from the plan doc)
+1. **`ebayBrowse.ts`'s `searchActiveListings`** returned `EMPTY_EVIDENCE` (`matchingActiveCount: 0`) on *any* internal failure — HTTP error, timeout, rate limit (429), or a malformed/non-JSON response body — making a failed Browse lookup indistinguishable from a real "Browse succeeded, zero active listings." `marketDataPipeline.ts` only ever saw `null` (treated as unknown) if `searchActiveListings` itself *threw*, which it only did for `EbayAppAuthError` — every other failure mode silently became a fabricated verified zero.
+2. **`SoldPriceStats.evidenceQuality`** (`strong`/`moderate`/`weak`/`none`, from `computeSoldPriceStats`'s comp-count bucketing) was computed but never read by `decide()` or `resolveScanResultCore` — presentation-only. A single sold comp (`compCount: 1`, `evidenceQuality: 'weak'`) with a verified-zero active count could reach HOT exactly the same as a 12-comp, 5-active-listing sample.
+3. **UI**: `app.html` always showed `[ VERIFIED ]` for any `marketDataSource: 'verified'` result regardless of comp-sample size; "Tap Buy" described an action the button actually labels "LIST"; "Avg Sold Price"/"Avg Days to Sell" labeled a computed median/derived-turnover value as if it were a literal historical average, on the verified-metrics card.
+
+### Fix
+1. **`supabase/functions/_shared/ebayBrowse.ts`** — `searchActiveListings` now returns `ActiveMarketEvidence | null`. `null` means the active count is genuinely unknown (network/HTTP/timeout/rate-limit/malformed-body failure); a real `ActiveMarketEvidence` — including a legitimate `matchingActiveCount: 0` — is only returned when the Browse call actually succeeded and parsed. `marketDataPipeline.ts` already treated `null` as "unavailable, don't compute STR/turnover/demand" for every downstream consumer, so no pipeline change was needed — only the mislabeled failure→zero conversion at the source.
+2. **`decisionEngine.ts`** (both `packages/shared/src/utils/` and the Deno mirror `supabase/functions/_shared/`) — added optional `evidenceQuality` to `DecisionInputs` and `hotCappedByEvidence` to `DecisionResult`. An explicit `'weak'` or `'none'` evidenceQuality caps the decision at LIST even when every threshold passes and demand is VERY HIGH (the plan's own "Recommended initial hard rule: weak evidence can never produce HOT" — §9/§13). Omitted/`'moderate'`/`'strong'` is unrestricted — fully backward compatible with every existing caller/test. `hotCappedByEvidence` lets the UI explain *why* an apparently-HOT item shows as LIST instead of silently disagreeing with its own `demandIsVeryHigh` flag.
+3. **`supabase/functions/claude-proxy/index.ts`** — `evaluateScanEconomics` takes an optional 8th `evidenceQuality` param, wired from `verified.metrics.soldPriceStats.evidenceQuality`. `ScanResultCore` (and both the single/text and shelf scan response shapes) now carry `evidenceQuality`/`compMatchPrecision` through to the client — null whenever no verified metrics exist.
+4. **`apps/web/public/scanResultContract.js`** — validates the new nullable `evidenceQuality` (`'strong'|'moderate'|'weak'|'none'|null`) and `compMatchPrecision` fields, and the now-required `hotCappedByEvidence` boolean inside `decisionReasons`.
+5. **`apps/web/public/app.html`** — `renderSingle`'s source badge now shows `[ LIMITED EVIDENCE ]` (not `[ VERIFIED ]`) when `evidenceQuality` is weak/none, plus a "product-family/substitute, not exact model" caption when `compMatchPrecision` indicates a broader match; the shelf-scan badge mirrors this. `buildDecisionExplanation` explains a `hotCappedByEvidence` LIST honestly instead of claiming demand didn't qualify. "Tap Buy" → "Tap List" (the button's actual label). "Avg Sold Price" → "Expected Sold Price" and "Avg Days to Sell" → "Estimated Days to Sell" on the verified Financial Breakdown/Market Intelligence cards (the AI-estimate-only card's wording was left alone — already disclaimed as informational).
+
+### Files changed
+- `supabase/functions/_shared/ebayBrowse.ts`, new `ebayBrowse_test.ts` (7 tests)
+- `supabase/functions/_shared/decisionEngine.ts`, `decisionEngine_test.ts` (9 → 14 tests, +5)
+- `packages/shared/src/utils/decisionEngine.ts`, `decisionEngine.test.ts` (19 → 24 tests, +5), `packages/shared/src/types/index.ts`
+- `supabase/functions/claude-proxy/index.ts`, `marketAuthorityGate_test.ts` (8 → 11 tests, +3)
+- `apps/web/public/scanResultContract.js`, `scanResultContract.test.js` (21 → 26 tests, +5)
+- `apps/web/public/app.html`
+
+### Behavior before / after
+- **Before:** a Browse HTTP error/timeout/malformed response on an item with real sold comps → `matchingActiveCount: 0` (fabricated) → up to 100% STR, 0-day turnover, VERY HIGH demand → HOT possible from a provider outage alone. A single sold comp with verified-zero active listings could independently reach HOT.
+- **After:** the same Browse failure → `activeMarketEvidence: null` → STR/turnover/demand all `null` → those thresholds fail → SKIP (or the pre-existing `insufficient_market_data` path if sold evidence is also missing) — never a fabricated HOT/LIST from an outage. A `weak`/`none` evidenceQuality result that would otherwise be HOT-shaped now returns LIST, with `hotCappedByEvidence: true` visible in `decisionReasons` and reflected honestly in the UI.
+
+### Testing
+- `deno test --no-check --no-config --node-modules-dir=none --allow-env --allow-read --allow-net --import-map=supabase/functions/_shared/testing/deno_test_import_map.json supabase/functions/` → **209/209 passing** (194 pre-existing baseline + 7 new `ebayBrowse_test.ts` + 5 new `decisionEngine_test.ts` + 3 new `marketAuthorityGate_test.ts` = 209).
+- `packages/shared`: `npx tsc --noEmit` → 0 errors. `node --test --experimental-strip-types "src/**/*.test.ts"` → **77/77 passing** (72 baseline + 5 new in `decisionEngine.test.ts`).
+- `node --test apps/web/public/scanResultContract.test.js` → **26/26 passing** (21 baseline + 5 new).
+- `node --check` on all 3 extracted `<script>` blocks in `app.html` (lines ~9–30, ~1130–1136, ~2269–8495) → all pass.
+- Deno installed on demand via `npm install -g deno` (registry reachable this session).
+- **Not done:** live/browser smoke test against a real scan request — this sandbox cannot reach `*.supabase.co` directly (same limitation as every prior session, confirmed again via the egress proxy).
+
+### Assumptions made
+- The evidence-quality bucketing already live in `computeSoldPriceStats` (`compCount >= 8` strong, `>= 3` moderate, else weak) was treated as the already-approved comp-sample-size signal for the plan's "weak evidence can never produce HOT" rule, rather than inventing a new threshold — it already existed, is documented as product-approved in that file, and the plan's own worked example (1-sold vs 40-sold) falls cleanly on either side of it. If the product owner wants a different bucketing specifically for the HOT gate (separate from the existing display bucketing), that's a small, isolated change to the `evidenceIsWeak` check in `decide()`.
+- `compMatchPrecision`'s current values (`derivePrecision()` in `marketDataPipeline.ts`) are derived from identity fields alone (has model? has GTIN? etc.), not real comp-vs-item matching (that's Release B, not built this session) — the new UI caption for `product_family`/`substitute` precision is honest about *today's* definition of those labels, not a claim that full comp relevance filtering exists yet.
+
+### Out-of-scope findings
+- None beyond what's already logged in prior HANDOFF entries (the stale `marketDataPipeline.ts` header comment noted 2026-08-27 part 6, still not fixed — still out of scope for this task).
+
+### Product decisions needed
+None for what was implemented — the plan's own §9 "Recommended initial hard rule: Weak evidence can never produce HOT" was concrete enough to implement directly, using the existing (already-approved) evidenceQuality bucketing rather than inventing a new one.
+
+For the **remaining plan phases** (Release B/C/D — not done this session), the plan itself already flags several as needing product-owner decisions before implementation: exact category-specific identity-qualification thresholds (plan §8), whether/how to add a dedicated visual-search identification provider (plan §7), the precise SoldComps pagination/total-count semantics to trust for STR (plan §10 — requires live-verifying which provider field is authoritative), and the full comp-matching hard-rejection rule set (plan §6). None of these were resolved or guessed at this session.
+
+### Blockers
+None. Live/browser smoke testing remains blocked by this sandbox's network policy (see Testing above) — flagged for manual follow-up, not silently skipped.
+
+### Next task
+1. Manual authenticated smoke test on production: run a real single-item scan and confirm `[ LIMITED EVIDENCE ]`/`[ VERIFIED ]` render correctly, and that a weak-evidence HOT-shaped item now shows LIST with the new explanation text.
+2. **Release B** (plan §6, §7 Phase 2-ish): real comp-matching layer (`compMatcher.ts`) — exact/family/substitute classification with hard rejections (wrong brand, conflicting model, parts-only vs working, etc.) and condition filtering. Currently `compMatchPrecision` is identity-derived only, not comp-vs-item matched.
+3. **Release C**: multi-stage identification (OCR-outranks-visual-inference, candidate generation/verification, `IdentityResolver` abstraction) — plan §7.
+4. **Release D**: SoldComps pagination/total-count correctness for STR (plan §10) — requires live-verifying the provider's actual pagination contract, which this sandbox cannot reach.
+5. Fix the still-stale `marketDataPipeline.ts` header comment (logged 2026-08-27 part 6, not yet fixed).
+
+---
+
 ## Session: 2026-08-27 (part 6) — P0 production Edge Function deployment-drift remediation
 
 ### Context

@@ -269,6 +269,11 @@ export interface ProfitCalcResult {
 // verified market evidence, never an AI confidence score.
 export type DemandLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY HIGH'
 
+// Same weak/moderate/strong/none bucketing as SoldPriceStats['evidenceQuality']
+// (packages/shared/src/types/marketData.ts) — duplicated as a plain string
+// union here so decisionEngine.ts has no dependency on marketData.ts.
+export type EvidenceQuality = 'strong' | 'moderate' | 'weak' | 'none'
+
 export interface DecisionInputs {
   netProfit: number
   roi: number | null          // null = $0 acquisition cost — ROI threshold is bypassed (not failed), see decide()
@@ -279,6 +284,15 @@ export interface DecisionInputs {
   targetRoi: number
   minSellThroughRate: number
   maxDaysToSell: number
+  // Optional: comp-sample-size evidence quality (see marketMetrics.ts
+  // computeSoldPriceStats). An explicit 'weak' or 'none' caps the decision
+  // at LIST even when demand is VERY HIGH — a small sold-comp sample must
+  // never carry the same authority as a large one (e.g. 1 sold/0 active vs
+  // 40 sold/0 active should not both be able to reach HOT). Omitted/null
+  // means the caller has no evidence-quality signal to report and is
+  // treated as unrestricted (pre-existing behavior, not a fabricated
+  // 'strong') — 'moderate'/'strong' are likewise unrestricted.
+  evidenceQuality?: EvidenceQuality | null
 }
 
 export interface DecisionThresholdResults {
@@ -287,6 +301,12 @@ export interface DecisionThresholdResults {
   strPass: boolean
   daysPass: boolean
   demandIsVeryHigh: boolean
+  // True when every required threshold passed and demand was VERY HIGH, but
+  // the decision was capped at LIST instead of HOT because evidenceQuality
+  // was 'weak'/'none'/unspecified — distinct from demandIsVeryHigh so the UI
+  // can explain *why* an apparently-HOT item is showing as LIST instead of
+  // silently disagreeing with its own demandIsVeryHigh flag.
+  hotCappedByEvidence: boolean
   failingThresholds: string[]
 }
 
