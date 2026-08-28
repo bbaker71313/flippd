@@ -29,8 +29,8 @@ test('happy path — odd comp count uses true median, excludes nothing', () => {
   assert.equal(stats.medianSoldPrice, 20);
   assert.equal(stats.averageSoldPrice, 20);
   assert.equal(stats.soldPriceLow, 10);
-  assert.equal(stats.soldPriceHigh, 30);
-  assert.equal(stats.evidenceQuality, 'moderate');
+  assert.equal(stats.soldPriceHigh, 20);
+  assert.equal(stats.evidenceQuality, 'weak');
 });
 
 test('even comp count averages the two middle values for median', () => {
@@ -50,7 +50,7 @@ test('Best Offer accepted comps are excluded from price stats but counted', () =
   assert.equal(stats.compCount, 2);
   assert.equal(stats.excludedBestOfferCount, 1);
   assert.equal(stats.medianSoldPrice, 15);
-  assert.equal(stats.soldPriceHigh, 20); // the 999 Best Offer listing never surfaces here
+  assert.equal(stats.soldPriceHigh, 10); // cleaned percentile; the 999 Best Offer listing never surfaces here
 });
 
 test('zero comps — no evidence, never fabricates a price', () => {
@@ -72,6 +72,11 @@ test('all comps are Best-Offer-accepted — evidence quality is none, not fabric
 test('evidence quality — 8+ usable comps is strong', () => {
   const comps = Array.from({ length: 8 }, (_, i) => comp({ soldPrice: 10 + i }));
   assert.equal(computeSoldPriceStats(comps).evidenceQuality, 'strong');
+});
+
+test('evidence quality — 5-7 usable comps is moderate', () => {
+  const comps = Array.from({ length: 5 }, (_, i) => comp({ soldPrice: 10 + i }));
+  assert.equal(computeSoldPriceStats(comps).evidenceQuality, 'moderate');
 });
 
 test('evidence quality — 1-2 usable comps is weak', () => {
@@ -101,7 +106,7 @@ test('turnover — zero verified sales in window is undefined, not Infinity', ()
   assert.equal(t.marketTurnoverDays, null);
 });
 
-test('turnover — zero active inventory with real sales velocity is 0 days (everything sells instantly)', () => {
+test('turnover formula can produce zero, but the pipeline rejects zero-active evidence before display', () => {
   const t = computeMarketTurnoverDays(10, 30, 0);
   assert.equal(t.marketTurnoverDays, 0);
 });

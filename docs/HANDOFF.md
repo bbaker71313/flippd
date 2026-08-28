@@ -4,6 +4,48 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-28 (part 3) — profit-scanner evidence remediation
+
+### Context
+The product owner approved implementation of the two profit-scanner remediation documents after a read-only audit confirmed the reported failure modes in `main` at `5d374ec8`: one brittle AI-derived query, no comparable relevance filter, one-comp recommendations, raw min/max ranges, explicit zero-day turnover behavior, unverified AI market numbers in the fallback UI, and unsuppressed giant ROI display for positive sub-dollar costs.
+
+### What changed
+- Added `compSelection.ts`: de-duplicated exact-to-broad query planning; identity/condition-aware exclusion of parts, repair-only items, lots, manuals, empty packaging, accessory-only listings, and model/brand/family mismatches; p20/p80 six-times coherence gate; exclusion reasons for audit.
+- `marketDataPipeline.ts` now tries each query until the first evidence-qualified set, requires at least 3 coherent price comps, validates active samples with the same matcher, rejects zero/contaminated active evidence instead of calculating 0-day turnover, and records attempted/selected queries plus retained/excluded comp details.
+- Evidence quality is now 3–4 weak/limited, 5–7 moderate, and 8+ strong. Displayed price bounds are cleaned 35th/70th percentiles instead of raw minimum/maximum; median remains the expected-sale basis.
+- Claude single/shelf prompts now request identification only—no price, STR, demand, profit, ROI, or days estimates. Unverified results return `aiEstimate:null`.
+- The no-evidence UI shows identification plus an eBay completed-listings action, not AI numerical market guesses. The verified UI labels turnover accurately. ROI display is suppressed for free/sub-$1 costs while deterministic decision math remains unchanged.
+- Locked the approved rules in `docs/files/DECISIONS.md` and synchronized `CURRENT_STATE.md`.
+
+### Files changed
+`supabase/functions/_shared/{compSelection.ts,compSelection_test.ts,marketData.ts,marketDataPipeline.ts,marketMetrics.ts,marketMetrics_test.ts}`; `supabase/functions/claude-proxy/{index.ts,marketAuthorityGate_test.ts}`; `packages/shared/src/utils/{marketMetrics.ts,marketMetrics.test.ts}`; `apps/web/public/app.html`; `docs/{CURRENT_STATE.md,HANDOFF.md,files/DECISIONS.md}`.
+
+### Testing
+- `packages/shared` TypeScript: pass.
+- `packages/shared` tests: **78/78 pass**.
+- `scanResultContract.test.js`: **26/26 pass**.
+- New Deno comp-selection tests: **4/4 pass**.
+- Changed Deno pure modules (`compSelection.ts`, `marketMetrics.ts`) type-check.
+- `app.html` extracted inline JavaScript: syntax check passes.
+- Full `claude-proxy` Deno check/test could not download external Supabase packages from `esm.sh`/the npm registry because this environment refused those network connections. A separate check reached only the pre-existing `ebayAppAuth.ts` TS4115 override error documented in prior sessions; no changed-file type error was reported before that blocker.
+
+### Behavior intentionally not changed
+Seller settings, profit formula, max-buy-price formula, HOT/LIST/SKIP thresholds, `$0` ROI decision semantics, Supabase architecture, auth, schema, secrets, and provider credentials.
+
+### Assumptions made
+None beyond the values explicitly supplied in the approved remediation documents and confirmed by the implementation request.
+
+### Out-of-scope findings
+SoldComps multi-page retrieval remains unwired. The approved docs prioritized query/comp correctness first; pagination still needs a bounded provider-specific implementation and rate-limit budget.
+
+### Product decisions needed
+None for this implementation.
+
+### Blockers / deployment
+Source implementation is complete but not deployed to production in this session. `claude-proxy` must be redeployed with the new `_shared` dependency closure after merge, followed by a real authenticated single-item and shelf-scan smoke test.
+
+---
+
 ## Session: 2026-08-28 (part 2) — deploy claude-proxy (Decision Integrity Release A) to Supabase
 
 ### Context
@@ -4445,4 +4487,3 @@ _(docs-only fix, no code changed)_
 | `8202588` | chore: disable Vercel builds until Phase 5 web scaffold |
 
 ---
-

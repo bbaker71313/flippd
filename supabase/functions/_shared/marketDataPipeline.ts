@@ -12,19 +12,22 @@
 // tryVerifiedMarketData there) as of 2026-08-26, after live-verifying the
 // SoldComps and eBay Browse/Taxonomy contracts (Catalog is live-verified but
 // not currently entitled for this app's credentials — see ebayCatalog.ts).
-// On any failure result here, the calling scan handler falls back to the
-// pre-existing AI-estimate path rather than failing the scan outright.
+// On failure the scan remains identifiable, but no AI-created market number
+// substitutes for missing verified evidence.
 import { getItemIdentifier, type IdentifyInput } from "./itemIdentification.ts"
 import { catalogSearchByGtin, catalogSearchByKeywords } from "./ebayCatalog.ts"
 import { resolveCategory } from "./ebayTaxonomy.ts"
 import { searchActiveListings } from "./ebayBrowse.ts"
 import { getSoldMarketDataProvider } from "./soldCompsProvider.ts"
 import {
+  buildSoldCompsQueries, isCoherentPriceSet, selectComparableSoldComps,
+} from "./compSelection.ts"
+import {
   computeSoldPriceStats, computeMarketTurnoverDays,
   computeSellThroughRate, computeDemandLevel,
 } from "./marketMetrics.ts"
 import type {
-  MarketDataResult, MarketMetrics, CompMatchPrecision, IdentityCandidate,
+  MarketDataResult, MarketMetrics, CompMatchPrecision, IdentityCandidate, SoldCompListing,
 } from "./marketData.ts"
 
 // SoldComps' documented coverage window (all plans include up to 90 days of
@@ -32,21 +35,6 @@ import type {
 // invented business rule. The sell-through-rate window (a separate, still
 // undefined product decision) may differ once approved.
 const DEFAULT_SOLD_WINDOW_DAYS = 90;
-
-function derivePrecision(identity: IdentityCandidate): CompMatchPrecision {
-  if (identity.gtin && identity.variant) return 'exact_identifier_variant';
-  if (identity.model && identity.variant) return 'exact_model_variant';
-  if (identity.model) return 'exact_model';
-  if (identity.brand || identity.categoryHints.length) return 'product_family';
-  return 'substitute';
-}
-
-function buildSoldCompsQuery(identity: IdentityCandidate): string {
-  if (identity.normalizedSearchTerms.length) return identity.normalizedSearchTerms.join(' ');
-  return [identity.brand, identity.model, identity.variant, identity.itemName]
-    .filter((s): s is string => !!s)
-    .join(' ');
-}
 
 export async function runMarketDataPipeline(input: IdentifyInput): Promise<MarketDataResult> {
   const identifier = getItemIdentifier();
@@ -68,66 +56,113 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
 // getItemIdentifier(). Both entry points share identical Catalog/Taxonomy/
 // SoldComps/Browse/metrics behavior.
 export async function resolveVerifiedMarketData(identity: IdentityCandidate): Promise<MarketDataResult> {
-  const query = buildSoldCompsQuery(identity);
-  if (!query.trim()) {
+  const queries = buildSoldCompsQueries(identity);
+  if (!queries.length) {
     return { ok: false, reason: 'IDENTIFICATION_UNRESOLVED', detail: 'Identification produced no usable search terms' };
   }
-
-  // Product/catalog resolution — GTIN first (exact), else keyword (probable).
-  // A weak/no match never blocks the rest of the pipeline (task doc §2: "do
-  // not force a catalog match") — it's carried through as informational.
-  const catalogMatch = identity.gtin
-    ? await catalogSearchByGtin(identity.gtin)
-    : await catalogSearchByKeywords(query);
-
-  const category = await resolveCategory(identity.likelyEbayCategory ?? query);
 
   const soldProvider = getSoldMarketDataProvider();
   if (!soldProvider) {
     return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'SOLD_COMPS_API_KEY is not set' };
   }
 
-  const soldResult = await soldProvider.searchSoldComps({ searchTerms: query });
-  if (!soldResult.ok) {
-    return { ok: false, reason: soldResult.reason, detail: soldResult.detail };
+  const attemptedQueries: NonNullable<Extract<MarketDataResult, { ok: true }>['audit']>['attemptedQueries'] = [];
+  let selected: { query: string; precision: CompMatchPrecision; comps: SoldCompListing[] } | null = null;
+  for (const candidate of queries) {
+    const soldResult = await soldProvider.searchSoldComps({ searchTerms: candidate.query });
+    if (!soldResult.ok) {
+      attemptedQueries.push({
+        query: candidate.query, precision: candidate.precision,
+        rawCompCount: 0, retainedCompCount: 0, excludedComps: [],
+        qualified: false, rejectionReason: `${soldResult.reason}: ${soldResult.detail}`,
+      });
+      // A provider outage/rate-limit/malformed response is not evidence that
+      // a broader query is needed. Stop instead of multiplying failed calls.
+      return {
+        ok: false, reason: soldResult.reason, detail: soldResult.detail,
+        audit: { attemptedQueries },
+      };
+    }
+    const selection = selectComparableSoldComps(soldResult.comps, identity, candidate);
+    const stats = computeSoldPriceStats(selection.retained);
+    const enoughComps = stats.compCount >= 3;
+    const coherent = isCoherentPriceSet(selection.retained.filter(comp => !comp.bestOfferAccepted));
+    const rejectionReason = !enoughComps ? 'fewer than 3 coherent matching comps'
+      : !coherent ? 'retained prices failed the p20/p80 coherence guard' : null;
+    attemptedQueries.push({
+      query: candidate.query, precision: candidate.precision,
+      rawCompCount: soldResult.comps.length, retainedCompCount: stats.compCount,
+      excludedComps: selection.excluded, qualified: rejectionReason === null, rejectionReason,
+    });
+    if (!rejectionReason) {
+      selected = { query: candidate.query, precision: candidate.precision, comps: selection.retained };
+      break;
+    }
   }
 
-  const soldPriceStats = computeSoldPriceStats(soldResult.comps);
-  if (soldPriceStats.compCount === 0) {
+  if (!selected) {
     return {
-      ok: false,
-      reason: 'INSUFFICIENT_VERIFIED_MARKET_DATA',
-      detail: `No usable sold comps for "${query}" (${soldResult.comps.length} raw results, ${soldPriceStats.excludedBestOfferCount} excluded as Best-Offer-accepted)`,
+      ok: false, reason: 'INSUFFICIENT_VERIFIED_MARKET_DATA',
+      detail: 'No search-query level returned at least 3 coherent matching sold comparables.',
+      audit: { attemptedQueries },
     };
   }
 
-  // Active-market evidence is best-effort: Browse failing does not fail the
-  // whole pipeline (sold-price evidence already qualifies), it just leaves
-  // STR/turnover/demand unavailable — a missing active count is never
-  // treated as zero (that would fabricate a 100% STR).
-  const activeMarketEvidence = await searchActiveListings({
+  const { query, precision, comps } = selected;
+  const soldPriceStats = computeSoldPriceStats(comps);
+
+  // Product/catalog resolution is best-effort and runs against the winning
+  // evidence query, not an earlier query that failed qualification.
+  const catalogMatch = identity.gtin
+    ? await catalogSearchByGtin(identity.gtin)
+    : await catalogSearchByKeywords(query);
+  const category = await resolveCategory(identity.likelyEbayCategory ?? query);
+
+  // Active evidence is required for an authoritative sourcing decision. A
+  // missing count is never treated as zero or converted into a SKIP.
+  const activeCandidate = await searchActiveListings({
     query, categoryId: category.categoryId ?? undefined,
   }).catch(() => null);
+
+  // A zero active count does not prove instant sales. Also reject an active
+  // population whose returned sample fails the same identity matcher used for
+  // sold comps; STR/turnover must compare like with like.
+  let activeMarketEvidence = activeCandidate && activeCandidate.matchingActiveCount > 0
+    ? activeCandidate : null;
+  if (activeMarketEvidence) {
+    const sampleAsSold: SoldCompListing[] = activeMarketEvidence.sampledListings.map(item => ({
+      itemId: item.itemId, title: item.title, soldPrice: item.price, totalPrice: item.price,
+      shippingPrice: null, shippingType: null, currency: item.currency,
+      endedAt: new Date(0).toISOString(), condition: item.condition, conditionId: item.conditionId,
+      buyingFormat: null, bidCount: null, bestOfferAccepted: false, listingType: null,
+      listingUrl: item.itemWebUrl, sellerFeedbackScore: null, sellerFeedbackPercent: null,
+    }));
+    const activeSelection = selectComparableSoldComps(sampleAsSold, identity, { query, precision: precision as 'exact_model_variant' | 'exact_model' | 'product_family' | 'substitute' });
+    if (!sampleAsSold.length || activeSelection.retained.length !== sampleAsSold.length) activeMarketEvidence = null;
+  }
+  if (!activeMarketEvidence) {
+    return {
+      ok: false, reason: 'INSUFFICIENT_VERIFIED_MARKET_DATA',
+      detail: 'Sold comps qualified, but matching active-market evidence was unavailable or contaminated; STR and turnover cannot be calculated honestly.',
+      audit: { attemptedQueries },
+    };
+  }
 
   // soldCount90d/verifiedSoldCount for STR and turnover is the full set of
   // verified (schema-validated) sold comps in the window — including
   // Best-Offer-accepted ones, since a Best Offer sale is still a real sale
   // for counting sales velocity, even though its price is excluded from the
   // price-stats median/average (see computeSoldPriceStats).
-  const soldCount90d = soldResult.comps.length;
+  const soldCount90d = comps.length;
 
-  const turnover = activeMarketEvidence
-    ? computeMarketTurnoverDays(soldCount90d, DEFAULT_SOLD_WINDOW_DAYS, activeMarketEvidence.matchingActiveCount)
-    : null;
+  const turnover = computeMarketTurnoverDays(soldCount90d, DEFAULT_SOLD_WINDOW_DAYS, activeMarketEvidence.matchingActiveCount);
 
-  const sellThroughRate = activeMarketEvidence
-    ? computeSellThroughRate(soldCount90d, activeMarketEvidence.matchingActiveCount)
-    : null;
+  const sellThroughRate = computeSellThroughRate(soldCount90d, activeMarketEvidence.matchingActiveCount);
 
   const demandLevel = computeDemandLevel(sellThroughRate, turnover?.marketTurnoverDays ?? null);
 
   const metrics: MarketMetrics = {
-    compMatchPrecision: derivePrecision(identity),
+    compMatchPrecision: precision,
     soldPriceStats,
     activeMarketEvidence,
     turnover,
@@ -135,5 +170,8 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
     demandLevel,
   };
 
-  return { ok: true, identity, catalogMatch, category, metrics };
+  return {
+    ok: true, identity, catalogMatch, category, metrics,
+    audit: { selectedQuery: query, attemptedQueries },
+  };
 }

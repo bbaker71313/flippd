@@ -211,6 +211,7 @@
       aiEstimate: asAiEstimate(r.aiEstimate, 'aiEstimate'),
       evidenceQuality: asEvidenceQuality(r.evidenceQuality, 'evidenceQuality'),
       compMatchPrecision: asString(r.compMatchPrecision, 'compMatchPrecision', null),
+      suggestedSearchQuery: asString(r.suggestedSearchQuery, 'suggestedSearchQuery', null),
     };
   }
 
@@ -245,6 +246,7 @@
       ai_estimate: asAiEstimate(i.aiEstimate, 'aiEstimate'),
       evidence_quality: asEvidenceQuality(i.evidenceQuality, 'evidenceQuality'),
       comp_match_precision: asString(i.compMatchPrecision, 'compMatchPrecision', null),
+      suggested_search_query: asString(i.suggestedSearchQuery, 'suggestedSearchQuery', null),
     };
   }
 

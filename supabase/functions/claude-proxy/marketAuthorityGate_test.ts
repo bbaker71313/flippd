@@ -19,7 +19,7 @@
 // --allow-net --import-map=supabase/functions/_shared/testing/deno_test_import_map.json
 // supabase/functions/claude-proxy/`
 import { assertEquals, assertNotEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { evaluateScanEconomics, resolveScanResultCore } from "./index.ts";
+import { evaluateScanEconomics, resolveScanResultCore, roiForDisplay } from "./index.ts";
 import type { MarketDataResult, MarketDataSuccess, IdentityCandidate } from "../_shared/marketData.ts";
 
 // Minimal settings row shape used by evaluateScanEconomics/resolveScanResultCore.
@@ -116,10 +116,8 @@ Deno.test("unverified single scan: no authoritative max-buy-price, insufficient 
   assertEquals(core.maxBuyPrice, null);
   assertEquals(core.maxBuyPriceLimitedBy, null);
   assertEquals(core.decisionStatus, 'insufficient_market_data');
-  // The AI's guess is retained, but only informationally and structurally
-  // separate from the (null) authoritative fields above.
-  assertEquals(core.aiEstimate?.avgSoldPrice, 100);
-  assertEquals(core.aiEstimate?.demandLevel, 'VERY HIGH');
+  // AI-created market numbers are not returned even as informational values.
+  assertEquals(core.aiEstimate, null);
   assertEquals(core.marketDataSource, 'ai_estimate');
 });
 
@@ -163,6 +161,13 @@ Deno.test("verified path: $0 acquisition cost still solves max-buy-price, not tr
   // takes the "cost entered" branch — net/roi computed, roi null only if cost<=0.
   assertEquals(core.decisionAvailable, true);
   assertEquals(core.roi, null); // calcProfit: roi null when cost <= 0
+});
+
+Deno.test("ROI display is suppressed for free/sub-dollar cost without changing decision math", () => {
+  assertEquals(roiForDisplay(null, 0), null);
+  assertEquals(roiForDisplay(1000, 0.5), null);
+  assertEquals(roiForDisplay(1000, 1), 1000);
+  assertEquals(roiForDisplay(null, null), null);
 });
 
 // ── Decision Integrity remediation (Release A): weak-evidence HOT cap ──────
