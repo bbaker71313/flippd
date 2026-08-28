@@ -23,14 +23,12 @@ function baseSingleScan(overrides) {
     acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
     marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
     decisionReasons: decisionReasonsFor('LIST'), aiEstimate: null,
-    evidenceQuality: 'strong', compMatchPrecision: 'exact_model',
+    evidenceQuality: 'strong', compMatchPrecision: 'exact_model', suggestedSearchQuery: 'minolta x 700',
   }, overrides || {});
 }
 
 // A scan where verified market evidence was unavailable — every authoritative
-// field is null/decisionAvailable:false, with the AI's own guess carried only
-// informationally in aiEstimate. Mirrors what claude-proxy's
-// resolveScanResultCore() actually returns on the unverified path.
+// field is null/decisionAvailable:false. AI-created market numbers are absent.
 function insufficientEvidenceSingleScan(overrides) {
   return Object.assign({
     itemName: 'Minolta X-700 35mm SLR Film Camera',
@@ -44,11 +42,8 @@ function insufficientEvidenceSingleScan(overrides) {
     acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
     marketDataSource: 'ai_estimate', decisionAvailable: false, decisionStatus: 'insufficient_market_data',
     decisionReasons: null,
-    aiEstimate: {
-      avgSoldPrice: 100, priceLow: 80, priceHigh: 120,
-      sellThroughRate: 90, avgDaysToSell: 5, demandLevel: 'VERY HIGH',
-    },
-    evidenceQuality: null, compMatchPrecision: null,
+    aiEstimate: null,
+    evidenceQuality: null, compMatchPrecision: null, suggestedSearchQuery: 'minolta x 700',
   }, overrides || {});
 }
 
@@ -178,9 +173,8 @@ test('normalizeSingleScanResult: insufficient-evidence scan is a valid, distinct
   assert.equal(out.fin.roi, null);
   assert.equal(out.maxBuyPrice, null);
   assert.equal(out.decisionReasons, null);
-  // AI's own guess survives, but only informationally and separately.
-  assert.equal(out.aiEstimate.avg_sold_price, 100);
-  assert.equal(out.aiEstimate.demand_level, 'VERY HIGH');
+  assert.equal(out.aiEstimate, null); // no AI-created numerical market fallback
+  assert.equal(out.suggestedSearchQuery, 'minolta x 700');
   assert.equal(out.item.avg_sold_price, null); // never merged into the authoritative item fields
 });
 

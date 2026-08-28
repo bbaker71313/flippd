@@ -136,6 +136,17 @@ export interface MarketDataFailure {
   ok: false
   reason: MarketDataFailureReason
   detail: string
+  audit?: {
+    attemptedQueries: Array<{
+      query: string
+      precision: CompMatchPrecision
+      rawCompCount: number
+      retainedCompCount: number
+      excludedComps: Array<{ itemId: string; title: string; soldPrice: number; reason: string }>
+      qualified: boolean
+      rejectionReason: string | null
+    }>
+  }
 }
 
 export interface MarketDataSuccess {
@@ -144,6 +155,18 @@ export interface MarketDataSuccess {
   catalogMatch: CatalogMatch | null
   category: CategoryResolution | null
   metrics: MarketMetrics
+  audit?: {
+    selectedQuery: string
+    attemptedQueries: Array<{
+      query: string
+      precision: CompMatchPrecision
+      rawCompCount: number
+      retainedCompCount: number
+      excludedComps: Array<{ itemId: string; title: string; soldPrice: number; reason: string }>
+      qualified: boolean
+      rejectionReason: string | null
+    }>
+  }
 }
 
 export type MarketDataResult = MarketDataSuccess | MarketDataFailure

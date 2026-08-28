@@ -43,8 +43,8 @@ export function computeSoldPriceStats(comps: SoldCompListing[]): SoldPriceStats 
     excludedBestOfferCount,
     medianSoldPrice: round2(median),
     averageSoldPrice: round2(average),
-    soldPriceLow: round2(prices[0]),
-    soldPriceHigh: round2(prices[prices.length - 1]),
+    soldPriceLow: round2(percentile(prices, 0.35)),
+    soldPriceHigh: round2(percentile(prices, 0.70)),
     evidenceQuality: evidenceQualityFromCompCount(usable.length),
   }
 }
@@ -55,12 +55,17 @@ function computeMedian(sortedAsc: number[]): number {
   return n % 2 === 0 ? (sortedAsc[mid - 1] + sortedAsc[mid]) / 2 : sortedAsc[mid]
 }
 
+function percentile(sortedAsc: number[], percentile: number): number {
+  return sortedAsc[Math.floor((sortedAsc.length - 1) * percentile)]
+}
+
 // Presentational bucketing only — never feeds HOT/LIST/SKIP, profit, or
 // price. Documented assumption (not a financial/market-authority decision):
 // fewer than 3 comps is too thin to summarize with a median at all.
 function evidenceQualityFromCompCount(n: number): SoldPriceStats['evidenceQuality'] {
   if (n >= 8) return 'strong'
-  if (n >= 3) return 'moderate'
+  if (n >= 5) return 'moderate'
+  if (n >= 3) return 'weak'
   return 'weak'
 }
 

@@ -186,9 +186,9 @@ export function evaluateScanEconomics(
   };
 }
 
-// AI's own informational price/STR/days/demand guess — kept structurally
-// separate from any authoritative field, never fed into calcProfit/decide/
-// calcMaxBuyPrice. Populated only when verified evidence was unavailable.
+// Retained in the response contract for backward compatibility. New scans
+// always return null: AI-created market numbers are no longer requested or
+// displayed when verified evidence is unavailable.
 interface AiMarketEstimate {
   avgSoldPrice: number | null;
   priceLow: number | null;
@@ -228,6 +228,16 @@ export interface ScanResultCore {
   // whenever marketDataSource is 'ai_estimate' (no verified metrics exist).
   evidenceQuality: EvidenceQuality | null;
   compMatchPrecision: string | null;
+  suggestedSearchQuery: string | null;
+}
+
+export function roiForDisplay(roi: number | null, acquisitionCost: number | null): number | null {
+  return acquisitionCost !== null && acquisitionCost < 1 ? null : roi;
+}
+
+function suggestedSearchQuery(verified: MarketDataResult, ai: Record<string, unknown>): string | null {
+  if (verified.ok) return verified.audit?.selectedQuery ?? verified.identity.itemName;
+  return verified.audit?.attemptedQueries[0]?.query ?? (ai.item_name as string | undefined) ?? null;
 }
 
 // THE single authoritative gate deciding whether a scanned item's HOT/LIST/SKIP
@@ -249,15 +259,6 @@ export function resolveScanResultCore(
   settings: Settings,
   shipForCalc: number,
 ): ScanResultCore {
-  const aiEstimate: AiMarketEstimate = {
-    avgSoldPrice: (ai.avg_sold_price as number) ?? null,
-    priceLow: (ai.price_low as number) ?? null,
-    priceHigh: (ai.price_high as number) ?? null,
-    sellThroughRate: ai.sell_through_rate != null ? r2(ai.sell_through_rate as number) : null,
-    avgDaysToSell: ai.avg_days_to_sell != null ? (ai.avg_days_to_sell as number) : null,
-    demandLevel: (ai.demand_level as DemandLevel | undefined) ?? null,
-  };
-
   if (!verified.ok) {
     return {
       decision: null, decisionAvailable: false, decisionStatus: 'insufficient_market_data',
@@ -266,8 +267,9 @@ export function resolveScanResultCore(
       feeAmount: null, shipCostAmount: null,
       maxBuyPrice: null, maxBuyPriceLimitedBy: null,
       priceLow: null, priceHigh: null, sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
-      marketDataSource: 'ai_estimate', aiEstimate,
+      marketDataSource: 'ai_estimate', aiEstimate: null,
       evidenceQuality: null, compMatchPrecision: null,
+      suggestedSearchQuery: suggestedSearchQuery(verified, ai),
     };
   }
 
@@ -291,6 +293,7 @@ export function resolveScanResultCore(
     priceLow, priceHigh, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
     marketDataSource: 'verified', aiEstimate: null,
     evidenceQuality, compMatchPrecision: verified.metrics.compMatchPrecision,
+    suggestedSearchQuery: suggestedSearchQuery(verified, ai),
   };
 }
 
@@ -339,9 +342,10 @@ async function callAnthropic(
   return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 }
 
-// Verbatim from FEATURE_TRIAGE.md P-03 (getSingleSys L4644–4663)
-function buildSinglePrompt(s: Settings): string {
-  return `You are a meticulous eBay sourcing expert with deep product knowledge. Your job is to ACCURATELY identify items and provide REALISTIC eBay sold market data — not retail prices.
+// Identification-only successor to FEATURE_TRIAGE.md P-03. Market numbers
+// are deliberately absent; verified providers own that evidence.
+function buildSinglePrompt(_s: Settings): string {
+  return `You are a meticulous product-identification expert. Your job is to ACCURATELY identify the photographed item so a separate verified-market-data system can find comparable eBay sales.
 
 IDENTIFICATION (critical):
 - Study EVERY visible detail in the photo: brand logos, model numbers on labels/tags, serial plates, color, size, design era, materials, distinctive features.
@@ -349,39 +353,30 @@ IDENTIFICATION (critical):
 - Use any text description to confirm or narrow your photo identification.
 - If you cannot identify specifics, say so clearly in confidence_reason and set confidence below 60.
 
-PRICING (critical):
-- avg_sold_price = median of recent actual eBay SOLD listings, not asking price or retail.
-- price_low/price_high = realistic 20th-80th percentile of actual sold comps.
-- sell_through_rate = % of listings that actually sell (0-100), not just views.
-- avg_days_to_sell = realistic median days from listing to sale for this specific item.
-
-This seller's fee structure: ${s.ebay_fee}% eBay fee + $${s.pkg_cost} packaging. Buyer always pays shipping.
-Minimum profitable sale for this seller: their cost + fees + $${s.min_profit} profit.
+Do not estimate prices, sell-through rate, demand, profit, ROI, or days-to-sell. Those values come only from verified marketplace evidence and deterministic code.
 
 Return ONLY valid JSON, no markdown:
-{"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","estimated_weight_lbs":number,"avg_sold_price":number,"price_low":number,"price_high":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important context about market or item"}`;
+{"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","estimated_weight_lbs":number,"confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important identification or condition context"}`;
 }
 
-// Verbatim from FEATURE_TRIAGE.md P-04 (getShelfSys L4718–4731)
-function buildShelfPrompt(s: Settings): string {
+// Identification-only successor to FEATURE_TRIAGE.md P-04.
+function buildShelfPrompt(_s: Settings): string {
   // Chapter 02 audit: AI identifies and prices items only. The seller hasn't
   // bought any of these yet, so there is no acquisition cost to reason about
   // here — profit, ROI, and the buy/skip decision are computed deterministically
   // server-side from a solved-for maximum qualifying purchase price, never
   // from an AI-estimated thrift cost.
-  return `You are a meticulous eBay sourcing expert scanning a shelf photo. Study EVERY item with care.
+  return `You are a meticulous product-identification expert scanning a shelf photo. Study EVERY item with care.
 
 For each distinct item visible:
 - Identify as specifically as possible: brand, model, type, era. Do not be generic.
 - Use all visible clues: labels, logos, colors, shapes, text, design era.
-- Provide REALISTIC eBay sold prices — actual sold comps, not retail or asking prices.
-- sell_through_rate = % of listings that actually sell (0-100), not just views.
-- avg_days_to_sell = realistic median days from listing to sale for this specific item.
+- Do not estimate price, sell-through, demand, profit, ROI, or days-to-sell. A separate verified-market-data system calculates those values.
 - Only include items you can identify with at least 40% confidence.
 - Do NOT calculate profit, ROI, or a buy/skip decision — the seller hasn't paid an acquisition price yet, and that math is computed deterministically elsewhere.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","avg_sold_price":number,"sell_through_rate":number,"avg_days_to_sell":number,"demand_level":"LOW|MEDIUM|HIGH|VERY HIGH","confidence":number,"condition_notes":"string","notes":"one sentence of context or listing considerations"}]`;
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","model_number":"string or null","confidence":number,"condition_notes":"string","notes":"one sentence of identification or condition context"}]`;
 }
 
 // Builds an IdentityCandidate from the AI scan response's identification
@@ -444,12 +439,8 @@ async function finalizeSingleOrTextScan(
   ai: Record<string, unknown>,
   acquisitionCost: number | null,
 ) {
-  // P0: attempt the verified marketplace-evidence pipeline (SoldComps sold
-  // comps + eBay Browse active listings) before falling back to the AI's own
-  // price/STR/days/demand estimate. AI never supplies these once verified
-  // data is available — only when the pipeline can't produce sufficient
-  // verified evidence does the existing (clearly-labeled) AI-estimate path
-  // run, exactly as it did before this pipeline existed.
+  // Attempt verified SoldComps + eBay Browse evidence. Failure preserves item
+  // identification but never substitutes AI-created market numbers.
   const verified = await tryVerifiedMarketData(ai, scanType === 'single' ? 'visual_ai' : 'text_inference');
   const confidence = (ai.confidence as number) ?? null;
 
@@ -460,9 +451,9 @@ async function finalizeSingleOrTextScan(
   // The single authoritative gate: HOT/LIST/SKIP, net profit, ROI, and
   // max-buy-price are computed ONLY when verified evidence is available.
   // When it isn't, `core` reports decisionAvailable:false and every
-  // authoritative field null — the AI's own estimate is carried separately
-  // in `core.aiEstimate`, informational only, never fed into this math.
+  // authoritative field null and aiEstimate remains null.
   const core = resolveScanResultCore(verified, ai, acquisitionCost, settings, shipForCalc);
+  const displayRoi = roiForDisplay(core.roi, acquisitionCost);
 
   const { data: logRow } = await supabase.from('scan_log').insert({
     user_id: userId, scan_type: scanType, decision: core.decision,
@@ -490,7 +481,7 @@ async function finalizeSingleOrTextScan(
     acquisitionCost: core.acquisitionCost,
     estimatedSell: core.estimatedSell,
     estimatedProfit: core.estimatedProfit,
-    roi: core.roi,
+    roi: displayRoi,
     feeAmount: core.feeAmount, shipCostAmount: core.shipCostAmount, pkgCost: settings.pkg_cost,
     maxBuyPrice: core.maxBuyPrice,
     maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
@@ -515,6 +506,7 @@ async function finalizeSingleOrTextScan(
     // honest evidence label instead of a blanket "VERIFIED" claim.
     evidenceQuality: core.evidenceQuality,
     compMatchPrecision: core.compMatchPrecision,
+    suggestedSearchQuery: core.suggestedSearchQuery,
     scanLogId: logRow?.id ?? null,
   };
 }
@@ -611,7 +603,7 @@ async function handleShelfScan(
     // Same single authoritative gate as single/text scan (resolveScanResultCore)
     // — a shelf item's decision/maxBuyPrice is computed only when verified
     // evidence backs it; an unverified item gets decisionAvailable:false and
-    // no HOT/LIST/SKIP, never a decision derived from the AI's own estimate.
+    // no HOT/LIST/SKIP, never a decision derived from an AI market guess.
     const core = resolveScanResultCore(verified, ai, null, settings, shipForCalc);
 
     return {
@@ -628,6 +620,7 @@ async function handleShelfScan(
       decisionReasons: core.decisionReasons,
       evidenceQuality: core.evidenceQuality,
       compMatchPrecision: core.compMatchPrecision,
+      suggestedSearchQuery: core.suggestedSearchQuery,
     };
   }));
 

@@ -21,7 +21,7 @@ function comp(overrides: Partial<SoldCompListing>): SoldCompListing {
 Deno.test("median — odd comp count", () => {
   const stats = computeSoldPriceStats([comp({ soldPrice: 10 }), comp({ soldPrice: 20 }), comp({ soldPrice: 30 })]);
   assertEquals(stats.medianSoldPrice, 20);
-  assertEquals(stats.evidenceQuality, 'moderate');
+  assertEquals(stats.evidenceQuality, 'weak');
 });
 
 Deno.test("Best Offer accepted comps excluded from price stats, still counted", () => {
