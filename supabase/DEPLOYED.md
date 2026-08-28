@@ -36,3 +36,40 @@ source completeness). v85 is the dependency-complete, verified version.
 Diagnostic functions `ebay-marketplace-insights-diagnostic` and `ebay-diag`
 were intentionally left untouched — not part of the normal repo-managed
 application tree, and this task did not authorize deleting or redeploying them.
+
+## claude-proxy redeploy — 2026-08-28
+
+`main` had advanced past the P0 remediation deploy above (PR #142, commit
+`02cfb90`, "decision integrity Release A") without a corresponding Supabase
+deploy — `claude-proxy` was still running v86 (the P0-remediation-only
+build), missing the Release A fix (`ebayBrowse.ts` failure-vs-zero,
+`decisionEngine.ts` weak-evidence-caps-HOT, `evidenceQuality`/
+`compMatchPrecision` wired into the scan response). Redeployed via
+`mcp__Supabase__deploy_edge_function` with the same 21-file dependency
+closure pattern as the P0 entry above (hand-traced from
+`claude-proxy/index.ts`'s imports — Python-verified this session, exact same
+21 files as before).
+
+| Function | Deployed Git SHA | Old Live Version | New Live Version | Deployed At (UTC) |
+|---|---|---:|---:|---|
+| claude-proxy | `37528eca81c9b15dd58e3ee104210ca7676390d5` | 86 | 87 | 2026-08-28T15:21:35Z |
+
+Post-deploy verification (fetched live bundle via `mcp__Supabase__get_edge_function`):
+`evidenceQuality` present (21 occurrences), `hotCappedByEvidence` present (3),
+`compMatchPrecision` present (9), the fabricated-zero pattern
+`matchingActiveCount: 0` absent (0 occurrences — confirms `ebayBrowse.ts`'s
+failure path now returns `null`, not a fabricated zero), dead pre-Chapter-02
+markers `getDecision(`/`estimatedCost = r2` both absent. `verify_jwt`
+preserved as `false` (unchanged — same in-body cookie/JWT auth model).
+
+`_shared/marketData.ts` does not appear in the bundle's returned file list —
+same harmless omission documented in the P0 entry above: every reference to
+it is a type-only import (`import type {...} from "./marketData.ts"`), which
+the bundler erases before emitting JS. It was included in the upload; its
+absence from the stored file list is not a deploy defect.
+
+No other repo-managed functions (`auth`, `stripe-checkout`, `stripe-webhook`,
+`ebay-oauth`, `cron`, `export-reminder`) were touched — `main`'s changes
+since the last full-fleet deploy were scoped to `claude-proxy` and its
+`_shared` dependencies only (verified via `git diff --stat` against the
+prior deployed SHA for `supabase/functions/`).

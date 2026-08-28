@@ -4,6 +4,67 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-28 (part 2) — deploy claude-proxy (Decision Integrity Release A) to Supabase
+
+### Context
+The previous session (below) implemented and merged Release A (PR #142,
+commit `02cfb90`) but did not deploy it — `claude-proxy` was still live at
+v86, the P0-remediation-only build (2026-08-27), missing the Release A fix
+entirely. This session's task was exactly that: deploy the merged `main`
+version of `claude-proxy` and its updated `_shared` dependencies to
+Supabase.
+
+### What was done
+Confirmed via `git diff --stat` that only `claude-proxy/index.ts`,
+`_shared/decisionEngine.ts`, and `_shared/ebayBrowse.ts` changed since the
+last full-fleet deploy (`cbddb78`, 2026-08-27) — no other repo-managed
+function needed redeploying. Computed the exact transitive dependency
+closure of `claude-proxy/index.ts` with a Python import-graph walk (not by
+hand) — 21 files, identical set to the prior P0 deploy's documented closure.
+Deployed via `mcp__Supabase__deploy_edge_function` with `verify_jwt: false`
+(unchanged from the function's existing config — not altered casually).
+
+`claude-proxy`: v86 → **v87**. Post-deploy, fetched the live bundle
+(`mcp__Supabase__get_edge_function`) and confirmed: `evidenceQuality` (21
+occurrences), `hotCappedByEvidence` (3), `compMatchPrecision` (9) all
+present; the old fabricated-zero pattern `matchingActiveCount: 0` absent (0
+occurrences); dead pre-Chapter-02 markers `getDecision(`/`estimatedCost =
+r2` both absent. `_shared/marketData.ts` doesn't appear in the bundle's
+returned file list — same harmless type-only-import erasure documented in
+the 2026-08-27 P0 entry, not a defect.
+
+### Files changed
+`supabase/DEPLOYED.md` (new entry), this file. No application code changed
+this session — deploy-only.
+
+### Testing
+Not re-run this session — the code being deployed was already tested in the
+prior session (209/209 Deno tests, 77/77 shared tests, 26/26 contract
+tests — see the entry below). Verification this session was live-bundle
+content inspection only (see above), not a fresh test run.
+
+### Assumptions made
+None beyond what the prior session already documented.
+
+### Out-of-scope findings
+None.
+
+### Product decisions needed
+None — this was a deploy of already-approved, already-merged code, not a
+behavior change.
+
+### Blockers
+None. Manual authenticated smoke test against production (already flagged
+as outstanding in the prior session's Next Task) is still not done — this
+sandbox cannot reach `*.supabase.co` for a live HTTP request, same
+limitation as every prior session.
+
+### Next task
+Manual authenticated smoke test on production (a real single-item scan
+against v87), per the prior session's Next Task item 1.
+
+---
+
 ## Session: 2026-08-28 — Decision Integrity remediation, Release A (P0 correctness stop-gap)
 
 ### Context
