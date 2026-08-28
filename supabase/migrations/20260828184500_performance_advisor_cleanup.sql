@@ -71,4 +71,4 @@ ALTER POLICY users_update_own ON public.users
   USING (id = ((SELECT current_setting('app.user_id', true)))::integer)
   WITH CHECK (id = ((SELECT current_setting('app.user_id', true)))::integer);
 
-DROP INDEX IF EXISTS public.waitlist_email_unique;
+ALTER TABLE public.waitlist DROP CONSTRAINT IF EXISTS waitlist_email_unique;
