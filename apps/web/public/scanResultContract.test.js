@@ -6,7 +6,7 @@ const { normalizeSingleScanResult, normalizeShelfScanResult, normalizeShelfScanI
 function decisionReasonsFor(decision, overrides) {
   return Object.assign({
     decision: decision, profitPass: true, roiPass: true, strPass: true, daysPass: true,
-    demandIsVeryHigh: decision === 'HOT', failingThresholds: [],
+    demandIsVeryHigh: decision === 'HOT', hotCappedByEvidence: false, failingThresholds: [],
   }, overrides || {});
 }
 
@@ -23,6 +23,7 @@ function baseSingleScan(overrides) {
     acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
     marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
     decisionReasons: decisionReasonsFor('LIST'), aiEstimate: null,
+    evidenceQuality: 'strong', compMatchPrecision: 'exact_model',
   }, overrides || {});
 }
 
@@ -47,6 +48,7 @@ function insufficientEvidenceSingleScan(overrides) {
       avgSoldPrice: 100, priceLow: 80, priceHigh: 120,
       sellThroughRate: 90, avgDaysToSell: 5, demandLevel: 'VERY HIGH',
     },
+    evidenceQuality: null, compMatchPrecision: null,
   }, overrides || {});
 }
 
@@ -119,6 +121,7 @@ function baseShelfItem(overrides) {
     sellThroughRate: 75, avgDaysToSell: 10,
     marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
     decisionReasons: decisionReasonsFor('HOT'), aiEstimate: null,
+    evidenceQuality: 'strong', compMatchPrecision: 'exact_model',
   }, overrides || {});
 }
 
@@ -133,6 +136,7 @@ function insufficientEvidenceShelfItem(overrides) {
     marketDataSource: 'ai_estimate', decisionAvailable: false, decisionStatus: 'insufficient_market_data',
     decisionReasons: null,
     aiEstimate: { avgSoldPrice: 30, priceLow: 20, priceHigh: 45, sellThroughRate: 80, avgDaysToSell: 8, demandLevel: 'HIGH' },
+    evidenceQuality: null, compMatchPrecision: null,
   }, overrides || {});
 }
 
@@ -216,4 +220,43 @@ test('normalizeShelfScanResult: verified and insufficient-evidence items coexist
 
 test('normalizeShelfScanItem: rejects decisionAvailable:false with a non-null decision', () => {
   assert.throws(() => normalizeShelfScanItem(insufficientEvidenceShelfItem({ decision: 'LIST' })), /decision/);
+});
+
+// ── Decision Integrity remediation (Release A): evidenceQuality / compMatchPrecision / hotCappedByEvidence ──
+
+test('normalizeSingleScanResult: evidenceQuality and compMatchPrecision pass through on the verified path', () => {
+  const out = normalizeSingleScanResult(baseSingleScan());
+  assert.equal(out.evidenceQuality, 'strong');
+  assert.equal(out.compMatchPrecision, 'exact_model');
+});
+
+test('normalizeSingleScanResult: evidenceQuality and compMatchPrecision are null on the unverified path', () => {
+  const out = normalizeSingleScanResult(insufficientEvidenceSingleScan());
+  assert.equal(out.evidenceQuality, null);
+  assert.equal(out.compMatchPrecision, null);
+});
+
+test('normalizeSingleScanResult: rejects an unrecognized evidenceQuality value', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ evidenceQuality: 'super-strong' })), /evidenceQuality/);
+});
+
+test('normalizeSingleScanResult: a HOT-shaped result capped to LIST by weak evidence carries hotCappedByEvidence:true', () => {
+  const out = normalizeSingleScanResult(baseSingleScan({
+    decision: 'LIST',
+    decisionReasons: decisionReasonsFor('LIST', { demandIsVeryHigh: true, hotCappedByEvidence: true }),
+    evidenceQuality: 'weak',
+  }));
+  assert.equal(out.dec, 'LIST');
+  assert.equal(out.decisionReasons.hotCappedByEvidence, true);
+  assert.equal(out.decisionReasons.demandIsVeryHigh, true);
+  assert.equal(out.evidenceQuality, 'weak');
+});
+
+test('normalizeShelfScanItem: evidence_quality/comp_match_precision map to snake_case', () => {
+  const out = normalizeShelfScanItem(baseShelfItem());
+  assert.equal(out.evidence_quality, 'strong');
+  assert.equal(out.comp_match_precision, 'exact_model');
+  const unverified = normalizeShelfScanItem(insufficientEvidenceShelfItem());
+  assert.equal(unverified.evidence_quality, null);
+  assert.equal(unverified.comp_match_precision, null);
 });

@@ -55,6 +55,7 @@ Marketing may use “LIST or PASS” as plain English; in the app, **PASS = SKIP
 | Register, login, email verify, password reset | Auth screen | Supabase Auth via `auth` edge function |
 | Single-item AI scan | Profit Scanner | Claude via `claude-proxy`; ~8s typical |
 | Shelf scan (rank all visible items) | Profit Scanner | Sorted HOT → LIST → SKIP |
+| — market evidence integrity | — | 2026-08-28 (Decision Integrity Release A): a failed eBay Browse lookup no longer counts as a verified zero-active-listing result (`ebayBrowse.ts` returns `null`, never a fabricated `matchingActiveCount: 0`); a small sold-comp sample (`evidenceQuality: 'weak'/'none'`) can no longer reach HOT (capped at LIST, `decisionReasons.hotCappedByEvidence`); UI shows `[ LIMITED EVIDENCE ]` instead of a blanket `[ VERIFIED ]` when the comp sample is thin. See `docs/HANDOFF.md` 2026-08-28 entry. Release B (real comp-matching), C (multi-stage identification), D (SoldComps pagination correctness) from the same remediation plan are not yet done. |
 | Scan decisions | HOT / LIST / SKIP | Three tiers — FLIP is retired |
 | Inventory CRUD + status tracking | Inventory | Synced to Supabase |
 | Item photos | Inventory + Photos | IndexedDB client-side; metadata on server |

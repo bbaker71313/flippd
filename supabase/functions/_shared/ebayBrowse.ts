@@ -28,11 +28,15 @@ export interface BrowseSearchParams {
   limit?: number
 }
 
-const EMPTY_EVIDENCE: ActiveMarketEvidence = {
-  matchingActiveCount: 0, sampledListings: [], askingPriceLow: null, askingPriceHigh: null,
-};
-
-export async function searchActiveListings(params: BrowseSearchParams): Promise<ActiveMarketEvidence> {
+// A `null` return means the active-market count is UNKNOWN (Browse call
+// failed, timed out, rate-limited, or returned a malformed body) — it must
+// never be treated as a verified zero. Only a body that actually parsed
+// (even with itemSummaries/total legitimately absent/0) produces a real
+// ActiveMarketEvidence with matchingActiveCount: 0. Conflating the two was
+// the P0 defect that let a failed Browse lookup masquerade as "zero
+// competition", inflating STR to 100% and turnover to 0 days downstream in
+// marketDataPipeline.ts/marketMetrics.ts.
+export async function searchActiveListings(params: BrowseSearchParams): Promise<ActiveMarketEvidence | null> {
   try {
     const token = await getEbayAppAccessToken();
     const qs = new URLSearchParams({ q: params.query, limit: String(params.limit ?? 20) });
@@ -49,8 +53,11 @@ export async function searchActiveListings(params: BrowseSearchParams): Promise<
       { timeoutMs: 10_000, maxRetries: 2 },
       (r) => r.json() as Promise<{ itemSummaries?: BrowseItemSummary[]; total?: number }>,
     ).catch(() => null);
-    if (!data) return EMPTY_EVIDENCE;
+    // externalCall failed (HTTP error / timeout / rate limit after retries) or
+    // the body wasn't valid JSON — active count is unknown, not zero.
+    if (!data) return null;
     const items = data.itemSummaries ?? [];
+    if (!Array.isArray(items)) return null; // malformed provider response
 
     const sampledListings: ActiveListingSummary[] = items
       .filter(i => i.itemId && i.price?.value)
@@ -76,6 +83,6 @@ export async function searchActiveListings(params: BrowseSearchParams): Promise<
     };
   } catch (err) {
     if (err instanceof EbayAppAuthError) throw err;
-    return EMPTY_EVIDENCE;
+    return null; // unexpected failure — unknown, never a fabricated zero
   }
 }

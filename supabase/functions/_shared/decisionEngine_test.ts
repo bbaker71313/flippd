@@ -50,3 +50,37 @@ Deno.test("boundary — profit exactly at minProfit passes, one cent below fails
   assertEquals(decide({ ...BASE, netProfit: 15, minProfit: 15 }).profitPass, true);
   assertEquals(decide({ ...BASE, netProfit: 14.99, minProfit: 15 }).profitPass, false);
 });
+
+// Decision Integrity remediation (Release A): weak/none evidenceQuality caps
+// an otherwise-HOT decision at LIST — a small sold-comp sample must never
+// carry the same authority as a large one.
+Deno.test("weak evidenceQuality caps an otherwise-HOT decision at LIST", () => {
+  const r = decide({ ...BASE, evidenceQuality: "weak" });
+  assertEquals(r.decision, "LIST");
+  assertEquals(r.demandIsVeryHigh, true);
+  assertEquals(r.hotCappedByEvidence, true);
+  assertEquals(r.failingThresholds.length, 0);
+});
+
+Deno.test("none evidenceQuality caps an otherwise-HOT decision at LIST", () => {
+  const r = decide({ ...BASE, evidenceQuality: "none" });
+  assertEquals(r.decision, "LIST");
+  assertEquals(r.hotCappedByEvidence, true);
+});
+
+Deno.test("moderate/strong evidenceQuality does not cap HOT", () => {
+  assertEquals(decide({ ...BASE, evidenceQuality: "moderate" }).decision, "HOT");
+  assertEquals(decide({ ...BASE, evidenceQuality: "strong" }).decision, "HOT");
+  assertEquals(decide({ ...BASE, evidenceQuality: "strong" }).hotCappedByEvidence, false);
+});
+
+Deno.test("omitted evidenceQuality is unrestricted (backward compatible) — still reaches HOT", () => {
+  const r = decide(BASE);
+  assertEquals(r.decision, "HOT");
+  assertEquals(r.hotCappedByEvidence, false);
+});
+
+Deno.test("weak evidenceQuality does not turn a LIST into a SKIP, and does not affect a genuine SKIP", () => {
+  assertEquals(decide({ ...BASE, demandLevel: "HIGH", evidenceQuality: "weak" }).decision, "LIST");
+  assertEquals(decide({ ...BASE, netProfit: 0, evidenceQuality: "weak" }).decision, "SKIP");
+});

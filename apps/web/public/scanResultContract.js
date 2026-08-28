@@ -35,6 +35,7 @@
   var VALID_DECISIONS = ['HOT', 'LIST', 'SKIP'];
   var VALID_DEMAND_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'];
   var VALID_DECISION_STATUSES = ['ok', 'insufficient_market_data'];
+  var VALID_EVIDENCE_QUALITIES = ['strong', 'moderate', 'weak', 'none'];
 
   function fail(field, expected, value) {
     throw new Error('scanResultContract: ' + field + ' must be ' + expected + ', got ' + JSON.stringify(value));
@@ -93,6 +94,15 @@
     return v;
   }
 
+  // Decision Integrity remediation (Release A): comp-sample-size evidence
+  // quality (see marketMetrics.ts computeSoldPriceStats). Nullable — null
+  // whenever no verified metrics exist (marketDataSource is 'ai_estimate').
+  function asEvidenceQuality(v, field) {
+    if (v === null || v === undefined) return null;
+    if (VALID_EVIDENCE_QUALITIES.indexOf(v) === -1) fail(field, "'strong'/'moderate'/'weak'/'none' or null", v);
+    return v;
+  }
+
   // The deterministic decisionEngine.ts DecisionResult object (decision +
   // each threshold's pass/fail + failingThresholds) — null when no
   // authoritative decision was made (insufficient verified evidence). This
@@ -111,6 +121,10 @@
       strPass: asBoolean(v.strPass, field + '.strPass'),
       daysPass: asBoolean(v.daysPass, field + '.daysPass'),
       demandIsVeryHigh: asBoolean(v.demandIsVeryHigh, field + '.demandIsVeryHigh'),
+      // Decision Integrity remediation (Release A): true when a HOT-shaped
+      // result (all thresholds passed, demand VERY HIGH) was capped to LIST
+      // because the sold-comp sample was too small to trust at HOT authority.
+      hotCappedByEvidence: asBoolean(v.hotCappedByEvidence, field + '.hotCappedByEvidence'),
       failingThresholds: asStringArray(v.failingThresholds, field + '.failingThresholds'),
     };
   }
@@ -195,6 +209,8 @@
       decisionStatus: decisionStatus,
       decisionReasons: asDecisionReasons(r.decisionReasons, 'decisionReasons'),
       aiEstimate: asAiEstimate(r.aiEstimate, 'aiEstimate'),
+      evidenceQuality: asEvidenceQuality(r.evidenceQuality, 'evidenceQuality'),
+      compMatchPrecision: asString(r.compMatchPrecision, 'compMatchPrecision', null),
     };
   }
 
@@ -227,6 +243,8 @@
       decision_status: decisionStatus,
       decision_reasons: asDecisionReasons(i.decisionReasons, 'decisionReasons'),
       ai_estimate: asAiEstimate(i.aiEstimate, 'aiEstimate'),
+      evidence_quality: asEvidenceQuality(i.evidenceQuality, 'evidenceQuality'),
+      comp_match_precision: asString(i.compMatchPrecision, 'compMatchPrecision', null),
     };
   }
 
