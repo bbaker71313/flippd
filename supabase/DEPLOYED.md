@@ -6,6 +6,14 @@ actually live right now, use `mcp__Supabase__list_edge_functions` (or the Supaba
 dashboard) directly; this file records what was last *deployed through a recorded
 mechanism*, which may lag a manual/ad-hoc deploy done another way.
 
+## Trawl sold-history provider — 2026-08-29
+
+`claude-proxy` was deployed through the Supabase MCP from the current 21-file
+repository dependency closure: **v90 → v91**, ACTIVE, with `verify_jwt:false`
+unchanged. Live-bundle inspection confirmed the Trawl endpoint,
+`TRAWL_API_KEY`, and the existing `SOLD_COMPS_API_KEY` configuration fallback.
+An authenticated production scan remains the final end-to-end provider check.
+
 ## P0 remediation deploy — 2026-08-27
 
 Production Supabase Edge Functions were found badly stale (see
