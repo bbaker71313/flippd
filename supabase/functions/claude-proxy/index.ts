@@ -2,11 +2,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyJWT, jwtFromCookie } from "../_shared/jwt.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { resolveScanLimit, resolveItemLimit } from "../_shared/tierCatalog.ts";
-import { calcProfit } from "../_shared/financialEngine.ts";
-import { decide, type DemandLevel, type DecisionResult, type EvidenceQuality } from "../_shared/decisionEngine.ts";
-import { calcMaxBuyPrice } from "../_shared/maxBuyPrice.ts";
+import type { DecisionResult, DemandLevel, EvidenceQuality } from "../_shared/decisionEngine.ts";
 import { resolveVerifiedMarketData } from "../_shared/marketDataPipeline.ts";
-import type { IdentityCandidate, IdentificationEvidenceKind, MarketDataResult } from "../_shared/marketData.ts";
+import { routeMarketplaces } from "../_shared/marketplaceRouter.ts";
+import { fetchMarketplaceEvidence, mapEbayResultToEvidence } from "../_shared/marketplaceProviders.ts";
+import {
+  buildMarketplaceOpportunities, selectBestMarketplace, type OpportunitySettings,
+} from "../_shared/marketplaceOpportunity.ts";
+import { totalFeePctFor } from "../_shared/marketplaceEconomics.ts";
+import { MARKETPLACE_LABELS, type MarketplaceEvidenceResult, type MarketplaceId, type MarketplaceOpportunity } from "../_shared/marketplaceTypes.ts";
+import type { IdentityCandidate, IdentificationEvidenceKind } from "../_shared/marketData.ts";
 import { computeStaleInventoryItems, type StaleCandidateRow } from "../_shared/staleInventory.ts";
 import { CLAUDE_MODEL, ANTHROPIC_MESSAGES_URL } from "../_shared/aiConfig.ts";
 
@@ -111,78 +116,70 @@ function sanitizeForPrompt(s: string, maxLen = 500): string {
   return s.replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, maxLen).trim();
 }
 
-// Chapter 02 audit: sourcing-style multipliers must not alter the user's
+// Profit Scanner v2: sourcing-style multipliers must not alter the user's
 // explicit thresholds in the authoritative decision engine. The setting is
 // kept in the UI/DB (unrelated cleanup) but is never read here.
 //
-// Result of running an item through the one authoritative decision path,
-// covering both the "cost entered" and "cost unknown" cases.
-interface ScanEconomics {
-  acquisitionCost: number | null;   // the actual entered cost, or null when left blank
-  net: number | null;               // net profit — null when cost is unknown
-  roi: number | null;               // null when cost unknown OR cost is 0
-  maxBuyPrice: number | null;       // populated only when acquisitionCost is null
-  maxBuyPriceLimitedBy: 'minProfit' | 'targetRoi' | 'both' | 'none' | null;
-  decision: DecisionResult;
+// One scanned item's identification, the marketplaces it was routed to
+// (marketplaceRouter.ts), and each routed marketplace's evidence
+// (marketplaceProviders.ts) — the input resolveScanResultCore needs. Built
+// by resolveMarketplaceEvidenceBundle below.
+export interface MarketplaceEvidenceBundle {
+  identity: IdentityCandidate | null;
+  routedMarketplaces: MarketplaceId[];
+  evidenceByMarketplace: Partial<Record<MarketplaceId, MarketplaceEvidenceResult>>;
+  // Informational only (Profit Scanner v2 — never gates HOT/LIST/SKIP): eBay
+  // is the only marketplace that computes these, kept purely for backward
+  // compatibility with Inventory's SourcingMeta / the Listing Generator (out
+  // of scope for the scanner redesign — see CLAUDE.md hard scope boundary).
+  // Frequently null now that verified sold+active evidence is no longer a
+  // hard requirement for a decision.
+  ebayInformational: { sellThroughRate: number | null; avgDaysToSell: number | null; demandLevel: DemandLevel | null };
 }
 
-// Evaluate the deterministic financial + market qualification for one item.
-// `acquisitionCost` is the user's real entered price, or null/undefined when
-// left blank — it is NEVER invented from sale price (no avgSell*0.10).
-export function evaluateScanEconomics(
-  acquisitionCost: number | null | undefined,
-  sellPrice: number,
-  sellThroughRate: number | null,
-  daysToSell: number | null,
-  demandLevel: DemandLevel | null,
-  s: Settings,
-  shipForCalc: number,
-  // Decision Integrity remediation (Release A): comp-sample-size evidence
-  // quality (marketMetrics.ts computeSoldPriceStats). Optional — omitted for
-  // any caller that doesn't have it, which decide() treats as unrestricted.
-  evidenceQuality?: EvidenceQuality | null,
-): ScanEconomics {
-  const marketArgs = {
-    sellThroughRate, daysToSell, demandLevel, evidenceQuality,
-    minProfit: s.min_profit, targetRoi: s.target_roi,
-    minSellThroughRate: (s as unknown as { min_str?: number }).min_str ?? 0,
-    maxDaysToSell: (s as unknown as { stale_days?: number }).stale_days ?? 60,
+// Resolves identity from the AI scan's own identification fields, routes it
+// to relevant marketplaces (marketplaceRouter.ts), and fetches each routed
+// marketplace's evidence (marketplaceProviders.ts) — eBay via the real,
+// live-verified pipeline; every other marketplace via its provider-boundary
+// placeholder (task doc §9). Never throws — a hard provider outage degrades
+// to an explicit per-marketplace failure, never a fabricated fallback.
+async function resolveMarketplaceEvidenceBundle(
+  ai: Record<string, unknown>,
+  evidenceKind: IdentificationEvidenceKind,
+): Promise<MarketplaceEvidenceBundle> {
+  const noInformational: MarketplaceEvidenceBundle['ebayInformational'] = {
+    sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
   };
-
-  if (acquisitionCost !== null && acquisitionCost !== undefined && acquisitionCost >= 0) {
-    const calc = calcProfit({
-      sellPrice, cost: acquisitionCost, pkgCost: s.pkg_cost,
-      shipCost: shipForCalc, ebayFee: s.ebay_fee,
-    });
-    const decision = decide({ netProfit: calc.net, roi: calc.roi, ...marketArgs });
-    return {
-      acquisitionCost, net: calc.net, roi: calc.roi,
-      maxBuyPrice: null, maxBuyPriceLimitedBy: null, decision,
-    };
+  const identity = identityFromAiScan(ai, evidenceKind);
+  if (!identity) {
+    return { identity: null, routedMarketplaces: [], evidenceByMarketplace: {}, ebayInformational: noInformational };
   }
 
-  // Cost left blank — solve backward for the max qualifying purchase price
-  // rather than inventing an acquisition cost.
-  const mb = calcMaxBuyPrice({
-    sellPrice, ebayFee: s.ebay_fee, pkgCost: s.pkg_cost,
-    shipCost: shipForCalc, minProfit: s.min_profit, targetRoi: s.target_roi,
-  });
-  const financialQualifies = mb.maxCost !== null;
-  // Reuse decide()'s own profit/roi comparisons to determine whether *some*
-  // positive acquisition price would clear both financial thresholds — feed
-  // it values that sit exactly at (qualifies) or just below (does not
-  // qualify) the thresholds, so the market-threshold logic (STR/days/demand)
-  // isn't duplicated a second time for this branch.
-  const decision = decide({
-    netProfit: financialQualifies ? s.min_profit : s.min_profit - 1,
-    roi: financialQualifies ? s.target_roi : null,
-    ...marketArgs,
-  });
+  const routedMarketplaces = routeMarketplaces(identity);
+
+  let ebayEvidence: MarketplaceEvidenceResult;
+  let ebayInformational: MarketplaceEvidenceBundle['ebayInformational'] = noInformational;
+  try {
+    const rawEbay = await resolveVerifiedMarketData(identity);
+    if (rawEbay.ok) {
+      ebayInformational = {
+        sellThroughRate: rawEbay.metrics.sellThroughRate,
+        avgDaysToSell: rawEbay.metrics.turnover?.marketTurnoverDays ?? null,
+        demandLevel: rawEbay.metrics.demandLevel,
+      };
+    }
+    ebayEvidence = mapEbayResultToEvidence(rawEbay);
+  } catch (err) {
+    ebayEvidence = { ok: false, marketplace: 'ebay', reason: 'PROVIDER_UNAVAILABLE', detail: err instanceof Error ? err.message : String(err) };
+  }
+
+  const otherMarketplaces = routedMarketplaces.filter((m) => m !== 'ebay');
+  const otherEvidence = await fetchMarketplaceEvidence(identity, otherMarketplaces);
+
   return {
-    acquisitionCost: null, net: null, roi: null,
-    maxBuyPrice: decision.decision === 'SKIP' ? null : mb.maxCost,
-    maxBuyPriceLimitedBy: decision.decision === 'SKIP' ? null : mb.limitedBy,
-    decision,
+    identity, routedMarketplaces,
+    evidenceByMarketplace: { ebay: ebayEvidence, ...otherEvidence },
+    ebayInformational,
   };
 }
 
@@ -198,10 +195,28 @@ interface AiMarketEstimate {
   demandLevel: DemandLevel | null;
 }
 
+// A marketplace opportunity that was NOT selected as the best one — shown to
+// the user as an alternative, with its own evidence/economics so the UI can
+// explain why the best marketplace won instead.
+export interface AlternativeMarketplace {
+  marketplace: MarketplaceId;
+  label: string;
+  evidenceQuality: EvidenceQuality;
+  priceLow: number | null;
+  priceHigh: number | null;
+  expectedSalePrice: number;
+  netProfit: number | null;
+  roi: number | null;
+  maxBuyPrice: number | null;
+  qualifies: boolean;
+  reason: string;
+}
+
 // Result of the single authoritative gate below: everything a scan response
-// needs, with every authoritative field (decision, profit, ROI, max-buy-price)
-// forced to null/unavailable whenever verified market evidence wasn't found —
-// never populated from an AI estimate.
+// needs, with every authoritative field (decision, profit, ROI, max-buy-price,
+// best marketplace) forced to null/unavailable whenever no marketplace had
+// decision-capable (strong/moderate) evidence — never populated from an AI
+// estimate, and never from weak/none evidence (LIMITED EVIDENCE).
 export interface ScanResultCore {
   decision: DecisionResult['decision'] | null;
   decisionAvailable: boolean;
@@ -217,83 +232,119 @@ export interface ScanResultCore {
   maxBuyPriceLimitedBy: 'minProfit' | 'targetRoi' | 'both' | 'none' | null;
   priceLow: number | null;
   priceHigh: number | null;
+  // Informational only (Profit Scanner v2) — see MarketplaceEvidenceBundle.
   sellThroughRate: number | null;
   avgDaysToSell: number | null;
   demandLevel: DemandLevel | null;
   marketDataSource: 'verified' | 'ai_estimate';
   aiEstimate: AiMarketEstimate | null;
-  // Decision Integrity remediation (Release A) — carried through so the UI
-  // can show an honest evidence label instead of a blanket "VERIFIED" claim,
-  // and explain a HOT capped to LIST by a small comp sample. Both null
-  // whenever marketDataSource is 'ai_estimate' (no verified metrics exist).
   evidenceQuality: EvidenceQuality | null;
   compMatchPrecision: string | null;
   suggestedSearchQuery: string | null;
+  // Profit Scanner v2: which marketplace the decision above is based on, and
+  // what else was evaluated. bestMarketplace is null exactly when
+  // decisionAvailable is false.
+  bestMarketplace: MarketplaceId | null;
+  bestMarketplaceLabel: string | null;
+  whyThisMarketplace: string | null;
+  alternativeMarketplaces: AlternativeMarketplace[];
 }
 
 export function roiForDisplay(roi: number | null, acquisitionCost: number | null): number | null {
   return acquisitionCost !== null && acquisitionCost < 1 ? null : roi;
 }
 
-function suggestedSearchQuery(verified: MarketDataResult, ai: Record<string, unknown>): string | null {
-  if (verified.ok) return verified.audit?.selectedQuery ?? verified.identity.itemName;
-  return verified.audit?.attemptedQueries[0]?.query ?? (ai.item_name as string | undefined) ?? null;
+function suggestedSearchQueryFor(bundle: MarketplaceEvidenceBundle, ai: Record<string, unknown>): string | null {
+  return bundle.identity?.itemName
+    ?? bundle.identity?.normalizedSearchTerms[0]
+    ?? (ai.item_name as string | undefined)
+    ?? null;
 }
 
-// THE single authoritative gate deciding whether a scanned item's HOT/LIST/SKIP
-// decision, net profit, ROI, and max-buy-price may be computed at all: only
-// when verified marketplace evidence (SoldComps sold comps + eBay Browse
-// active listings) is available. This is the fix for the Chapter 02
-// AI-market-authority defect — previously, when verification failed, the AI's
-// own (non-null) sell_through_rate/avg_days_to_sell/demand_level/avg_sold_price
-// were fed straight into evaluateScanEconomics()/decide(): those values are
-// never null, so they sailed straight through decide()'s null-means-missing
-// checks and could produce a fully authoritative-looking HOT/LIST/SKIP from an
-// unverified AI guess. Used by both single/text and shelf scan — one
-// implementation, not two independently-maintained copies of this rule (see
-// CLAUDE.md Anti-Drift Contract rule 11).
+function toAlternative(o: MarketplaceOpportunity): AlternativeMarketplace {
+  return {
+    marketplace: o.marketplace, label: MARKETPLACE_LABELS[o.marketplace],
+    evidenceQuality: o.evidenceQuality, priceLow: o.priceLow, priceHigh: o.priceHigh,
+    expectedSalePrice: o.expectedSalePrice, netProfit: o.economics.netProfit, roi: o.economics.roi,
+    maxBuyPrice: o.economics.maxBuyPrice, qualifies: o.qualifies, reason: o.reason,
+  };
+}
+
+// LIMITED EVIDENCE (task doc §4): identification may still be shown, but no
+// HOT/LIST/SKIP, profit, ROI, or max-buy-price is fabricated from
+// indefensible evidence.
+function noDecisionResult(
+  acquisitionCost: number | null,
+  suggestedSearchQuery: string | null,
+  alternativeMarketplaces: AlternativeMarketplace[] = [],
+): ScanResultCore {
+  return {
+    decision: null, decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+    decisionReasons: null, acquisitionCost,
+    estimatedSell: null, estimatedProfit: null, roi: null,
+    feeAmount: null, shipCostAmount: null,
+    maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+    priceLow: null, priceHigh: null, sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
+    marketDataSource: 'ai_estimate', aiEstimate: null,
+    evidenceQuality: null, compMatchPrecision: null,
+    suggestedSearchQuery,
+    bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
+    alternativeMarketplaces,
+  };
+}
+
+// THE single authoritative gate deciding whether a scanned item's HOT/LIST/
+// SKIP decision, net profit, ROI, max-buy-price, and best marketplace may be
+// computed at all: only when at least one routed marketplace produced
+// decision-capable (strong/moderate) evidence. This is the Profit Scanner v2
+// evolution of the Chapter 02 AI-market-authority fix — previously gated on
+// a single eBay-only verified/unverified boolean; now gated on the
+// marketplace opportunity engine (marketplaceOpportunity.ts) finding at
+// least one qualifying-evidence marketplace. AI-created market numbers are
+// still never fed into decisioning. Used by both single/text and shelf
+// scan — one implementation (CLAUDE.md Anti-Drift Contract rule 11).
 export function resolveScanResultCore(
-  verified: MarketDataResult,
+  bundle: MarketplaceEvidenceBundle,
   ai: Record<string, unknown>,
   acquisitionCost: number | null,
   settings: Settings,
   shipForCalc: number,
 ): ScanResultCore {
-  if (!verified.ok) {
-    return {
-      decision: null, decisionAvailable: false, decisionStatus: 'insufficient_market_data',
-      decisionReasons: null, acquisitionCost,
-      estimatedSell: null, estimatedProfit: null, roi: null,
-      feeAmount: null, shipCostAmount: null,
-      maxBuyPrice: null, maxBuyPriceLimitedBy: null,
-      priceLow: null, priceHigh: null, sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
-      marketDataSource: 'ai_estimate', aiEstimate: null,
-      evidenceQuality: null, compMatchPrecision: null,
-      suggestedSearchQuery: suggestedSearchQuery(verified, ai),
-    };
-  }
+  const suggested = suggestedSearchQueryFor(bundle, ai);
+  if (!bundle.identity) return noDecisionResult(acquisitionCost, suggested);
 
-  const avgSell = verified.metrics.soldPriceStats.medianSoldPrice as number; // non-null whenever ok:true
-  const sellThroughRate = verified.metrics.sellThroughRate;
-  const daysToSell = verified.metrics.turnover?.marketTurnoverDays ?? null;
-  const demandLevel = verified.metrics.demandLevel;
-  const priceLow = verified.metrics.soldPriceStats.soldPriceLow;
-  const priceHigh = verified.metrics.soldPriceStats.soldPriceHigh;
-  const evidenceQuality = verified.metrics.soldPriceStats.evidenceQuality;
+  const opportunitySettings: OpportunitySettings = {
+    ebayFeePct: settings.ebay_fee, pkgCost: settings.pkg_cost, shipCost: shipForCalc,
+    minProfit: settings.min_profit, targetRoi: settings.target_roi,
+  };
+  const opportunities = buildMarketplaceOpportunities(
+    bundle.evidenceByMarketplace, bundle.routedMarketplaces, acquisitionCost, opportunitySettings,
+  );
+  const best = selectBestMarketplace(opportunities);
+  if (!best) return noDecisionResult(acquisitionCost, suggested);
 
-  const econ = evaluateScanEconomics(acquisitionCost, avgSell, sellThroughRate, daysToSell, demandLevel, settings, shipForCalc, evidenceQuality);
-  const feeAmount = r2(avgSell * (settings.ebay_fee / 100));
+  const alternatives = opportunities.filter((o) => o.marketplace !== best.marketplace).map(toAlternative);
+  const bestEvidence = bundle.evidenceByMarketplace[best.marketplace];
+  const matchPrecision = bestEvidence && bestEvidence.ok ? bestEvidence.evidence.matchPrecision : null;
+  const feeAmount = r2(best.expectedSalePrice * (totalFeePctFor(best.marketplace, settings.ebay_fee) / 100));
+  const resolvedCost = (acquisitionCost !== null && acquisitionCost !== undefined && acquisitionCost >= 0) ? acquisitionCost : null;
 
   return {
-    decision: econ.decision.decision, decisionAvailable: true, decisionStatus: 'ok',
-    decisionReasons: econ.decision, acquisitionCost: econ.acquisitionCost,
-    estimatedSell: avgSell, estimatedProfit: econ.net, roi: econ.roi,
-    feeAmount, shipCostAmount: shipForCalc,
-    maxBuyPrice: econ.maxBuyPrice, maxBuyPriceLimitedBy: econ.maxBuyPriceLimitedBy,
-    priceLow, priceHigh, sellThroughRate, avgDaysToSell: daysToSell, demandLevel,
+    decision: best.decisionReasons.decision, decisionAvailable: true, decisionStatus: 'ok',
+    decisionReasons: best.decisionReasons, acquisitionCost: resolvedCost,
+    estimatedSell: best.expectedSalePrice, estimatedProfit: best.economics.netProfit, roi: best.economics.roi,
+    feeAmount, shipCostAmount: best.economics.shipCost,
+    maxBuyPrice: best.economics.maxBuyPrice, maxBuyPriceLimitedBy: best.economics.maxBuyPriceLimitedBy,
+    priceLow: best.priceLow, priceHigh: best.priceHigh,
+    sellThroughRate: bundle.ebayInformational.sellThroughRate,
+    avgDaysToSell: bundle.ebayInformational.avgDaysToSell,
+    demandLevel: bundle.ebayInformational.demandLevel,
     marketDataSource: 'verified', aiEstimate: null,
-    evidenceQuality, compMatchPrecision: verified.metrics.compMatchPrecision,
-    suggestedSearchQuery: suggestedSearchQuery(verified, ai),
+    evidenceQuality: best.evidenceQuality, compMatchPrecision: matchPrecision,
+    suggestedSearchQuery: suggested,
+    bestMarketplace: best.marketplace, bestMarketplaceLabel: MARKETPLACE_LABELS[best.marketplace],
+    whyThisMarketplace: best.reason,
+    alternativeMarketplaces: alternatives,
   };
 }
 
@@ -405,26 +456,6 @@ function identityFromAiScan(ai: Record<string, unknown>, evidence: Identificatio
   };
 }
 
-// Attempts the P0 authoritative verified-market-data pipeline for one scanned
-// item. Never throws — a hard provider outage (e.g. eBay app-token endpoint
-// down) is caught and reported as a failure result exactly like any other
-// provider failure, so a transient market-data outage degrades to the
-// existing AI-estimate path instead of failing the whole scan request.
-async function tryVerifiedMarketData(
-  ai: Record<string, unknown>,
-  evidence: IdentificationEvidenceKind,
-): Promise<MarketDataResult> {
-  const identity = identityFromAiScan(ai, evidence);
-  if (!identity) {
-    return { ok: false, reason: 'IDENTIFICATION_UNRESOLVED', detail: 'AI scan response had no usable identity fields' };
-  }
-  try {
-    return await resolveVerifiedMarketData(identity);
-  } catch (err) {
-    return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: err instanceof Error ? err.message : String(err) };
-  }
-}
-
 // Parses the AI identification/pricing JSON, evaluates the deterministic
 // financial + decision engine against it, persists a fully auditable scan_log
 // row, and returns the response shape shared by single_scan and text_scan.
@@ -439,20 +470,21 @@ async function finalizeSingleOrTextScan(
   ai: Record<string, unknown>,
   acquisitionCost: number | null,
 ) {
-  // Attempt verified SoldComps + eBay Browse evidence. Failure preserves item
+  // Resolve identity, route to relevant marketplaces, and fetch each routed
+  // marketplace's evidence. Failure/absence of evidence preserves item
   // identification but never substitutes AI-created market numbers.
-  const verified = await tryVerifiedMarketData(ai, scanType === 'single' ? 'visual_ai' : 'text_inference');
+  const bundle = await resolveMarketplaceEvidenceBundle(ai, scanType === 'single' ? 'visual_ai' : 'text_inference');
   const confidence = (ai.confidence as number) ?? null;
 
   // Seller-paid shipping cost is included only when the seller actually
   // bears it ('seller'); buyer-paid shipping contributes $0 seller cost.
   const shipForCalc = settings.shipping === 'seller' ? settings.ship_cost : 0;
 
-  // The single authoritative gate: HOT/LIST/SKIP, net profit, ROI, and
-  // max-buy-price are computed ONLY when verified evidence is available.
-  // When it isn't, `core` reports decisionAvailable:false and every
-  // authoritative field null and aiEstimate remains null.
-  const core = resolveScanResultCore(verified, ai, acquisitionCost, settings, shipForCalc);
+  // The single authoritative gate: HOT/LIST/SKIP, net profit, ROI, best
+  // marketplace, and max-buy-price are computed ONLY when at least one
+  // marketplace has decision-capable evidence. When none do, `core` reports
+  // decisionAvailable:false and every authoritative field null.
+  const core = resolveScanResultCore(bundle, ai, acquisitionCost, settings, shipForCalc);
   const displayRoi = roiForDisplay(core.roi, acquisitionCost);
 
   const { data: logRow } = await supabase.from('scan_log').insert({
@@ -467,7 +499,8 @@ async function finalizeSingleOrTextScan(
         acquisitionCost: core.acquisitionCost, maxBuyPrice: core.maxBuyPrice,
         maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
         settingsUsed: settings, marketDataSource: core.marketDataSource,
-        verifiedMarketData: verified, aiEstimate: core.aiEstimate,
+        bestMarketplace: core.bestMarketplace, routedMarketplaces: bundle.routedMarketplaces,
+        evidenceByMarketplace: bundle.evidenceByMarketplace, aiEstimate: core.aiEstimate,
         decisionReasons: core.decisionReasons,
       },
     },
@@ -507,6 +540,12 @@ async function finalizeSingleOrTextScan(
     evidenceQuality: core.evidenceQuality,
     compMatchPrecision: core.compMatchPrecision,
     suggestedSearchQuery: core.suggestedSearchQuery,
+    // Profit Scanner v2: which marketplace the decision/economics above are
+    // based on, why it won, and what other marketplaces were evaluated.
+    bestMarketplace: core.bestMarketplace,
+    bestMarketplaceLabel: core.bestMarketplaceLabel,
+    whyThisMarketplace: core.whyThisMarketplace,
+    alternativeMarketplaces: core.alternativeMarketplaces,
     scanLogId: logRow?.id ?? null,
   };
 }
@@ -593,18 +632,19 @@ async function handleShelfScan(
 
   // Shelf items are pre-purchase by definition — acquisition cost is always
   // unknown, so every item is priced via the max-qualifying-buy-price solver,
-  // never an AI-estimated thrift cost. Each item independently attempts the
-  // verified market-data pipeline before falling back to the AI's estimate —
-  // same rule as single/text scan (see finalizeSingleOrTextScan).
+  // never an AI-estimated thrift cost. Each item independently routes to
+  // relevant marketplaces and evaluates the same opportunity engine as
+  // single/text scan (see finalizeSingleOrTextScan) — one decision authority
+  // for every scan mode (task doc §19).
   const items = await Promise.all(aiItems.map(async (ai) => {
-    const verified = await tryVerifiedMarketData(ai, 'visual_ai');
+    const bundle = await resolveMarketplaceEvidenceBundle(ai, 'visual_ai');
     const confidence = (ai.confidence as number) ?? null;
 
     // Same single authoritative gate as single/text scan (resolveScanResultCore)
-    // — a shelf item's decision/maxBuyPrice is computed only when verified
-    // evidence backs it; an unverified item gets decisionAvailable:false and
-    // no HOT/LIST/SKIP, never a decision derived from an AI market guess.
-    const core = resolveScanResultCore(verified, ai, null, settings, shipForCalc);
+    // — a shelf item's decision/maxBuyPrice/best-marketplace is computed only
+    // when at least one marketplace has decision-capable evidence; otherwise
+    // decisionAvailable:false, never a decision derived from an AI market guess.
+    const core = resolveScanResultCore(bundle, ai, null, settings, shipForCalc);
 
     return {
       decision: core.decision,
@@ -616,11 +656,16 @@ async function handleShelfScan(
       conditionNotes: ai.condition_notes ?? '', notes: (ai.notes as string) ?? '',
       marketDataSource: core.marketDataSource,
       aiEstimate: core.aiEstimate,
-      verifiedMarketData: verified,
+      routedMarketplaces: bundle.routedMarketplaces,
+      evidenceByMarketplace: bundle.evidenceByMarketplace,
       decisionReasons: core.decisionReasons,
       evidenceQuality: core.evidenceQuality,
       compMatchPrecision: core.compMatchPrecision,
       suggestedSearchQuery: core.suggestedSearchQuery,
+      bestMarketplace: core.bestMarketplace,
+      bestMarketplaceLabel: core.bestMarketplaceLabel,
+      whyThisMarketplace: core.whyThisMarketplace,
+      alternativeMarketplaces: core.alternativeMarketplaces,
     };
   }));
 
@@ -633,18 +678,20 @@ async function handleShelfScan(
         settingsUsed: settings,
         items: items.map(i => ({
           itemName: i.itemName, decision: i.decision, decisionAvailable: i.decisionAvailable,
-          decisionStatus: i.decisionStatus, maxBuyPrice: i.maxBuyPrice,
-          marketDataSource: i.marketDataSource, verifiedMarketData: i.verifiedMarketData,
+          decisionStatus: i.decisionStatus, maxBuyPrice: i.maxBuyPrice, bestMarketplace: i.bestMarketplace,
+          marketDataSource: i.marketDataSource, routedMarketplaces: i.routedMarketplaces,
+          evidenceByMarketplace: i.evidenceByMarketplace,
           aiEstimate: i.aiEstimate, decisionReasons: i.decisionReasons,
         })),
       },
     },
   });
 
-  // verifiedMarketData is kept in the scan_log audit trail above (server-side
-  // forensics) but not sent to the client — same minimal response shape as
-  // before this pipeline existed, plus the existing marketDataSource field.
-  return { items: items.map(({ verifiedMarketData: _verifiedMarketData, ...i }) => i) };
+  // routedMarketplaces/evidenceByMarketplace are kept in the scan_log audit
+  // trail above (server-side forensics) but not sent to the client — same
+  // minimal response shape as before this pipeline existed, plus the
+  // existing marketDataSource/bestMarketplace fields.
+  return { items: items.map(({ routedMarketplaces: _routedMarketplaces, evidenceByMarketplace: _evidenceByMarketplace, ...i }) => i) };
 }
 
 // P1-C: one logical Save/Buy action must create at most one inventory row,

@@ -139,9 +139,21 @@ export interface MarketTurnoverEstimate {
 
 export interface MarketMetrics {
   compMatchPrecision: CompMatchPrecision | null
+  // soldPriceStats.evidenceQuality is the Profit Scanner v2 marketplace-
+  // independent decision-authority tier (evidenceQuality.ts's
+  // assessEvidenceQuality — identity-precision + active-evidence aware),
+  // NOT the plain comp-count bucketing this field's name might suggest.
   soldPriceStats: SoldPriceStats
   activeMarketEvidence: ActiveMarketEvidence | null
   turnover: MarketTurnoverEstimate | null
+  // Profit Scanner v2: sell-through rate and demand level are no longer
+  // scanner decision inputs (see decisionEngine.ts) — they were eBay-sold/
+  // active-listing-specific signals that don't generalize across
+  // marketplaces. Both fields are kept, populated best-effort and
+  // informational-only, purely for backward compatibility with Inventory's
+  // SourcingMeta / the Listing Generator (out of scope for the scanner
+  // redesign — see CLAUDE.md hard scope boundary). Never gates HOT/LIST/SKIP.
+  //
   // Approved formula (product-owner-approved 2026-08-26):
   //   STR = soldCount90d / (soldCount90d + activeCount) * 100
   // null when there is no evidence to divide (both counts zero) — never a

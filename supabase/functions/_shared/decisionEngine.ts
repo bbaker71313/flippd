@@ -3,101 +3,77 @@
 //
 // The single authoritative HOT / LIST / SKIP function for every scan mode
 // (single, text, shelf). Inputs must already be resolved — real financial
-// values from calcProfit, and market evidence. This function makes no AI
-// calls, no external calls, and never fetches user settings itself.
+// values from calcProfit for the item's BEST marketplace (chosen by
+// marketplaceOpportunity.ts), and a marketplace-independent evidence-quality
+// tier (evidenceQuality.ts) for that marketplace's evidence. This function
+// makes no AI calls, no external calls, and never fetches user settings itself.
 //
-//   HOT  = profitPass && roiPass && strPass && daysPass && demand === 'VERY HIGH' && !evidenceIsWeak
-//   LIST = profitPass && roiPass && strPass && daysPass && (demand !== 'VERY HIGH' || evidenceIsWeak)
-//   SKIP = any required threshold fails
+// Profit Scanner v2: sell-through rate, days-to-sell, and demand level are
+// removed from decision authority — they were eBay-specific signals that
+// don't generalize across marketplaces. If demand/velocity is ever surfaced
+// again, it must be informational only (see marketMetrics.ts, still used for
+// that purpose by Inventory/Listing Generator's SourcingMeta), never a
+// gating input here.
 //
-// A null market value (unavailable) fails that threshold — missing evidence
-// is not evidence of qualifying. Demand alone, or profit/ROI alone, never
-// independently trigger HOT. No sourcing-style multiplier, no AI confidence
-// substituting for a threshold.
+//   HOT  = profitPass && roiPass && evidenceQuality === 'strong'
+//   LIST = profitPass && roiPass && evidenceQuality === 'moderate'
+//   SKIP = profitPass fails or roiPass fails
+//
+// evidenceQuality here is only ever 'strong' or 'moderate' — a caller must
+// never invoke decide() with 'weak'/'none' evidence (see evidenceQuality.ts);
+// those cases short-circuit to a LIMITED EVIDENCE result before any
+// financial math or decision is computed (no fabricated HOT/LIST/SKIP, no
+// fabricated profit/ROI/max-buy-price from indefensible evidence).
 //
 // A null roi means a genuine $0 acquisition cost (see financialEngine.ts) —
 // ROI isn't a meaningful ratio for a free item, so it is neither fabricated
 // nor treated as a failure: the ROI threshold is bypassed (roiPass = true)
-// and the other thresholds stay fully authoritative.
-//
-// Decision Integrity remediation (Release A): an explicit weak/none
-// evidenceQuality (small sold-comp sample — see marketMetrics.ts
-// computeSoldPriceStats) caps the decision at LIST even when every threshold
-// passes and demand is VERY HIGH. A 1-sold/0-active result must not carry
-// the same authority as a 40-sold/0-active result. evidenceQuality is
-// optional and omitted/moderate/strong is unrestricted (unchanged behavior).
+// and the profit threshold stays fully authoritative.
 
 export type DemandLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY HIGH'
 export type ScanDecision = 'HOT' | 'LIST' | 'SKIP'
-// Same bucketing as SoldPriceStats['evidenceQuality'] in marketData.ts.
+// Full evidence-quality bucketing (evidenceQuality.ts / marketplaceTypes.ts).
+// decide() itself only ever accepts the two decision-capable tiers below —
+// 'weak'/'none' must be filtered out by the caller before reaching here.
 export type EvidenceQuality = 'strong' | 'moderate' | 'weak' | 'none'
+export type DecisiveEvidenceQuality = 'strong' | 'moderate'
 
 export interface DecisionInputs {
   netProfit: number
   roi: number | null
-  sellThroughRate: number | null
-  daysToSell: number | null
-  demandLevel: DemandLevel | null
   minProfit: number
   targetRoi: number
-  minSellThroughRate: number
-  maxDaysToSell: number
-  // Optional: comp-sample-size evidence quality (marketMetrics.ts
-  // computeSoldPriceStats). An explicit 'weak' or 'none' caps the decision
-  // at LIST even when demand is VERY HIGH — a small sold-comp sample must
-  // never carry the same authority as a large one. Omitted/null is
-  // unrestricted (no evidence-quality signal supplied), same as
-  // 'moderate'/'strong'.
-  evidenceQuality?: EvidenceQuality | null
+  evidenceQuality: DecisiveEvidenceQuality
 }
 
 export interface DecisionResult {
   decision: ScanDecision
   profitPass: boolean
   roiPass: boolean
-  strPass: boolean
-  daysPass: boolean
-  demandIsVeryHigh: boolean
-  // True when every required threshold passed and demand was VERY HIGH, but
-  // weak/none evidenceQuality capped the decision at LIST instead of HOT.
-  hotCappedByEvidence: boolean
   failingThresholds: string[]
 }
 
 export function decide(inputs: DecisionInputs): DecisionResult {
-  const {
-    netProfit, roi, sellThroughRate, daysToSell, demandLevel,
-    minProfit, targetRoi, minSellThroughRate, maxDaysToSell, evidenceQuality,
-  } = inputs
+  const { netProfit, roi, minProfit, targetRoi, evidenceQuality } = inputs
 
   const profitPass = netProfit >= minProfit
   // null roi = $0 acquisition cost: bypass, don't fail (see comment above)
   const roiPass = roi === null ? true : roi >= targetRoi
-  const strPass = sellThroughRate !== null && sellThroughRate >= minSellThroughRate
-  const daysPass = daysToSell !== null && daysToSell <= maxDaysToSell
-  const demandIsVeryHigh = demandLevel === 'VERY HIGH'
-  // A small comp sample must never carry the same authority as a large one
-  // (Decision Integrity remediation §8/§9): weak/none evidence can never
-  // produce HOT, regardless of how strong the demand signal looks.
-  const evidenceIsWeak = evidenceQuality === 'weak' || evidenceQuality === 'none'
 
   const failingThresholds: string[] = []
   if (!profitPass) failingThresholds.push('profit')
   if (!roiPass) failingThresholds.push('roi')
-  if (!strPass) failingThresholds.push('sellThroughRate')
-  if (!daysPass) failingThresholds.push('daysToSell')
 
-  const allRequiredPass = profitPass && roiPass && strPass && daysPass
-  const hotCappedByEvidence = allRequiredPass && demandIsVeryHigh && evidenceIsWeak
+  const allRequiredPass = profitPass && roiPass
 
   let decision: ScanDecision
   if (!allRequiredPass) {
     decision = 'SKIP'
-  } else if (demandIsVeryHigh && !evidenceIsWeak) {
+  } else if (evidenceQuality === 'strong') {
     decision = 'HOT'
   } else {
     decision = 'LIST'
   }
 
-  return { decision, profitPass, roiPass, strPass, daysPass, demandIsVeryHigh, hotCappedByEvidence, failingThresholds }
+  return { decision, profitPass, roiPass, failingThresholds }
 }

@@ -1,21 +1,24 @@
 // Runtime tests for the Deno decision engine. Run: `deno test supabase/functions/_shared/`
+//
+// Profit Scanner v2: sell-through rate / days-to-sell / demand level are no
+// longer decision inputs. decide() only takes netProfit/roi/minProfit/
+// targetRoi plus a decision-capable evidenceQuality ('strong'|'moderate').
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { decide, type DecisionInputs } from "./decisionEngine.ts";
 
 const BASE: DecisionInputs = {
-  netProfit: 100, roi: 250, sellThroughRate: 60, daysToSell: 20, demandLevel: "VERY HIGH",
-  minProfit: 15, targetRoi: 200, minSellThroughRate: 30, maxDaysToSell: 60,
+  netProfit: 100, roi: 250, minProfit: 15, targetRoi: 200, evidenceQuality: "strong",
 };
 
-Deno.test("all thresholds passing + VERY HIGH demand -> HOT", () => {
+Deno.test("strong evidence + profit pass + roi pass -> HOT", () => {
   assertEquals(decide(BASE).decision, "HOT");
 });
 
-Deno.test("HIGH demand (not VERY HIGH) -> LIST", () => {
-  assertEquals(decide({ ...BASE, demandLevel: "HIGH" }).decision, "LIST");
+Deno.test("moderate evidence -> LIST, never HOT", () => {
+  assertEquals(decide({ ...BASE, evidenceQuality: "moderate" }).decision, "LIST");
 });
 
-Deno.test("demand alone never triggers HOT without financial thresholds", () => {
+Deno.test("evidence quality alone never triggers HOT without financial thresholds", () => {
   assertEquals(decide({ ...BASE, netProfit: 5 }).decision, "SKIP");
 });
 
@@ -27,13 +30,13 @@ Deno.test("roi null ($0 acquisition cost) bypasses ROI threshold — not an auto
   assertEquals(r.decision, "HOT");
 });
 
-Deno.test("$0-cost item passing every other required threshold qualifies as HOT", () => {
-  const r = decide({ ...BASE, roi: null, demandLevel: "VERY HIGH" });
+Deno.test("$0-cost item passing profit qualifies as HOT with strong evidence", () => {
+  const r = decide({ ...BASE, roi: null });
   assertEquals(r.decision, "HOT");
 });
 
-Deno.test("$0-cost item still SKIPs when another required threshold fails", () => {
-  const r = decide({ ...BASE, roi: null, sellThroughRate: 0 });
+Deno.test("$0-cost item still SKIPs when profit fails", () => {
+  const r = decide({ ...BASE, roi: null, netProfit: 0 });
   assertEquals(r.decision, "SKIP");
 });
 
@@ -41,46 +44,26 @@ Deno.test("normal nonzero-cost ROI threshold behavior is unchanged", () => {
   assertEquals(decide({ ...BASE, roi: 199.99, targetRoi: 200 }).decision, "SKIP");
 });
 
-Deno.test("missing market evidence fails those thresholds, not fabricated as passing", () => {
-  const r = decide({ ...BASE, sellThroughRate: null, daysToSell: null, demandLevel: null });
-  assertEquals(r.decision, "SKIP");
-});
-
 Deno.test("boundary — profit exactly at minProfit passes, one cent below fails", () => {
   assertEquals(decide({ ...BASE, netProfit: 15, minProfit: 15 }).profitPass, true);
   assertEquals(decide({ ...BASE, netProfit: 14.99, minProfit: 15 }).profitPass, false);
 });
 
-// Decision Integrity remediation (Release A): weak/none evidenceQuality caps
-// an otherwise-HOT decision at LIST — a small sold-comp sample must never
-// carry the same authority as a large one.
-Deno.test("weak evidenceQuality caps an otherwise-HOT decision at LIST", () => {
-  const r = decide({ ...BASE, evidenceQuality: "weak" });
+Deno.test("moderate evidence caps at LIST even with large profit/roi margin", () => {
+  const r = decide({ ...BASE, evidenceQuality: "moderate" });
   assertEquals(r.decision, "LIST");
-  assertEquals(r.demandIsVeryHigh, true);
-  assertEquals(r.hotCappedByEvidence, true);
   assertEquals(r.failingThresholds.length, 0);
 });
 
-Deno.test("none evidenceQuality caps an otherwise-HOT decision at LIST", () => {
-  const r = decide({ ...BASE, evidenceQuality: "none" });
-  assertEquals(r.decision, "LIST");
-  assertEquals(r.hotCappedByEvidence, true);
+Deno.test("moderate evidence does not turn a LIST into a SKIP, and does not affect a genuine SKIP", () => {
+  assertEquals(decide({ ...BASE, evidenceQuality: "moderate" }).decision, "LIST");
+  assertEquals(decide({ ...BASE, netProfit: 0, evidenceQuality: "moderate" }).decision, "SKIP");
 });
 
-Deno.test("moderate/strong evidenceQuality does not cap HOT", () => {
-  assertEquals(decide({ ...BASE, evidenceQuality: "moderate" }).decision, "HOT");
-  assertEquals(decide({ ...BASE, evidenceQuality: "strong" }).decision, "HOT");
-  assertEquals(decide({ ...BASE, evidenceQuality: "strong" }).hotCappedByEvidence, false);
-});
-
-Deno.test("omitted evidenceQuality is unrestricted (backward compatible) — still reaches HOT", () => {
+Deno.test("result shape has no sell-through/days/demand fields", () => {
   const r = decide(BASE);
-  assertEquals(r.decision, "HOT");
-  assertEquals(r.hotCappedByEvidence, false);
-});
-
-Deno.test("weak evidenceQuality does not turn a LIST into a SKIP, and does not affect a genuine SKIP", () => {
-  assertEquals(decide({ ...BASE, demandLevel: "HIGH", evidenceQuality: "weak" }).decision, "LIST");
-  assertEquals(decide({ ...BASE, netProfit: 0, evidenceQuality: "weak" }).decision, "SKIP");
+  assertEquals("strPass" in r, false);
+  assertEquals("daysPass" in r, false);
+  assertEquals("demandIsVeryHigh" in r, false);
+  assertEquals("hotCappedByEvidence" in r, false);
 });

@@ -112,10 +112,18 @@ export function selectComparableSoldComps(
   return { retained, excluded }
 }
 
-export function isCoherentPriceSet(comps: SoldCompListing[]): boolean {
-  if (comps.length < 3) return false
-  const prices = comps.map(comp => comp.soldPrice).sort((a, b) => a - b)
-  const p20 = prices[Math.floor((prices.length - 1) * 0.20)]
-  const p80 = prices[Math.floor((prices.length - 1) * 0.80)]
+// Generic p20/p80 spread coherence check — used for sold-comp prices
+// (isCoherentPriceSet below) and, by marketDataPipeline.ts, for active-market
+// asking-price evidence (Profit Scanner v2 evidence-quality assessment).
+// Prices don't need to be sorted on input.
+export function isCoherentPriceSpread(prices: number[]): boolean {
+  if (prices.length < 3) return false
+  const sorted = [...prices].sort((a, b) => a - b)
+  const p20 = sorted[Math.floor((sorted.length - 1) * 0.20)]
+  const p80 = sorted[Math.floor((sorted.length - 1) * 0.80)]
   return Number.isFinite(p20) && Number.isFinite(p80) && p20 > 0 && p80 / p20 <= 6
+}
+
+export function isCoherentPriceSet(comps: SoldCompListing[]): boolean {
+  return isCoherentPriceSpread(comps.map(comp => comp.soldPrice))
 }
