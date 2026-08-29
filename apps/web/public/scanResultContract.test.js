@@ -3,10 +3,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeSingleScanResult, normalizeShelfScanResult, normalizeShelfScanItem } = require('./scanResultContract.js');
 
+// Profit Scanner v2: decisionEngine.ts's DecisionResult no longer carries
+// strPass/daysPass/demandIsVeryHigh/hotCappedByEvidence — sell-through-rate/
+// days-to-sell/demand-level are informational only now, never decision inputs.
 function decisionReasonsFor(decision, overrides) {
   return Object.assign({
-    decision: decision, profitPass: true, roiPass: true, strPass: true, daysPass: true,
-    demandIsVeryHigh: decision === 'HOT', hotCappedByEvidence: false, failingThresholds: [],
+    decision: decision, profitPass: true, roiPass: true, failingThresholds: [],
   }, overrides || {});
 }
 
@@ -24,11 +26,15 @@ function baseSingleScan(overrides) {
     marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
     decisionReasons: decisionReasonsFor('LIST'), aiEstimate: null,
     evidenceQuality: 'strong', compMatchPrecision: 'exact_model', suggestedSearchQuery: 'minolta x 700',
+    bestMarketplace: 'ebay', bestMarketplaceLabel: 'eBay',
+    whyThisMarketplace: 'Strong verified evidence from eBay sold listings + active market data.',
+    alternativeMarketplaces: [],
   }, overrides || {});
 }
 
-// A scan where verified market evidence was unavailable — every authoritative
-// field is null/decisionAvailable:false. AI-created market numbers are absent.
+// A scan where no marketplace had decision-capable evidence — every
+// authoritative field is null/decisionAvailable:false. AI-created market
+// numbers are absent.
 function insufficientEvidenceSingleScan(overrides) {
   return Object.assign({
     itemName: 'Minolta X-700 35mm SLR Film Camera',
@@ -44,6 +50,8 @@ function insufficientEvidenceSingleScan(overrides) {
     decisionReasons: null,
     aiEstimate: null,
     evidenceQuality: null, compMatchPrecision: null, suggestedSearchQuery: 'minolta x 700',
+    bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
+    alternativeMarketplaces: [],
   }, overrides || {});
 }
 
@@ -117,10 +125,14 @@ function baseShelfItem(overrides) {
     marketDataSource: 'verified', decisionAvailable: true, decisionStatus: 'ok',
     decisionReasons: decisionReasonsFor('HOT'), aiEstimate: null,
     evidenceQuality: 'strong', compMatchPrecision: 'exact_model',
+    bestMarketplace: 'ebay', bestMarketplaceLabel: 'eBay',
+    whyThisMarketplace: 'Strong verified evidence from eBay sold listings + active market data.',
+    alternativeMarketplaces: [],
   }, overrides || {});
 }
 
-// Mirrors an unverified shelf item — see insufficientEvidenceSingleScan above.
+// Mirrors an item with no decision-capable evidence — see
+// insufficientEvidenceSingleScan above.
 function insufficientEvidenceShelfItem(overrides) {
   return Object.assign({
     itemName: 'Unmarked Ceramic Vase', avgSoldPrice: null,
@@ -132,6 +144,8 @@ function insufficientEvidenceShelfItem(overrides) {
     decisionReasons: null,
     aiEstimate: { avgSoldPrice: 30, priceLow: 20, priceHigh: 45, sellThroughRate: 80, avgDaysToSell: 8, demandLevel: 'HIGH' },
     evidenceQuality: null, compMatchPrecision: null,
+    bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
+    alternativeMarketplaces: [],
   }, overrides || {});
 }
 
@@ -176,6 +190,7 @@ test('normalizeSingleScanResult: insufficient-evidence scan is a valid, distinct
   assert.equal(out.aiEstimate, null); // no AI-created numerical market fallback
   assert.equal(out.suggestedSearchQuery, 'minolta x 700');
   assert.equal(out.item.avg_sold_price, null); // never merged into the authoritative item fields
+  assert.equal(out.bestMarketplace, null);
 });
 
 test('normalizeSingleScanResult: rejects decisionAvailable:true with a null decision (malformed combination)', () => {
@@ -216,7 +231,7 @@ test('normalizeShelfScanItem: rejects decisionAvailable:false with a non-null de
   assert.throws(() => normalizeShelfScanItem(insufficientEvidenceShelfItem({ decision: 'LIST' })), /decision/);
 });
 
-// ── Decision Integrity remediation (Release A): evidenceQuality / compMatchPrecision / hotCappedByEvidence ──
+// ── Decision Integrity: evidenceQuality / compMatchPrecision ──
 
 test('normalizeSingleScanResult: evidenceQuality and compMatchPrecision pass through on the verified path', () => {
   const out = normalizeSingleScanResult(baseSingleScan());
@@ -234,18 +249,6 @@ test('normalizeSingleScanResult: rejects an unrecognized evidenceQuality value',
   assert.throws(() => normalizeSingleScanResult(baseSingleScan({ evidenceQuality: 'super-strong' })), /evidenceQuality/);
 });
 
-test('normalizeSingleScanResult: a HOT-shaped result capped to LIST by weak evidence carries hotCappedByEvidence:true', () => {
-  const out = normalizeSingleScanResult(baseSingleScan({
-    decision: 'LIST',
-    decisionReasons: decisionReasonsFor('LIST', { demandIsVeryHigh: true, hotCappedByEvidence: true }),
-    evidenceQuality: 'weak',
-  }));
-  assert.equal(out.dec, 'LIST');
-  assert.equal(out.decisionReasons.hotCappedByEvidence, true);
-  assert.equal(out.decisionReasons.demandIsVeryHigh, true);
-  assert.equal(out.evidenceQuality, 'weak');
-});
-
 test('normalizeShelfScanItem: evidence_quality/comp_match_precision map to snake_case', () => {
   const out = normalizeShelfScanItem(baseShelfItem());
   assert.equal(out.evidence_quality, 'strong');
@@ -253,4 +256,57 @@ test('normalizeShelfScanItem: evidence_quality/comp_match_precision map to snake
   const unverified = normalizeShelfScanItem(insufficientEvidenceShelfItem());
   assert.equal(unverified.evidence_quality, null);
   assert.equal(unverified.comp_match_precision, null);
+});
+
+// ── Profit Scanner v2: bestMarketplace / alternativeMarketplaces ──
+
+test('normalizeSingleScanResult: bestMarketplace/label/reason pass through on the verified path', () => {
+  const out = normalizeSingleScanResult(baseSingleScan());
+  assert.equal(out.bestMarketplace, 'ebay');
+  assert.equal(out.bestMarketplaceLabel, 'eBay');
+  assert.equal(typeof out.whyThisMarketplace, 'string');
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:true with a null bestMarketplace', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ bestMarketplace: null })), /bestMarketplace/);
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:false with a non-null bestMarketplace', () => {
+  assert.throws(() => normalizeSingleScanResult(insufficientEvidenceSingleScan({ bestMarketplace: 'ebay' })), /bestMarketplace/);
+});
+
+test('normalizeSingleScanResult: rejects an unrecognized marketplace id', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ bestMarketplace: 'craigslist' })), /bestMarketplace/);
+});
+
+test('normalizeSingleScanResult: alternativeMarketplaces maps to snake_case, defaults to empty array', () => {
+  const out = normalizeSingleScanResult(baseSingleScan({
+    alternativeMarketplaces: [{
+      marketplace: 'etsy', label: 'Etsy', evidenceQuality: 'moderate',
+      priceLow: 40, priceHigh: 60, expectedSalePrice: 50, netProfit: 30,
+      roi: 150, maxBuyPrice: null, qualifies: false, reason: 'Moderate evidence; ROI below target.',
+    }],
+  }));
+  assert.equal(out.alternativeMarketplaces.length, 1);
+  assert.equal(out.alternativeMarketplaces[0].marketplace, 'etsy');
+  assert.equal(out.alternativeMarketplaces[0].expected_sale_price, 50);
+  assert.equal(out.alternativeMarketplaces[0].qualifies, false);
+
+  const withoutAlts = normalizeSingleScanResult(baseSingleScan({ alternativeMarketplaces: undefined }));
+  assert.deepEqual(withoutAlts.alternativeMarketplaces, []);
+});
+
+test('normalizeSingleScanResult: rejects an alternative marketplace entry with an invalid marketplace id', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({
+    alternativeMarketplaces: [{ marketplace: 'not-real', label: '', evidenceQuality: 'weak', priceLow: null, priceHigh: null, expectedSalePrice: 10, netProfit: null, roi: null, maxBuyPrice: null, qualifies: false, reason: '' }],
+  })), /marketplace/);
+});
+
+test('normalizeShelfScanItem: best_marketplace/alternative_marketplaces map to snake_case', () => {
+  const out = normalizeShelfScanItem(baseShelfItem());
+  assert.equal(out.best_marketplace, 'ebay');
+  assert.equal(out.best_marketplace_label, 'eBay');
+  assert.deepEqual(out.alternative_marketplaces, []);
+  const unverified = normalizeShelfScanItem(insufficientEvidenceShelfItem());
+  assert.equal(unverified.best_marketplace, null);
 });

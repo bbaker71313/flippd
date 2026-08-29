@@ -4,6 +4,52 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-29 (part 2) — Profit Scanner v2 (cross-market resale opportunity architecture)
+
+### Context
+The product owner supplied a detailed implementation spec (`SFP_PROFIT_SCANNER_V2_IMPLEMENTATION_PROMPT.md`) redesigning the Profit Scanner from an eBay sell-through scanner into a cross-market resale opportunity engine. This explicitly supersedes the STR/demand-gating decisions locked 2026-08-26/2026-08-28 for the scanner's decision authority specifically — see `docs/files/DECISIONS.md`'s new "Profit Scanner v2" entry for the full supersession note. Scope was held strictly to the Profit Scanner per the task's hard boundary — Inventory, Photos/Listing Generator, Profit Compass, Profit Hub, billing, auth, and eBay listing sync were not touched.
+
+### What changed
+- **Decision engine rewrite** (`packages/shared/src/utils/decisionEngine.ts` + Deno mirror + `types/index.ts`): `decide()` now takes `netProfit`/`roi`/`minProfit`/`targetRoi`/`evidenceQuality` only. `HOT` = profit+ROI pass and evidence is `strong`; `LIST` = profit+ROI pass and evidence is `moderate`; `SKIP` = either fails. Sell-through-rate, days-to-sell, demand-level, and the old `hotCappedByEvidence` comp-count cap are gone from the decision contract.
+- **New evidence-quality engine** (`evidenceQuality.ts` + tests): a marketplace-independent STRONG/MODERATE/WEAK/NONE assessment factoring identity-match precision (exact vs. product-family/substitute) and active-market support, replacing the old comp-count-only bucketing for the scanner's decision path (the old bucketing, `marketMetrics.ts`'s `evidenceQualityFromCompCount`, is untouched and still feeds `SoldPriceStats.evidenceQuality` for price-stats display).
+- **`marketDataPipeline.ts` rewrite**: eBay active-listing evidence is no longer a hard requirement for a decision — strong sold evidence alone qualifies now; active-only evidence can independently support `moderate`. Weak evidence returns a new `EVIDENCE_TOO_WEAK` reason (distinct from `INSUFFICIENT_VERIFIED_MARKET_DATA` for zero evidence) so the "what was observed" detail is honest. STR/turnover/demand are computed only when both sold and active evidence exist and are now purely informational (see below).
+- **New marketplace architecture** (`marketplaceTypes.ts`, `marketplaceRouter.ts`, `marketplaceProviders.ts`, `marketplaceEconomics.ts`, `marketplaceOpportunity.ts`, all with tests): a category-aware router picks relevant marketplaces (eBay always; Etsy/Reverb/Discogs/Poshmark/Mercari/Amazon/Facebook-local by keyword fit); eBay is wired to the real pipeline; every other marketplace is an explicit `NOT_CONFIGURED` provider-boundary placeholder (no official API credentials exist in this environment — never scraped, never fabricated); a fee-profile table (approximate flat percentages, eBay still using the user's configured `ebayFee`) drives marketplace-specific net profit/ROI/max-buy-price (reusing `calcProfit`/`calcMaxBuyPrice` unchanged); the opportunity engine selects the best marketplace by qualifying-first, then evidence tier, then net profit — never gross asking price. Facebook/local borrows valuation from the best other opportunity and applies $0-fee/no-shipping economics.
+- **`claude-proxy/index.ts` rewire**: `evaluateScanEconomics`/`tryVerifiedMarketData`/the raw-`MarketDataResult`-based `resolveScanResultCore` are replaced by `resolveMarketplaceEvidenceBundle` (routes + fetches all marketplace evidence) and a `MarketplaceEvidenceBundle`-based `resolveScanResultCore` (builds opportunities, selects best, returns `bestMarketplace`/`bestMarketplaceLabel`/`whyThisMarketplace`/`alternativeMarketplaces` alongside the existing fields). Single/text and shelf scan share the same one gate, as before. `sellThroughRate`/`avgDaysToSell`/`demandLevel` are still returned (from eBay's own metrics specifically, when available) purely for Inventory's `SourcingMeta`/Listing Generator backward compatibility — never used for decisioning.
+- **Weak/none evidence is now LIMITED EVIDENCE** (`decisionAvailable:false`), reusing the existing "no verified recommendation" wire shape and UI path — the old "cap an otherwise-HOT result to LIST" mechanism is removed entirely.
+- **`scanResultContract.js`**: `decisionReasons` validator updated to the smaller `DecisionResult` shape; added `bestMarketplace`/`bestMarketplaceLabel`/`whyThisMarketplace`/`alternativeMarketplaces` validators with the same "consistent with decisionAvailable" guard used for `decision`.
+- **`app.html`**: single-scan result now shows a "Best Market" card and an "Other Options" alternatives list; the LIMITED EVIDENCE state ("NO VERIFIED RECOMMENDATION"/"INSUFFICIENT EVIDENCE" copy) is relabeled "LIMITED EVIDENCE" to match the new terminology; shelf scan shows `[VERIFIED · <marketplace>]` and "Best: <marketplace>"; the SKIP explanation and Market Signals card no longer reference sell-through-rate/days-to-sell as decision thresholds (relabeled "informational").
+
+### Files changed
+`packages/shared/src/{utils/decisionEngine.ts,utils/decisionEngine.test.ts,types/index.ts,types/marketData.ts}`; `supabase/functions/_shared/{decisionEngine.ts,decisionEngine_test.ts,evidenceQuality.ts,evidenceQuality_test.ts,marketData.ts,marketDataPipeline.ts,compSelection.ts,marketplaceTypes.ts,marketplaceRouter.ts,marketplaceRouter_test.ts,marketplaceProviders.ts,marketplaceEconomics.ts,marketplaceOpportunity.ts,marketplaceOpportunity_test.ts}`; `supabase/functions/claude-proxy/{index.ts,marketAuthorityGate_test.ts}`; `apps/web/public/{app.html,scanResultContract.js,scanResultContract.test.js}`; `docs/{CURRENT_STATE.md,HANDOFF.md,files/DECISIONS.md}`.
+
+### Testing
+- `packages/shared`: `npx tsc --noEmit` clean; `node --test "src/**/*.test.ts"` — **70/70 pass**.
+- `apps/web/public`: `node --test scanResultContract.test.js` — **32/32 pass**.
+- `apps/web/public/app.html`: extracted `<script>` blocks parse with `new Function()` (syntax check only — no headless browser available in this environment; manual/browser verification not performed).
+- Deno is **not installed in this session's environment** (`deno: command not found`) — the new/edited `supabase/functions/_shared/*` and `claude-proxy/*` TypeScript could not be run through `deno check`/`deno test`. Reviewed by hand for type correctness against the existing Deno-mirror patterns in this codebase (one real bug caught this way: a `let` variable initialized from an all-`null` object literal needed an explicit type annotation to avoid narrowing to `null`-only fields — fixed in `resolveMarketplaceEvidenceBundle`). **A follow-up session with Deno available must run `deno test supabase/functions/_shared/ supabase/functions/claude-proxy/` before this ships to production.**
+- No live Supabase/eBay/Trawl calls made or required — this is source-only work; deployment not performed (per this environment's file-based workflow, no Supabase MCP deploy access exercised here).
+
+### Behavior intentionally not changed
+Inventory, Photos/Listing Generator, Profit Compass, Profit Hub, billing/Stripe, auth, eBay listing push/order sync, unrelated Settings UI (min-STR/max-days settings remain in Settings and the unrelated stale-inventory feature — just no longer read by the scanner's decision engine). `calcProfit`/`calcMaxBuyPrice` math, eBay's own fee behavior, $0-acquisition-cost ROI-null semantics, the sold-comp query cascade/contamination filtering/p20-p80 coherence guard, the STR/demand *formulas* themselves (still used for the informational fields), and the 5-tab structure are all preserved exactly.
+
+### Assumptions made
+- Treated the uploaded implementation spec as explicit, current-task product-owner authorization to supersede the STR/demand-gating decisions locked 2026-08-26/2026-08-28, per this repo's own conflict-resolution hierarchy (an explicit instruction for the current task outranks previously-recorded decisions) — recorded explicitly in `DECISIONS.md` rather than silently overriding it.
+- Marketplace fee percentages (Etsy 9.5%, Reverb 8%, Discogs 9%, Amazon 15%, Mercari 10%, Poshmark 20%, local 0%) are approximate flat estimates for a placeholder economics layer, not verified against each platform's current published fee schedule — flagged as a product decision below.
+- The marketplace category-routing keyword rules (`marketplaceRouter.ts`) are a first-pass heuristic, not a product-approved taxonomy.
+
+### Out-of-scope findings
+- `app.html`'s AI-listing-description prompt builder (Listing Generator, ~line 6700-6770 pre-edit) still interpolates `demand_level`/`avg_days_to_sell` directly into an AI prompt string; these will now be `null` more often (whenever the winning evidence path didn't happen to compute them), which was already possible before this change but is now more frequent. Not fixed — Listing Generator is explicitly out of scope.
+- `financialEngine.ts`/`calcProfit.ts` duplication between `packages/shared` and `supabase/functions/_shared` (documented P3-34 blocker) is unchanged and now also applies to the new marketplace files, which exist Deno-only (no `packages/shared` mirror needed — they're server-only, never consumed by web/mobile).
+
+### Product decisions needed
+- Confirm/replace the placeholder marketplace fee percentages above with each platform's actual current fee schedule before this reaches real non-eBay marketplace integrations.
+- When official Etsy/Reverb/Discogs/Amazon/Mercari/Poshmark API access becomes available, a product decision is needed on integration priority order — the provider boundary (`marketplaceProviders.ts`) is ready for each.
+
+### Blockers / next task
+Run `deno test supabase/functions/_shared/ supabase/functions/claude-proxy/` (and `deno check` on every changed/new file) in an environment with Deno installed — this session could not. Then a live authenticated single/shelf scan smoke test end-to-end, and a real Supabase Edge Function deployment once verified.
+
+---
+
 ## Session: 2026-08-29 — Trawl sold-history provider wired and deployed
 
 ### Context

@@ -109,9 +109,18 @@ export interface MarketTurnoverEstimate {
 
 export interface MarketMetrics {
   compMatchPrecision: CompMatchPrecision | null
+  // soldPriceStats.evidenceQuality is the Profit Scanner v2 marketplace-
+  // independent decision-authority tier (evidenceQuality.ts's
+  // assessEvidenceQuality), not a plain comp-count bucket.
   soldPriceStats: SoldPriceStats
   activeMarketEvidence: ActiveMarketEvidence | null
   turnover: MarketTurnoverEstimate | null
+  // Profit Scanner v2: sell-through rate / demand level are no longer
+  // scanner decision inputs (decisionEngine.ts) — eBay-specific signals that
+  // don't generalize across marketplaces. Kept informational-only, for
+  // backward compatibility with Inventory's SourcingMeta / Listing Generator
+  // (out of scope for the scanner redesign). Never gates HOT/LIST/SKIP.
+  //
   // Approved formula (product-owner-approved 2026-08-26):
   //   STR = soldCount90d / (soldCount90d + activeCount) * 100
   sellThroughRate: number | null
@@ -128,6 +137,13 @@ export type MarketDataFailureReason =
   | 'SOLDCOMPS_NOT_CONFIGURED'
   | 'BROWSE_UNAVAILABLE'
   | 'INSUFFICIENT_VERIFIED_MARKET_DATA'
+  // Profit Scanner v2: real evidence was found (at least one sold comp or
+  // active listing) but it only reaches 'weak' evidence-quality — not enough
+  // to defensibly support HOT/LIST/SKIP. Distinct from
+  // INSUFFICIENT_VERIFIED_MARKET_DATA (zero usable evidence at all) so the UI
+  // can say what was actually observed. Both are LIMITED EVIDENCE states —
+  // never a fabricated decision.
+  | 'EVIDENCE_TOO_WEAK'
   | 'PROVIDER_TIMEOUT'
   | 'PROVIDER_RATE_LIMITED'
   | 'MALFORMED_PROVIDER_RESPONSE'

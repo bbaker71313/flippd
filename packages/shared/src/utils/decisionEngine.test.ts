@@ -1,5 +1,10 @@
 // Boundary tests for the authoritative HOT/LIST/SKIP decision engine.
 // Runner: `node --test decisionEngine.test.ts` (type-stripped, no live services).
+//
+// Profit Scanner v2: decide() takes netProfit/roi/minProfit/targetRoi plus a
+// marketplace-independent evidenceQuality tier ('strong'|'moderate' only —
+// 'weak'/'none' must never reach decide(), see evidenceQuality.ts). There is
+// no sell-through-rate/days-to-sell/demand-level input any more.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decide } from './decisionEngine.ts';
@@ -8,28 +13,24 @@ import type { DecisionInputs } from '../types/index.ts';
 const BASE: DecisionInputs = {
   netProfit: 100,
   roi: 250,
-  sellThroughRate: 60,
-  daysToSell: 20,
-  demandLevel: 'VERY HIGH',
   minProfit: 15,
   targetRoi: 200,
-  minSellThroughRate: 30,
-  maxDaysToSell: 60,
+  evidenceQuality: 'strong',
 };
 
-test('all thresholds passing + VERY HIGH demand -> HOT', () => {
+test('strong evidence + profit pass + roi pass -> HOT', () => {
   const r = decide(BASE);
   assert.equal(r.decision, 'HOT');
   assert.equal(r.failingThresholds.length, 0);
 });
 
-test('all thresholds passing but HIGH demand -> LIST, not HOT', () => {
-  const r = decide({ ...BASE, demandLevel: 'HIGH' });
+test('moderate evidence + profit pass + roi pass -> LIST, never HOT', () => {
+  const r = decide({ ...BASE, evidenceQuality: 'moderate' });
   assert.equal(r.decision, 'LIST');
 });
 
-test('demand alone never triggers HOT — thresholds still required', () => {
-  const r = decide({ ...BASE, netProfit: 5, demandLevel: 'VERY HIGH' });
+test('strong evidence alone never triggers HOT — financial thresholds still required', () => {
+  const r = decide({ ...BASE, netProfit: 5 });
   assert.equal(r.decision, 'SKIP');
   assert.ok(r.failingThresholds.includes('profit'));
 });
@@ -65,16 +66,16 @@ test('roi null ($0 acquisition cost) bypasses the ROI threshold — not an autom
   assert.equal(r.decision, 'HOT');
 });
 
-test('$0-cost item passing every other required threshold qualifies as HOT', () => {
-  const r = decide({ ...BASE, roi: null, demandLevel: 'VERY HIGH' });
+test('$0-cost item passing profit qualifies as HOT with strong evidence', () => {
+  const r = decide({ ...BASE, roi: null });
   assert.equal(r.decision, 'HOT');
   assert.equal(r.failingThresholds.length, 0);
 });
 
-test('$0-cost item still SKIPs when another required threshold fails', () => {
-  const r = decide({ ...BASE, roi: null, sellThroughRate: 0 });
+test('$0-cost item still SKIPs when profit fails', () => {
+  const r = decide({ ...BASE, roi: null, netProfit: 0 });
   assert.equal(r.roiPass, true);
-  assert.equal(r.strPass, false);
+  assert.equal(r.profitPass, false);
   assert.equal(r.decision, 'SKIP');
 });
 
@@ -83,88 +84,33 @@ test('normal nonzero-cost ROI threshold behavior is unchanged', () => {
   assert.equal(decide({ ...BASE, roi: 199.99, targetRoi: 200 }).decision, 'SKIP');
 });
 
-test('sellThroughRate exactly equal to minSellThroughRate passes', () => {
-  const r = decide({ ...BASE, sellThroughRate: 30, minSellThroughRate: 30 });
-  assert.equal(r.strPass, true);
-});
-
-test('sellThroughRate slightly below minSellThroughRate fails -> SKIP', () => {
-  const r = decide({ ...BASE, sellThroughRate: 29.99, minSellThroughRate: 30 });
-  assert.equal(r.strPass, false);
-  assert.equal(r.decision, 'SKIP');
-});
-
-test('daysToSell exactly equal to maxDaysToSell passes', () => {
-  const r = decide({ ...BASE, daysToSell: 60, maxDaysToSell: 60 });
-  assert.equal(r.daysPass, true);
-});
-
-test('daysToSell one day above maxDaysToSell fails -> SKIP', () => {
-  const r = decide({ ...BASE, daysToSell: 61, maxDaysToSell: 60 });
-  assert.equal(r.daysPass, false);
-  assert.equal(r.decision, 'SKIP');
-});
-
-test('missing market evidence (nulls) fails those thresholds, never fabricated as passing', () => {
-  const r = decide({ ...BASE, sellThroughRate: null, daysToSell: null, demandLevel: null });
-  assert.equal(r.strPass, false);
-  assert.equal(r.daysPass, false);
-  assert.equal(r.demandIsVeryHigh, false);
-  assert.equal(r.decision, 'SKIP');
-});
-
 test('every single-threshold failure independently produces SKIP', () => {
   assert.equal(decide({ ...BASE, netProfit: 0 }).decision, 'SKIP');
   assert.equal(decide({ ...BASE, roi: 50 }).decision, 'SKIP');
-  assert.equal(decide({ ...BASE, sellThroughRate: 0 }).decision, 'SKIP');
-  assert.equal(decide({ ...BASE, daysToSell: 999 }).decision, 'SKIP');
 });
 
-test('profit at exactly 2x minProfit does not independently trigger HOT without demand=VERY HIGH', () => {
-  const r = decide({ ...BASE, netProfit: 30, minProfit: 15, demandLevel: 'HIGH' });
-  assert.equal(r.decision, 'LIST');
-});
-
-test('high confidence is not a decision input at all — function has no confidence parameter', () => {
+test('confidence is not a decision input at all — function has no confidence parameter', () => {
   // Type-level guarantee: DecisionInputs has no `confidence` field. This test
   // documents the rule that confidence must never substitute for thresholds.
   const r = decide(BASE);
   assert.ok(!('confidence' in r));
 });
 
-// Decision Integrity remediation (Release A): weak/none evidenceQuality caps
-// an otherwise-HOT decision at LIST — a small sold-comp sample must never
-// carry the same authority as a large one.
-test('weak evidenceQuality caps an otherwise-HOT decision at LIST', () => {
-  const r = decide({ ...BASE, evidenceQuality: 'weak' });
-  assert.equal(r.decision, 'LIST');
-  assert.equal(r.demandIsVeryHigh, true); // raw demand signal unchanged
-  assert.equal(r.hotCappedByEvidence, true);
-  assert.equal(r.failingThresholds.length, 0); // not a SKIP — thresholds all passed
+test('sell-through rate / days-to-sell / demand level are not decision inputs at all', () => {
+  // Type-level guarantee: DecisionInputs has no such fields any more.
+  const r = decide(BASE);
+  assert.ok(!('strPass' in r));
+  assert.ok(!('daysPass' in r));
+  assert.ok(!('demandIsVeryHigh' in r));
+  assert.ok(!('hotCappedByEvidence' in r));
 });
 
-test('none evidenceQuality caps an otherwise-HOT decision at LIST', () => {
-  const r = decide({ ...BASE, evidenceQuality: 'none' });
-  assert.equal(r.decision, 'LIST');
-  assert.equal(r.hotCappedByEvidence, true);
-});
-
-test('moderate/strong evidenceQuality does not cap HOT', () => {
-  assert.equal(decide({ ...BASE, evidenceQuality: 'moderate' }).decision, 'HOT');
+test('strong vs moderate is the only thing separating HOT from LIST when thresholds pass', () => {
   assert.equal(decide({ ...BASE, evidenceQuality: 'strong' }).decision, 'HOT');
-  assert.equal(decide({ ...BASE, evidenceQuality: 'strong' }).hotCappedByEvidence, false);
+  assert.equal(decide({ ...BASE, evidenceQuality: 'moderate' }).decision, 'LIST');
 });
 
-test('omitted evidenceQuality is unrestricted (backward compatible) — still reaches HOT', () => {
-  const r = decide(BASE); // BASE has no evidenceQuality field
-  assert.equal(r.decision, 'HOT');
-  assert.equal(r.hotCappedByEvidence, false);
-});
-
-test('weak evidenceQuality does not turn a LIST into a SKIP, and does not affect SKIP', () => {
-  // Demand not VERY HIGH -> already LIST regardless of evidence.
-  assert.equal(decide({ ...BASE, demandLevel: 'HIGH', evidenceQuality: 'weak' }).decision, 'LIST');
-  // A failing threshold still SKIPs even with weak evidence (evidence quality
-  // only ever restricts HOT, never overrides a genuine SKIP).
-  assert.equal(decide({ ...BASE, netProfit: 0, evidenceQuality: 'weak' }).decision, 'SKIP');
+test('moderate evidence does not turn a passing scan into a SKIP, and does not affect a genuine SKIP', () => {
+  assert.equal(decide({ ...BASE, evidenceQuality: 'moderate' }).decision, 'LIST');
+  assert.equal(decide({ ...BASE, netProfit: 0, evidenceQuality: 'moderate' }).decision, 'SKIP');
 });

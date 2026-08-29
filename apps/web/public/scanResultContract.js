@@ -36,6 +36,8 @@
   var VALID_DEMAND_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'];
   var VALID_DECISION_STATUSES = ['ok', 'insufficient_market_data'];
   var VALID_EVIDENCE_QUALITIES = ['strong', 'moderate', 'weak', 'none'];
+  // Profit Scanner v2 (cross-market resale opportunity architecture).
+  var VALID_MARKETPLACE_IDS = ['ebay', 'etsy', 'reverb', 'discogs', 'amazon', 'mercari', 'poshmark', 'facebook_local'];
 
   function fail(field, expected, value) {
     throw new Error('scanResultContract: ' + field + ' must be ' + expected + ', got ' + JSON.stringify(value));
@@ -103,14 +105,13 @@
     return v;
   }
 
-  // The deterministic decisionEngine.ts DecisionResult object (decision +
-  // each threshold's pass/fail + failingThresholds) — null when no
-  // authoritative decision was made (insufficient verified evidence). This
-  // replaces a pre-existing contract bug where this field was validated as a
-  // plain string array (asStringArray) even though the server has always
-  // sent the full DecisionResult object here — that mismatch meant this
-  // validator would throw on every single/text scan response once actually
-  // exercised end-to-end (never live-verified until this session's fix).
+  // The deterministic decisionEngine.ts DecisionResult object — null when no
+  // authoritative decision was made (no marketplace had decision-capable
+  // evidence). Profit Scanner v2: sell-through-rate/days-to-sell/demand-level
+  // pass/fail and the comp-count-based "hotCappedByEvidence" cap are gone —
+  // HOT/LIST/SKIP is now netProfit/roi/evidenceQuality only (weak/none
+  // evidence never reaches a decision at all, see resolveScanResultCore in
+  // claude-proxy/index.ts).
   function asDecisionReasons(v, field) {
     if (v === null || v === undefined) return null;
     if (typeof v !== 'object' || Array.isArray(v)) fail(field, 'a decision-reasons object or null', v);
@@ -118,15 +119,47 @@
       decision: asDecision(v.decision, field + '.decision'),
       profitPass: asBoolean(v.profitPass, field + '.profitPass'),
       roiPass: asBoolean(v.roiPass, field + '.roiPass'),
-      strPass: asBoolean(v.strPass, field + '.strPass'),
-      daysPass: asBoolean(v.daysPass, field + '.daysPass'),
-      demandIsVeryHigh: asBoolean(v.demandIsVeryHigh, field + '.demandIsVeryHigh'),
-      // Decision Integrity remediation (Release A): true when a HOT-shaped
-      // result (all thresholds passed, demand VERY HIGH) was capped to LIST
-      // because the sold-comp sample was too small to trust at HOT authority.
-      hotCappedByEvidence: asBoolean(v.hotCappedByEvidence, field + '.hotCappedByEvidence'),
       failingThresholds: asStringArray(v.failingThresholds, field + '.failingThresholds'),
     };
+  }
+
+  // Profit Scanner v2: nullable marketplace id — null is allowed only for
+  // bestMarketplace when no marketplace has a decision (decisionAvailable:false).
+  function asMarketplaceId(v, field) {
+    if (v === null || v === undefined) return null;
+    if (VALID_MARKETPLACE_IDS.indexOf(v) === -1) fail(field, 'a valid marketplace id or null', v);
+    return v;
+  }
+
+  function asRequiredMarketplaceId(v, field) {
+    if (VALID_MARKETPLACE_IDS.indexOf(v) === -1) fail(field, 'a valid marketplace id', v);
+    return v;
+  }
+
+  // Other marketplaces the opportunity engine evaluated but did not select as
+  // best (marketplaceOpportunity.ts) — each with its own evidence/economics
+  // so the UI can show why the best marketplace won instead of just the
+  // highest asking price.
+  function asAlternativeMarketplaces(v, field) {
+    if (v === null || v === undefined) return [];
+    if (!Array.isArray(v)) fail(field, 'an array', v);
+    return v.map(function (alt, i) {
+      var f = field + '[' + i + ']';
+      if (!alt || typeof alt !== 'object') fail(f, 'an object', alt);
+      return {
+        marketplace: asRequiredMarketplaceId(alt.marketplace, f + '.marketplace'),
+        label: asString(alt.label, f + '.label', ''),
+        evidence_quality: asEvidenceQuality(alt.evidenceQuality, f + '.evidenceQuality'),
+        price_low: asNullableNumber(alt.priceLow, f + '.priceLow'),
+        price_high: asNullableNumber(alt.priceHigh, f + '.priceHigh'),
+        expected_sale_price: asNumber(alt.expectedSalePrice, f + '.expectedSalePrice'),
+        net_profit: asNullableNumber(alt.netProfit, f + '.netProfit'),
+        roi: asNullableNumber(alt.roi, f + '.roi'),
+        max_buy_price: asNullableNumber(alt.maxBuyPrice, f + '.maxBuyPrice'),
+        qualifies: asBoolean(alt.qualifies, f + '.qualifies'),
+        reason: asString(alt.reason, f + '.reason', ''),
+      };
+    });
   }
 
   // Chapter 02: the AI's own price/STR/days/demand guess, kept structurally
@@ -197,6 +230,13 @@
       fee: fee,
       shipCost: shipCost,
     };
+    // Profit Scanner v2: which marketplace the decision/economics above are
+    // based on — null exactly when decisionAvailable is false (no marketplace
+    // had decision-capable evidence), same consistency rule as `decision`.
+    var bestMarketplace = asMarketplaceId(r.bestMarketplace, 'bestMarketplace');
+    if (decisionAvailable && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionAvailable is true', bestMarketplace);
+    if (!decisionAvailable && bestMarketplace !== null) fail('bestMarketplace', 'null when decisionAvailable is false', bestMarketplace);
+
     return {
       item: item,
       dec: dec,
@@ -212,6 +252,10 @@
       evidenceQuality: asEvidenceQuality(r.evidenceQuality, 'evidenceQuality'),
       compMatchPrecision: asString(r.compMatchPrecision, 'compMatchPrecision', null),
       suggestedSearchQuery: asString(r.suggestedSearchQuery, 'suggestedSearchQuery', null),
+      bestMarketplace: bestMarketplace,
+      bestMarketplaceLabel: asString(r.bestMarketplaceLabel, 'bestMarketplaceLabel', null),
+      whyThisMarketplace: asString(r.whyThisMarketplace, 'whyThisMarketplace', null),
+      alternativeMarketplaces: asAlternativeMarketplaces(r.alternativeMarketplaces, 'alternativeMarketplaces'),
     };
   }
 
@@ -226,6 +270,9 @@
     var decision = asNullableDecision(i.decision, 'decision');
     if (decisionAvailable && decision === null) fail('decision', 'a real decision when decisionAvailable is true', decision);
     if (!decisionAvailable && decision !== null) fail('decision', 'null when decisionAvailable is false', decision);
+    var bestMarketplace = asMarketplaceId(i.bestMarketplace, 'bestMarketplace');
+    if (decisionAvailable && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionAvailable is true', bestMarketplace);
+    if (!decisionAvailable && bestMarketplace !== null) fail('bestMarketplace', 'null when decisionAvailable is false', bestMarketplace);
     return {
       item_name: asString(i.itemName, 'itemName', ''),
       avg_sold_price: asNullableNumber(i.avgSoldPrice, 'avgSoldPrice'),
@@ -247,6 +294,10 @@
       evidence_quality: asEvidenceQuality(i.evidenceQuality, 'evidenceQuality'),
       comp_match_precision: asString(i.compMatchPrecision, 'compMatchPrecision', null),
       suggested_search_query: asString(i.suggestedSearchQuery, 'suggestedSearchQuery', null),
+      best_marketplace: bestMarketplace,
+      best_marketplace_label: asString(i.bestMarketplaceLabel, 'bestMarketplaceLabel', null),
+      why_this_marketplace: asString(i.whyThisMarketplace, 'whyThisMarketplace', null),
+      alternative_marketplaces: asAlternativeMarketplaces(i.alternativeMarketplaces, 'alternativeMarketplaces'),
     };
   }
 
