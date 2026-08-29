@@ -53,6 +53,9 @@ export interface SoldMarketDataProvider {
 }
 
 const REQUEST_TIMEOUT_MS = 10_000;
+const TRAWL_BASE_URL = 'https://api.trawl.dev/ebay/v1/sold';
+const TRAWL_DEFAULT_LIMIT = 240;
+const TRAWL_SOLD_WINDOW_DAYS = 90;
 
 function soldCompsBaseUrl(): string {
   // Overridable via secret so the real path can be corrected without a
@@ -108,6 +111,103 @@ export function parseSoldComp(raw: unknown): SoldCompListing | null {
     sellerFeedbackScore: numLike(r.sellerFeedbackScore),
     sellerFeedbackPercent: numLike(r.sellerPositivePercent) ?? numLike(r.sellerFeedbackPercent),
   };
+}
+
+// Runtime-validates one Trawl /ebay/v1/sold result. Trawl returns numeric
+// prices and a full ISO date in a `results` envelope. The API reports the
+// actual final sale price, so no Best Offer price exclusion is required.
+export function parseTrawlSoldComp(raw: unknown): SoldCompListing | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+
+  const itemId = r.item_id;
+  const soldPrice = numLike(r.sale_price);
+  const endedAt = r.date_sold;
+  if (typeof itemId !== 'string' && typeof itemId !== 'number') return null;
+  if (soldPrice === null || soldPrice <= 0) return null;
+  if (typeof endedAt !== 'string' || Number.isNaN(Date.parse(endedAt))) return null;
+
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
+  const shippingPrice = numLike(r.shipping_price);
+  const currencySymbol = str(r.currency);
+
+  return {
+    itemId: String(itemId),
+    title: str(r.title) ?? '',
+    soldPrice,
+    totalPrice: shippingPrice === null ? soldPrice : soldPrice + shippingPrice,
+    shippingPrice,
+    shippingType: shippingPrice === null ? null : shippingPrice === 0 ? 'free' : 'paid',
+    currency: currencySymbol === '$' ? 'USD' : currencySymbol ?? 'USD',
+    endedAt: new Date(endedAt).toISOString(),
+    condition: str(r.condition_raw) ?? str(r.condition),
+    conditionId: null,
+    buyingFormat: str(r.buying_format),
+    bidCount: null,
+    bestOfferAccepted: false,
+    listingType: 'sold',
+    listingUrl: str(r.item_link),
+    sellerFeedbackScore: null,
+    sellerFeedbackPercent: null,
+  };
+}
+
+class TrawlProvider implements SoldMarketDataProvider {
+  readonly providerId = 'trawl.dev';
+  constructor(private readonly apiKey: string) {}
+
+  async searchSoldComps(query: SoldCompsQuery): Promise<SoldEvidenceResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const dateFrom = new Date(Date.now() - TRAWL_SOLD_WINDOW_DAYS * 86_400_000)
+        .toISOString().slice(0, 10);
+      const qs = new URLSearchParams({
+        query: query.searchTerms,
+        site: 'EBAY_US',
+        date_from: dateFrom,
+        limit: String(Math.min(query.limit ?? TRAWL_DEFAULT_LIMIT, TRAWL_DEFAULT_LIMIT)),
+      });
+      const res = await fetch(`${TRAWL_BASE_URL}?${qs.toString()}`, {
+        method: 'GET',
+        headers: { 'x-api-key': this.apiKey },
+        signal: controller.signal,
+      });
+
+      if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After');
+        const detail = retryAfter
+          ? `Trawl rate limit exceeded; retry after ${retryAfter} seconds`
+          : 'Trawl monthly request allowance is exhausted';
+        return { ok: false, reason: 'PROVIDER_RATE_LIMITED', detail };
+      }
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: `Trawl ${res.status} ${body}`.slice(0, 500) };
+      }
+
+      const data = await res.json().catch(() => null);
+      if (data === null || typeof data !== 'object') {
+        return { ok: false, reason: 'MALFORMED_PROVIDER_RESPONSE', detail: 'Trawl response was not valid JSON' };
+      }
+      const d = data as Record<string, unknown>;
+      const rawList = Array.isArray(d.results) ? d.results as unknown[] : [];
+      const comps = rawList.map(parseTrawlSoldComp).filter((c): c is SoldCompListing => c !== null);
+
+      if (rawList.length > 0 && comps.length === 0) {
+        return { ok: false, reason: 'MALFORMED_PROVIDER_RESPONSE', detail: 'Trawl returned records but none matched the expected field contract' };
+      }
+      return { ok: true, comps };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return { ok: false, reason: 'PROVIDER_TIMEOUT', detail: `Trawl request exceeded ${REQUEST_TIMEOUT_MS}ms` };
+      }
+      return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: err instanceof Error ? err.message : String(err) };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 class SoldCompsProvider implements SoldMarketDataProvider {
@@ -174,11 +274,15 @@ class SoldCompsProvider implements SoldMarketDataProvider {
 // this exact name. The prior 3-name fallback is retired now that the name
 // is confirmed — do not reintroduce alternate aliases.
 const SOLDCOMPS_API_KEY_ENV_NAME = 'SOLD_COMPS_API_KEY';
+const TRAWL_API_KEY_ENV_NAME = 'TRAWL_API_KEY';
 
 // Factory — returns null when not configured. Callers must treat null as
 // SOLDCOMPS_NOT_CONFIGURED, never silently skip to an AI estimate or a
 // fabricated value.
 export function getSoldMarketDataProvider(): SoldMarketDataProvider | null {
+  const trawlApiKey = Deno.env.get(TRAWL_API_KEY_ENV_NAME);
+  if (trawlApiKey) return new TrawlProvider(trawlApiKey);
+
   const apiKey = Deno.env.get(SOLDCOMPS_API_KEY_ENV_NAME);
   return apiKey ? new SoldCompsProvider(apiKey) : null;
 }

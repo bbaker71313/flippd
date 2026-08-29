@@ -4,6 +4,45 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-29 — Trawl sold-history provider wired and deployed
+
+### Context
+The product owner added `TRAWL_API_KEY` to Supabase and explicitly authorized wiring Trawl into the profit scanner. The authoritative flow already separated sold evidence behind `SoldMarketDataProvider`, then applied identity-aware comp selection, eBay Browse active evidence, deterministic market metrics, and the single HOT/LIST/SKIP engine.
+
+### What changed
+- Added a Trawl provider using `GET https://api.trawl.dev/ebay/v1/sold`, backend-only `x-api-key` authentication, `EBAY_US`, and an explicit rolling 90-day `date_from` window.
+- Strictly mapped Trawl's response into the existing `SoldCompListing` contract. Malformed and zero-price records are rejected.
+- Trawl is selected when `TRAWL_API_KEY` is configured. SoldComps remains a configuration fallback only when Trawl is absent; a failed Trawl request does not switch providers mid-scan.
+- Deployed the exact 21-file `claude-proxy` dependency closure to Supabase as **v91** and confirmed the live ACTIVE bundle contains the Trawl endpoint and both configured secret names.
+
+### Files changed
+`.env.example`; `supabase/functions/_shared/{soldCompsProvider.ts,soldCompsProvider_test.ts,marketDataPipeline.ts}`; `docs/{CURRENT_STATE.md,HANDOFF.md,files/DECISIONS.md}`; `supabase/DEPLOYED.md`.
+
+### Testing
+- `packages/shared`: **78/78 tests pass** and TypeScript check passes.
+- `npx deno check supabase/functions/_shared/soldCompsProvider.ts`: pass.
+- Local Trawl parser smoke test: pass.
+- Full Deno test file could not download `deno.land/std@0.224.0` because this environment refused that network connection; the new cases are committed but were not executed through the remote assert dependency.
+- Root `npx tsc --noEmit` is not runnable because the repository has no root TypeScript dependency/config and `npx` resolves an unrelated deprecated `tsc` package; the actual `@sfp/shared` TypeScript check passes.
+- Live bundle: `claude-proxy` v91 ACTIVE, `verify_jwt:false` unchanged, 21 files, Trawl markers present.
+
+### Behavior intentionally not changed
+Comp-query cascade, identity/condition filtering, comp-count/coherence gates, eBay Browse evidence, STR/turnover/demand formulas, seller economics, profit math, max-buy-price math, HOT/LIST/SKIP thresholds, authentication, database schema, and UI.
+
+### Assumptions made
+Trawl's published contract is authoritative for authentication, endpoint, and response fields.
+
+### Out-of-scope findings
+None.
+
+### Product decisions needed
+None.
+
+### Blockers / next task
+The code and deployment are complete. Run one authenticated production single-item scan to prove the configured key and live Trawl account return qualifying evidence through the entire scanner UI.
+
+---
+
 ## Session: 2026-08-28 (part 3) — profit-scanner evidence remediation
 
 ### Context

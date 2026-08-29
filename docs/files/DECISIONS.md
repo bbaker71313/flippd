@@ -75,6 +75,11 @@ Add decisions here when something is locked. Reference `docs/DOC_HIERARCHY.md` f
 **Decision (confirmed 2026-08-26):** The Supabase secret is `SOLD_COMPS_API_KEY` (exact name). No fallback aliases.
 **Why:** Two candidate names were floated before the exact one was confirmed; `supabase/functions/_shared/soldCompsProvider.ts` now reads this single name only.
 
+### Trawl is the preferred sold-history provider
+**Decision (approved 2026-08-29):** When `TRAWL_API_KEY` is configured, the verified market-data pipeline uses Trawl's eBay sold-listings endpoint for the approved 90-day evidence window. The existing `SOLD_COMPS_API_KEY` integration remains a configuration fallback only when Trawl is not configured. A Trawl request failure does not silently switch providers mid-scan.
+**Why:** The product owner supplied the Trawl credential and explicitly authorized wiring it into the profit scanner. Keeping provider selection behind `SoldMarketDataProvider` preserves the existing deterministic comp qualification and HOT/LIST/SKIP authority path.
+**Do not:** expose the key client-side, call Trawl from `app.html`, use results outside the existing comp-matching pipeline, or convert provider errors into a sourcing decision.
+
 ---
 
 ## Technical Decisions

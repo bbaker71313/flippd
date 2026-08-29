@@ -1,7 +1,7 @@
 // Orchestrates the P0 authoritative market-data pipeline (task doc §14):
 //
 //   item evidence -> provider-agnostic identification -> Catalog/product
-//   resolution -> Taxonomy/category resolution -> SoldComps sold evidence +
+//   resolution -> Taxonomy/category resolution -> verified sold evidence +
 //   Browse active evidence -> comparable matching -> deterministic
 //   price/STR/turnover/demand metrics
 //
@@ -10,7 +10,7 @@
 // marketMetrics.ts computeSellThroughRate/computeDemandLevel. Wired into
 // single/text/shelf scan handlers in claude-proxy/index.ts (see
 // tryVerifiedMarketData there) as of 2026-08-26, after live-verifying the
-// SoldComps and eBay Browse/Taxonomy contracts (Catalog is live-verified but
+// Sold-provider and eBay Browse/Taxonomy contracts (Catalog is live-verified but
 // not currently entitled for this app's credentials — see ebayCatalog.ts).
 // On failure the scan remains identifiable, but no AI-created market number
 // substitutes for missing verified evidence.
@@ -30,10 +30,8 @@ import type {
   MarketDataResult, MarketMetrics, CompMatchPrecision, IdentityCandidate, SoldCompListing,
 } from "./marketData.ts"
 
-// SoldComps' documented coverage window (all plans include up to 90 days of
-// sold history) — this is the provider's actual data availability, not an
-// invented business rule. The sell-through-rate window (a separate, still
-// undefined product decision) may differ once approved.
+// The approved sold-evidence window used for STR and turnover. Providers must
+// constrain their request to this same window or guarantee equivalent coverage.
 const DEFAULT_SOLD_WINDOW_DAYS = 90;
 
 export async function runMarketDataPipeline(input: IdentifyInput): Promise<MarketDataResult> {
@@ -47,7 +45,7 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
 }
 
 // Runs everything AFTER identification — Catalog/Taxonomy resolution,
-// SoldComps + Browse evidence, and deterministic price/STR/turnover/demand
+// verified sold + Browse evidence, and deterministic price/STR/turnover/demand
 // metrics — against an already-resolved IdentityCandidate. Split out so a
 // caller that already has identification (e.g. a scan handler's existing AI
 // call, which already extracts item_name/brand/model as part of its single
@@ -63,7 +61,7 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
 
   const soldProvider = getSoldMarketDataProvider();
   if (!soldProvider) {
-    return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'SOLD_COMPS_API_KEY is not set' };
+    return { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'Neither TRAWL_API_KEY nor SOLD_COMPS_API_KEY is set' };
   }
 
   const attemptedQueries: NonNullable<Extract<MarketDataResult, { ok: true }>['audit']>['attemptedQueries'] = [];

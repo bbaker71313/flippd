@@ -3,7 +3,7 @@
 // Fixture below is the real (sanitized) shape confirmed live 2026-08-26 —
 // see soldCompsProvider.ts file header for how it was obtained.
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { parseSoldComp } from "./soldCompsProvider.ts";
+import { parseSoldComp, parseTrawlSoldComp } from "./soldCompsProvider.ts";
 
 const LIVE_RECORD = {
   itemId: "377417007385",
@@ -98,4 +98,34 @@ Deno.test("a record with only 1 valid comp still parses (low comp count is a sta
   const parsed = parseSoldComp(LIVE_RECORD);
   if (!parsed) throw new Error("expected a parsed comp");
   assertEquals(typeof parsed.soldPrice, "number");
+});
+
+const TRAWL_RECORD = {
+  title: "Apple iPhone 15 Pro 256GB Unlocked",
+  sale_price: 525,
+  shipping_price: 12.99,
+  currency: "$",
+  condition: "used",
+  condition_raw: "Pre-Owned",
+  date_sold: "2026-07-18T00:00:00.000Z",
+  buying_format: "Buy It Now",
+  item_id: "256637082114",
+  item_link: "https://www.ebay.com/itm/256637082114",
+};
+
+Deno.test("Trawl record maps final sold price, shipping, currency, and URL", () => {
+  const parsed = parseTrawlSoldComp(TRAWL_RECORD);
+  assertEquals(parsed?.itemId, "256637082114");
+  assertEquals(parsed?.soldPrice, 525);
+  assertEquals(parsed?.shippingPrice, 12.99);
+  assertEquals(parsed?.totalPrice, 537.99);
+  assertEquals(parsed?.currency, "USD");
+  assertEquals(parsed?.condition, "Pre-Owned");
+  assertEquals(parsed?.listingUrl, "https://www.ebay.com/itm/256637082114");
+});
+
+Deno.test("Trawl malformed or zero-price records are rejected", () => {
+  assertEquals(parseTrawlSoldComp({ ...TRAWL_RECORD, sale_price: 0 }), null);
+  assertEquals(parseTrawlSoldComp({ ...TRAWL_RECORD, date_sold: "not-a-date" }), null);
+  assertEquals(parseTrawlSoldComp({ ...TRAWL_RECORD, item_id: null }), null);
 });
