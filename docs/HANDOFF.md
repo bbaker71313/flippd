@@ -4,6 +4,41 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-30 — Implementation plan Revision 2 (multi-provider federation + rule-based Best Market)
+
+### Context
+The product owner corrected the plan's scope: the Profit Scanner was always intended to pull sales data from **multiple marketplace APIs**, and to recommend the best place to list **by an explicit rule set**, not by price. Revision 1 of the implementation plan had stated the opposite in §12 ("Not adding a marketplace provider... out of scope here"). This session revised the plan accordingly.
+
+### What changed
+Only `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md` (revised in place, 695 → ~1090 lines) and this file. **No product code was modified.**
+
+### The revision
+- **Revision history** section added at the top recording what changed and why.
+- **§1 thesis** now carries two findings, not one: the inputs are starved *and* the product is a cross-market engine with one working market (6 of 7 evidence providers return `NOT_CONFIGURED`).
+- **R2/R3 made provider-generic by construction** (§5.1, §5.4, §6.1) — `SoldProviderCapabilities` becomes `MarketEvidenceProviderCapabilities` carrying `evidenceClass` and `costClass`; one query planner and one comp scorer serve every provider. This is so federation adds adapters rather than forcing rewrites.
+- **New §8 — R5 Evidence federation** (~3d): honest per-platform provider map, evidence-class ceiling, call-budget architecture, staged rollout, fee hardening.
+- **New §9 — R6 Best Market as an explicit rule set** (~1.5d): hard gates + weighted scored factors in one table, `whyThisMarketplace` generated from the actual arithmetic, comparison honesty.
+- Acceptance criteria **A6–A10**, seven new risk-register rows, revised sequencing (~8d → **~12.5d**), and product decisions **G–K** added to §13.
+
+### Key external findings (verified 2026-08-30, cited in §8.0)
+- **eBay Marketplace Insights** (official 90-day sold data) is a Limited Release API, effectively closed to new applicants — we reach sold data only through an aggregator.
+- **Reverb** publishes a transaction-derived Price Guide, but the path is undocumented and its per-guide `transactions` endpoint was retired in 2026.
+- **Discogs** official API exposes only `lowest_price` + `num_for_sale`; sold history is login-gated.
+- **Etsy** Open API v3 covers active listings only. **Amazon** SP-API gives competitive offers, not sold comps.
+- **Mercari, Poshmark and Facebook publish no API at all** — three of the eight routed marketplaces can never produce honest evidence, and `DECISIONS.md` bars scraping.
+- Net: only eBay can produce `verified_transaction` evidence at general scale. Everything federation adds is a weaker evidence class — hence the §8.1 ceiling.
+
+### Decisions made
+None. Five product decisions (G–K) were **raised, not decided** — two of them (H, K) touch rules recorded in `docs/files/DECISIONS.md`. Nothing in `DECISIONS.md` was changed.
+
+### Next task
+Product-owner sign-off on §13. Items 1–3 (T1–T3) block R3; items 6–11 (G–K) block R5/R6. **R0 is complete (G0 PASS) and R1/R2 can start immediately** — they are what ends the outage, and they are unblocked.
+
+### Blockers
+Production remains on `claude-proxy` v93 with all four P0 defects live; every scan still returns LIMITED EVIDENCE. No code has been written against this plan.
+
+---
+
 ## Session: 2026-08-30 — R0 Trawl validation spike (validation only, no product code changed)
 
 ### Context
