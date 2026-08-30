@@ -394,7 +394,19 @@ HOT/LIST/SKIP semantics:
 
 ## 9. Blockers
 
-- **Deno is not installed in this environment** (`deno: command not found`), so
-  `supabase/functions/_shared/` and `claude-proxy/` still cannot be type-checked
-  or tested. This is the same blocker recorded in the 2026-08-29 handoff and it
-  remains open — all four P0 defects live in exactly that untested code.
+- **`supabase/functions/_shared/` and `claude-proxy/` cannot be type-checked or
+  tested here.** This is the same blocker recorded in the 2026-08-29 handoff and
+  it remains open — all four P0 defects live in exactly that untested code.
+
+  **CORRECTED 2026-08-30** (see `REMEDIATION_PLAN_AUDIT_2026-08-30.md` §B3): this
+  was first written as "Deno is not installed" (`deno: command not found`), which
+  is literally true but is *not* the operative blocker. `npx deno check` already
+  works — the 2026-08-29 session ran it successfully on `soldCompsProvider.ts`.
+  The real blocker is that all **10** Deno test files import
+  `https://deno.land/std@0.224.0/assert/mod.ts`, which this environment's network
+  policy refuses, and the repo has no `deno.json`, import map, or vendored
+  dependency to resolve it offline. **Installing Deno therefore fixes nothing.**
+  The fix is to remove the remote import (`node:assert/strict`, which Deno
+  supports natively with zero network, or a small local assert helper) and add a
+  `deno.json`. Anyone acting on this section should read audit §B3 rather than
+  attempting a Deno install.
