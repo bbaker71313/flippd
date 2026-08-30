@@ -4,6 +4,55 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-30 — R0 Trawl validation spike (validation only, no product code changed)
+
+### Context
+The product owner supplied `SFP_PROFIT_SCANNER_R0_TRAWL_VALIDATION_PROMPT_20260830.md` — Release 0 / Phase 3.0 of the Profit Scanner implementation plan. A live Trawl spike to prove or disprove that shorter, provider-appropriate queries return usable sold comps, gated on query #2 (`general electric transistor radio`). Hard scope: validation only, no Profit Scanner behavior change, no R1–R4.
+
+### What changed
+Only `docs/files/PROFIT_SCANNER_R0_TRAWL_VALIDATION_2026-08-30.md` (new) and this file. **No product code was modified.**
+
+### Result — G0: PASS
+- Test #1 (8-term production query shape) reproduced the failure exactly: HTTP 200, `count:0`, 7 ms.
+- Test #2 (4 terms) returned **240 highly relevant GE transistor radio sold comps**, median $21.95, sold 2026-06-07 → 2026-08-18. Hard gate passed.
+- Test #3 (3 terms) returned 240 rows but drifted off-product (clock radios, cassette decks, a mobile transceiver) and collapsed to a 7-day window.
+- Tests #4/#5: `date_from` and `site` are both **inert** for this query — results byte-equivalent to #2. `EBAY_US` is the provider default; `date_from` never binds because the 240-row cap is hit first.
+- Test #6: `limit` is honoured exactly, but truncation is date-desc, so `limit` reshapes the price distribution (median $27.00 at 40 vs $21.95 at 240).
+
+### Findings that R2 must account for (detail in the report)
+- **Trawl quota is 250 requests/month**, `x-ratelimit-reset` = 2026-09-01T00:00:00Z (first of month). The production cascade fires up to 5 calls per scan → roughly **50–250 scans/month for the entire product**. Hard scaling blocker.
+- Zero results are a 200, not an error — no signal separates "query too narrow" from "no sales", and each failed cascade attempt still burns quota.
+- No `total`/`hasNextPage` in the envelope; `count` = returned rows only, so truncation is invisible.
+- The documented 90-day window is not actually delivered for popular items.
+- `compSelection.ts` contamination markers miss print ads / paper ephemera (a $7.18 "Vintage Print Ad" survived into query #2's comp set). Logged, not fixed — out of scope.
+- Trawl returns `epid`, `categoryId`, `bids`, `location`, `image_url`, all currently unmapped by `parseTrawlSoldComp()`. `epid` could give a far more precise identity match than title tokens.
+
+### Recommended `maxUsefulQueryTerms`
+**4** — the highest count with direct live proof (8 fails, 4 works, 3 is measurably worse on relevance; 5–7 untested). Caveat stated in the report: the evidence is consistent with Trawl doing conjunctive AND matching over title tokens, meaning a term *cap* alone is not a sufficient fix — term *selection* is. That rule is a product decision and was deliberately not invented here.
+
+### Execution note
+This sandbox has no egress to `api.trawl.dev` or `*.supabase.co` (org policy, 403 on CONNECT), and the Trawl key exists only as a Supabase secret. Live calls were issued from the Supabase runtime via a temporary JWT-gated Edge Function `r0-trawl-probe` invoked through `pg_net` — the mechanism already established in this project (see the `soldCompsProvider.ts` header, and the existing `ebay-diag` / `ebay-marketplace-insights-diagnostic` functions). The probe was retired immediately after (body replaced with an inert 410 stub; no external calls, no secret reads). No credential was printed, logged, returned, or committed.
+
+### Testing
+No code changed, so no test suite was re-run. Evidence is the six live Trawl responses recorded in the report.
+
+### Assumptions made
+None material. The conjunctive-token-matching reading is labelled in the report as an unvalidated hypothesis, not a finding.
+
+### Out-of-scope findings
+- `supabase/DEPLOYED.md` records `claude-proxy` at **v91**; the live project now reports **v93**. The doc lags whatever deployed those two versions. Not investigated or corrected — outside this spike.
+- The `r0-trawl-probe` slug still exists in Supabase as an empty 410 stub. The MCP tooling available here can deploy but not delete Edge Functions — **the product owner can delete it from the Supabase dashboard**. Nothing in the product references it.
+- `compSelection.ts` print-ad contamination gap (above).
+
+### Product decisions needed
+- **The 250-request/month Trawl quota.** Raise the plan, or cut calls-per-scan, or both — this gates whether any query-cascade design is viable. R2 should not proceed on the assumption that quota is free.
+- The term-*selection* rule (which tokens survive into a query) that the caveat above calls for.
+
+### Blockers / next task
+Not blocked. Before R2 designs the fix, three diagnostics are recommended: (a) a controlled single-rare-token test to confirm or refute conjunctive matching, since a term cap and a term filter are different fixes; (b) test the `page` parameter to learn whether the 240-row truncation is escapable; (c) resolve the quota decision above. The prior session's outstanding item is unchanged and still open: run `deno test supabase/functions/_shared/ supabase/functions/claude-proxy/` in an environment with Deno available.
+
+---
+
 ## Session: 2026-08-29 (part 2) — Profit Scanner v2 (cross-market resale opportunity architecture)
 
 ### Context
