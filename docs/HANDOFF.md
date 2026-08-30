@@ -53,6 +53,102 @@ Not blocked. Before R2 designs the fix, three diagnostics are recommended: (a) a
 
 ---
 
+## Session: 2026-08-30 — Profit Scanner full code review (read-only, no behavior change)
+
+### Context
+Reported symptom: the Profit Scanner returns `LIMITED EVIDENCE` on every scan
+instead of HOT/LIST/SKIP. Task was a full review of the scanner path to find
+out why. **No application behavior, schema, dependency, prompt, or deployed
+function was changed by this session.**
+
+### What was done
+Reviewed the complete live scanner path (`app.html` -> `claude-proxy/index.ts`
+-> `marketplaceRouter`/`marketplaceProviders` -> `marketDataPipeline` ->
+`soldCompsProvider` (Trawl)/`ebayBrowse`/`ebayCatalog`/`ebayTaxonomy` ->
+`compSelection` -> `marketMetrics` -> `evidenceQuality` ->
+`marketplaceOpportunity`/`marketplaceEconomics` -> `financialEngine`/
+`maxBuyPrice` -> `decisionEngine` -> `scanResultContract.js`), cross-checked
+against production `scan_log` rows 60-68 and the live deployed bundle.
+
+Findings are recorded in full in
+`docs/files/PROFIT_SCANNER_REVIEW_2026-08-30.md`. Headline result: **four
+independent P0 defects are live simultaneously**, any one sufficient to force
+LIMITED EVIDENCE on effectively every scan —
+(1) Trawl requires EVERY query word in the title while the cascade emits 6-9
+word prose queries (proven: 0/9 real comps match; a 4-word query matches 6/9);
+(2) `identityFromAiScan` accepts prose as `model_number` (every production scan
+returned e.g. "Unknown - model number not visible in photo"), which becomes both
+the exact-model query text and a mandatory `title.includes(model)` filter that
+excluded 34/34 comps in scan 66;
+(3) a Trawl 429 with `Retry-After: 1` — documented as a free, retryable
+per-second throttle — is treated as fatal, and the provider bypasses this repo's
+own `externalCall` retry helper while the cascade fires up to 5 sequential calls
+per item and shelf scan fans out via unbounded `Promise.all`;
+(4) the product-family overlap filter treats AI descriptive prose as required
+match tokens and rejected 0/6 genuinely perfect comps in local reproduction.
+Plus P1: the active-evidence gate is all-or-nothing (one bad listing in 20 voids
+all active evidence, killing two of four evidence tiers and permanently nulling
+STR/days-to-sell/demand), eBay is the only real provider so there is no
+fallback, the real failure reason never reaches the UI, and v2 dropped the
+`attemptedQueries` audit trail.
+
+Verified sound and left alone: `calcProfit`, `calcMaxBuyPrice`,
+`decisionEngine.decide`, `marketplaceEconomics`, and the AI-market-authority
+boundary (the system fails honestly — it fabricates nothing).
+
+Regression point pinned from production: last successful scan
+**2026-08-28 15:28** (`scan_log` id 64). Scans 65-68 all LIMITED EVIDENCE.
+
+### Files changed
+`docs/files/PROFIT_SCANNER_REVIEW_2026-08-30.md` (new), `docs/HANDOFF.md`.
+No source files touched.
+
+### Testing
+- `packages/shared`: `npx tsc --noEmit` clean; `node --test "src/**/*.test.ts"` — **70/70 pass**.
+- `apps/web/public`: `node --test scanResultContract.test.js` — **32/32 pass**.
+- Deployment integrity: live `claude-proxy` **v93 ACTIVE, 27 files**, fetched and
+  byte-compared against repo HEAD — **zero drift**.
+- Local reproduction of `compSelection.ts` (via `node --experimental-strip-types`)
+  against the real comp titles recorded in `scan_log` id 66.
+- Deno is still **not installed** in this environment, so `_shared/` and
+  `claude-proxy/` remain untype-checked and untested — the same open blocker from
+  2026-08-29. All four P0 defects live in exactly that untested code.
+
+### Behavior intentionally not changed
+Everything. This was a read-only review; no fix was implemented, because the
+comp-match strictness, retry/latency budget, active-evidence requirement,
+`facebook_local` selection rule, and shelf-scan HOT semantics are all
+product-behavior decisions (Anti-Drift rule 1), listed in section 7 of the
+review doc.
+
+### Assumptions made
+- Trawl's published contract (all-words `query` matching; `Retry-After` 429 is a
+  free retryable throttle) is authoritative. It matches observed production
+  behavior exactly.
+- Scan 66's recorded comp titles are representative of what Trawl would return
+  for the same item; used as the local reproduction fixture.
+
+### Out-of-scope findings
+- `claude-proxy/index.ts` is **1,786 lines**, over CLAUDE.md's hard 500-line ceiling.
+- `marketplaceRouter` matches `table` in "Table Radio", routing a tabletop radio
+  to `facebook_local`, which (0% fee, $0 shipping, borrowed evidence tier) will
+  then win "Best Market" nearly whenever routed.
+
+### Product decisions needed
+See section 7 of `docs/files/PROFIT_SCANNER_REVIEW_2026-08-30.md` — six items,
+including acceptable comp-match strictness, whether a provider throttle may be
+retried and how long a scan may block, whether active-market evidence is
+required at all, `facebook_local` best-market selection, shelf-scan HOT
+semantics, and the still-unverified marketplace fee percentages.
+
+### Blockers / next task
+Deno unavailable in this environment. Next task is the product owner's call on
+section 7; the review proposes a 7-step remediation order (section 6) starting
+with restoring the audit trail and the client-visible failure reason, so any
+subsequent fix can actually be verified in production.
+
+---
+
 ## Session: 2026-08-29 (part 2) — Profit Scanner v2 (cross-market resale opportunity architecture)
 
 ### Context
