@@ -2,10 +2,35 @@
 
 **Date:** 2026-08-30
 **Author:** Engineering
-**Status:** Proposed — awaiting product-owner sign-off on §2
+**Revision:** **2** — scope corrected to multi-provider evidence federation and
+rule-based market selection (see *Revision history* below)
+**Status:** Proposed — awaiting product-owner sign-off on §13
 **Inputs:** `PROFIT_SCANNER_REVIEW_2026-08-30.md` (root cause) ·
-`REMEDIATION_PLAN_AUDIT_2026-08-30.md` (audit of the prior plan)
-**Baseline:** repo `HEAD` = `03eb041`; live `claude-proxy` **v93** (byte-identical to HEAD)
+`REMEDIATION_PLAN_AUDIT_2026-08-30.md` (audit of the prior plan) ·
+`PROFIT_SCANNER_R0_TRAWL_VALIDATION_2026-08-30.md` (R0 spike — **G0 PASS**)
+**Baseline:** repo `HEAD` = `9decddf`; live `claude-proxy` **v93**
+
+---
+
+## Revision history
+
+**Revision 2 (2026-08-30).** Revision 1 scoped the work as *"fix the eBay/Trawl
+pipeline"* and stated in §12 that adding a marketplace provider was explicitly out
+of scope. The product owner has corrected that premise: the scanner was always
+intended to pull sales data from **multiple marketplace APIs** and recommend the
+best place to list **by an explicit rule set**, not by price. This revision:
+
+- restates the thesis (§1) — there are two findings, not one;
+- carries the R0 spike's result into the plan as measured fact, including the
+  **250-requests-per-month** Trawl quota that now shapes the whole design;
+- makes R2 and R3 **provider-generic by construction** (§5.1, §5.4, §6.1) so
+  federation does not require rewriting them;
+- adds **R5 — Evidence federation** (§8) and **R6 — Best Market as an explicit
+  rule set** (§9);
+- adds five product decisions, **G** through **K** (§13).
+
+Revision 1's diagnosis and R0–R4 are unchanged and still correct. Nothing here
+relitigates a decision recorded in `docs/files/DECISIONS.md`.
 
 ---
 
@@ -26,6 +51,18 @@ the transport gives up on a one-second throttle, and the filters reject genuine
 comparables. And because the failure reason never leaves the server, each build
 tuned blind and swapped one cause for another.
 
+There is a second finding, and Revision 2 exists because it was missing:
+
+> **The product is a cross-market engine with one working market.** The router,
+> the provider interfaces, the per-marketplace economics, the opportunity engine
+> and the Best Market UI are all built. Six of seven evidence providers return
+> `NOT_CONFIGURED`.
+
+The two findings are ordered, not parallel. A federation built on a starved
+pipeline federates starvation, and R2/R3 build the identity, query and matching
+machinery **every** provider needs. So R0–R4 come first — but they must be built
+provider-generic, which is the change Revision 2 makes to them.
+
 **So this plan is ordered by that thesis, not by finding number:**
 
 | | | |
@@ -35,6 +72,8 @@ tuned blind and swapped one cause for another.
 | **R2** | Fix the inputs | *Identity and queries — the actual starvation* |
 | **R3** | Fix the filters | *Stop discarding good evidence* |
 | **R4** | Hygiene | *Everything that isn't the outage* |
+| **R5** | Evidence federation | *More than one market that can answer* |
+| **R6** | Rule-based Best Market | *Which market, and why — explicitly* |
 
 R1 is deployable on day one and converts "we don't know" into "we know" before
 a single line of decision-path logic changes. That sequencing is the single most
@@ -50,9 +89,15 @@ important choice in this document.
    those get calibrated against a real corpus (§3.1) and logged so they stay
    tunable.
 3. **One concept per fix.** Where several findings share a root, fix the root.
-   Provider capabilities (§4.1) resolves three findings with one interface.
+   Provider capabilities (§5.1) resolves three findings with one interface.
 4. **Instrument before you change.** Nothing in R2–R4 ships without the audit
    trail from R1 already live to measure it.
+5. **Provider-generic by construction.** Every interface R2 and R3 introduce is
+   written for *a* market evidence provider, not for Trawl. Federation (§8) then
+   adds adapters, not rewrites.
+6. **Evidence class is never laundered.** An asking price, a price-guide estimate
+   and a completed sale are three different kinds of fact. Federation makes the
+   difference visible (§8.1) rather than averaging it away.
 
 ---
 
@@ -60,8 +105,11 @@ important choice in this document.
 
 The remediation prompt of 2026-08-30 resolved six open product decisions. This
 plan **adopts all six as approved** and does not relitigate them. Three need
-tightening before they are implementable; these are the only product questions
-still open, and they block R3 (not R0–R2).
+tightening before they are implementable, and they block R3 (not R0–R2).
+
+> These six cover the outage work only. Revision 2's federation and ranking
+> releases raise five further questions — **G through K** — which are stated in
+> §13 and block R5/R6 alone. Nothing in §2 changes because of them.
 
 | | Decision | Status |
 |---|---|---|
@@ -91,9 +139,15 @@ one. Proposed: local wins Best Market only when its net profit exceeds the
 evidence-donor marketplace's by **≥25% and ≥$10 absolute**, and the item is
 local-suitable by category. Confirm or replace the number.
 
+**Revision 2 adds five more open decisions — G through K — covering federation
+and ranking. They are collected in §13 with T1–T3, and they block R5/R6 only.**
+
 **Explicitly unchanged:** HOT/LIST/SKIP semantics, the $0-cost → `roi: null`
 rule, user-configured seller economics, STR/days-to-sell/demand as informational
-only, and the rule that weak/no evidence never yields a decision.
+only, and the rule that weak/no evidence never yields a decision. Also unchanged:
+the approved rule that Best Market is *never* simply the highest price, and the
+bar on building any marketplace integration without official, supported API
+access (`DECISIONS.md`) — §8.0 is what makes that bar concrete per platform.
 
 ---
 
@@ -257,18 +311,29 @@ actually doing** — and that reading may reorder R2/R3 priorities. Expect it to
 ### 5.1 Provider capabilities — one interface, three findings (P0-1, P2-15, P2-17)
 
 The pipeline is provider-naive: query planning and comp filtering both assume a
-relevance-ranked search engine. Trawl is not one. Encode it once:
+relevance-ranked search engine. Trawl is not one. Encode it once.
+
+**Revision 2:** this interface is written for *any* market evidence provider, not
+for sold-comp providers alone — it is the seam R5 hangs every adapter on, so its
+shape is decided here, once, rather than being retrofitted later.
 
 ```ts
-export interface SoldProviderCapabilities {
+export interface MarketEvidenceProviderCapabilities {
+  readonly marketplace: MarketplaceId
+  /** What class of fact this provider can actually supply. Caps evidence
+   *  quality downstream — see §8.1. Never widened by a caller. */
+  readonly evidenceClass: 'verified_transaction' | 'price_guide' | 'active_market' | 'other'
   /** 'all_terms' = every query word must appear in the title (Trawl, eBay). */
-  readonly queryMatching: 'all_terms' | 'relevance'
+  readonly queryMatching: 'all_terms' | 'relevance' | 'identifier_only'
   /** Beyond this, added terms shrink recall faster than they add precision. */
   readonly maxUsefulQueryTerms: number
   readonly supportsPagination: boolean
   /** False => bestOfferAccepted is unknown, not false (P2-15). */
   readonly suppliesBestOfferFlag: boolean
+  /** Budget class for cost-ordered calling and quota accounting (§8.2). */
+  readonly costClass: 'cached' | 'free' | 'metered_quota' | 'rate_limited'
 }
+```
 
 // TrawlProvider
 readonly capabilities = {
@@ -283,8 +348,10 @@ readonly capabilities = {
 works and #3 (3 terms) is noisier, 4 is right. Adjust to whatever R0 measures.
 
 This one interface resolves **P0-1** (the planner reads `maxUsefulQueryTerms`),
-**P2-15** (best-offer honesty reads `suppliesBestOfferFlag`), and **P2-17**
-(pagination reads `supportsPagination`). Three findings, one concept.
+**P2-15** (best-offer honesty reads `suppliesBestOfferFlag`) and **P2-17**
+(pagination reads `supportsPagination`) — three findings, one concept — and it
+carries the two fields federation needs, `evidenceClass` and `costClass`, from
+the start, so no adapter written in R5 forces a change to this seam.
 
 ### 5.2 Transport reliability (P0-3)
 
@@ -381,11 +448,18 @@ matching concern:
 
 ```ts
 // queryPlanner.ts
-export function planSoldCompQueries(
+export function planMarketEvidenceQueries(
   identity: IdentityCandidate,
-  caps: SoldProviderCapabilities,
+  caps: MarketEvidenceProviderCapabilities,
 ): QueryCandidate[]
 ```
+
+**Revision 2:** the planner takes provider capabilities, so one planner serves
+every provider R5 adds. The rungs below are the `all_terms` grammar; an
+`identifier_only` provider (Discogs resolves by release, BrickLink by part) plans
+a different, shorter ladder off the same identity. What must **not** happen is a
+second query builder per marketplace — that is how `compSelection.ts` accumulated
+the prose-query defect in the first place.
 
 For an `all_terms` provider, every rung is **truncated to `maxUsefulQueryTerms`**
 and each rung is strictly shorter or broader than the last:
@@ -427,6 +501,11 @@ prose.
 **~2.5 days. The filters.**
 
 ### 6.1 Scored comparable matching (P0-4, P2-12, P2-13, P2-14)
+
+**Revision 2:** the scorer takes a title, an identity and provider capabilities —
+never a marketplace-specific branch. Every provider R5 adds returns listing-shaped
+records, and all of them need the same "does this record describe the same
+product" judgment. One scorer, tested once, reused by every adapter.
 
 Restructure `compSelection.ts` into explicit stages: normalize → hard-reject →
 score → band → coherence-on-retained.
@@ -610,7 +689,254 @@ actionable signal on shelf scans.** The UI should lead with the number.
 
 ---
 
-## 8. Acceptance — defined before any code is written
+## 8. Release 5 — Evidence federation
+
+**~3 days, staged one provider at a time. This is the release the product was
+always meant to have.**
+
+R0–R4 fix one pipeline. R5 is what makes the scanner a cross-market engine in
+fact rather than in shape: more than one marketplace that can actually produce
+evidence.
+
+**The architecture for this already exists and is approved.** `marketplaceRouter.ts`
+routes by category, `marketplaceTypes.ts` defines `TransactionEvidenceProvider`
+and `MarketplaceSignalProvider`, `marketplaceProviders.ts` holds seven adapters,
+`marketplaceEconomics.ts` carries per-marketplace fee profiles,
+`marketplaceOpportunity.ts` builds and ranks opportunities, and `app.html`
+already renders a **Best Market** card and an **Other Options** list. Six of the
+seven adapters return `NOT_CONFIGURED`.
+
+So R5 is not a rewrite. It is populating a boundary that was built for exactly
+this, which `DECISIONS.md` anticipated in as many words: *"the provider boundary
+exists in `marketplaceProviders.ts` for exactly this future work."*
+
+### 8.0 The honest provider map — establish this before writing an adapter
+
+The plan must start from what these platforms actually publish, because the
+answer is much narrower than the marketplace list implies. Verified 2026-08-30
+against current vendor documentation and developer channels:
+
+| Marketplace | Official sold-transaction API? | Best honest evidence class | Access reality |
+|---|---|---|---|
+| **eBay** | Marketplace Insights (sold, 90d) — Limited Release | `verified_transaction` | Effectively closed to new applicants; we reach sold data through an aggregator (Trawl today, SoldComps configured as fallback) |
+| **Reverb** | Price Guide returns a transaction-derived value range; the per-guide `transactions` endpoint was **retired in 2026** | `price_guide` | Free seller token, but the price-guide path is **undocumented** and may change without notice |
+| **Discogs** | No. `/marketplace/stats` gives `lowest_price` + `num_for_sale`; sold history is login-gated | `active_market` (+ haves/wants as a demand signal) | Official, free token, generous limits |
+| **Etsy** | No sold endpoint. Open API v3 covers active listings | `active_market` | Official, requires app approval |
+| **Amazon** | SP-API Product Pricing — competitive offers and Buy Box, not sold comps | `active_market` | Requires a seller account and app registration |
+| **Mercari** | **None published** | — | Only unofficial wrappers exist |
+| **Poshmark** | **None published** | — | No developer portal at all |
+| **Facebook** | **None published** | — | Borrows a valuation today (approved) |
+
+Three consequences, all of which change the plan:
+
+1. **Only eBay can produce `verified_transaction` evidence at general scale.**
+   Every other integration is a weaker class of evidence, not a second opinion of
+   the same kind.
+2. **Three of the eight routed marketplaces can never produce honest evidence**
+   without scraping, which `DECISIONS.md` bars outright. They cannot become
+   real providers; the only question is what we do with them (**Decision G**).
+3. **Vertical specialists may beat general marketplaces** where they apply —
+   PriceCharting (games, cards, comics; paid; genuine sold prices), BrickLink
+   (LEGO price guide including a trailing sold window). TCGplayer's developer
+   programme is effectively closed. These are worth evaluating precisely because
+   they carry transaction evidence where Etsy and Discogs cannot.
+
+> **GATE G5.** Before an adapter is written for any provider, one live probe —
+> run the way R0's Trawl probe was run — must show that provider returning
+> usable evidence for at least 3 items in the §3.1 corpus. **No adapter is built
+> on documentation alone.** R0 exists because that assumption already cost us
+> four builds.
+
+### 8.1 Evidence class must cap evidence quality
+
+This is the integrity rule of the entire release, and without it federation
+actively degrades the product.
+
+`evidenceQuality.ts` grades on comp count, coherence and match precision. It has
+**no notion of where the evidence came from.** Federate as-is and five Etsy
+asking prices become indistinguishable from five eBay sold comps — and `strong`
+evidence is what licenses **HOT**. A cross-market scanner that reaches HOT off
+asking prices is worse than a single-market one that reaches nothing.
+
+The `evidenceType` field already exists on `MarketplaceEvidence` and is already
+populated. Make it load-bearing:
+
+| `evidenceType` | Ceiling |
+|---|---|
+| `verified_transaction` | `strong` |
+| `price_guide` | **`moderate`** |
+| `active_market` | **`moderate`** |
+| `other` | **`weak`** |
+
+HOT therefore continues to mean what it means today: real completed sales, at an
+exact-identity match. Everything federation adds can reach **LIST**, never HOT.
+This is a user-visible behavioral rule → **Decision H**.
+
+It also composes correctly with acceptance criterion **A5** (no HOT without
+exact-band evidence): A5 constrains match precision, the ceiling constrains
+evidence provenance, and HOT requires both.
+
+### 8.2 Call budget — the binding constraint, not a detail
+
+R0 measured Trawl at **250 requests per month**, resetting on the 1st. The
+production cascade fires up to 5 calls per scan. That is roughly **50–250 scans
+per month across all users combined**, before adding a single provider.
+
+Federation multiplies request volume by the number of routed marketplaces. A
+plan that adds providers without a budget layer converts a starvation bug into a
+quota outage — the same LIMITED EVIDENCE symptom, a new cause, which is exactly
+the pattern the last four builds fell into.
+
+Three mechanisms, in dependency order:
+
+**A cross-scan evidence cache, keyed on resolved identity.** The highest-leverage
+item in this release. Sourcing is repetitive both within a user (a shelf of
+similar stock) and across users (everyone scans the same mass-market items).
+Cache on the normalized identity, not on the query string, so different phrasings
+of the same item share a hit. Cache failures too — a `NOT_CONFIGURED` provider
+should not be asked twice a second. **TTL is a product decision** (stale market
+data is wrong market data) → **Decision I**.
+
+**A per-provider budget registry, driven by live headers.** Trawl publishes
+`x-ratelimit-limit` / `-remaining` / `-reset` on every response; R0 confirmed
+they decrement exactly. Read them, persist them, and refuse to spend the last of
+a monthly quota on a low-precision cascade rung. Never infer a limit — read it.
+
+**Cost-ordered calls with a sufficiency short-circuit.** Order providers cheapest
+first: cache, then free-token providers (Discogs, Reverb), then quota-metered
+ones (Trawl), then rate-limited seller APIs. Stop as soon as evidence is
+sufficient for a decision rather than fetching every routed marketplace every
+time. Note the tension this creates: stopping early saves quota but weakens the
+cross-market comparison, since a marketplace never queried cannot win Best
+Market. Resolve it explicitly — short-circuit the *decision* path, not the
+*comparison* path, and mark unqueried marketplaces as `NOT_QUERIED` rather than
+letting their absence read as "checked, and worse."
+
+**Exhaustion is a first-class failure.** Add `PROVIDER_QUOTA_EXHAUSTED` to
+`ProviderFailureReason` and surface it through R1's classification. A user whose
+scan failed because the product ran out of API budget must not be told the item
+has no market.
+
+### 8.3 Rollout order — cheapest access first, each behind a flag
+
+Each provider ships independently, defaults to `NOT_CONFIGURED`, and regresses
+nothing if its credential is absent — the contract the placeholders already keep.
+
+| Order | Provider | Why here | Evidence added |
+|---|---|---|---|
+| 1 | **Reverb** | Free token; the router already routes instruments here; a value range is directly consumable | `price_guide` |
+| 2 | **Discogs** | Free token; vinyl is a dense reseller category; `num_for_sale` + haves/wants is real demand signal | `active_market` |
+| 3 | **Etsy** | Official and stable, but app approval has lead time — start the application during R5, integrate when granted | `active_market` |
+| 4 | **Amazon** | Highest integration cost (seller account, SP-API registration) for `active_market` evidence | `active_market` |
+
+Reverb first also surfaces the `price_guide` class earliest, which is the class
+that most needs §8.1's ceiling to be in place before it ships. Sequence the
+ceiling **before** the first non-eBay adapter, not alongside it.
+
+**Reverb carries a standing risk that must be recorded, not buried:** its price
+guide path is undocumented, and its transactions endpoint was already retired
+once. Treat it as a provider that will break without notice — R1's failure
+classification is what keeps that from silently becoming LIMITED EVIDENCE again.
+
+### 8.4 Fees must harden before they can decide anything
+
+`MARKETPLACE_FEE_PROFILES` holds flat percentages described in its own comment as
+approximations. That was defensible when they only annotated a single-market
+result. **The moment a fee percentage decides which marketplace a user lists on,
+fee error becomes ranking error** — and the tiered schedules real marketplaces
+use (a flat fee below a price threshold, a percentage above it) mis-rank low-value
+items in exactly the price band thrift sourcing lives in.
+
+Per already-approved Decision F (fail closed on unverified fees):
+
+- Give `MarketplaceFeeProfile` a `verifiedAt`, a `source`, and support for
+  threshold-tiered schedules rather than a single percentage.
+- A marketplace whose fee profile is unverified may be **shown** but must not be
+  **ranked** — it cannot win Best Market on unverified arithmetic.
+- eBay continues to use the user's own configured `Settings.ebayFee`. Unchanged,
+  and not a candidate for this table.
+
+---
+
+## 9. Release 6 — Best Market as an explicit rule set
+
+**~1.5 days. Buildable in parallel with R5 against fixtures; it becomes real as
+providers land.**
+
+### 9.1 What ranking does today
+
+`selectBestMarketplace()` is a three-key sort: qualifying beats non-qualifying,
+then stronger evidence, then net profit (falling back to max-buy-price headroom).
+
+That is already "not just best price," and it is already approved. But it is
+three hardcoded comparators, it cannot express a factor it does not already have,
+and `whyThisMarketplace` is a hand-written sentence rather than a readout of the
+arithmetic that actually chose the winner.
+
+### 9.2 What it should be
+
+One pure, table-driven, fully logged function — the same discipline `decide()`
+already holds for HOT/LIST/SKIP, applied to market selection.
+
+**Hard gates first** (a gated marketplace is never ranked, and its exclusion is
+reported, never silent):
+
+- no defensible `expectedSalePrice`
+- evidence below `moderate`, after §8.1's class ceiling
+- fee profile unverified (§8.4)
+- the user cannot or will not sell there (§9.3)
+
+**Then a weighted score over named factors,** every contribution logged:
+
+| Factor | Direction | Source |
+|---|---|---|
+| Net profit — or max-buy headroom when cost is blank | higher wins | `marketplaceEconomics.ts` |
+| ROI | higher wins | same |
+| Evidence class + quality | transaction > guide > active | §8.1 |
+| Fee confidence | verified > estimated | §8.4 |
+| Seller capability | can list > cannot | §9.3 |
+| Shipping burden | local wins on bulky goods | `shipCostFor` + category |
+| Category fit | router confidence | `marketplaceRouter.ts` |
+| Expected time to sell | faster wins | **Decision K — see below** |
+
+`whyThisMarketplace` is then **generated from the top contributing factors**, so
+the sentence the user reads is the reason the code actually chose. Weights live
+in one exported table, not scattered through comparators, and every scan logs the
+full scored slate through R1's audit trail — so the rules can be tuned from real
+traffic instead of argued about.
+
+**The weights themselves are a product decision, not an engineering one.**
+Section §13 records them as open. The engine ships with the current three-key
+behavior expressed as weights, so R6 is provably behavior-neutral on day one and
+every subsequent change to the ranking is a visible, reviewable diff to one table.
+
+### 9.3 The gap this exposes: we do not know where the user can sell
+
+Nothing in `Settings` records which marketplaces the user actually sells on.
+Recommending Reverb to a seller with no Reverb account is a confidently wrong
+answer, and it is the single most likely way a cross-market recommendation loses
+a user's trust.
+
+This needs a settings surface (which marketplaces are in play, optionally which
+are preferred), a column to persist it, and a gate in §9.2. It is the one piece
+of R6 that touches Settings and the UI rather than the scanner internals →
+**Decision J**.
+
+### 9.4 Honesty when there is nothing to compare
+
+Today — and for most items even after R5 — eBay will be the only marketplace with
+evidence. A "Best Market: eBay" card that implies a comparison took place when
+one did not is a fabricated impression, even though every number on it is real.
+
+The ranking result must therefore carry how many marketplaces were **evaluated**,
+how many were **queried**, and how many produced **rankable evidence**, and the
+UI must distinguish "best of four" from "the only one we could check."
+`app.html`'s Other Options list already renders per-marketplace reasons — extend
+that contract rather than adding a second one.
+
+---
+
+## 10. Acceptance — defined before any code is written
 
 Six manual smoke scans is a judgment call, not a measurement. A plan whose goal
 is "stop returning LIMITED EVIDENCE" has a structural bias toward loosening
@@ -631,12 +957,26 @@ makes the failure mode we are most at risk of — quietly loosening thresholds
 until the scanner says yes — *structurally impossible* rather than merely
 discouraged.
 
+**For R5 and R6 (Revision 2):**
+
+| | Criterion | Target |
+|---|---|---|
+| **A6** | HOT reached on anything but `verified_transaction` evidence | **0** — absolute (§8.1) |
+| **A7** | A marketplace winning Best Market on an unverified fee profile | **0** — absolute (§8.4) |
+| **A8** | Best Market result states markets evaluated / queried / rankable | **100%** of scans (§9.4) |
+| **A9** | Scans failing for quota exhaustion reported as such, never as LIMITED EVIDENCE | **100%** (§8.2) |
+| **A10** | R6 ships behavior-neutral: same winner as today's three-key sort on the corpus | **100%** |
+
+**A6 is to federation what A5 is to matching.** It is the criterion that keeps
+"more markets" from silently becoming "weaker evidence, same confident answer,"
+which is the characteristic way a cross-market feature goes wrong.
+
 Plus, per release: R0 gate G0 · R2 gate G2 · all Deno + shared + contract tests
 green · `packages/shared` `tsc --noEmit` clean.
 
 ---
 
-## 9. Risk register
+## 11. Risk register
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
@@ -647,6 +987,13 @@ green · `packages/shared` `tsc --noEmit` clean.
 | Latency regression (scan already ~16s) | Medium | Medium | Bounded retry budget; measure p50/p95 per release; treat >20s as a regression |
 | Loosening filters to hit A1 | Medium | **High** | A2 + A5 guardrails; both are absolute, neither is negotiable |
 | GTIN capture proves unreliable from photos | Medium | Low | Purely additive — `null` returns today's behavior exactly |
+| **Trawl's 250/month quota exhausted in normal use** | **High** | **High** | Measured in R0, not assumed. Cache + budget registry + cost-ordered calls (§8.2); plan upgrade is a product decision |
+| **Reverb's undocumented price-guide path breaks** | **Medium** | Medium | Its transactions endpoint was already retired once. R1 classification surfaces it as a provider failure, never as LIMITED EVIDENCE; provider stays behind a flag |
+| **Federation weakens evidence while looking stronger** | Medium | **High** | §8.1 class ceiling + acceptance A6. HOT stays reachable only from completed sales |
+| **Fee approximations mis-rank low-value items** | **High** | Medium | §8.4 — tiered schedules, `verifiedAt`, unverified profiles shown but never ranked (A7) |
+| **Best Market implies a comparison that never happened** | **High** | Medium | §9.4 — evaluated/queried/rankable counts carried through to the UI (A8) |
+| **Recommending a marketplace the user cannot sell on** | **High** | Medium | §9.3 seller-capability gate — blocked on Decision J |
+| Etsy app approval delays R5 | Medium | Low | Start the application at R5 kickoff; ordering (§8.3) puts free-token providers first so nothing waits on it |
 
 **Rollback:** every release deploys independently with the prior `claude-proxy`
 version recorded in `DEPLOYED.md` as the named rollback target. Current baseline
@@ -654,7 +1001,7 @@ is **v93**.
 
 ---
 
-## 10. Sequencing and effort
+## 12. Sequencing and effort
 
 | Release | Content | Effort | Ships independently |
 |---|---|---:|---|
@@ -663,14 +1010,33 @@ is **v93**.
 | **R2** | Provider caps · transport · identity · query planner | 2.0d | Yes |
 | **R3** | Comp scoring · active evidence · partial · containment · routing · shelf | 2.5d | Yes |
 | **R4** | Best-offer · dead branch · pagination · fees · modularization | 2.0d | Yes (separate PRs) |
+| **R5** | Provider map · class ceiling · call budget · Reverb · Discogs · Etsy · Amazon | 3.0d | Yes — one PR per provider |
+| **R6** | Ranking engine · seller capability · comparison honesty | 1.5d | Yes |
 
-**~8 engineering days.** The outage is expected to close at the end of **R2**;
-R3 is what makes it *stay* closed across the long tail of real items.
+**~12.5 engineering days**, up from Revision 1's ~8. The outage is expected to
+close at the end of **R2**; R3 is what makes it *stay* closed across the long
+tail of real items; **R5 and R6 are what make it a cross-market product.**
+
+**On parallelism.** R6's ranking engine is a pure function over fixtures — it can
+be built and fully tested while R5's adapters are in flight, and it ships
+behavior-neutral (A10), becoming meaningful as each provider lands. R5's §8.1
+class ceiling is the exception: it must ship **before** the first non-eBay
+adapter, not with it.
+
+**On what happens if only part of this is funded.** R0–R2 alone end the outage.
+R5 without R3 federates a starved pipeline and will produce the same symptom
+across more providers. R6 without R5 is a ranking engine with one candidate. The
+dependency order is real; the release boundaries are where it is safe to stop.
 
 ### What we are deliberately not doing
 
-- Not adding a marketplace provider. eBay remains the only real one; that is a
-  known single point of failure and out of scope here.
+- ~~Not adding a marketplace provider.~~ **Reversed in Revision 2** — this was
+  the scope error the product owner corrected. See §8.
+- Not scraping any marketplace. Mercari, Poshmark and Facebook publish no API;
+  `DECISIONS.md` bars building against anything but official, supported access,
+  and Revision 2 does not touch that bar (§8.0, Decision G).
+- Not building a listing/crosslisting integration. R5 and R6 decide *where to
+  list*; actually listing there is a separate product.
 - Not touching Inventory, Photos, Listing Generator, Profit Compass, Profit Hub,
   billing, auth, or eBay listing/order sync — beyond keeping response contracts
   compatible.
@@ -681,7 +1047,7 @@ R3 is what makes it *stay* closed across the long tail of real items.
 
 ---
 
-## 11. Open items requiring product sign-off
+## 13. Open items requiring product sign-off
 
 1. **T1** — confirm "absence is not conflict" as explicit matching policy.
 2. **T2** — confirm retained-sample count (not `data.total`) is authoritative for
@@ -691,5 +1057,37 @@ R3 is what makes it *stay* closed across the long tail of real items.
    retry budget adds up to 3s/item worst case.
 5. **A1 target** — confirm 70% decision rate is the right bar for R3 sign-off.
 
-Items 1–3 block R3 only. **R0, R1, and R2 can start immediately** — and R1 is
-where we stop guessing.
+**Added in Revision 2 — these block R5 and R6 only:**
+
+6. **G — the three unservable marketplaces.** Mercari, Poshmark and Facebook
+   publish no API, and scraping is barred. Do they stay in routing as
+   borrowed-valuation options with their own economics (how `facebook_local`
+   already works, approved), or leave the routed set entirely? Consequence of
+   keeping them: the user sees options we cannot independently evidence.
+   Consequence of dropping them: three genuinely common reseller venues vanish
+   from the recommendation.
+7. **H — the evidence class ceiling (§8.1).** Confirm that `price_guide` and
+   `active_market` evidence caps at `moderate`, so federation can produce LIST
+   but never HOT. This is the integrity rule of the release; without it,
+   federation makes HOT weaker while making it more frequent.
+8. **I — evidence cache TTL (§8.2).** How stale may cached marketplace evidence
+   be before it must be refetched? Bounded by quota on one side and by market
+   truth on the other. A number is needed; engineering has no basis to pick it.
+9. **J — seller capability (§9.3).** Should the scanner know which marketplaces
+   the user actually sells on, and gate recommendations on it? Requires a
+   Settings surface and a stored column. Recommending a venue the user cannot
+   use is the most likely way this feature loses trust.
+10. **K — may time-to-sell influence *ranking*?** `DECISIONS.md` bars
+    STR/days-to-sell/demand from the HOT/LIST/SKIP **decision**. Using expected
+    time-to-sell to choose **between marketplaces** is a different question, but
+    close enough to the barred rule that engineering will not assume an answer.
+11. **Ranking weights (§9.2).** The factor list is engineering's; the weights are
+    not. R6 ships with today's behavior expressed as weights, so this can be
+    answered after launch from logged traffic rather than in advance.
+
+Items 1–3 block R3 only. Items 6–11 block R5/R6 only. **R0, R1, and R2 can start
+immediately** — and R1 is where we stop guessing.
+
+Two of these — **H** and **K** — touch rules recorded in `docs/files/DECISIONS.md`.
+Per the Anti-Drift Operating Contract they are raised here rather than decided,
+and neither is implemented until it is answered.
