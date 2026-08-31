@@ -25,7 +25,7 @@
 import { assertEquals, assertNotEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { resolveScanResultCore, roiForDisplay, type MarketplaceEvidenceBundle } from "./index.ts";
 import { mapEbayResultToEvidence } from "../_shared/marketplaceProviders.ts";
-import type { MarketDataResult, MarketDataSuccess, IdentityCandidate } from "../_shared/marketData.ts";
+import type { MarketDataResult, MarketDataSuccess, MarketDataFailureReason, IdentityCandidate } from "../_shared/marketData.ts";
 
 // Minimal settings row shape used by resolveScanResultCore.
 const SETTINGS = {
@@ -119,6 +119,7 @@ Deno.test("verified single scan: decisionAvailable, authoritative decision, real
   assertNotEquals(core.estimatedProfit, null);
   assertNotEquals(core.roi, null);
   assertEquals(core.aiEstimate, null); // AI guess never enters authoritative economics
+  assertEquals(core.unavailableReason, null); // R1: null exactly when decisionAvailable is true
 });
 
 // ── 2 & core defect ──────────────────────────────────────────────────────
@@ -136,6 +137,10 @@ Deno.test("unverified single scan: AI market estimate never enters authoritative
   assertEquals(core.demandLevel, null);
   assertEquals(core.estimatedSell, null);
   assertEquals(core.bestMarketplace, null);
+  // R1 (P1-9): eBay's own SOLDCOMPS_UNAVAILABLE reason reaches the client as
+  // PROVIDER_UNAVAILABLE — never the same identical message a rate limit or
+  // a genuine no-comps result would produce.
+  assertEquals(core.unavailableReason, 'PROVIDER_UNAVAILABLE');
 });
 
 // ── 3. No authoritative max-buy-price when unverified, evidence exposed ────
@@ -238,4 +243,56 @@ Deno.test("moderate evidenceQuality qualifies as LIST, never HOT", () => {
   const core = resolveScanResultCore(bundleFrom(moderate), AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0);
   assertEquals(core.decision, 'LIST');
   assertEquals(core.decisionAvailable, true);
+});
+
+// ── R1 §4.2 (P1-9): unavailableReason — honest failure classification ──────
+// "unavailableReason is non-null exactly when decisionAvailable is false,
+// and null otherwise" (task doc §4.2's own test requirement).
+
+Deno.test("unavailableReason: non-null exactly when decisionAvailable is false, across every fixture above", () => {
+  const cases: MarketDataResult[] = [
+    verifiedStrongResult(),
+    verifiedWeakEvidenceResult(),
+    NOT_VERIFIED,
+    { ok: false, reason: 'SOLDCOMPS_NOT_CONFIGURED', detail: 'no key configured (test fixture)' },
+    { ok: false, reason: 'PROVIDER_THROTTLED', detail: 'retry-after present (test fixture)' },
+    { ok: false, reason: 'PROVIDER_QUOTA_EXHAUSTED', detail: 'monthly allowance spent (test fixture)' },
+    { ok: false, reason: 'EVIDENCE_TOO_WEAK', detail: 'too weak (test fixture)' },
+    { ok: false, reason: 'INSUFFICIENT_VERIFIED_MARKET_DATA', detail: 'no evidence (test fixture)' },
+  ];
+  for (const result of cases) {
+    const label = result.ok ? 'ok:true' : result.reason;
+    const core = resolveScanResultCore(bundleFrom(result), AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0);
+    if (core.decisionAvailable) {
+      assertEquals(core.unavailableReason, null, `expected null unavailableReason for ${label}`);
+    } else {
+      assertNotEquals(core.unavailableReason, null, `expected a real unavailableReason for ${label}`);
+    }
+  }
+});
+
+Deno.test("unavailableReason: maps each eBay provider failure to its distinct client-facing reason", () => {
+  const expected: Array<[MarketDataFailureReason, string]> = [
+    ['SOLDCOMPS_NOT_CONFIGURED', 'PROVIDER_NOT_CONFIGURED'],
+    ['PROVIDER_THROTTLED', 'PROVIDER_THROTTLED'],
+    ['PROVIDER_QUOTA_EXHAUSTED', 'PROVIDER_QUOTA_EXHAUSTED'],
+    ['EVIDENCE_TOO_WEAK', 'EVIDENCE_TOO_WEAK'],
+    ['INSUFFICIENT_VERIFIED_MARKET_DATA', 'NO_MARKET_EVIDENCE'],
+  ];
+  for (const [reason, wanted] of expected) {
+    const core = resolveScanResultCore(
+      bundleFrom({ ok: false, reason, detail: 'test fixture' }),
+      AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0,
+    );
+    assertEquals(core.unavailableReason, wanted, `reason ${reason} should map to ${wanted}`);
+  }
+});
+
+Deno.test("unavailableReason: no identity at all is classified as IDENTIFICATION_UNRESOLVED, not a generic no-evidence message", () => {
+  const core = resolveScanResultCore(
+    { identity: null, routedMarketplaces: [], evidenceByMarketplace: {}, ebayInformational: { sellThroughRate: null, avgDaysToSell: null, demandLevel: null } },
+    {}, null, SETTINGS, 0,
+  );
+  assertEquals(core.decisionAvailable, false);
+  assertEquals(core.unavailableReason, 'IDENTIFICATION_UNRESOLVED');
 });

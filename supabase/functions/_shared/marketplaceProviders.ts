@@ -32,7 +32,8 @@ const REASON_MAP: Record<MarketDataFailureReason, ProviderFailureReason> = {
   INSUFFICIENT_VERIFIED_MARKET_DATA: 'INSUFFICIENT_VERIFIED_MARKET_DATA',
   EVIDENCE_TOO_WEAK: 'EVIDENCE_TOO_WEAK',
   PROVIDER_TIMEOUT: 'PROVIDER_TIMEOUT',
-  PROVIDER_RATE_LIMITED: 'PROVIDER_RATE_LIMITED',
+  PROVIDER_THROTTLED: 'PROVIDER_THROTTLED',
+  PROVIDER_QUOTA_EXHAUSTED: 'PROVIDER_QUOTA_EXHAUSTED',
   MALFORMED_PROVIDER_RESPONSE: 'MALFORMED_PROVIDER_RESPONSE',
 }
 
@@ -49,7 +50,10 @@ export async function getEbayMarketplaceEvidence(identity: IdentityCandidate): P
 
 export function mapEbayResultToEvidence(result: MarketDataResult): MarketplaceEvidenceResult {
   if (!result.ok) {
-    return { ok: false, marketplace: 'ebay', reason: REASON_MAP[result.reason], detail: result.detail }
+    // R1 (P1-10): carry the query-cascade audit trail through instead of
+    // discarding it here — it used to stop at this boundary while scan_log
+    // kept only reason/detail.
+    return { ok: false, marketplace: 'ebay', reason: REASON_MAP[result.reason], detail: result.detail, audit: result.audit }
   }
   const stats = result.metrics.soldPriceStats
   const active = result.metrics.activeMarketEvidence
@@ -84,6 +88,7 @@ export function mapEbayResultToEvidence(result: MarketDataResult): MarketplaceEv
       sourceName: stats.compCount > 0 ? 'eBay sold listings + active market data' : 'eBay active market data',
       fetchedAt: new Date().toISOString(),
     },
+    audit: result.audit,
   }
 }
 

@@ -145,24 +145,54 @@ export type MarketDataFailureReason =
   // never a fabricated decision.
   | 'EVIDENCE_TOO_WEAK'
   | 'PROVIDER_TIMEOUT'
-  | 'PROVIDER_RATE_LIMITED'
+  // R1 (P1-9): split from the former single PROVIDER_RATE_LIMITED so the
+  // client can honestly distinguish "retry shortly" from "the monthly
+  // allowance is spent" instead of one identical message for both. Only set
+  // where the provider actually distinguishes them (Trawl's Retry-After
+  // header, see soldCompsProvider.ts) — never guessed.
+  | 'PROVIDER_THROTTLED'
+  | 'PROVIDER_QUOTA_EXHAUSTED'
   | 'MALFORMED_PROVIDER_RESPONSE'
+
+// R1 (P1-10): the forensic record of every sold-comp query attempted for one
+// scan, carried all the way from marketDataPipeline.ts through
+// MarketplaceEvidenceResult into scan_log.raw_response.decisionAudit — never
+// discarded at the marketplace-provider boundary. Bounded so a shelf scan
+// with pagination/retries can't balloon the persisted row; never logs
+// provider credentials or raw response bodies.
+export interface MarketEvidenceAuditEntry {
+  query: string
+  precision: CompMatchPrecision
+  rawCompCount: number
+  retainedCompCount: number
+  // Capped at 25 entries per query — the remainder is counted, not dropped
+  // silently, via excludedOverflowCount.
+  excludedComps: Array<{ itemId: string; title: string; soldPrice: number; reason: string }>
+  excludedOverflowCount: number
+  qualified: boolean
+  rejectionReason: string | null
+  providerLatencyMs: number
+  // Always 0 until the Retry-After retry policy (task doc §5.2, decision B)
+  // is implemented — never fabricated ahead of that.
+  retryCount: number
+}
+
+export interface MarketEvidenceAudit {
+  attemptedQueries: MarketEvidenceAuditEntry[]
+  // null when no query fully or partially qualified (e.g. every attempt
+  // failed outright, or identification never produced a usable query).
+  selectedQuery: string | null
+  // Active-listing sampling outcome, present only once the pipeline reached
+  // that stage (never fabricated for an early sold-comp failure that never
+  // got there).
+  activeSample: { sampled: number; retained: number; totalResultCount: number | null } | null
+}
 
 export interface MarketDataFailure {
   ok: false
   reason: MarketDataFailureReason
   detail: string
-  audit?: {
-    attemptedQueries: Array<{
-      query: string
-      precision: CompMatchPrecision
-      rawCompCount: number
-      retainedCompCount: number
-      excludedComps: Array<{ itemId: string; title: string; soldPrice: number; reason: string }>
-      qualified: boolean
-      rejectionReason: string | null
-    }>
-  }
+  audit?: MarketEvidenceAudit
 }
 
 export interface MarketDataSuccess {
@@ -171,18 +201,7 @@ export interface MarketDataSuccess {
   catalogMatch: CatalogMatch | null
   category: CategoryResolution | null
   metrics: MarketMetrics
-  audit?: {
-    selectedQuery: string
-    attemptedQueries: Array<{
-      query: string
-      precision: CompMatchPrecision
-      rawCompCount: number
-      retainedCompCount: number
-      excludedComps: Array<{ itemId: string; title: string; soldPrice: number; reason: string }>
-      qualified: boolean
-      rejectionReason: string | null
-    }>
-  }
+  audit?: MarketEvidenceAudit
 }
 
 export type MarketDataResult = MarketDataSuccess | MarketDataFailure

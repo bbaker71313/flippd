@@ -177,10 +177,15 @@ class TrawlProvider implements SoldMarketDataProvider {
 
       if (res.status === 429) {
         const retryAfter = res.headers.get('Retry-After');
-        const detail = retryAfter
-          ? `Trawl rate limit exceeded; retry after ${retryAfter} seconds`
-          : 'Trawl monthly request allowance is exhausted';
-        return { ok: false, reason: 'PROVIDER_RATE_LIMITED', detail };
+        // R1 (P1-9): Retry-After presence is the one signal that actually
+        // distinguishes "retry shortly" from "monthly allowance spent" — it
+        // was already being used to build a different detail string per
+        // branch, just collapsed into one PROVIDER_RATE_LIMITED reason. Now
+        // that distinction reaches the client honestly instead of both
+        // rendering the same message.
+        return retryAfter
+          ? { ok: false, reason: 'PROVIDER_THROTTLED', detail: `Trawl rate limit exceeded; retry after ${retryAfter} seconds` }
+          : { ok: false, reason: 'PROVIDER_QUOTA_EXHAUSTED', detail: 'Trawl monthly request allowance is exhausted' };
       }
       if (!res.ok) {
         const body = await res.text().catch(() => '');
@@ -230,7 +235,10 @@ class SoldCompsProvider implements SoldMarketDataProvider {
       });
 
       if (res.status === 429) {
-        return { ok: false, reason: 'PROVIDER_RATE_LIMITED', detail: 'SoldComps returned 429' };
+        // No Retry-After signal is checked/available here, unlike Trawl —
+        // classify as the retryable case rather than guessing quota
+        // exhaustion from nothing.
+        return { ok: false, reason: 'PROVIDER_THROTTLED', detail: 'SoldComps returned 429' };
       }
       if (!res.ok) {
         const body = await res.text().catch(() => '');
