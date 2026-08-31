@@ -37,6 +37,9 @@
 // DEFAULT_SOLD_WINDOW_DAYS in marketDataPipeline.ts, not a request param).
 // ****************************************************************************
 import type { SoldCompListing, MarketDataFailureReason } from "./marketData.ts"
+import type { MarketEvidenceProviderCapabilities } from "./marketplaceTypes.ts"
+import { acquireSlot, noteRateLimitHeaders } from "./providerRateLimit.ts"
+import { externalCall, ExternalCallError } from "./externalCall.ts"
 
 export interface SoldCompsQuery {
   searchTerms: string       // normalized identification search terms
@@ -49,6 +52,7 @@ export type SoldEvidenceResult =
 
 export interface SoldMarketDataProvider {
   readonly providerId: string
+  readonly capabilities: MarketEvidenceProviderCapabilities
   searchSoldComps(query: SoldCompsQuery): Promise<SoldEvidenceResult>
 }
 
@@ -56,6 +60,10 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const TRAWL_BASE_URL = 'https://api.trawl.dev/ebay/v1/sold';
 const TRAWL_DEFAULT_LIMIT = 240;
 const TRAWL_SOLD_WINDOW_DAYS = 90;
+// R2 (§5.2, Decision B: 3s throttle budget per scan item). Pacing gets a
+// small slice of that budget; the rest is left for the actual request and
+// its retries (totalRetryBudgetMs below).
+const TRAWL_PACING_MAX_WAIT_MS = 500;
 
 function soldCompsBaseUrl(): string {
   // Overridable via secret so the real path can be corrected without a
@@ -152,71 +160,138 @@ export function parseTrawlSoldComp(raw: unknown): SoldCompListing | null {
   };
 }
 
+// R2 (§5.2): maps a failed externalCall onto Trawl's specific failure
+// vocabulary. Never invents a reason externalCall didn't actually observe.
+function mapTrawlError(err: unknown): SoldEvidenceResult {
+  if (err instanceof ExternalCallError) {
+    if (err.kind === 'timeout') {
+      return { ok: false, reason: 'PROVIDER_TIMEOUT', detail: `Trawl request exceeded ${REQUEST_TIMEOUT_MS}ms` };
+    }
+    if (err.kind === 'parse') {
+      return {
+        ok: false, reason: 'MALFORMED_PROVIDER_RESPONSE',
+        detail: typeof err.cause === 'string' ? err.cause : err.message,
+      };
+    }
+    if (err.kind === 'http' && err.status === 429) {
+      // R1 (P1-9): Retry-After presence is the one signal that actually
+      // distinguishes "retry shortly" (PROVIDER_THROTTLED) from "the
+      // monthly allowance is spent" (PROVIDER_QUOTA_EXHAUSTED). R2 (§5.2)
+      // additionally means a quota-exhausted 429 was never retried by
+      // externalCall's shouldRetry hook below — this branch only fires
+      // after retries are genuinely done, not mid-cascade.
+      return err.retryAfterMs !== undefined
+        ? { ok: false, reason: 'PROVIDER_THROTTLED', detail: `Trawl rate limit exceeded; retry after ${Math.ceil(err.retryAfterMs / 1000)} seconds` }
+        : { ok: false, reason: 'PROVIDER_QUOTA_EXHAUSTED', detail: 'Trawl monthly request allowance is exhausted' };
+    }
+    const status = err.status !== undefined ? `${err.status} ` : '';
+    return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: `Trawl ${status}${err.bodyText ?? err.message}`.slice(0, 500) };
+  }
+  return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: err instanceof Error ? err.message : String(err) };
+}
+
 class TrawlProvider implements SoldMarketDataProvider {
   readonly providerId = 'trawl.dev';
+  // R2 (§5.1): Trawl sources completed eBay sales, so it's a
+  // verified_transaction provider for the 'ebay' marketplace even though
+  // the request itself goes to api.trawl.dev, not ebay.com.
+  readonly capabilities: MarketEvidenceProviderCapabilities = {
+    marketplace: 'ebay',
+    evidenceClass: 'verified_transaction',
+    queryMatching: 'all_terms',
+    // R0 spike's measured output (task doc §5.1) — not a guess.
+    maxUsefulQueryTerms: 4,
+    supportsPagination: true,
+    // parseTrawlSoldComp always sets bestOfferAccepted:false — Trawl does
+    // not supply this flag, so false here means "unknown," never a
+    // verified no (P2-15).
+    suppliesBestOfferFlag: false,
+    // R0: Trawl's real constraint is a measured 250-requests-per-month
+    // allowance, not a per-second throttle.
+    costClass: 'metered_quota',
+  } as const;
+
   constructor(private readonly apiKey: string) {}
 
   async searchSoldComps(query: SoldCompsQuery): Promise<SoldEvidenceResult> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    // R2 (§5.2): pace from our own inferred ceiling before spending a call.
+    // Fails fast as PROVIDER_THROTTLED rather than making a call we already
+    // expect to be throttled — never silently skipped, never a fabricated
+    // zero-evidence result.
+    const gotSlot = await acquireSlot(this.providerId, TRAWL_PACING_MAX_WAIT_MS);
+    if (!gotSlot) {
+      return {
+        ok: false, reason: 'PROVIDER_THROTTLED',
+        detail: 'Local rate-limit pacing budget was exceeded before this call could be sent (providerRateLimit.ts)',
+      };
+    }
+
+    const dateFrom = new Date(Date.now() - TRAWL_SOLD_WINDOW_DAYS * 86_400_000)
+      .toISOString().slice(0, 10);
+    const qs = new URLSearchParams({
+      query: query.searchTerms,
+      site: 'EBAY_US',
+      date_from: dateFrom,
+      limit: String(Math.min(query.limit ?? TRAWL_DEFAULT_LIMIT, TRAWL_DEFAULT_LIMIT)),
+    });
 
     try {
-      const dateFrom = new Date(Date.now() - TRAWL_SOLD_WINDOW_DAYS * 86_400_000)
-        .toISOString().slice(0, 10);
-      const qs = new URLSearchParams({
-        query: query.searchTerms,
-        site: 'EBAY_US',
-        date_from: dateFrom,
-        limit: String(Math.min(query.limit ?? TRAWL_DEFAULT_LIMIT, TRAWL_DEFAULT_LIMIT)),
-      });
-      const res = await fetch(`${TRAWL_BASE_URL}?${qs.toString()}`, {
-        method: 'GET',
-        headers: { 'x-api-key': this.apiKey },
-        signal: controller.signal,
-      });
-
-      if (res.status === 429) {
-        const retryAfter = res.headers.get('Retry-After');
-        // R1 (P1-9): Retry-After presence is the one signal that actually
-        // distinguishes "retry shortly" from "monthly allowance spent" — it
-        // was already being used to build a different detail string per
-        // branch, just collapsed into one PROVIDER_RATE_LIMITED reason. Now
-        // that distinction reaches the client honestly instead of both
-        // rendering the same message.
-        return retryAfter
-          ? { ok: false, reason: 'PROVIDER_THROTTLED', detail: `Trawl rate limit exceeded; retry after ${retryAfter} seconds` }
-          : { ok: false, reason: 'PROVIDER_QUOTA_EXHAUSTED', detail: 'Trawl monthly request allowance is exhausted' };
-      }
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: `Trawl ${res.status} ${body}`.slice(0, 500) };
-      }
-
-      const data = await res.json().catch(() => null);
-      if (data === null || typeof data !== 'object') {
-        return { ok: false, reason: 'MALFORMED_PROVIDER_RESPONSE', detail: 'Trawl response was not valid JSON' };
-      }
-      const d = data as Record<string, unknown>;
-      const rawList = Array.isArray(d.results) ? d.results as unknown[] : [];
+      const rawList = await externalCall<unknown[]>(
+        `${TRAWL_BASE_URL}?${qs.toString()}`,
+        { method: 'GET', headers: { 'x-api-key': this.apiKey } },
+        {
+          timeoutMs: REQUEST_TIMEOUT_MS,
+          maxRetries: 2,
+          maxRetryAfterMs: 2_000,
+          totalRetryBudgetMs: 3_000,
+          isIdempotent: true, // a GET
+          // Preserve the throttle-vs-quota distinction: retry only when
+          // Trawl told us how long to wait. A 429 with no Retry-After means
+          // the monthly allowance is spent — retrying blindly wastes calls
+          // against a quota that will not refill mid-scan.
+          shouldRetry: (error, retryAfterMs) => error.status !== 429 || retryAfterMs !== undefined,
+        },
+        async (res) => {
+          noteRateLimitHeaders(this.providerId, res.headers);
+          const data = await res.json().catch(() => null);
+          if (data === null || typeof data !== 'object') {
+            throw new Error('Trawl response was not valid JSON');
+          }
+          const d = data as Record<string, unknown>;
+          return Array.isArray(d.results) ? d.results as unknown[] : [];
+        },
+      );
       const comps = rawList.map(parseTrawlSoldComp).filter((c): c is SoldCompListing => c !== null);
-
       if (rawList.length > 0 && comps.length === 0) {
         return { ok: false, reason: 'MALFORMED_PROVIDER_RESPONSE', detail: 'Trawl returned records but none matched the expected field contract' };
       }
       return { ok: true, comps };
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return { ok: false, reason: 'PROVIDER_TIMEOUT', detail: `Trawl request exceeded ${REQUEST_TIMEOUT_MS}ms` };
-      }
-      return { ok: false, reason: 'SOLDCOMPS_UNAVAILABLE', detail: err instanceof Error ? err.message : String(err) };
-    } finally {
-      clearTimeout(timeout);
+      return mapTrawlError(err);
     }
   }
 }
 
 class SoldCompsProvider implements SoldMarketDataProvider {
   readonly providerId = 'sold-comps.com';
+  // R2 (§5.1): not R0-calibrated (R0 only spiked Trawl, the provider that
+  // now takes priority in getSoldMarketDataProvider below) — reuses Trawl's
+  // measured maxUsefulQueryTerms as a same-shape (all_terms keyword search)
+  // placeholder pending this provider's own spike, if it's ever revived.
+  readonly capabilities: MarketEvidenceProviderCapabilities = {
+    marketplace: 'ebay',
+    evidenceClass: 'verified_transaction',
+    queryMatching: 'all_terms',
+    maxUsefulQueryTerms: 4,
+    // The API's docs mention page/hasNextPage, but this implementation
+    // never requests a second page (file header) — capability reflects what
+    // this adapter actually does, not the provider's ceiling.
+    supportsPagination: false,
+    // parseSoldComp reads bestOfferAccepted straight from the response.
+    suppliesBestOfferFlag: true,
+    costClass: 'rate_limited',
+  } as const;
+
   constructor(private readonly apiKey: string) {}
 
   async searchSoldComps(query: SoldCompsQuery): Promise<SoldEvidenceResult> {

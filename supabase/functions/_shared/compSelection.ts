@@ -2,7 +2,10 @@ import type { IdentityCandidate, SoldCompListing } from "./marketData.ts"
 
 export interface QueryCandidate {
   query: string
-  precision: 'exact_model_variant' | 'exact_model' | 'product_family' | 'substitute'
+  // R2 (§5.4): 'exact_identifier_variant' added for queryPlanner.ts's GTIN
+  // rung (rung 1) — a validated barcode match is the strongest identity
+  // signal available, matching CompMatchPrecision's existing top tier.
+  precision: 'exact_identifier_variant' | 'exact_model_variant' | 'exact_model' | 'product_family' | 'substitute'
 }
 
 export interface ExcludedComp {
@@ -28,17 +31,10 @@ function normalize(value: string | null | undefined): string {
   return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-function unique(values: string[]): string[] {
-  const seen = new Set<string>()
-  return values.filter(value => {
-    const key = normalize(value)
-    if (key.length < 3 || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
-function productFamily(identity: IdentityCandidate): string {
+// Exported for reuse by queryPlanner.ts (R2 §5.4) — the same "what's left of
+// the item name once brand/model/variant/filler words are stripped" logic a
+// query rung and a head-noun heuristic both need.
+export function productFamily(identity: IdentityCandidate): string {
   const removals = [identity.brand, identity.model, identity.variant]
     .map(normalize).filter(Boolean)
   return normalize(identity.itemName)
@@ -46,23 +42,6 @@ function productFamily(identity: IdentityCandidate): string {
     .filter(token => !removals.some(value => value.split(' ').includes(token)))
     .filter(token => !['model', 'series', 'vintage', 'rare', 'tested', 'working'].includes(token))
     .join(' ')
-}
-
-export function buildSoldCompsQueries(identity: IdentityCandidate): QueryCandidate[] {
-  const brand = normalize(identity.brand)
-  const model = normalize(identity.model)
-  const variant = normalize(identity.variant)
-  const family = productFamily(identity)
-  const name = normalize(identity.itemName)
-  const candidates: QueryCandidate[] = [
-    ...(variant ? [{ query: [brand, model, variant].filter(Boolean).join(' '), precision: 'exact_model_variant' as const }] : []),
-    { query: [brand, model].filter(Boolean).join(' '), precision: 'exact_model' },
-    { query: [brand, family].filter(Boolean).join(' '), precision: 'product_family' },
-    { query: family, precision: 'product_family' },
-    { query: name, precision: model ? 'exact_model' : 'substitute' },
-  ]
-  const allowed = new Set(unique(candidates.map(candidate => candidate.query)).map(normalize))
-  return candidates.filter(candidate => allowed.delete(normalize(candidate.query)))
 }
 
 function scannedItemIsContaminationType(identity: IdentityCandidate, marker: string): boolean {

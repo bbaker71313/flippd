@@ -15,11 +15,18 @@ export class ExternalCallError extends Error {
   readonly attempts: number;
   /** Raw response body (truncated), only for kind='http' — lets a caller surface a provider's own error detail (e.g. Stripe's `error.message`). Never populated from request data, so it can't leak our own secrets. */
   readonly bodyText?: string;
+  /** Parsed Retry-After delay (ms) for this specific failed attempt, when the
+   *  response carried one — set independently of whether it was actually
+   *  honored (capped by maxRetryAfterMs, refused by shouldRetry, etc.), so a
+   *  caller can distinguish "the provider told us to wait" from "the
+   *  provider gave no signal at all" (R2 §5.2 — Trawl's throttled-vs-quota-
+   *  exhausted distinction). Undefined when no Retry-After was present. */
+  readonly retryAfterMs?: number;
 
   constructor(
     kind: ExternalCallErrorKind,
     message: string,
-    opts: { status?: number; retryable: boolean; attempts: number; cause?: unknown; bodyText?: string },
+    opts: { status?: number; retryable: boolean; attempts: number; cause?: unknown; bodyText?: string; retryAfterMs?: number },
   ) {
     super(message);
     this.name = 'ExternalCallError';
@@ -28,6 +35,7 @@ export class ExternalCallError extends Error {
     this.retryable = opts.retryable;
     this.attempts = opts.attempts;
     this.bodyText = opts.bodyText;
+    this.retryAfterMs = opts.retryAfterMs;
     if (opts.cause !== undefined) this.cause = opts.cause;
   }
 }
@@ -50,6 +58,31 @@ export interface ExternalCallPolicy {
   sleep?: (ms: number) => Promise<void>;
   /** Injectable for tests; defaults to globalThis.fetch. */
   fetchImpl?: typeof fetch;
+  /**
+   * R2 (§5.2, Decision B). Refuse a single honored Retry-After longer than
+   * this — a provider asking us to wait past this cap fails fast instead of
+   * sleeping through it. Undefined (default) = no cap, preserving prior
+   * behavior for every existing caller (ebayBrowse, ebayAppAuth, sendEmail,
+   * stripe-checkout).
+   */
+  maxRetryAfterMs?: number;
+  /**
+   * R2 (§5.2, Decision B). Total sleep across every retry of this call.
+   * Exceeded => fail fast rather than partially sleeping into it. Undefined
+   * (default) = unbounded, preserving prior behavior.
+   */
+  totalRetryBudgetMs?: number;
+  /**
+   * R2 (§5.2). Extra, caller-specific veto on retrying a specific failure —
+   * called only when the failure is otherwise eligible (method-safe,
+   * attempts remain, generically retryable). Return false to refuse this
+   * retry. `retryAfterMs` is the parsed Retry-After delay for this attempt,
+   * if the response carried one (undefined otherwise) — this is how a
+   * provider whose 429 without Retry-After means "quota exhausted, do not
+   * retry" (Trawl) differs from one where every 429 is a plain transient
+   * throttle. Omitted (default) = always allow, preserving prior behavior.
+   */
+  shouldRetry?: (error: ExternalCallError, retryAfterMs: number | undefined) => boolean;
 }
 
 interface AttemptResult<T> {
@@ -104,16 +137,32 @@ export async function externalCall<T>(
   const retryEligible = methodIsSafeToRetry(init.method, policy.isIdempotent);
 
   let lastError: ExternalCallError | undefined;
+  let retryBudgetUsedMs = 0;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const result = await attemptOnce<T>(url, init, timeoutMs, fetchImpl, parse, attempt);
     if (result.ok) return result.value as T;
 
     lastError = result.error!;
-    const canRetry = attempt < maxRetries && retryEligible && lastError.retryable;
-    if (!canRetry) throw lastError;
+    let canRetry = attempt < maxRetries && retryEligible && lastError.retryable;
+
+    if (canRetry && policy.shouldRetry) {
+      canRetry = policy.shouldRetry(lastError, result.retryAfterMs);
+    }
+    if (canRetry && policy.maxRetryAfterMs !== undefined && result.retryAfterMs !== undefined
+      && result.retryAfterMs > policy.maxRetryAfterMs) {
+      canRetry = false;
+    }
 
     const delay = result.retryAfterMs ?? backoffWithJitter(attempt, baseDelayMs, maxDelayMs);
+    if (canRetry && policy.totalRetryBudgetMs !== undefined
+      && retryBudgetUsedMs + delay > policy.totalRetryBudgetMs) {
+      canRetry = false;
+    }
+
+    if (!canRetry) throw lastError;
+
+    retryBudgetUsedMs += delay;
     await sleep(delay);
   }
 
@@ -175,6 +224,7 @@ async function attemptOnce<T>(
         retryable,
         attempts: attempt + 1,
         bodyText: bodyText.slice(0, MAX_ERROR_BODY_CHARS),
+        retryAfterMs,
       }),
     };
   }

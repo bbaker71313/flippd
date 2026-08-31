@@ -15,6 +15,7 @@ import {
   type MarketplaceOpportunity, type ProviderFailureReason,
 } from "../_shared/marketplaceTypes.ts";
 import type { IdentityCandidate, IdentificationEvidenceKind } from "../_shared/marketData.ts";
+import { parseModelToken, parseVariantToken, parseGtinToken } from "../_shared/identityNormalization.ts";
 import { computeStaleInventoryItems, type StaleCandidateRow } from "../_shared/staleInventory.ts";
 import { CLAUDE_MODEL, ANTHROPIC_MESSAGES_URL } from "../_shared/aiConfig.ts";
 
@@ -455,10 +456,12 @@ IDENTIFICATION (critical):
 - Use any text description to confirm or narrow your photo identification.
 - If you cannot identify specifics, say so clearly in confidence_reason and set confidence below 60.
 
+- If a barcode/UPC/EAN/ISBN is legible in the photo, read its digits exactly — never guess or approximate a digit you cannot actually read.
+
 Do not estimate prices, sell-through rate, demand, profit, ROI, or days-to-sell. Those values come only from verified marketplace evidence and deterministic code.
 
 Return ONLY valid JSON, no markdown:
-{"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","estimated_weight_lbs":number,"confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important identification or condition context"}`;
+{"item_name":"specific make model and variant","category":"string","brand":"string or null","model_number":"string or null","variant":"color/size/edition if visible, else null","gtin":"barcode/UPC/EAN/ISBN digits if legible, else null","estimated_weight_lbs":number,"confidence":number,"confidence_reason":"what you confirmed and what you could not","condition_notes":"visible condition issues","search_keywords":["4 specific eBay search terms for this exact item"],"listing_tips":["4 actionable selling tips"],"risk_flags":["red flags or empty array"],"notes":"important identification or condition context"}`;
 }
 
 // Identification-only successor to FEATURE_TRIAGE.md P-04.
@@ -476,9 +479,10 @@ For each distinct item visible:
 - Do not estimate price, sell-through, demand, profit, ROI, or days-to-sell. A separate verified-market-data system calculates those values.
 - Only include items you can identify with at least 40% confidence.
 - Do NOT calculate profit, ROI, or a buy/skip decision — the seller hasn't paid an acquisition price yet, and that math is computed deterministically elsewhere.
+- If a barcode/UPC/EAN/ISBN is legible on an item, read its digits exactly — never guess or approximate a digit you cannot actually read.
 
 Return ONLY a valid JSON array, no markdown:
-[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","model_number":"string or null","confidence":number,"condition_notes":"string","notes":"one sentence of identification or condition context"}]`;
+[{"item_name":"specific name with brand and model","category":"string","brand":"string or null","model_number":"string or null","variant":"color/size/edition if visible, else null","gtin":"barcode/UPC/EAN/ISBN digits if legible, else null","confidence":number,"condition_notes":"string","notes":"one sentence of identification or condition context"}]`;
 }
 
 // Builds an IdentityCandidate from the AI scan response's identification
@@ -490,19 +494,37 @@ Return ONLY a valid JSON array, no markdown:
 function identityFromAiScan(ai: Record<string, unknown>, evidence: IdentificationEvidenceKind): IdentityCandidate | null {
   const itemName = (ai.item_name as string) || null;
   const brand = (ai.brand as string) || null;
-  const model = (ai.model_number as string) || null;
-  if (!itemName && !brand && !model) return null;
+  const rawModel = (ai.model_number as string) || null;
+  if (!itemName && !brand && !rawModel) return null;
+
+  // R2 (§5.3): validate every raw AI identity token instead of trusting it
+  // verbatim — production scans routinely returned prose ("Unknown - model
+  // number not visible in photo") where a model number belongs, which
+  // poisoned every downstream query. A rejected-but-clean value is salvaged
+  // as modelFamilyHint rather than silently discarded.
+  const { model, modelFamilyHint } = parseModelToken(rawModel);
+  const variant = parseVariantToken((ai.variant as string) || null);
+  const { gtin, gtinKind } = parseGtinToken((ai.gtin as string) || null);
+  const searchKeywords = Array.isArray(ai.search_keywords)
+    ? ai.search_keywords.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    : [];
 
   return {
-    itemName, brand, model, variant: null,
-    gtin: null, gtinKind: null, manufacturerPartNumber: null,
+    itemName, brand, model, variant,
+    gtin, gtinKind, manufacturerPartNumber: null,
+    modelFamilyHint,
     likelyEbayCategory: (ai.category as string) || null,
     categoryHints: ai.category ? [ai.category as string] : [],
     conditionHints: (ai.condition_notes as string) || null,
     unresolvedAttributes: [],
     identityConfidence: (ai.confidence as number) ?? 0,
     evidenceUsed: [evidence],
-    normalizedSearchTerms: [itemName, brand, model].filter((s): s is string => !!s),
+    // R2 (§5.3): the AI's own curated eBay search terms, previously
+    // requested, returned to the client, but never used to build a query
+    // (task doc §5.3) — now the query planner's highest-signal rung
+    // (queryPlanner.ts, rung 4) instead of a same-3-tokens restatement of
+    // itemName/brand/model.
+    normalizedSearchTerms: searchKeywords,
     providerId: 'anthropic-claude-vision',
   };
 }
@@ -665,6 +687,29 @@ async function handleDetectItem(
   return ai;
 }
 
+// R2 (§5.2): calibrated against the R0 spike's finding, not a guess —
+// bounds how many shelf items resolve their marketplace evidence at once.
+// Each item's own query cascade still runs sequentially inside
+// resolveMarketplaceEvidenceBundle; this only bounds cross-item fan-out.
+const SHELF_SCAN_CONCURRENCY = 3;
+
+async function mapWithConcurrencyLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await fn(items[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
+
 async function handleShelfScan(
   supabase: ReturnType<typeof createClient>,
   anthropicKey: string,
@@ -689,7 +734,12 @@ async function handleShelfScan(
   // relevant marketplaces and evaluates the same opportunity engine as
   // single/text scan (see finalizeSingleOrTextScan) — one decision authority
   // for every scan mode (task doc §19).
-  const items = await Promise.all(aiItems.map(async (ai) => {
+  //
+  // R2 (§5.2): bounded to a pool of 3 concurrent items, not Promise.all over
+  // every item at once — an 8-item shelf previously fired up to 40 concurrent
+  // Trawl calls (every item x its own query-cascade rungs), which was the
+  // single largest source of the scanner tripping its own rate limit.
+  const items = await mapWithConcurrencyLimit(aiItems, SHELF_SCAN_CONCURRENCY, async (ai) => {
     const bundle = await resolveMarketplaceEvidenceBundle(ai, 'visual_ai');
     const confidence = (ai.confidence as number) ?? null;
 
@@ -721,7 +771,7 @@ async function handleShelfScan(
       whyThisMarketplace: core.whyThisMarketplace,
       alternativeMarketplaces: core.alternativeMarketplaces,
     };
-  }));
+  });
 
   await supabase.from('scan_log').insert({
     user_id: userId, scan_type: 'shelf', decision: null,

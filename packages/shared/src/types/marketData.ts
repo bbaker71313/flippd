@@ -26,6 +26,11 @@ export interface IdentityCandidate {
   gtin: string | null                  // GTIN/UPC/EAN/ISBN — whichever was read
   gtinKind: 'GTIN' | 'UPC' | 'EAN' | 'ISBN' | null
   manufacturerPartNumber: string | null
+  // R2 (§5.3): a salvaged family signal from a rejected model_number value
+  // (identityNormalization.ts's parseModelToken), e.g. "p-series" — real
+  // identity signal that isn't a validated model, kept instead of discarded.
+  // Never treated as equivalent to a validated model.
+  modelFamilyHint: string | null
   likelyEbayCategory: string | null     // free-text hint — never authoritative, see CategoryResolution
   categoryHints: string[]
   conditionHints: string | null

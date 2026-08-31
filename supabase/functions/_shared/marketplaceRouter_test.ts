@@ -6,7 +6,7 @@ import type { IdentityCandidate } from "./marketData.ts";
 function identity(overrides: Partial<IdentityCandidate>): IdentityCandidate {
   return {
     itemName: null, brand: null, model: null, variant: null, gtin: null, gtinKind: null,
-    manufacturerPartNumber: null, likelyEbayCategory: null, categoryHints: [],
+    manufacturerPartNumber: null, modelFamilyHint: null, likelyEbayCategory: null, categoryHints: [],
     conditionHints: null, unresolvedAttributes: [], identityConfidence: 80,
     evidenceUsed: ['visual_ai'], normalizedSearchTerms: [], providerId: 'test',
     ...overrides,

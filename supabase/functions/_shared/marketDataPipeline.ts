@@ -21,18 +21,29 @@ import { resolveCategory } from "./ebayTaxonomy.ts"
 import { searchActiveListings } from "./ebayBrowse.ts"
 import { getSoldMarketDataProvider } from "./soldCompsProvider.ts"
 import {
-  buildSoldCompsQueries, isCoherentPriceSet, isCoherentPriceSpread, selectComparableSoldComps,
+  isCoherentPriceSet, isCoherentPriceSpread, selectComparableSoldComps,
 } from "./compSelection.ts"
+import { planMarketEvidenceQueries } from "./queryPlanner.ts"
 import { computeSoldPriceStats, computeMarketTurnoverDays, computeSellThroughRate, computeDemandLevel } from "./marketMetrics.ts"
 import { assessEvidenceQuality } from "./evidenceQuality.ts"
 import type {
   MarketDataResult, MarketMetrics, CompMatchPrecision, IdentityCandidate, SoldCompListing,
   ActiveMarketEvidence, MarketEvidenceAuditEntry,
 } from "./marketData.ts"
+import type { MarketEvidenceProviderCapabilities } from "./marketplaceTypes.ts"
 
 // The approved sold-evidence window used for STR and turnover. Providers must
 // constrain their request to this same window or guarantee equivalent coverage.
 const DEFAULT_SOLD_WINDOW_DAYS = 90;
+
+// eBay Browse (searchActiveListings) is also an all_terms provider (task
+// doc §5.1) — used as the query-planning capability fallback when no
+// sold-comp provider is configured, since Browse's active-listing search
+// (queryForActive below) still needs a planned query either way.
+const EBAY_BROWSE_FALLBACK_CAPS: MarketEvidenceProviderCapabilities = {
+  marketplace: 'ebay', evidenceClass: 'active_market', queryMatching: 'all_terms',
+  maxUsefulQueryTerms: 4, supportsPagination: true, suppliesBestOfferFlag: false, costClass: 'free',
+};
 
 export async function runMarketDataPipeline(input: IdentifyInput): Promise<MarketDataResult> {
   const identifier = getItemIdentifier();
@@ -61,7 +72,10 @@ function capExcluded(excluded: { itemId: string; title: string; soldPrice: numbe
 // (e.g. a scan handler's own AI call) can reuse it here instead of
 // triggering a second, redundant identification call.
 export async function resolveVerifiedMarketData(identity: IdentityCandidate): Promise<MarketDataResult> {
-  const queries = buildSoldCompsQueries(identity);
+  // R2 (§5.4): plan queries from the configured provider's own capabilities
+  // (see EBAY_BROWSE_FALLBACK_CAPS above) instead of a provider-naive builder.
+  const soldProvider = getSoldMarketDataProvider();
+  const queries = planMarketEvidenceQueries(identity, soldProvider?.capabilities ?? EBAY_BROWSE_FALLBACK_CAPS);
   if (!queries.length) {
     return { ok: false, reason: 'IDENTIFICATION_UNRESOLVED', detail: 'Identification produced no usable search terms' };
   }
@@ -74,7 +88,6 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
   let qualified: { query: string; precision: CompMatchPrecision; comps: SoldCompListing[] } | null = null;
   let partial: { query: string; precision: CompMatchPrecision; comps: SoldCompListing[] } | null = null;
 
-  const soldProvider = getSoldMarketDataProvider();
   if (soldProvider) {
     for (const candidate of queries) {
       const requestStartedAt = Date.now();

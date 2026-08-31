@@ -18,6 +18,12 @@ export interface IdentityCandidate {
   gtin: string | null
   gtinKind: 'GTIN' | 'UPC' | 'EAN' | 'ISBN' | null
   manufacturerPartNumber: string | null
+  // R2 (§5.3): a salvaged family signal from a rejected model_number value
+  // (identityNormalization.ts's parseModelToken), e.g. "p-series" — real
+  // identity signal that isn't a validated model, kept instead of discarded.
+  // Feeds a query-planner rung (queryPlanner.ts) and, eventually, a scoring
+  // signal — never treated as equivalent to a validated model.
+  modelFamilyHint: string | null
   likelyEbayCategory: string | null
   categoryHints: string[]
   conditionHints: string | null

@@ -3,7 +3,8 @@
 // Fixture below is the real (sanitized) shape confirmed live 2026-08-26 —
 // see soldCompsProvider.ts file header for how it was obtained.
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { parseSoldComp, parseTrawlSoldComp } from "./soldCompsProvider.ts";
+import { parseSoldComp, parseTrawlSoldComp, getSoldMarketDataProvider } from "./soldCompsProvider.ts";
+import { __resetForTests as __resetRateLimitForTests } from "./providerRateLimit.ts";
 
 const LIVE_RECORD = {
   itemId: "377417007385",
@@ -128,4 +129,113 @@ Deno.test("Trawl malformed or zero-price records are rejected", () => {
   assertEquals(parseTrawlSoldComp({ ...TRAWL_RECORD, sale_price: 0 }), null);
   assertEquals(parseTrawlSoldComp({ ...TRAWL_RECORD, date_sold: "not-a-date" }), null);
   assertEquals(parseTrawlSoldComp({ ...TRAWL_RECORD, item_id: null }), null);
+});
+
+// R2 (§5.2) — TrawlProvider.searchSoldComps transport behavior: moved onto
+// externalCall.ts's retry policy + providerRateLimit.ts pacing. These mock
+// globalThis.fetch the same way ebayBrowse_test.ts does, rather than
+// injecting a fetchImpl, since TrawlProvider (like searchActiveListings)
+// resolves the global at call time.
+const originalFetch = globalThis.fetch;
+const TRAWL_ENV = { TRAWL_API_KEY: "test-trawl-key" };
+
+function withEnv<T>(vars: Record<string, string>, fn: () => Promise<T>): Promise<T> {
+  const prior: Record<string, string | undefined> = {};
+  for (const k of Object.keys(vars)) { prior[k] = Deno.env.get(k); Deno.env.set(k, vars[k]); }
+  return fn().finally(() => {
+    for (const k of Object.keys(vars)) { if (prior[k] === undefined) Deno.env.delete(k); else Deno.env.set(k, prior[k]!); }
+  });
+}
+
+function trawlProvider() {
+  const provider = getSoldMarketDataProvider();
+  if (!provider) throw new Error("expected TRAWL_API_KEY to select TrawlProvider");
+  return provider;
+}
+
+Deno.test("TrawlProvider: successful response parses comps", async () => {
+  __resetRateLimitForTests();
+  globalThis.fetch = (() => Promise.resolve(new Response(JSON.stringify({
+    results: [{
+      item_id: "1", sale_price: 45, date_sold: "2026-08-01T00:00:00.000Z",
+      title: "GE Super Radio", item_link: "https://ebay.com/itm/1",
+    }],
+  }), { status: 200 }))) as typeof fetch;
+  try {
+    const result = await withEnv(TRAWL_ENV, () => trawlProvider().searchSoldComps({ searchTerms: "ge radio" }));
+    if (!result.ok) throw new Error(`expected ok result, got ${JSON.stringify(result)}`);
+    assertEquals(result.comps.length, 1);
+    assertEquals(result.comps[0].soldPrice, 45);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+Deno.test("TrawlProvider: 429 with Retry-After retries and can still succeed", async () => {
+  __resetRateLimitForTests();
+  let calls = 0;
+  globalThis.fetch = (() => {
+    calls++;
+    if (calls === 1) return Promise.resolve(new Response("", { status: 429, headers: { "Retry-After": "0" } }));
+    return Promise.resolve(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+  }) as typeof fetch;
+  try {
+    const result = await withEnv(TRAWL_ENV, () => trawlProvider().searchSoldComps({ searchTerms: "ge radio" }));
+    assertEquals(result.ok, true);
+    assertEquals(calls, 2, "a 429 with Retry-After must be retried");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+Deno.test("TrawlProvider: 429 with no Retry-After is quota exhaustion, never retried", async () => {
+  __resetRateLimitForTests();
+  let calls = 0;
+  globalThis.fetch = (() => {
+    calls++;
+    return Promise.resolve(new Response("", { status: 429 }));
+  }) as typeof fetch;
+  try {
+    const result = await withEnv(TRAWL_ENV, () => trawlProvider().searchSoldComps({ searchTerms: "ge radio" }));
+    if (result.ok) throw new Error("expected a failure result");
+    assertEquals(result.reason, "PROVIDER_QUOTA_EXHAUSTED");
+    assertEquals(calls, 1, "a quota-exhausted 429 must never be retried — it will not refill mid-scan");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+Deno.test("TrawlProvider: malformed JSON body is reported, never fabricated as zero comps", async () => {
+  __resetRateLimitForTests();
+  globalThis.fetch = (() => Promise.resolve(new Response("not json", { status: 200 }))) as typeof fetch;
+  try {
+    const result = await withEnv(TRAWL_ENV, () => trawlProvider().searchSoldComps({ searchTerms: "ge radio" }));
+    if (result.ok) throw new Error("expected a failure result");
+    assertEquals(result.reason, "MALFORMED_PROVIDER_RESPONSE");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+Deno.test("TrawlProvider: network failure is reported, never fabricated as zero comps", async () => {
+  __resetRateLimitForTests();
+  globalThis.fetch = (() => Promise.reject(new TypeError("network down"))) as typeof fetch;
+  try {
+    const result = await withEnv(TRAWL_ENV, () => trawlProvider().searchSoldComps({ searchTerms: "ge radio" }));
+    if (result.ok) throw new Error("expected a failure result");
+    assertEquals(result.reason, "SOLDCOMPS_UNAVAILABLE");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+Deno.test("TrawlProvider: self-pacing serializes back-to-back calls instead of dropping either", async () => {
+  __resetRateLimitForTests();
+  let calls = 0;
+  globalThis.fetch = (() => {
+    calls++;
+    return Promise.resolve(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+  }) as typeof fetch;
+  try {
+    await withEnv(TRAWL_ENV, async () => {
+      const provider = trawlProvider();
+      const [a, b] = await Promise.all([
+        provider.searchSoldComps({ searchTerms: "ge radio" }),
+        provider.searchSoldComps({ searchTerms: "ge radio 2" }),
+      ]);
+      assertEquals(a.ok, true);
+      assertEquals(b.ok, true);
+    });
+    assertEquals(calls, 2, "both calls must still complete, just paced rather than dropped");
+  } finally { globalThis.fetch = originalFetch; }
 });
