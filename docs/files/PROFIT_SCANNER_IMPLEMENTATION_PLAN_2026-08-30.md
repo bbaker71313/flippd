@@ -1,18 +1,63 @@
 # Profit Scanner — Implementation Plan
 
-**Date:** 2026-08-30
+**Date:** 2026-08-30 (Revision 3: 2026-08-31)
 **Author:** Engineering
-**Revision:** **2** — scope corrected to multi-provider evidence federation and
-rule-based market selection (see *Revision history* below)
-**Status:** Proposed — awaiting product-owner sign-off on §13
+**Revision:** **3** — corrects a stale terminal `LIMITED EVIDENCE` outcome
+that Revision 2 carried forward unchanged (see *Revision history* below)
+**Status:** R0 and R1 **complete and merged**. R2 proposed, blocked on this
+revision landing (nothing in R2's own scope changed — see §3.0/§5). R3–R6
+still await product-owner sign-off on the open items in §13.
 **Inputs:** `PROFIT_SCANNER_REVIEW_2026-08-30.md` (root cause) ·
 `REMEDIATION_PLAN_AUDIT_2026-08-30.md` (audit of the prior plan) ·
-`PROFIT_SCANNER_R0_TRAWL_VALIDATION_2026-08-30.md` (R0 spike — **G0 PASS**)
-**Baseline:** repo `HEAD` = `9decddf`; live `claude-proxy` **v93**
+`PROFIT_SCANNER_R0_TRAWL_VALIDATION_2026-08-30.md` (R0 spike — **G0 PASS**) ·
+`SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md` (this revision's
+source instruction — corrects the LIMITED EVIDENCE terminal-state rule)
+**Baseline:** repo `HEAD` = `9792f04`; live `claude-proxy` **v96** (R1's
+audit-trail + failure-classification code, confirmed live in the deployed
+bundle 2026-08-31 — see the R0/R1 status note below §1)
 
 ---
 
 ## Revision history
+
+**Revision 3 (2026-08-31) — corrects a carried-forward stale rule; no scope
+change to R0–R2.** Revision 2 restated the plan's thesis and added federation
+(R5) and ranking (R6), but it left one Revision-1-era product rule
+unexamined: §2's "Explicitly unchanged" list, and §6.5/§10 built on it,
+still treated **`LIMITED EVIDENCE` (`decisionAvailable:false`) as the correct
+terminal outcome for weak/no market evidence.** The product owner has
+corrected that premise (`SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md`):
+the scanner was always meant to return an actionable HOT/LIST/SKIP for every
+**reasonably identifiable** item, with evidence strength controlling
+confidence and decision strength — not whether a decision is produced at all.
+Only an actual identification failure or a system/provider error may still
+withhold one. This revision:
+
+- adds a correction note to §2 and reclassifies "weak/no evidence never
+  yields a decision" from unchanged to explicitly superseded;
+- clarifies §4.2's R1 failure-reason table as diagnostics, not economic
+  outcomes, and flags `NO_MARKET_EVIDENCE`/`EVIDENCE_TOO_WEAK` as reasons
+  R2/R3 should make rare-to-unreachable for identifiable items, not a
+  routine result (open implementation question, §13);
+- rewrites §6.5's shelf classification to drop `LIMITED EVIDENCE` and
+  express the evidence-ladder rule instead (weak/none evidence still
+  classifies, conservatively, never fabricated);
+- rewrites §10's acceptance criteria (A1–A3, A9) around the corrected
+  contract and adds the correction prompt's explicit acceptance bullets;
+- updates the risk register and §13's open items to match;
+- records that **R0 and R1 are now complete and merged** (previously
+  "proposed"), with R1's code confirmed live in production (`claude-proxy`
+  v96) though R1's own §4.3 observation step (reading 5–10 real scans'
+  audit trail) was not completed or recorded — flagged as an open loose end
+  in the R0/R1 status note below, not a Revision 3 scope item.
+
+Nothing in R0–R2's actual engineering scope changes: the Trawl spike, the
+Deno unblock, provider capabilities, transport reliability, and identity/query
+planning are unaffected by this correction. What changes is exclusively the
+outcome contract that R3 (and R2's downstream consumers) must implement
+against. Revision 2's federation (R5) and ranking (R6) additions are otherwise
+unchanged and still correct; nothing here relitigates a decision recorded in
+`docs/files/DECISIONS.md` beyond the one explicit supersession above.
 
 **Revision 2 (2026-08-30).** Revision 1 scoped the work as *"fix the eBay/Trawl
 pipeline"* and stated in §12 that adding a marketplace provider was explicitly out
@@ -33,6 +78,31 @@ Revision 1's diagnosis and R0–R4 are unchanged and still correct. Nothing here
 relitigates a decision recorded in `docs/files/DECISIONS.md`.
 
 ---
+
+## R0/R1 status (2026-08-31)
+
+**R0 — complete.** §3.0 (Trawl spike, gate G0: PASS) and §3.2 (Deno unblock,
+gate G0b: PASS) are both done and merged. §3.1 (the 20-item labeled corpus)
+remains **open** — it needs real item photos and human labeling time this
+sandbox cannot supply — and blocks R3's acceptance instrument (§10), not
+R1/R2 (see `docs/HANDOFF.md`'s 2026-08-31 R0 entry for the full reasoning).
+
+**R1 — code complete, merged, and live; one process step left undone.** §4.1
+(audit-trail carry-through) and §4.2 (honest failure classification) are
+implemented, tested, and merged (PR #151). The code is confirmed **live** in
+production: `claude-proxy` is at v96 (up from the pre-deploy baseline v95
+recorded in `supabase/DEPLOYED.md`), and the live bundle was fetched and
+grepped this session — `unavailableReason`, `PROVIDER_THROTTLED`,
+`PROVIDER_QUOTA_EXHAUSTED`, `deriveUnavailableReason`, and
+`excludedOverflowCount` are all present. §4.3 also called for running 5–10
+real scans and reading the resulting audit trail before moving on; that
+observation step was not done, and `supabase/DEPLOYED.md`'s R1 §4.3 entry
+still ends with the placeholder line *"Result recorded below once the deploy
+completes"* despite the deploy having evidently completed. This is a
+documentation gap, not a code or decision gap — recorded as an open item in
+`docs/HANDOFF.md` rather than fixed here, since fixing it means running real
+scans against production, which this documentation-correction task is not
+authorized to do.
 
 ## 1. The thesis
 
@@ -103,6 +173,23 @@ important choice in this document.
 
 ## 2. Product decisions — adopted, with three tightenings
 
+**Revision 3 correction (2026-08-31):** Decisions A–F below are unchanged from
+Revision 2. What changes is the outcome contract wrapped around them: the
+2026-08-29 rule that weak/no evidence terminates the scan in a `LIMITED
+EVIDENCE` / `decisionAvailable:false` state — carried into Revision 2 as
+"explicitly unchanged" below — has been **superseded**. See
+`docs/files/DECISIONS.md`'s "Evidence ladder" decision (2026-08-31) and
+`docs/files/SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md`. The new
+rule: for every **reasonably identifiable** item, decisions A–F still decide
+*how* the evidence is scored, filtered, and weighted — but the item must still
+reach **HOT/LIST/SKIP**, at a strength the evidence actually supports, rather
+than terminate. Every section below that assumed "qualifying evidence →
+decision, non-qualifying → `LIMITED EVIDENCE`" has been corrected accordingly;
+see §6.5 (shelf semantics) and §10 (acceptance) for the sections most affected.
+Only a genuine **identification failure** (the item itself can't be reasonably
+identified) or a **system failure** (provider outage, auth failure, quota
+exhaustion — §4.2's diagnostics) may still withhold a decision.
+
 The remediation prompt of 2026-08-30 resolved six open product decisions. This
 plan **adopts all six as approved** and does not relitigate them. Three need
 tightening before they are implementable, and they block R3 (not R0–R2).
@@ -142,12 +229,17 @@ local-suitable by category. Confirm or replace the number.
 **Revision 2 adds five more open decisions — G through K — covering federation
 and ranking. They are collected in §13 with T1–T3, and they block R5/R6 only.**
 
-**Explicitly unchanged:** HOT/LIST/SKIP semantics, the $0-cost → `roi: null`
-rule, user-configured seller economics, STR/days-to-sell/demand as informational
-only, and the rule that weak/no evidence never yields a decision. Also unchanged:
-the approved rule that Best Market is *never* simply the highest price, and the
-bar on building any marketplace integration without official, supported API
-access (`DECISIONS.md`) — §8.0 is what makes that bar concrete per platform.
+**Explicitly unchanged:** HOT/LIST/SKIP semantics (profit + ROI thresholds
+gated by evidence tier), the $0-cost → `roi: null` rule, user-configured
+seller economics, and STR/days-to-sell/demand as informational only. Also
+unchanged: the approved rule that Best Market is *never* simply the highest
+price, and the bar on building any marketplace integration without official,
+supported API access (`DECISIONS.md`) — §8.0 is what makes that bar concrete
+per platform.
+
+**Explicitly changed (Revision 3):** the rule that weak/no evidence never
+yields a decision. It is **superseded** — see the correction note above and
+`docs/files/DECISIONS.md`.
 
 ---
 
@@ -292,8 +384,32 @@ Note the copy distinguishes **"try again"** (transient, user should retry) from
 **"no comps"** (real, user should judge for themselves). Today's single message
 teaches users to distrust the product in both cases.
 
+**Revision 3 note — these eight reasons are diagnostics, not the scanner's
+economic outcome set.** All eight remain valid, useful, and unchanged as
+*operational* classification — R1 is correctly ordered before R2/R3 precisely
+because you cannot fix or verify a pipeline you can't see failing. But two of
+the eight were written under the pre-correction contract, where
+`unavailableReason` non-null meant "no decision was possible" and that was an
+acceptable end state for a genuine market-evidence gap. Under the corrected
+evidence-ladder rule (§2, §6.5), a **reasonably identifiable** item is no
+longer allowed to stop at `NO_MARKET_EVIDENCE` or `EVIDENCE_TOO_WEAK` — R2/R3
+must instead walk the ladder to a conservative LIST/SKIP. Post-R3, those two
+reasons should become reachable only in the residual case where **every**
+ladder tier (§6, evidence classes 1–5) genuinely returns nothing at all for
+an identified item — and whether that residual case still resolves to
+`NO_MARKET_EVIDENCE` or instead falls through to a conservative SKIP is an
+**open implementation question for R3**, not decided by this correction (see
+§13). `IDENTIFICATION_UNRESOLVED` is unaffected — it is the identification
+failure case the corrected rule explicitly carves out, not a market-evidence
+gap. `PROVIDER_THROTTLED` / `PROVIDER_QUOTA_EXHAUSTED` / `PROVIDER_UNAVAILABLE`
+/ `PROVIDER_NOT_CONFIGURED` / `MARKETPLACE_AUTH_FAILED` are system failures
+and were never in question — they must never be rewritten into SKIP either
+(§4.2 already states this; the correction reinforces it).
+
 Tests: `scanResultContract.test.js` — `unavailableReason` is non-null exactly
-when `decisionAvailable === false`, and null otherwise.
+when `decisionAvailable === false`, and null otherwise. This invariant is
+unchanged by Revision 3; what changes is how rarely `decisionAvailable` should
+be `false` for an identifiable item once R2/R3 ship.
 
 ### 4.3 Deploy and observe
 
@@ -500,6 +616,23 @@ prose.
 
 **~2.5 days. The filters.**
 
+**Revision 3 correction — what "the filters" are for.** §6.1–§6.4 build the
+same matching, scoring, and evidence-preservation machinery Revision 2
+specified. What changes is the goal they serve: not "decide whether this item
+qualifies for a decision," but **"find the strongest evidence tier this item
+actually has, and reach HOT/LIST/SKIP at the confidence that tier supports."**
+Within R3 — single-provider (eBay/Trawl) — the evidence ladder from the
+correction prompt collapses to the two tiers this release actually has data
+for: §6.1's scored sold comps (tier 1, `verified_transaction`) and §6.2's
+proportional active-listing support (tier 3, `active_market`). Tiers 2
+(specialist price guides) and 4 (cross-market evidence) only populate once R5
+(§8) lands a second provider; R3 does not need them to satisfy the corrected
+contract, because §6.3's partial-evidence preservation plus a conservative
+LIST/SKIP already give every identifiable item *something* defensible short
+of a completed sale. Tier 5 ("other conservative, explicitly labeled
+fallback") and the genuinely-zero-evidence residual case are the one open
+question this release doesn't resolve — see §6.5 and §13.
+
 ### 6.1 Scored comparable matching (P0-4, P2-12, P2-13, P2-14)
 
 **Revision 2:** the scorer takes a title, an identity and provider capabilities —
@@ -650,10 +783,23 @@ accident. Mark borrowed valuations as borrowed, never upgrade borrowed evidence
 strength, return the donor marketplace in the audit, and apply T3's threshold
 before local may win Best Market.
 
-**Shelf:** compute max-buy price first, then classify explicitly — `> 0` +
-strong → HOT; `> 0` + moderate → LIST; `<= 0`/null with decisive evidence →
-SKIP; weak/none → LIMITED EVIDENCE. Drop the synthetic at-threshold values fed
-into `decide()`; express the real rule.
+**Shelf (Revision 3 correction):** compute max-buy price first, then classify
+explicitly — `> 0` + strong evidence → HOT; `> 0` + moderate evidence → LIST;
+`<= 0`/null with decisive evidence → SKIP. **Weak/none evidence no longer
+classifies as `LIMITED EVIDENCE`** — per the evidence-ladder decision, a
+shelf item that is reasonably identifiable walks the same ladder as a
+single-item scan (§6.1–§6.3) and still lands on HOT/LIST/SKIP, biased
+conservative (LIST or, more often, SKIP) as evidence weakens; it is never
+silently dropped from the shelf result. `LIMITED EVIDENCE` survives only as
+the outcome for a shelf sub-item that is itself an **identification
+failure** — the AI could not reasonably identify what that region of the
+photo shows at all, which is a distinct failure mode from "identified but
+evidence is thin." Drop the synthetic at-threshold values fed into
+`decide()`; express the real rule. **Open implementation question for R3:**
+what a strongly-identified shelf item with genuinely zero evidence at every
+ladder tier (§6, tier 5's fallback included) should resolve to — a
+conservative SKIP, or a distinctly-labeled zero-evidence variant of SKIP — is
+not decided here (see §13).
 
 **A consequence worth surfacing to product:** since *any* positive max-buy price
 qualifies, shelf HOT will fire on nearly every strongly-identified item. That is
@@ -783,9 +929,12 @@ production cascade fires up to 5 calls per scan. That is roughly **50–250 scan
 per month across all users combined**, before adding a single provider.
 
 Federation multiplies request volume by the number of routed marketplaces. A
-plan that adds providers without a budget layer converts a starvation bug into a
-quota outage — the same LIMITED EVIDENCE symptom, a new cause, which is exactly
-the pattern the last four builds fell into.
+plan that adds providers without a budget layer converts a starvation bug into
+a quota outage — the same "item comes back with nothing useful" symptom users
+saw during the outage, just with a new cause, which is exactly the pattern the
+last four builds fell into. §4.2's `PROVIDER_QUOTA_EXHAUSTED` diagnostic
+exists precisely so this stays a visible, honest system failure rather than
+degrading into an unexplained weak/no-decision result.
 
 Three mechanisms, in dependency order:
 
@@ -836,7 +985,8 @@ ceiling **before** the first non-eBay adapter, not alongside it.
 **Reverb carries a standing risk that must be recorded, not buried:** its price
 guide path is undocumented, and its transactions endpoint was already retired
 once. Treat it as a provider that will break without notice — R1's failure
-classification is what keeps that from silently becoming LIMITED EVIDENCE again.
+classification is what keeps a Reverb outage a visible `PROVIDER_UNAVAILABLE`
+diagnostic rather than a silent, unexplained gap in the item's evidence ladder.
 
 ### 8.4 Fees must harden before they can decide anything
 
@@ -938,24 +1088,44 @@ that contract rather than adding a second one.
 
 ## 10. Acceptance — defined before any code is written
 
-Six manual smoke scans is a judgment call, not a measurement. A plan whose goal
-is "stop returning LIMITED EVIDENCE" has a structural bias toward loosening
-until things pass. So the metric is fixed now, and it is two-sided.
+Six manual smoke scans is a judgment call, not a measurement. So the metric is
+fixed now, and it is two-sided: **the corrected contract raises the bar on
+A1 (near-100%, not 70%) precisely because the failure mode we are most at
+risk of is the opposite of the one Revision 2 worried about** — not "loosens
+filters until things pass," but "declares a decision that isn't honestly
+earned" in order to hit a decision-rate target. That is exactly why A2 and A5
+are absolute, non-negotiable, and evaluated first: they are what keeps "every
+identifiable item gets a decision" from becoming a fabrication licence.
 
 Against the §3.1 corpus of 20 labeled items:
 
 | | Criterion | Target |
 |---|---|---|
-| **A1** | Items producing a decision | **≥ 70%** |
-| **A2** | Decisions produced **without** qualifying evidence | **0%** — absolute |
-| **A3** | Items correctly returning LIMITED EVIDENCE (the 2 unidentifiable) | **100%** |
-| **A4** | GE radio regression: decision reached, ≥3 retained comps, `product_family` | **pass** |
+| **A1** | **Reasonably identifiable** items producing HOT/LIST/SKIP | **100%** of the identifiable subset (i.e. all but the deliberate identification-failure items counted in A3) |
+| **A2** | Decisions or evidence presented as verified/strong that is not — fabricated, laundered, or mislabeled evidence | **0%** — absolute |
+| **A3** | Deliberately unidentifiable items correctly returning an **identification-failure** result (not HOT/LIST/SKIP) | **100%** |
+| **A4** | GE radio regression: **HOT/LIST/SKIP reached** (not `LIMITED EVIDENCE`), ≥3 retained comps, `product_family` precision | **pass** |
 | **A5** | **No HOT without `exact`-band evidence** (validated model or GTIN) | **0 violations** |
+| **A11** | Every decision built on `usable`-band/moderate-or-weaker evidence visibly carries its evidence class/confidence in the response (never presented as equivalent to an `exact`/strong result) | **100%** |
+| **A12** | A provider or system failure (§4.2's diagnostics) **never** silently resolves to an item-level SKIP instead of surfacing as a diagnostic or falling through to remaining ladder evidence | **0 violations** |
+| **A13** | Every shelf sub-item that is reasonably identifiable receives its own HOT/LIST/SKIP result in the shelf response (not omitted, not merged away) | **100%** |
 
-**A2 and A5 are the guardrails, and they matter more than A1.** A5 in particular
-makes the failure mode we are most at risk of — quietly loosening thresholds
-until the scanner says yes — *structurally impossible* rather than merely
-discouraged.
+**A2, A5, A11, and A12 are the guardrails, and they matter more than A1.** A5
+makes the failure mode we are most at risk of — quietly loosening HOT's
+threshold, or any threshold, until the scanner says yes — *structurally
+impossible* rather than merely discouraged. A2, A11, and A12 do the same job
+for the corrected contract's own failure mode: they make it structurally
+impossible to satisfy A1 by fabricating evidence (A2), by hiding how weak the
+evidence actually was (A11), or by disguising a system error as an economic
+SKIP (A12).
+
+**A1's "reasonably identifiable" carve-out is doing real work and needs a
+concrete operational test, not a vibe.** For the §3.1 corpus specifically:
+18 of the 20 items are meant to be identifiable (the 2 deliberately
+unidentifiable items are A3's test cases) — A1 targets 100% of those 18, not
+70% of all 20. A general definition of "reasonably identifiable" for
+production traffic (as opposed to a hand-picked, pre-labeled corpus) is an
+**open implementation question for R3** — see §13.
 
 **For R5 and R6 (Revision 2):**
 
@@ -964,7 +1134,7 @@ discouraged.
 | **A6** | HOT reached on anything but `verified_transaction` evidence | **0** — absolute (§8.1) |
 | **A7** | A marketplace winning Best Market on an unverified fee profile | **0** — absolute (§8.4) |
 | **A8** | Best Market result states markets evaluated / queried / rankable | **100%** of scans (§9.4) |
-| **A9** | Scans failing for quota exhaustion reported as such, never as LIMITED EVIDENCE | **100%** (§8.2) |
+| **A9** | Scans failing for quota exhaustion reported as `PROVIDER_QUOTA_EXHAUSTED`, never silently folded into a weak-evidence decision or an unexplained SKIP | **100%** (§8.2) |
 | **A10** | R6 ships behavior-neutral: same winner as today's three-key sort on the corpus | **100%** |
 
 **A6 is to federation what A5 is to matching.** It is the criterion that keeps
@@ -985,10 +1155,10 @@ green · `packages/shared` `tsc --noEmit` clean.
 | Trawl's real rate limit is lower than assumed | Medium | High | Pace from live headers, not assumption (§5.2); bounded shelf concurrency |
 | Incomplete Edge Function deploy | **Medium** | High | Precedent: v84, v86. Verify closure post-deploy; automate it in R4 |
 | Latency regression (scan already ~16s) | Medium | Medium | Bounded retry budget; measure p50/p95 per release; treat >20s as a regression |
-| Loosening filters to hit A1 | Medium | **High** | A2 + A5 guardrails; both are absolute, neither is negotiable |
+| Loosening filters, or fabricating/mislabeling evidence, to hit A1's near-100% target | **High** (A1's bar is now much harder to satisfy honestly) | **High** | A2 + A5 + A11 + A12 guardrails; all four are absolute, none negotiable — this risk is *why* Revision 3 added A11/A12 rather than raising A1 alone |
 | GTIN capture proves unreliable from photos | Medium | Low | Purely additive — `null` returns today's behavior exactly |
 | **Trawl's 250/month quota exhausted in normal use** | **High** | **High** | Measured in R0, not assumed. Cache + budget registry + cost-ordered calls (§8.2); plan upgrade is a product decision |
-| **Reverb's undocumented price-guide path breaks** | **Medium** | Medium | Its transactions endpoint was already retired once. R1 classification surfaces it as a provider failure, never as LIMITED EVIDENCE; provider stays behind a flag |
+| **Reverb's undocumented price-guide path breaks** | **Medium** | Medium | Its transactions endpoint was already retired once. R1 classification surfaces it as a `PROVIDER_UNAVAILABLE` diagnostic, never as a silent evidence-ladder gap; provider stays behind a flag |
 | **Federation weakens evidence while looking stronger** | Medium | **High** | §8.1 class ceiling + acceptance A6. HOT stays reachable only from completed sales |
 | **Fee approximations mis-rank low-value items** | **High** | Medium | §8.4 — tiered schedules, `verifiedAt`, unverified profiles shown but never ranked (A7) |
 | **Best Market implies a comparison that never happened** | **High** | Medium | §9.4 — evaluated/queried/rankable counts carried through to the UI (A8) |
@@ -1003,11 +1173,11 @@ is **v93**.
 
 ## 12. Sequencing and effort
 
-| Release | Content | Effort | Ships independently |
+| Release | Content | Effort | Status (2026-08-31) |
 |---|---|---:|---|
-| **R0** | Trawl spike · corpus · Deno unblock | 0.5d | n/a — no product code |
-| **R1** | Audit trail · failure classification | 1.0d | **Yes — deploy first** |
-| **R2** | Provider caps · transport · identity · query planner | 2.0d | Yes |
+| **R0** | Trawl spike · corpus · Deno unblock | 0.5d | **Complete** — G0/G0b PASS; §3.1 corpus still open, blocks R3 only |
+| **R1** | Audit trail · failure classification | 1.0d | **Complete, merged, live** (`claude-proxy` v96) — §4.3's observation-scan step wasn't recorded, see R0/R1 status note above |
+| **R2** | Provider caps · transport · identity · query planner | 2.0d | Ready to start — blocked only on this revision (the outcome contract it must build toward) |
 | **R3** | Comp scoring · active evidence · partial · containment · routing · shelf | 2.5d | Yes |
 | **R4** | Best-offer · dead branch · pagination · fees · modularization | 2.0d | Yes (separate PRs) |
 | **R5** | Provider map · class ceiling · call budget · Reverb · Discogs · Etsy · Amazon | 3.0d | Yes — one PR per provider |
@@ -1055,7 +1225,33 @@ dependency order is real; the release boundaries are where it is safe to stop.
 3. **T3** — confirm or replace local Best-Market threshold (≥25% **and** ≥$10).
 4. **Latency budget** — confirm an acceptable p95 scan time. Current ~16s; the
    retry budget adds up to 3s/item worst case.
-5. **A1 target** — confirm 70% decision rate is the right bar for R3 sign-off.
+5. ~~**A1 target** — confirm 70% decision rate is the right bar for R3
+   sign-off.~~ **Resolved by the 2026-08-31 evidence-ladder decision:** A1 is
+   now ~100% of the reasonably-identifiable subset, not a negotiable
+   decision-rate target — see §10. Superseded, not open.
+
+**Added in Revision 3 (2026-08-31) — these block R3 only:**
+
+5a. **L — the genuinely-zero-evidence residual case.** When an identifiable
+    item's evidence ladder (§6) bottoms out with nothing at *any* tier —
+    including tier 5's conservative fallback — what does the scanner return?
+    A plain SKIP (economics unknown defaults to "don't buy"), or a
+    distinctly-labeled zero-evidence variant of SKIP that's honest about
+    *why* (so it isn't misread as "we checked the math and it's bad" when
+    the truth is "we found nothing to check")? The correction prompt
+    requires *a* decision either way; it does not specify which. Flagged at
+    §4.2, §6 intro, and §6.5; not decided here.
+5b. **M — an operational definition of "reasonably identifiable" for live
+    traffic.** §3.1's corpus hand-labels 18 identifiable items and 2
+    deliberate identification failures, which is sufficient to test A1/A3
+    against a fixed set. Production traffic has no human labeling a photo as
+    a bad scan of a real item. What in-code signal marks
+    `IDENTIFICATION_UNRESOLVED` (a real identification failure, A3's case)
+    versus "identified, but every evidence tier came up empty" (L's case,
+    which must still classify)? This is squarely `identityFromAiScan`/
+    `parseModelToken`'s territory (§5.3) but needs an explicit rule, not an
+    implicit one, since it decides which of two very different UI states a
+    borderline scan gets.
 
 **Added in Revision 2 — these block R5 and R6 only:**
 
@@ -1085,8 +1281,9 @@ dependency order is real; the release boundaries are where it is safe to stop.
     not. R6 ships with today's behavior expressed as weights, so this can be
     answered after launch from logged traffic rather than in advance.
 
-Items 1–3 block R3 only. Items 6–11 block R5/R6 only. **R0, R1, and R2 can start
-immediately** — and R1 is where we stop guessing.
+Items 1–3, L, and M block R3. Items 6–11 block R5/R6 only. **R0 and R1 are
+already complete and merged; R2 can start immediately** — R1 already ended
+the guessing this plan's thesis was written around.
 
 Two of these — **H** and **K** — touch rules recorded in `docs/files/DECISIONS.md`.
 Per the Anti-Drift Operating Contract they are raised here rather than decided,
