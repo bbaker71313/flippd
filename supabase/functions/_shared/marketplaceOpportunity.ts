@@ -101,8 +101,12 @@ export function buildMarketplaceOpportunities(
   // offered as an opportunity either.
   if (routedMarketplaces.includes('facebook_local') && opportunities.length > 0) {
     const donor = [...opportunities].sort((a, b) => b.expectedSalePrice - a.expectedSalePrice)[0]
+    // Safe: every entry in `opportunities` was built above via buildOneOpportunity
+    // after an isDecisive() guard, so donor.evidenceQuality is provably 'strong'
+    // or 'moderate' at runtime even though MarketplaceOpportunity's field type
+    // is the wider EvidenceQuality.
     opportunities.push(buildOneOpportunity(
-      'facebook_local', donor.expectedSalePrice, donor.evidenceQuality,
+      'facebook_local', donor.expectedSalePrice, donor.evidenceQuality as DecisiveEvidenceQuality,
       donor.priceLow, donor.priceHigh, acquisitionCost, settings,
       `Local in-person sale — no marketplace fee, no shipping. Valuation from ${donor.marketplace}.`,
     ))

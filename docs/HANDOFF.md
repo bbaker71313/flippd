@@ -4,6 +4,54 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-31 — R0 §3.2 Deno test unblock (gate G0b: PASS)
+
+### Context
+Implementing Release 0 of `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md` (Revision 2). R0 has three parts: §3.0 the Trawl spike, §3.1 a 20-item labeled corpus, §3.2 unblock the Deno tests. §3.0 was already done and recorded PASS in the 2026-08-30 "R0 Trawl validation spike" entry below — nothing further needed there this session. §3.2 is what this session completed. §3.1 is a genuine blocker — see below.
+
+### What changed — §3.2, gate G0b: PASS
+The plan's own diagnosis ("Deno is not installed" is a misdiagnosis; the real blocker is the `deno.land/std` import needing network egress this sandbox blocks) was correct, but a prior, undocumented session had already partially addressed it: `supabase/functions/_shared/testing/assert.ts` (a local `assertEquals`/`assertNotEquals`/`assertThrows`/`assertRejects` shim matching std/assert's API) and `testing/deno_test_import_map.json` already existed, usable only via an explicit `--import-map` flag. Rather than rewrite all 27 (not 10 — the file count grew since the plan was written) test files' call sites to `node:assert/strict`'s differently-named exports (`strictEqual`/`deepStrictEqual`/etc., a much larger and riskier diff for zero behavioral gain), this session finished wiring the existing shim:
+
+1. **Added `supabase/functions/deno.json`** — an import map redirecting `deno.land/std`'s assert module to the local shim and `esm.sh/@supabase/supabase-js@2` to the `npm:` equivalent (registry.npmjs.org is allowed egress; deno.land/esm.sh are not), plus `nodeModulesDir: "auto"`. Deno's config auto-discovery walks up from **cwd**, not from the target path, so this only auto-applies when the working directory is `supabase/functions/` — documented in the file itself. `supabase/functions/deno.lock` was generated and committed alongside it (pins the resolved npm dependency tree, same purpose as the plan's "pinned and vendorable" ask).
+2. **Added `assert()` to `_shared/testing/assert.ts`** — one test file (`marketplaceOpportunity_test.ts`) used std's `assert(condition)`, which the shim didn't have yet.
+3. **Two minimal, zero-runtime-behavior type-only fixes**, required for Deno's (stricter-than-tsc-here) type checker to pass and discovered only now because the tests never reached type-check before: `ebayAppAuth.ts`'s `EbayAppAuthError` constructor param needed an `override` modifier (TS4115); `marketplaceOpportunity.ts`'s `facebook_local` donor-evidence push needed a type assertion (`donor.evidenceQuality as DecisiveEvidenceQuality`) — provably safe since every entry in `opportunities` at that point was built through an `isDecisive()` guard earlier in the same function, so the value is never actually `'weak'`/`'none'`/`'other'` at runtime; the wider `EvidenceQuality` type on `MarketplaceOpportunity` just doesn't carry that proof through to the type checker. Both are comments-in-place, not silent.
+4. **Fixed one genuinely stale Deno-mirror test**: `marketMetrics_test.ts`'s "Best Offer accepted comps excluded" test asserted `soldPriceHigh === 20` (i.e., max), but production behavior was changed to the 35th/70th-percentile range by the 2026-08-28 remediation (see that changelog entry in `CURRENT_STATE.md`) — and the parity test in `packages/shared/src/utils/marketMetrics.test.ts` (which does run, and passed 70/70 last session) already asserts the correct `10` with an explanatory comment. The Deno mirror just never got to run to catch its own staleness until now. Updated to match its already-approved sibling — this is Anti-Drift rule 12's explicit case (stale test, approved behavior clear from a passing parity test + documented changelog), not a production-behavior change.
+
+**Gate command (must run with cwd inside `supabase/functions/` for the import map to auto-apply):**
+```
+cd supabase/functions && npx deno test --allow-env _shared/
+```
+`--allow-env` is required (Deno's permission sandbox denies `Deno.env.get/set` by default) and is itself offline — no `--allow-net` is needed or granted, since every test mocks `globalThis.fetch` in-process rather than making a real network call. Result: **196 passed, 0 failed**, fully offline, confirmed via a clean final run.
+
+**Deliberately not touched:** `claude-proxy/`, `stripe-checkout/`, `stripe-webhook/`, `ebay-oauth/` test files also import `deno.land/std` and would benefit from the same import map, but their test files import each function's own `index.ts`, which fails Deno's type checker with **105 pre-existing, unrelated errors** (Supabase-js v2's generic client typing collapsing to `never` without an explicit `Database` type parameter — nothing this session touched). The R0 plan's own gate is scoped to `supabase/functions/_shared/` only; fixing 105 type errors across four production `index.ts` files (one of them `claude-proxy/index.ts` at 1,786 lines, already flagged P2-20 for R4 modularization) is out of scope for a "no product code" release. Logged as an out-of-scope finding, not fixed.
+
+### Files changed
+`supabase/functions/deno.json` (new), `supabase/functions/deno.lock` (new), `supabase/functions/_shared/testing/assert.ts`, `supabase/functions/_shared/ebayAppAuth.ts`, `supabase/functions/_shared/marketplaceOpportunity.ts`, `supabase/functions/_shared/marketMetrics_test.ts`, this file.
+
+### Testing
+- `cd supabase/functions && npx deno test --allow-env _shared/` — **196 passed, 0 failed**, offline (clean final run).
+- `npx tsc --noEmit -p packages/shared` — clean.
+- `node --test --experimental-strip-types "src/**/*.test.ts"` in `packages/shared` — **70/70 pass**, unaffected by this session's changes.
+- Confirmed no stray production-code drift: `deno test` from the repo root (no cwd change, no `--allow-env`) auto-migrated the root `package.json` (added a `workspaces` key) as an undocumented Deno side effect on first run — caught via `git status`/`git diff` before committing anything, reverted immediately (`git checkout -- package.json`), and avoided on every subsequent run by only ever invoking `deno` with cwd set to `supabase/functions/`.
+
+### Assumptions made
+None material. The `DecisiveEvidenceQuality` cast in `marketplaceOpportunity.ts` is asserted safe from the surrounding code's own control flow (see above), not guessed.
+
+### Out-of-scope findings
+- The 105 pre-existing Deno type-check errors in `claude-proxy/`, `stripe-checkout/`, `stripe-webhook/`, `ebay-oauth/` (above) — not fixed, scoped out of R0's `_shared/`-only gate.
+- `supabase/functions/_shared/testing/deno_test_import_map.json` (the pre-existing, undocumented-in-HANDOFF import map file usable via an explicit `--import-map` flag) is now redundant with `deno.json` for the default invocation but was left in place — it's still a valid alternative invocation style and deleting it wasn't necessary to complete this task.
+
+### Product decisions needed
+None — this was pure test-infrastructure/tooling work with two type-only, zero-behavior-change fixes; no product, financial, or decision-path behavior changed.
+
+### Blockers — §3.1, the labeled corpus, is NOT done
+The plan's §3.1 calls for 20 real labeled items (photo + AI identification output + hand-labeled "genuinely comparable" comps) across specific categories, explicitly built as **"the acceptance instrument"** for §10's A1–A5 criteria — not an afterthought. This session has no access to real thrift-store item photographs, no way to run them through the live AI-identification + Trawl pipeline (this sandbox has no egress to `api.trawl.dev` or `*.supabase.co`, per the 2026-08-30 Trawl-spike session below — live calls there required a temporary Supabase-hosted probe function, retired after use), and — even given photos and live results — no reliable way to supply the human judgment needed to hand-label "genuinely comparable" comps without corrupting the very acceptance instrument §10 depends on. Per the Anti-Drift Operating Contract (rule 6, no silent fallbacks; the plan's own Guiding Principle 1, never fabricate), this was **not fabricated**. §3.1 remains open and needs either: real item photos + product-owner/human labeling time, or a decision to run it live against the deployed product with a human in the loop.
+
+### Next task
+§3.0 and §3.2 (R0's other two parts) are both done — G0 (recorded 2026-08-30) and G0b (this session) both PASS. §3.1 (the labeled corpus) is the one open R0 item and blocks R3's acceptance criteria (§10), not R1/R2. Per the plan's own sequencing (§12, "What happens if only part of this is funded"), R1 and R2 can start immediately without it.
+
+---
+
 ## Session: 2026-08-30 — Implementation plan Revision 2 (multi-provider federation + rule-based Best Market)
 
 ### Context

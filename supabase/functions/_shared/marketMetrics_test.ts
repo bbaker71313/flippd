@@ -30,7 +30,7 @@ Deno.test("Best Offer accepted comps excluded from price stats, still counted", 
   ]);
   assertEquals(stats.compCount, 2);
   assertEquals(stats.excludedBestOfferCount, 1);
-  assertEquals(stats.soldPriceHigh, 20);
+  assertEquals(stats.soldPriceHigh, 10); // cleaned percentile; the 999 Best Offer listing never surfaces here
 });
 
 Deno.test("zero comps — no fabricated price", () => {

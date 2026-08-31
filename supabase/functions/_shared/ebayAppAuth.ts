@@ -33,7 +33,7 @@ function ebayTokenUrl(): string {
 }
 
 export class EbayAppAuthError extends Error {
-  constructor(message: string, public readonly cause?: unknown) { super(message); }
+  constructor(message: string, public override readonly cause?: unknown) { super(message); }
 }
 
 // Client-credentials app token. Scope 'https://api.ebay.com/oauth/api_scope'

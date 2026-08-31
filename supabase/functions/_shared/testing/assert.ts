@@ -32,6 +32,12 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return true;
 }
 
+export function assert(condition: unknown, msg?: string): asserts condition {
+  if (!condition) {
+    throw new Error(msg ?? "assert failed");
+  }
+}
+
 export function assertEquals(actual: unknown, expected: unknown, msg?: string): void {
   if (!deepEqual(actual, expected)) {
     throw new Error(msg ?? `assertEquals failed: expected ${format(expected)}, got ${format(actual)}`);
