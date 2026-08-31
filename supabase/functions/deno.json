@@ -1,0 +1,8 @@
+{
+  "//": "Deno config for supabase/functions/. Run tests with cwd=supabase/functions so this is auto-discovered: `cd supabase/functions && deno test --allow-env _shared/`. The import map redirects both external specifiers to local/npm equivalents so `deno test` runs fully offline in sandboxes where deno.land/esm.sh egress is policy-blocked (registry.npmjs.org is allowed) — see docs/HANDOFF.md.",
+  "imports": {
+    "https://deno.land/std@0.224.0/assert/mod.ts": "./_shared/testing/assert.ts",
+    "https://esm.sh/@supabase/supabase-js@2": "npm:@supabase/supabase-js@2"
+  },
+  "nodeModulesDir": "auto"
+}
