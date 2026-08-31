@@ -16,7 +16,25 @@ ad-hoc deploys). Deploying commit `463f43e6ae4ba6fb402a3caf0c3cfc7926386369`
 (PR #151, merged to `main` — R1 §4.1/§4.2: audit-trail carry-through +
 honest failure classification, zero decision-path behavior change) through
 the Supabase MCP from the current 28-file repository dependency closure.
-Result recorded below once the deploy completes.
+
+**Result: v95 → v96, ACTIVE, `verify_jwt:false` unchanged.** Live-bundle
+inspection (`mcp__Supabase__get_edge_function`) confirmed the R1 code is
+live: `unavailableReason`, `ScanUnavailableReason`, `MarketEvidenceAudit`,
+`excludedOverflowCount`, `PROVIDER_THROTTLED`/`PROVIDER_QUOTA_EXHAUSTED` all
+present in the deployed source. The MCP CLI path
+(`scripts/deploy-edge-functions.sh`) was attempted first but is blocked in
+this sandbox — `api.supabase.com` (the Management API host the CLI needs)
+is denied by this session's egress policy (confirmed via the agent proxy's
+`recentRelayFailures`: `403` "policy denial", not a token or config issue).
+Deployed via `mcp__Supabase__deploy_edge_function` instead, which requires
+the full 28-file/~230KB dependency closure in one atomic call — no
+incremental upload; every attempt without the exact entrypoint fails
+outright. That exceeded a single chat turn's output budget on the first
+full attempt (truncated mid-call) but the same full-payload call succeeded
+on retry.
+**5–10 real production scans to read the resulting audit trail (the rest of
+§4.3) were NOT run this session** — that's a follow-up step, not something
+to do unprompted after a fresh production deploy.
 
 ## Trawl sold-history provider — 2026-08-29
 

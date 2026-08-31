@@ -4,10 +4,10 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
-## Session: 2026-08-31 — R1 Instrumentation and honest failure (§4.1, §4.2 done; §4.3 needs a deploy decision)
+## Session: 2026-08-31 — R1 Instrumentation and honest failure (§4.1, §4.2, and the §4.3 deploy all done; observation scans still open)
 
 ### Context
-Continuing `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md` (Revision 2) after R0 (both gates PASS — previous entry below). R1 is "Instrumentation and honest failure... Zero decision-path behavior change" with three parts: §4.1 carry the audit trail through (P1-10), §4.2 classify failures honestly (P1-9), §4.3 deploy and observe. This session implemented §4.1 and §4.2 in full, including the client contract and UI copy. §4.3 (an actual production deploy + 5–10 real scans) was deliberately not executed — see Blockers.
+Continuing `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md` (Revision 2) after R0 (both gates PASS — previous entry below). R1 is "Instrumentation and honest failure... Zero decision-path behavior change" with three parts: §4.1 carry the audit trail through (P1-10), §4.2 classify failures honestly (P1-9), §4.3 deploy and observe. This session implemented §4.1 and §4.2 in full (PR #151, merged), then — on explicit product-owner authorization ("deploy live") — deployed `claude-proxy` to production (v95 → v96; see `supabase/DEPLOYED.md`). §4.3's remaining piece, running 5–10 real scans to read the resulting audit trail, was not run this session — see Blockers.
 
 ### What changed — §4.1, carry the audit trail through (P1-10)
 `mapEbayResultToEvidence` previously discarded `MarketDataResult.audit.attemptedQueries` entirely on both branches (only `reason`/`detail` survived into `MarketplaceEvidenceResult`, and from there into `scan_log.raw_response.decisionAudit`). Fixed by unifying and extending the audit shape, then threading it through every layer that touches it:
@@ -29,7 +29,7 @@ Today every failure — a rate limit, an outage, a missing key, a genuine no-com
 - No `sourcingStyle`/decision-math change anywhere — R1 is instrumentation only, as the plan states.
 
 ### Files changed
-`supabase/functions/_shared/marketData.ts`, `_shared/marketDataPipeline.ts`, `_shared/marketplaceProviders.ts`, `_shared/marketplaceTypes.ts`, `_shared/soldCompsProvider.ts`, `claude-proxy/index.ts`, `claude-proxy/marketAuthorityGate_test.ts`, `apps/web/public/scanResultContract.js`, `apps/web/public/scanResultContract.test.js`, `apps/web/public/app.html`, this file.
+`supabase/functions/_shared/marketData.ts`, `_shared/marketDataPipeline.ts`, `_shared/marketplaceProviders.ts`, `_shared/marketplaceTypes.ts`, `_shared/soldCompsProvider.ts`, `claude-proxy/index.ts`, `claude-proxy/marketAuthorityGate_test.ts`, `apps/web/public/scanResultContract.js`, `apps/web/public/scanResultContract.test.js`, `apps/web/public/app.html`, `supabase/DEPLOYED.md`, this file.
 
 ### Testing
 - `cd supabase/functions && npx deno test --allow-env _shared/ claude-proxy/ --no-check` — **222 passed, 0 failed** (196 pre-existing + 26 in `claude-proxy/`, including 3 new `unavailableReason` tests added this session).
@@ -50,11 +50,15 @@ Today every failure — a rate limit, an outage, a missing key, a genuine no-com
 ### Product decisions needed
 None. Every choice above (the throttled/quota-exhausted split, the PROVIDER_UNAVAILABLE grouping, the 25-comp audit cap) implements what the task doc's Revision 2 plan already specifies or is a conservative, honest default where the plan didn't fully specify a source signal — nothing here changes HOT/LIST/SKIP semantics, seller economics, or any protected decision.
 
-### Blockers — §4.3 (deploy and observe) was not executed
-§4.3 calls for deploying this release alone, recording the pre-deploy version in `supabase/DEPLOYED.md` as an explicit rollback target, then running 5–10 real scans against production and reading the resulting audit trail. This is a real production deploy that spends live Trawl/SoldComps API quota and changes what's running at `scanforprofit.com/app.html` — a materially different, harder-to-reverse action than the code changes above, and not something to do autonomously without the product owner's explicit go-ahead on timing. Code is committed/pushed and ready; deploying it (via the Supabase MCP `deploy_edge_function` tool, now available in this session) and running the observation scans is a follow-up action for the product owner to authorize.
+### §4.3 — deploy: done; observation scans: not done
+Recorded the pre-deploy baseline in `supabase/DEPLOYED.md` (`claude-proxy` v95, ACTIVE), then — on explicit product-owner authorization ("deploy live") — deployed via `mcp__Supabase__deploy_edge_function` from the full 28-file/~230KB dependency closure. **Result: v95 → v96, ACTIVE, `verify_jwt:false` unchanged.** Live-bundle inspection (`mcp__Supabase__get_edge_function`, grepped rather than fully read — 224KB) confirmed the R1 code is actually live: `unavailableReason`, `ScanUnavailableReason`, `MarketEvidenceAudit`, `excludedOverflowCount`, `PROVIDER_THROTTLED`/`PROVIDER_QUOTA_EXHAUSTED` all present.
+
+Two deploy paths were dead ends before the one that worked, both worth recording so a future session doesn't repeat them: (1) `scripts/deploy-edge-functions.sh` (Supabase CLI) — blocked by this sandbox's egress policy denying `api.supabase.com` outright (confirmed via the agent proxy's own status endpoint: `403` "policy denial", not a token problem — a personal access token was obtained and format-validated fine, the CLI just can't reach the Management API from here). (2) The MCP deploy tool needs the entrypoint plus its *entire* transitive dependency closure in one atomic call — no incremental upload; every call missing the exact entrypoint fails immediately regardless of what else it contains. The full payload exceeded one chat turn's output budget on the first complete attempt (truncated mid-call, though the call itself may have still gone through — always verify via `list_edge_functions`/`get_edge_function` after a truncation, don't assume failure); the identical full-payload call succeeded on retry.
+
+**Not done**: the 5–10 real production scans §4.3 also calls for, to read the resulting audit trail — that's a genuinely separate action (spends live Trawl/SoldComps API quota, and someone should actually look at the results) from authorizing the deploy itself, and wasn't asked for for in the same breath.
 
 ### Next task
-Once this PR is reviewed: (1) product-owner decision on when to run §4.3's deploy-and-observe step; (2) after that, R2 (§5, "Fix the inputs") is next per the plan's sequencing — provider capabilities, transport reliability (the retry policy R1's `retryCount:0` is honestly waiting on), identity validation, and provider-aware query planning. §3.1 (the labeled corpus) from R0 is still open and blocks R3, not R1/R2.
+(1) Run 5–10 real scans against production and read `scan_log.raw_response.decisionAudit` — the actual point of §4.3, now that the code to observe is live. (2) R2 (§5, "Fix the inputs") is next per the plan's sequencing — provider capabilities, transport reliability (the retry policy R1's `retryCount:0` is honestly waiting on), identity validation, and provider-aware query planning. §3.1 (the labeled corpus) from R0 is still open and blocks R3, not R1/R2.
 
 ---
 
