@@ -6129,7 +6129,7 @@ async function analyze() {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
     } catch(_){}
-    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, evidenceQuality:normalized.evidenceQuality, compMatchPrecision:normalized.compMatchPrecision, suggestedSearchQuery:normalized.suggestedSearchQuery, bestMarketplace:normalized.bestMarketplace, bestMarketplaceLabel:normalized.bestMarketplaceLabel, whyThisMarketplace:normalized.whyThisMarketplace, alternativeMarketplaces:normalized.alternativeMarketplaces});
+    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, unavailableReason:normalized.unavailableReason, evidenceQuality:normalized.evidenceQuality, compMatchPrecision:normalized.compMatchPrecision, suggestedSearchQuery:normalized.suggestedSearchQuery, bestMarketplace:normalized.bestMarketplace, bestMarketplaceLabel:normalized.bestMarketplaceLabel, whyThisMarketplace:normalized.whyThisMarketplace, alternativeMarketplaces:normalized.alternativeMarketplaces});
     renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
@@ -6213,6 +6213,26 @@ function renderAlternativeMarketplaces(alts) {
   return `<div class="card"><h3 class="card-title">Other Options</h3>${rows}</div>`;
 }
 
+// R1 §4.2 (P1-9): why decisionAvailable is false, in the exact copy the task
+// doc specifies — distinguishes "try again shortly" (transient) from "no
+// comps" (a real data gap the user should judge for themselves) instead of
+// one identical sentence for every cause. Keys match ScanUnavailableReason
+// in claude-proxy/index.ts and VALID_UNAVAILABLE_REASONS in
+// scanResultContract.js exactly.
+const UNAVAILABLE_REASON_COPY = {
+  PROVIDER_THROTTLED: 'Market data is busy right now. Try again in a few seconds.',
+  PROVIDER_QUOTA_EXHAUSTED: "Market data is unavailable today. We're on it.",
+  PROVIDER_UNAVAILABLE: 'Market data is temporarily unavailable. Try again shortly.',
+  MARKETPLACE_AUTH_FAILED: 'Market data is temporarily unavailable. Try again shortly.',
+  PROVIDER_NOT_CONFIGURED: "Market data isn't configured. Contact support.",
+  IDENTIFICATION_UNRESOLVED: "We couldn't identify this item clearly. Try a closer photo of the label.",
+  NO_MARKET_EVIDENCE: 'No comparable sales found for this item.',
+  EVIDENCE_TOO_WEAK: 'Not enough comparable sales to make an honest call.',
+};
+function unavailableReasonCopy(reason) {
+  return UNAVAILABLE_REASON_COPY[reason] || 'Not enough coherent, comparable marketplace evidence was found to make an honest HOT/LIST/SKIP recommendation. This is a data gap, not a SKIP.';
+}
+
 // Profit Scanner v2 LIMITED EVIDENCE state (task doc §4): when no
 // marketplace had strong/moderate evidence, decisionAvailable is false and
 // dec/fin/maxBuyPrice/bestMarketplace are all null (never a HOT/LIST/SKIP
@@ -6220,7 +6240,7 @@ function renderAlternativeMarketplaces(alts) {
 // claude-proxy/index.ts). This is an evidence state, not a sourcing
 // decision — identification is still shown, no AI-created numerical market
 // values are shown.
-function renderInsufficientEvidence({item,cost,suggestedSearchQuery}) {
+function renderInsufficientEvidence({item,cost,suggestedSearchQuery,unavailableReason}) {
   // Buy/showBuyConfirm already render null fin.profit/fin.roi/item.avg_sold_price
   // as "—"/blank, so the manual add-to-inventory flow works the same as the
   // verified path — the user can still add it and price it themselves.
@@ -6235,7 +6255,7 @@ function renderInsufficientEvidence({item,cost,suggestedSearchQuery}) {
       <div class="u-flex-col"><div class="d-label">LIMITED EVIDENCE</div><div class="d-name">${escHtml(item.item_name)}</div></div>
       <div class="conf-pill">${escHtml(item.confidence)}%</div>
     </div>
-    <div class="source-badge">[ LIMITED EVIDENCE ] Not enough coherent, comparable marketplace evidence was found to make an honest HOT/LIST/SKIP recommendation. This is a data gap, not a SKIP.</div>
+    <div class="source-badge">[ LIMITED EVIDENCE ] ${escHtml(unavailableReasonCopy(unavailableReason))}</div>
 
     <div class="buy-action-bar">
       <div class="buy-action-title">What do you want to do?</div>
@@ -6264,9 +6284,9 @@ function renderInsufficientEvidence({item,cost,suggestedSearchQuery}) {
   showSrcView('results');
 }
 
-function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,evidenceQuality,compMatchPrecision,suggestedSearchQuery,bestMarketplace,bestMarketplaceLabel,whyThisMarketplace,alternativeMarketplaces}) {
+function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,unavailableReason,evidenceQuality,compMatchPrecision,suggestedSearchQuery,bestMarketplace,bestMarketplaceLabel,whyThisMarketplace,alternativeMarketplaces}) {
   resetBtn('analyze-btn','Run Profit Scanner','green');
-  if (decisionAvailable === false) { renderInsufficientEvidence({item, cost, suggestedSearchQuery}); return; }
+  if (decisionAvailable === false) { renderInsufficientEvidence({item, cost, suggestedSearchQuery, unavailableReason}); return; }
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const costKnown = cost !== null && cost !== undefined;
@@ -6464,7 +6484,7 @@ function renderShelf(shelfItems) {
       ? `<span class="u-muted u-bold9">Not enough marketplace evidence yet</span>`
       : `<span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)}</span> &nbsp;·&nbsp; <span class="u-soft">Best: ${escHtml(i.best_marketplace_label || 'eBay')}</span>`;
     const reasonLine = isLimited
-      ? 'Enough coherent, comparable marketplace evidence was not found — no HOT/LIST/SKIP recommendation. Review completed listings before buying.'
+      ? escHtml(unavailableReasonCopy(i.unavailable_reason)) + ' Review completed listings before buying.'
       : escHtml(i.decision_reason);
     const soldSearch = i.suggested_search_query || i.item_name || '';
     const soldSearchLink = isLimited

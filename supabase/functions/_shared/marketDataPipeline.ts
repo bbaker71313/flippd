@@ -27,7 +27,7 @@ import { computeSoldPriceStats, computeMarketTurnoverDays, computeSellThroughRat
 import { assessEvidenceQuality } from "./evidenceQuality.ts"
 import type {
   MarketDataResult, MarketMetrics, CompMatchPrecision, IdentityCandidate, SoldCompListing,
-  ActiveMarketEvidence,
+  ActiveMarketEvidence, MarketEvidenceAuditEntry,
 } from "./marketData.ts"
 
 // The approved sold-evidence window used for STR and turnover. Providers must
@@ -44,7 +44,17 @@ export async function runMarketDataPipeline(input: IdentifyInput): Promise<Marke
   return resolveVerifiedMarketData(identity);
 }
 
-type AttemptedQuery = NonNullable<Extract<MarketDataResult, { ok: true }>['audit']>['attemptedQueries'][number];
+// R1 (P1-10): cap the persisted exclusion detail per query so a shelf scan
+// with many candidates/retries can't balloon scan_log — the remainder is
+// counted (excludedOverflowCount), never silently dropped.
+const MAX_EXCLUDED_COMPS_PER_QUERY = 25;
+
+function capExcluded(excluded: { itemId: string; title: string; soldPrice: number; reason: string }[]) {
+  return {
+    excludedComps: excluded.slice(0, MAX_EXCLUDED_COMPS_PER_QUERY),
+    excludedOverflowCount: Math.max(0, excluded.length - MAX_EXCLUDED_COMPS_PER_QUERY),
+  };
+}
 
 // Runs everything AFTER identification against an already-resolved
 // IdentityCandidate. Split out so a caller that already has identification
@@ -56,7 +66,7 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
     return { ok: false, reason: 'IDENTIFICATION_UNRESOLVED', detail: 'Identification produced no usable search terms' };
   }
 
-  const attemptedQueries: AttemptedQuery[] = [];
+  const attemptedQueries: MarketEvidenceAuditEntry[] = [];
   // The best fully-qualified (3+ coherent, this cascade level's precision)
   // sold-comp query, and — independently — the best PARTIAL result (1-2
   // real comps) seen along the way, kept only as a fallback for the
@@ -67,16 +77,25 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
   const soldProvider = getSoldMarketDataProvider();
   if (soldProvider) {
     for (const candidate of queries) {
+      const requestStartedAt = Date.now();
       const soldResult = await soldProvider.searchSoldComps({ searchTerms: candidate.query });
+      const providerLatencyMs = Date.now() - requestStartedAt;
       if (!soldResult.ok) {
         attemptedQueries.push({
           query: candidate.query, precision: candidate.precision,
-          rawCompCount: 0, retainedCompCount: 0, excludedComps: [],
+          rawCompCount: 0, retainedCompCount: 0, excludedComps: [], excludedOverflowCount: 0,
           qualified: false, rejectionReason: `${soldResult.reason}: ${soldResult.detail}`,
+          providerLatencyMs,
+          // Always 0 until the Retry-After retry policy (decision B) is
+          // implemented — this call was not retried.
+          retryCount: 0,
         });
         // A provider outage/rate-limit/malformed response is not evidence
         // that a broader query is needed. Stop instead of multiplying failed calls.
-        return { ok: false, reason: soldResult.reason, detail: soldResult.detail, audit: { attemptedQueries } };
+        return {
+          ok: false, reason: soldResult.reason, detail: soldResult.detail,
+          audit: { attemptedQueries, selectedQuery: null, activeSample: null },
+        };
       }
       const selection = selectComparableSoldComps(soldResult.comps, identity, candidate);
       const stats = computeSoldPriceStats(selection.retained);
@@ -89,7 +108,8 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
       attemptedQueries.push({
         query: candidate.query, precision: candidate.precision,
         rawCompCount: soldResult.comps.length, retainedCompCount: stats.compCount,
-        excludedComps: selection.excluded, qualified: fullyQualifies, rejectionReason,
+        ...capExcluded(selection.excluded), qualified: fullyQualifies, rejectionReason,
+        providerLatencyMs, retryCount: 0,
       });
       if (fullyQualifies) {
         qualified = { query: candidate.query, precision: candidate.precision, comps: selection.retained };
@@ -141,6 +161,16 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
     ? isCoherentPriceSpread(activeMarketEvidence.sampledListings.map(l => l.price))
     : false;
 
+  // R1 (P1-10): what Browse actually returned vs. what survived the
+  // identity-match filter above — sampled/retained is all-or-nothing today
+  // (a single identity-mismatch rejects the whole batch, see the `if` above),
+  // but the shape is kept general for when that becomes partial.
+  const activeSample = {
+    sampled: activeCandidate?.sampledListings.length ?? 0,
+    retained: activeMarketEvidence?.sampledListings.length ?? 0,
+    totalResultCount: activeCandidate?.matchingActiveCount ?? null,
+  };
+
   // ── Evidence-quality assessment (marketplace-independent, Profit Scanner v2) ──
   const soldSignal = selected ? {
     count: selected.comps.length, precision: selected.precision, coherent: selected === qualified,
@@ -154,7 +184,7 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
     return {
       ok: false, reason: 'INSUFFICIENT_VERIFIED_MARKET_DATA',
       detail: 'No usable sold or active marketplace evidence was found for this item.',
-      audit: { attemptedQueries },
+      audit: { attemptedQueries, selectedQuery: selected?.query ?? null, activeSample },
     };
   }
   if (evidenceQuality === 'weak') {
@@ -163,7 +193,7 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
     return {
       ok: false, reason: 'EVIDENCE_TOO_WEAK',
       detail: `Found ${soldNote} and ${activeNote} — not enough coherent, comparable evidence to trust a HOT/LIST/SKIP recommendation.`,
-      audit: { attemptedQueries },
+      audit: { attemptedQueries, selectedQuery: selected?.query ?? null, activeSample },
     };
   }
 
@@ -198,6 +228,6 @@ export async function resolveVerifiedMarketData(identity: IdentityCandidate): Pr
 
   return {
     ok: true, identity, catalogMatch, category, metrics,
-    audit: { selectedQuery: queryForActive, attemptedQueries },
+    audit: { selectedQuery: queryForActive, attemptedQueries, activeSample },
   };
 }

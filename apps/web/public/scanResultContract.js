@@ -36,6 +36,14 @@
   var VALID_DEMAND_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'];
   var VALID_DECISION_STATUSES = ['ok', 'insufficient_market_data'];
   var VALID_EVIDENCE_QUALITIES = ['strong', 'moderate', 'weak', 'none'];
+  // R1 §4.2 (P1-9): why decisionAvailable is false — lets the client tell
+  // "try again shortly" (transient) apart from "no comps" (a real data gap),
+  // instead of one identical LIMITED EVIDENCE sentence for every cause.
+  var VALID_UNAVAILABLE_REASONS = [
+    'PROVIDER_THROTTLED', 'PROVIDER_QUOTA_EXHAUSTED', 'PROVIDER_UNAVAILABLE',
+    'PROVIDER_NOT_CONFIGURED', 'IDENTIFICATION_UNRESOLVED', 'NO_MARKET_EVIDENCE',
+    'EVIDENCE_TOO_WEAK', 'MARKETPLACE_AUTH_FAILED',
+  ];
   // Profit Scanner v2 (cross-market resale opportunity architecture).
   var VALID_MARKETPLACE_IDS = ['ebay', 'etsy', 'reverb', 'discogs', 'amazon', 'mercari', 'poshmark', 'facebook_local'];
 
@@ -93,6 +101,15 @@
 
   function asDecisionStatus(v, field) {
     if (VALID_DECISION_STATUSES.indexOf(v) === -1) fail(field, "'ok' or 'insufficient_market_data'", v);
+    return v;
+  }
+
+  // R1 §4.2: nullable — a present value must be one of the 8 real reasons.
+  // Callers enforce the null-exactly-when-decisionAvailable-is-false
+  // invariant themselves (same pattern as asNullableDecision/asMarketplaceId).
+  function asUnavailableReason(v, field) {
+    if (v === null || v === undefined) return null;
+    if (VALID_UNAVAILABLE_REASONS.indexOf(v) === -1) fail(field, 'a valid unavailableReason or null', v);
     return v;
   }
 
@@ -217,6 +234,11 @@
     var dec = asNullableDecision(r.decision, 'decision');
     if (decisionAvailable && dec === null) fail('decision', 'a real decision when decisionAvailable is true', dec);
     if (!decisionAvailable && dec !== null) fail('decision', 'null when decisionAvailable is false', dec);
+    // R1 §4.2: unavailableReason is non-null exactly when decisionAvailable
+    // is false, and null otherwise (task doc §4.2's own test requirement).
+    var unavailableReason = asUnavailableReason(r.unavailableReason, 'unavailableReason');
+    if (decisionAvailable && unavailableReason !== null) fail('unavailableReason', 'null when decisionAvailable is true', unavailableReason);
+    if (!decisionAvailable && unavailableReason === null) fail('unavailableReason', 'a real reason when decisionAvailable is false', unavailableReason);
 
     var profit = asNullableNumber(r.estimatedProfit, 'estimatedProfit');
     var fee = asNullableNumber(r.feeAmount, 'feeAmount');
@@ -247,6 +269,7 @@
       marketDataSource: asString(r.marketDataSource, 'marketDataSource', null),
       decisionAvailable: decisionAvailable,
       decisionStatus: decisionStatus,
+      unavailableReason: unavailableReason,
       decisionReasons: asDecisionReasons(r.decisionReasons, 'decisionReasons'),
       aiEstimate: asAiEstimate(r.aiEstimate, 'aiEstimate'),
       evidenceQuality: asEvidenceQuality(r.evidenceQuality, 'evidenceQuality'),
@@ -273,6 +296,9 @@
     var bestMarketplace = asMarketplaceId(i.bestMarketplace, 'bestMarketplace');
     if (decisionAvailable && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionAvailable is true', bestMarketplace);
     if (!decisionAvailable && bestMarketplace !== null) fail('bestMarketplace', 'null when decisionAvailable is false', bestMarketplace);
+    var unavailableReason = asUnavailableReason(i.unavailableReason, 'unavailableReason');
+    if (decisionAvailable && unavailableReason !== null) fail('unavailableReason', 'null when decisionAvailable is true', unavailableReason);
+    if (!decisionAvailable && unavailableReason === null) fail('unavailableReason', 'a real reason when decisionAvailable is false', unavailableReason);
     return {
       item_name: asString(i.itemName, 'itemName', ''),
       avg_sold_price: asNullableNumber(i.avgSoldPrice, 'avgSoldPrice'),
@@ -289,6 +315,7 @@
       market_data_source: asString(i.marketDataSource, 'marketDataSource', null),
       decision_available: decisionAvailable,
       decision_status: decisionStatus,
+      unavailable_reason: unavailableReason,
       decision_reasons: asDecisionReasons(i.decisionReasons, 'decisionReasons'),
       ai_estimate: asAiEstimate(i.aiEstimate, 'aiEstimate'),
       evidence_quality: asEvidenceQuality(i.evidenceQuality, 'evidenceQuality'),

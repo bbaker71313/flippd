@@ -10,7 +10,10 @@ import {
   buildMarketplaceOpportunities, selectBestMarketplace, type OpportunitySettings,
 } from "../_shared/marketplaceOpportunity.ts";
 import { totalFeePctFor } from "../_shared/marketplaceEconomics.ts";
-import { MARKETPLACE_LABELS, type MarketplaceEvidenceResult, type MarketplaceId, type MarketplaceOpportunity } from "../_shared/marketplaceTypes.ts";
+import {
+  MARKETPLACE_LABELS, type MarketplaceEvidenceResult, type MarketplaceId,
+  type MarketplaceOpportunity, type ProviderFailureReason,
+} from "../_shared/marketplaceTypes.ts";
 import type { IdentityCandidate, IdentificationEvidenceKind } from "../_shared/marketData.ts";
 import { computeStaleInventoryItems, type StaleCandidateRow } from "../_shared/staleInventory.ts";
 import { CLAUDE_MODEL, ANTHROPIC_MESSAGES_URL } from "../_shared/aiConfig.ts";
@@ -212,6 +215,49 @@ export interface AlternativeMarketplace {
   reason: string;
 }
 
+// R1 (P1-9): why decisionAvailable is false, in enough detail for the client
+// to distinguish "try again shortly" (transient) from "no comps" (a real
+// data gap the user should judge for themselves) — today's single identical
+// LIMITED EVIDENCE sentence taught users to distrust the product in both
+// cases. The server never sends the underlying provider `detail` string to
+// the client; that stays in scan_log only.
+export type ScanUnavailableReason =
+  | 'PROVIDER_THROTTLED'        // retryable; try again shortly
+  | 'PROVIDER_QUOTA_EXHAUSTED'  // monthly allowance spent
+  | 'PROVIDER_UNAVAILABLE'      // outage / malformed response
+  | 'PROVIDER_NOT_CONFIGURED'   // no sold-data key
+  | 'IDENTIFICATION_UNRESOLVED' // could not identify the item
+  | 'NO_MARKET_EVIDENCE'        // searched, found nothing comparable
+  | 'EVIDENCE_TOO_WEAK'         // found some, not enough to trust
+  | 'MARKETPLACE_AUTH_FAILED'   // eBay app credentials/entitlement
+
+// Maps eBay's own ProviderFailureReason (the only marketplace with a real
+// provider today) to the client-facing reason above. Every other marketplace
+// is a NOT_CONFIGURED placeholder, already covered here.
+const UNAVAILABLE_REASON_MAP: Record<ProviderFailureReason, ScanUnavailableReason> = {
+  NOT_CONFIGURED: 'PROVIDER_NOT_CONFIGURED',
+  PROVIDER_UNAVAILABLE: 'PROVIDER_UNAVAILABLE',
+  PROVIDER_TIMEOUT: 'PROVIDER_UNAVAILABLE',
+  PROVIDER_THROTTLED: 'PROVIDER_THROTTLED',
+  PROVIDER_QUOTA_EXHAUSTED: 'PROVIDER_QUOTA_EXHAUSTED',
+  MALFORMED_PROVIDER_RESPONSE: 'PROVIDER_UNAVAILABLE',
+  IDENTIFICATION_UNRESOLVED: 'IDENTIFICATION_UNRESOLVED',
+  INSUFFICIENT_VERIFIED_MARKET_DATA: 'NO_MARKET_EVIDENCE',
+  EVIDENCE_TOO_WEAK: 'EVIDENCE_TOO_WEAK',
+};
+
+// eBay is the only marketplace with a real evidence provider today (task doc
+// §9) — its failure is the authoritative reason a scan has no decision.
+// Falls back to NO_MARKET_EVIDENCE only for the edge case where eBay itself
+// reported ok:true but nothing qualified as a marketplace opportunity (e.g.
+// a null expectedSalePrice); never fabricates a more specific reason than
+// the evidence actually supports.
+function deriveUnavailableReason(bundle: MarketplaceEvidenceBundle): ScanUnavailableReason {
+  const ebay = bundle.evidenceByMarketplace.ebay;
+  if (ebay && !ebay.ok) return UNAVAILABLE_REASON_MAP[ebay.reason];
+  return 'NO_MARKET_EVIDENCE';
+}
+
 // Result of the single authoritative gate below: everything a scan response
 // needs, with every authoritative field (decision, profit, ROI, max-buy-price,
 // best marketplace) forced to null/unavailable whenever no marketplace had
@@ -221,6 +267,8 @@ export interface ScanResultCore {
   decision: DecisionResult['decision'] | null;
   decisionAvailable: boolean;
   decisionStatus: 'ok' | 'insufficient_market_data';
+  // Non-null exactly when decisionAvailable is false — see ScanUnavailableReason.
+  unavailableReason: ScanUnavailableReason | null;
   decisionReasons: DecisionResult | null;
   acquisitionCost: number | null;
   estimatedSell: number | null;
@@ -277,9 +325,11 @@ function noDecisionResult(
   acquisitionCost: number | null,
   suggestedSearchQuery: string | null,
   alternativeMarketplaces: AlternativeMarketplace[] = [],
+  unavailableReason: ScanUnavailableReason = 'NO_MARKET_EVIDENCE',
 ): ScanResultCore {
   return {
     decision: null, decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+    unavailableReason,
     decisionReasons: null, acquisitionCost,
     estimatedSell: null, estimatedProfit: null, roi: null,
     feeAmount: null, shipCostAmount: null,
@@ -311,7 +361,7 @@ export function resolveScanResultCore(
   shipForCalc: number,
 ): ScanResultCore {
   const suggested = suggestedSearchQueryFor(bundle, ai);
-  if (!bundle.identity) return noDecisionResult(acquisitionCost, suggested);
+  if (!bundle.identity) return noDecisionResult(acquisitionCost, suggested, [], 'IDENTIFICATION_UNRESOLVED');
 
   const opportunitySettings: OpportunitySettings = {
     ebayFeePct: settings.ebay_fee, pkgCost: settings.pkg_cost, shipCost: shipForCalc,
@@ -321,7 +371,7 @@ export function resolveScanResultCore(
     bundle.evidenceByMarketplace, bundle.routedMarketplaces, acquisitionCost, opportunitySettings,
   );
   const best = selectBestMarketplace(opportunities);
-  if (!best) return noDecisionResult(acquisitionCost, suggested);
+  if (!best) return noDecisionResult(acquisitionCost, suggested, [], deriveUnavailableReason(bundle));
 
   const alternatives = opportunities.filter((o) => o.marketplace !== best.marketplace).map(toAlternative);
   const bestEvidence = bundle.evidenceByMarketplace[best.marketplace];
@@ -331,6 +381,7 @@ export function resolveScanResultCore(
 
   return {
     decision: best.decisionReasons.decision, decisionAvailable: true, decisionStatus: 'ok',
+    unavailableReason: null,
     decisionReasons: best.decisionReasons, acquisitionCost: resolvedCost,
     estimatedSell: best.expectedSalePrice, estimatedProfit: best.economics.netProfit, roi: best.economics.roi,
     feeAmount, shipCostAmount: best.economics.shipCost,
@@ -496,6 +547,7 @@ async function finalizeSingleOrTextScan(
       ai,
       decisionAudit: {
         decisionAvailable: core.decisionAvailable, decisionStatus: core.decisionStatus,
+        unavailableReason: core.unavailableReason,
         acquisitionCost: core.acquisitionCost, maxBuyPrice: core.maxBuyPrice,
         maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
         settingsUsed: settings, marketDataSource: core.marketDataSource,
@@ -510,6 +562,7 @@ async function finalizeSingleOrTextScan(
     decision: core.decision,
     decisionAvailable: core.decisionAvailable,
     decisionStatus: core.decisionStatus,
+    unavailableReason: core.unavailableReason,
     itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
     acquisitionCost: core.acquisitionCost,
     estimatedSell: core.estimatedSell,
@@ -650,6 +703,7 @@ async function handleShelfScan(
       decision: core.decision,
       decisionAvailable: core.decisionAvailable,
       decisionStatus: core.decisionStatus,
+      unavailableReason: core.unavailableReason,
       itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
       avgSoldPrice: core.estimatedSell, maxBuyPrice: core.maxBuyPrice, maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
       confidence, sellThroughRate: core.sellThroughRate, avgDaysToSell: core.avgDaysToSell, demandLevel: core.demandLevel,
@@ -678,7 +732,8 @@ async function handleShelfScan(
         settingsUsed: settings,
         items: items.map(i => ({
           itemName: i.itemName, decision: i.decision, decisionAvailable: i.decisionAvailable,
-          decisionStatus: i.decisionStatus, maxBuyPrice: i.maxBuyPrice, bestMarketplace: i.bestMarketplace,
+          decisionStatus: i.decisionStatus, unavailableReason: i.unavailableReason,
+          maxBuyPrice: i.maxBuyPrice, bestMarketplace: i.bestMarketplace,
           marketDataSource: i.marketDataSource, routedMarketplaces: i.routedMarketplaces,
           evidenceByMarketplace: i.evidenceByMarketplace,
           aiEstimate: i.aiEstimate, decisionReasons: i.decisionReasons,

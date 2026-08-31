@@ -3,7 +3,7 @@
 // marketplaceProviders.ts, marketplaceEconomics.ts, and
 // marketplaceOpportunity.ts. No marketplace API calls, financial math, or
 // decision-making live in this file — types only.
-import type { CompMatchPrecision, IdentityCandidate } from "./marketData.ts"
+import type { CompMatchPrecision, IdentityCandidate, MarketEvidenceAudit } from "./marketData.ts"
 import type { DecisionResult, EvidenceQuality } from "./decisionEngine.ts"
 
 export type MarketplaceId =
@@ -39,12 +39,20 @@ export interface MarketplaceEvidence {
 
 export type ProviderFailureReason =
   | 'NOT_CONFIGURED' | 'PROVIDER_UNAVAILABLE' | 'PROVIDER_TIMEOUT'
-  | 'PROVIDER_RATE_LIMITED' | 'MALFORMED_PROVIDER_RESPONSE' | 'IDENTIFICATION_UNRESOLVED'
+  // R1 (P1-9): split from the former single PROVIDER_RATE_LIMITED — see
+  // MarketDataFailureReason in marketData.ts for why.
+  | 'PROVIDER_THROTTLED' | 'PROVIDER_QUOTA_EXHAUSTED'
+  | 'MALFORMED_PROVIDER_RESPONSE' | 'IDENTIFICATION_UNRESOLVED'
   | 'INSUFFICIENT_VERIFIED_MARKET_DATA' | 'EVIDENCE_TOO_WEAK'
 
+// R1 (P1-10): the query-cascade forensic trail, carried through from
+// MarketDataResult instead of being discarded at this provider boundary.
+// Only eBay populates it today (the only marketplace with a real cascade
+// query pipeline — marketDataPipeline.ts); every other marketplace is a
+// NOT_CONFIGURED placeholder with nothing to audit.
 export type MarketplaceEvidenceResult =
-  | { ok: true; evidence: MarketplaceEvidence }
-  | { ok: false; marketplace: MarketplaceId; reason: ProviderFailureReason; detail: string }
+  | { ok: true; evidence: MarketplaceEvidence; audit?: MarketEvidenceAudit }
+  | { ok: false; marketplace: MarketplaceId; reason: ProviderFailureReason; detail: string; audit?: MarketEvidenceAudit }
 
 // For actual completed-transaction evidence (task doc §8).
 export interface TransactionEvidenceProvider {

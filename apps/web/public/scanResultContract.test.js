@@ -47,6 +47,7 @@ function insufficientEvidenceSingleScan(overrides) {
     estimatedProfit: null, roi: null, feeAmount: null, shipCostAmount: null,
     acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
     marketDataSource: 'ai_estimate', decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+    unavailableReason: 'NO_MARKET_EVIDENCE',
     decisionReasons: null,
     aiEstimate: null,
     evidenceQuality: null, compMatchPrecision: null, suggestedSearchQuery: 'minolta x 700',
@@ -141,6 +142,7 @@ function insufficientEvidenceShelfItem(overrides) {
     conditionNotes: '', category: 'Collectibles', confidence: 45,
     sellThroughRate: null, avgDaysToSell: null,
     marketDataSource: 'ai_estimate', decisionAvailable: false, decisionStatus: 'insufficient_market_data',
+    unavailableReason: 'EVIDENCE_TOO_WEAK',
     decisionReasons: null,
     aiEstimate: { avgSoldPrice: 30, priceLow: 20, priceHigh: 45, sellThroughRate: 80, avgDaysToSell: 8, demandLevel: 'HIGH' },
     evidenceQuality: null, compMatchPrecision: null,
@@ -191,6 +193,42 @@ test('normalizeSingleScanResult: insufficient-evidence scan is a valid, distinct
   assert.equal(out.suggestedSearchQuery, 'minolta x 700');
   assert.equal(out.item.avg_sold_price, null); // never merged into the authoritative item fields
   assert.equal(out.bestMarketplace, null);
+});
+
+// ── R1 §4.2 (P1-9): unavailableReason — honest failure classification ──────
+
+test('normalizeSingleScanResult: unavailableReason is null on the verified path', () => {
+  const out = normalizeSingleScanResult(baseSingleScan());
+  assert.equal(out.unavailableReason, null);
+});
+
+test('normalizeSingleScanResult: unavailableReason is non-null exactly when decisionAvailable is false', () => {
+  const out = normalizeSingleScanResult(insufficientEvidenceSingleScan());
+  assert.equal(out.decisionAvailable, false);
+  assert.equal(out.unavailableReason, 'NO_MARKET_EVIDENCE');
+});
+
+test('normalizeSingleScanResult: rejects an unrecognized unavailableReason', () => {
+  assert.throws(() => normalizeSingleScanResult(insufficientEvidenceSingleScan({ unavailableReason: 'SOMETHING_MADE_UP' })), /unavailableReason/);
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:true with a non-null unavailableReason (malformed combination)', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ unavailableReason: 'NO_MARKET_EVIDENCE' })), /unavailableReason/);
+});
+
+test('normalizeSingleScanResult: rejects decisionAvailable:false with a null unavailableReason (malformed combination)', () => {
+  assert.throws(() => normalizeSingleScanResult(insufficientEvidenceSingleScan({ unavailableReason: null })), /unavailableReason/);
+});
+
+test('normalizeShelfScanItem: unavailableReason is null on the verified path, non-null on the insufficient-evidence path', () => {
+  const verified = normalizeShelfScanItem(baseShelfItem());
+  assert.equal(verified.unavailable_reason, null);
+  const unverified = normalizeShelfScanItem(insufficientEvidenceShelfItem());
+  assert.equal(unverified.unavailable_reason, 'EVIDENCE_TOO_WEAK');
+});
+
+test('normalizeShelfScanItem: rejects decisionAvailable:false with a null unavailableReason', () => {
+  assert.throws(() => normalizeShelfScanItem(insufficientEvidenceShelfItem({ unavailableReason: null })), /unavailableReason/);
 });
 
 test('normalizeSingleScanResult: rejects decisionAvailable:true with a null decision (malformed combination)', () => {

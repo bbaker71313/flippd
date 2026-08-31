@@ -4,6 +4,60 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-31 — R1 Instrumentation and honest failure (§4.1, §4.2 done; §4.3 needs a deploy decision)
+
+### Context
+Continuing `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md` (Revision 2) after R0 (both gates PASS — previous entry below). R1 is "Instrumentation and honest failure... Zero decision-path behavior change" with three parts: §4.1 carry the audit trail through (P1-10), §4.2 classify failures honestly (P1-9), §4.3 deploy and observe. This session implemented §4.1 and §4.2 in full, including the client contract and UI copy. §4.3 (an actual production deploy + 5–10 real scans) was deliberately not executed — see Blockers.
+
+### What changed — §4.1, carry the audit trail through (P1-10)
+`mapEbayResultToEvidence` previously discarded `MarketDataResult.audit.attemptedQueries` entirely on both branches (only `reason`/`detail` survived into `MarketplaceEvidenceResult`, and from there into `scan_log.raw_response.decisionAudit`). Fixed by unifying and extending the audit shape, then threading it through every layer that touches it:
+- `_shared/marketData.ts`: replaced the two ad-hoc inline `audit` shapes on `MarketDataFailure`/`MarketDataSuccess` with one named `MarketEvidenceAudit` (`attemptedQueries: MarketEvidenceAuditEntry[]`, `selectedQuery: string | null`, `activeSample: {sampled, retained, totalResultCount} | null`). Each `MarketEvidenceAuditEntry` gained `excludedOverflowCount`, `providerLatencyMs`, `retryCount` per the plan's spec.
+- `_shared/marketDataPipeline.ts`: caps `excludedComps` at 25 per query (`capExcluded()`), counting the remainder in `excludedOverflowCount` rather than dropping it silently; measures real `providerLatencyMs` around each `soldProvider.searchSoldComps()` call; sets `retryCount: 0` everywhere (honest — the Retry-After retry policy, decision B, isn't implemented yet, so no call has ever actually been retried); computes `activeSample` once active-listing evidence is resolved and attaches `selectedQuery`/`activeSample` to every return branch that has them available at that point in the pipeline (the two earliest failures, before any query has run, correctly have neither).
+- `_shared/marketplaceTypes.ts` / `_shared/marketplaceProviders.ts`: `MarketplaceEvidenceResult` (both branches) now carries an optional `audit?: MarketEvidenceAudit`; `mapEbayResultToEvidence` forwards `result.audit` through on both branches instead of dropping it. No change needed in `claude-proxy/index.ts`'s scan_log insert — `bundle.evidenceByMarketplace` is already persisted wholesale, so the audit trail now reaches `scan_log.raw_response.decisionAudit.evidenceByMarketplace.ebay.audit` automatically.
+
+### What changed — §4.2, classify failures honestly (P1-9)
+Today every failure — a rate limit, an outage, a missing key, a genuine no-comps result — rendered one identical "LIMITED EVIDENCE" sentence to the user. Added the full reason pipeline the task doc specifies:
+- Split the former single `PROVIDER_RATE_LIMITED` into `PROVIDER_THROTTLED`/`PROVIDER_QUOTA_EXHAUSTED` at the one place that actually has the distinguishing signal: `soldCompsProvider.ts`'s Trawl 429 handler already branched on `Retry-After` header presence to build two different detail *strings* — now it returns two different *reasons*, honestly. SoldComps' 429 handler (no Retry-After check at all) conservatively maps to `PROVIDER_THROTTLED` rather than guessing quota exhaustion from nothing. Propagated the rename through `MarketDataFailureReason` (`marketData.ts`) and `ProviderFailureReason` (`marketplaceTypes.ts`, `marketplaceProviders.ts`'s `REASON_MAP`).
+- Added `ScanUnavailableReason` (the 8-value client-facing union from the task doc, verbatim) and `UNAVAILABLE_REASON_MAP`/`deriveUnavailableReason()` in `claude-proxy/index.ts`. `deriveUnavailableReason()` reads eBay's own failure reason (the only marketplace with a real provider) when `!best`; `MARKETPLACE_AUTH_FAILED` is in the type for contract-completeness per the task doc but nothing produces it today (no eBay-app-credential failure path exists in the current pipeline) — not fabricated, just unreachable until one does.
+- `ScanResultCore.unavailableReason: ScanUnavailableReason | null` — set by `noDecisionResult()` (now takes the reason as a param; two call sites in `resolveScanResultCore` pass `IDENTIFICATION_UNRESOLVED` for missing identity vs. `deriveUnavailableReason(bundle)` for no qualifying marketplace), `null` on the success path. Threaded into both the single/text scan response, the shelf-scan per-item response, and both scan_log `decisionAudit` inserts. The server still never sends the underlying `detail` string to the client — unchanged.
+- Client contract (`apps/web/public/scanResultContract.js`): added `VALID_UNAVAILABLE_REASONS`/`asUnavailableReason()`, enforcing the exact invariant the task doc's own test requirement states — non-null exactly when `decisionAvailable` is false — in both `normalizeSingleScanResult` and `normalizeShelfScanItem`.
+- UI copy (`apps/web/public/app.html`): added `UNAVAILABLE_REASON_COPY` (the task doc's copy table verbatim) and `unavailableReasonCopy()`; `renderInsufficientEvidence` (single/text scan) and `renderShelf`'s per-item `ri()` (shelf scan) now render the reason-specific sentence instead of one hardcoded "Not enough coherent, comparable marketplace evidence..." message for every cause.
+
+### Deliberately not touched
+- `packages/shared/src/types/marketData.ts` (the "keep in lockstep" web-side mirror mentioned in the Deno file's header) was already drifted before this session (missing `EVIDENCE_TOO_WEAK`, no `audit` shape at all) and has zero consumers anywhere in `packages/shared` — confirmed via search. Fixing that pre-existing drift is unrelated to what R1 asks for; logged below instead of fixed.
+- The Retry-After retry policy itself (decision B: 2 retries, 3s budget/item) — R1 only carries through the audit trail and reason classification; the retry policy is R2 (§5.2, Transport reliability, P0-3). `retryCount` is wired to always report the true current value (0), not a placeholder pretending retries happen.
+- No `sourcingStyle`/decision-math change anywhere — R1 is instrumentation only, as the plan states.
+
+### Files changed
+`supabase/functions/_shared/marketData.ts`, `_shared/marketDataPipeline.ts`, `_shared/marketplaceProviders.ts`, `_shared/marketplaceTypes.ts`, `_shared/soldCompsProvider.ts`, `claude-proxy/index.ts`, `claude-proxy/marketAuthorityGate_test.ts`, `apps/web/public/scanResultContract.js`, `apps/web/public/scanResultContract.test.js`, `apps/web/public/app.html`, this file.
+
+### Testing
+- `cd supabase/functions && npx deno test --allow-env _shared/ claude-proxy/ --no-check` — **222 passed, 0 failed** (196 pre-existing + 26 in `claude-proxy/`, including 3 new `unavailableReason` tests added this session).
+- `npx deno check` on every touched `_shared/` file — clean. `npx deno check claude-proxy/*.ts` — same 63 pre-existing, unrelated `SupabaseClient` generic-typing errors as the unmodified file on this branch (verified via `git stash`/re-check before attributing them); none reference this session's changes.
+- `node --test apps/web/public/scanResultContract.test.js` — **39 passed, 0 failed** (31 pre-existing + 8 new `unavailableReason` tests).
+- `npx tsc --noEmit -p packages/shared` — clean (unaffected by this session).
+- `node -e "new Function(...)"` syntax-checked every `<script>` block in `app.html` after editing — no syntax errors.
+- `git status`/`git diff` reviewed before every commit — no stray `package.json`/`deno.lock` side effects this session.
+
+### Assumptions made
+- `PROVIDER_TIMEOUT` and `MALFORMED_PROVIDER_RESPONSE` both map to the client-facing `PROVIDER_UNAVAILABLE` reason (same "try again shortly" copy) rather than getting their own dedicated `ScanUnavailableReason` values — the task doc's table groups `PROVIDER_UNAVAILABLE`/`MARKETPLACE_AUTH_FAILED` under one copy row and doesn't list timeout/malformed-response separately, so this reuses that existing bucket rather than inventing new ones.
+- SoldComps' 429 (no Retry-After signal available) is classified as the retryable `PROVIDER_THROTTLED` case rather than `PROVIDER_QUOTA_EXHAUSTED` — the safer default when no distinguishing signal exists, never guessed toward the more alarming "quota exhausted" message.
+
+### Out-of-scope findings
+- `packages/shared/src/types/marketData.ts` is a dead, already-stale type mirror with zero consumers (see above) — worth deleting or actually re-syncing in a future session, not done here.
+- The 105 pre-existing Deno type-check errors in `claude-proxy/`, `stripe-checkout/`, `stripe-webhook/`, `ebay-oauth/` (documented in the previous session's entry) are unchanged — still out of scope.
+
+### Product decisions needed
+None. Every choice above (the throttled/quota-exhausted split, the PROVIDER_UNAVAILABLE grouping, the 25-comp audit cap) implements what the task doc's Revision 2 plan already specifies or is a conservative, honest default where the plan didn't fully specify a source signal — nothing here changes HOT/LIST/SKIP semantics, seller economics, or any protected decision.
+
+### Blockers — §4.3 (deploy and observe) was not executed
+§4.3 calls for deploying this release alone, recording the pre-deploy version in `supabase/DEPLOYED.md` as an explicit rollback target, then running 5–10 real scans against production and reading the resulting audit trail. This is a real production deploy that spends live Trawl/SoldComps API quota and changes what's running at `scanforprofit.com/app.html` — a materially different, harder-to-reverse action than the code changes above, and not something to do autonomously without the product owner's explicit go-ahead on timing. Code is committed/pushed and ready; deploying it (via the Supabase MCP `deploy_edge_function` tool, now available in this session) and running the observation scans is a follow-up action for the product owner to authorize.
+
+### Next task
+Once this PR is reviewed: (1) product-owner decision on when to run §4.3's deploy-and-observe step; (2) after that, R2 (§5, "Fix the inputs") is next per the plan's sequencing — provider capabilities, transport reliability (the retry policy R1's `retryCount:0` is honestly waiting on), identity validation, and provider-aware query planning. §3.1 (the labeled corpus) from R0 is still open and blocks R3, not R1/R2.
+
+---
+
 ## Session: 2026-08-31 — R0 §3.2 Deno test unblock (gate G0b: PASS)
 
 ### Context
