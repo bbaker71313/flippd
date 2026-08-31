@@ -78,6 +78,10 @@ function toIdentityCandidate(ai: Record<string, unknown>, providerId: string): I
     gtin: str(ai.gtin),
     gtinKind: str(ai.gtin) ? inferGtinKind(str(ai.gtin)!) : null,
     manufacturerPartNumber: str(ai.manufacturer_part_number),
+    // Not requested by this module's prompt (out of scope for R2 — this
+    // identifier is not the live scan path, see claude-proxy/index.ts's
+    // identityFromAiScan for that).
+    modelFamilyHint: null,
     likelyEbayCategory: str(ai.likely_ebay_category),
     categoryHints: strArr(ai.category_hints),
     conditionHints: str(ai.condition_hints),

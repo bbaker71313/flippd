@@ -184,6 +184,100 @@ Deno.test('externalCall: a POST explicitly marked isIdempotent does retry', asyn
   assertEquals(calls, 2);
 });
 
+Deno.test('externalCall: maxRetryAfterMs refuses a Retry-After longer than the cap', async () => {
+  let calls = 0;
+  const fetchImpl: typeof fetch = () => {
+    calls++;
+    return Promise.resolve(new Response('', { status: 429, headers: { 'Retry-After': '60' } }));
+  };
+  const err = await assertRejects(
+    () =>
+      externalCall(
+        'https://x',
+        {},
+        { fetchImpl, maxRetries: 2, maxRetryAfterMs: 2_000, sleep: noopSleep },
+        (r) => r.json(),
+      ),
+    ExternalCallError,
+  );
+  assertEquals(calls, 1, 'a Retry-After past the cap must fail fast, not sleep 60s');
+  assertEquals((err as ExternalCallError).retryAfterMs, 60_000);
+});
+
+Deno.test('externalCall: totalRetryBudgetMs fails fast once the cumulative sleep would exceed it', async () => {
+  let calls = 0;
+  const fetchImpl: typeof fetch = () => {
+    calls++;
+    return Promise.resolve(new Response('', { status: 429, headers: { 'Retry-After': '2' } }));
+  };
+  const seenDelays: number[] = [];
+  const sleep = (ms: number) => {
+    seenDelays.push(ms);
+    return Promise.resolve();
+  };
+  await assertRejects(
+    () =>
+      externalCall(
+        'https://x',
+        {},
+        { fetchImpl, maxRetries: 5, totalRetryBudgetMs: 3_000, sleep },
+        (r) => r.json(),
+      ),
+    ExternalCallError,
+  );
+  // Each attempt asks for a 2s sleep; the budget (3s) allows exactly one.
+  assertEquals(seenDelays, [2_000]);
+  assertEquals(calls, 2);
+});
+
+Deno.test('externalCall: shouldRetry can veto a retry the generic classification would otherwise allow (Trawl throttle-vs-quota)', async () => {
+  let calls = 0;
+  const fetchImpl: typeof fetch = () => {
+    calls++;
+    // 429 with no Retry-After header — Trawl's "quota exhausted" case.
+    return Promise.resolve(new Response('', { status: 429 }));
+  };
+  const err = await assertRejects(
+    () =>
+      externalCall(
+        'https://x',
+        {},
+        {
+          fetchImpl,
+          maxRetries: 3,
+          sleep: noopSleep,
+          shouldRetry: (error, retryAfterMs) => error.status !== 429 || retryAfterMs !== undefined,
+        },
+        (r) => r.json(),
+      ),
+    ExternalCallError,
+  );
+  assertEquals(calls, 1, 'no Retry-After header must not be retried when shouldRetry requires one');
+  assertEquals((err as ExternalCallError).retryAfterMs, undefined);
+});
+
+Deno.test('externalCall: shouldRetry allows a 429 that does carry Retry-After through to succeed', async () => {
+  let calls = 0;
+  const fetchImpl: typeof fetch = () => {
+    calls++;
+    if (calls === 1) return Promise.resolve(new Response('', { status: 429, headers: { 'Retry-After': '1' } }));
+    return Promise.resolve(jsonRes({ ok: true }));
+  };
+  const value = await externalCall(
+    'https://x',
+    {},
+    {
+      fetchImpl,
+      maxRetries: 1,
+      sleep: noopSleep,
+      shouldRetry: (error, retryAfterMs) => error.status !== 429 || retryAfterMs !== undefined,
+    },
+    (r) => r.json(),
+  );
+  assertEquals(value, { ok: true });
+  assertEquals(calls, 2);
+});
+
 Deno.test('externalCall: parse failure is permanent (not retried)', async () => {
   let calls = 0;
   const fetchImpl: typeof fetch = () => {

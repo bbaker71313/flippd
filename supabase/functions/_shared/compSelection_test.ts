@@ -1,11 +1,8 @@
 import {
-  buildSoldCompsQueries, isCoherentPriceSet, selectComparableSoldComps,
+  isCoherentPriceSet, selectComparableSoldComps,
 } from "./compSelection.ts";
+import type { QueryCandidate } from "./compSelection.ts";
 import type { IdentityCandidate, SoldCompListing } from "./marketData.ts";
-
-function assert(condition: unknown, message = 'assertion failed'): asserts condition {
-  if (!condition) throw new Error(message);
-}
 
 function assertEquals(actual: unknown, expected: unknown): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
@@ -15,7 +12,7 @@ function assertEquals(actual: unknown, expected: unknown): void {
 
 const IDENTITY: IdentityCandidate = {
   itemName: 'GE Super Radio 7-2880', brand: 'GE', model: '7-2880', variant: null,
-  gtin: null, gtinKind: null, manufacturerPartNumber: null,
+  gtin: null, gtinKind: null, manufacturerPartNumber: null, modelFamilyHint: null,
   likelyEbayCategory: 'Portable AM FM Radios', categoryHints: ['Portable AM FM Radios'],
   conditionHints: 'Used, working', unresolvedAttributes: [], identityConfidence: 90,
   evidenceUsed: ['visual_ai'], normalizedSearchTerms: [], providerId: 'test',
@@ -31,15 +28,13 @@ function comp(itemId: string, title: string, soldPrice: number, condition = 'Use
   };
 }
 
-Deno.test('query cascade is de-duplicated and starts exact before broad', () => {
-  const queries = buildSoldCompsQueries(IDENTITY);
-  assertEquals(queries[0], { query: 'ge 7 2880', precision: 'exact_model' });
-  assert(queries.some(query => query.precision === 'product_family'));
-  assertEquals(new Set(queries.map(query => query.query)).size, queries.length);
-});
+// Query-cascade planning (formerly buildSoldCompsQueries here) moved to
+// queryPlanner.ts (R2 §5.4, provider-aware) — see queryPlanner_test.ts for
+// cascade/dedup/truncation coverage. This file now only tests comp matching.
+const EXACT_MODEL_CANDIDATE: QueryCandidate = { query: 'ge 7 2880', precision: 'exact_model' };
 
 Deno.test('comp selection removes parts, lots, and model mismatches', () => {
-  const candidate = buildSoldCompsQueries(IDENTITY)[0];
+  const candidate = EXACT_MODEL_CANDIDATE;
   const result = selectComparableSoldComps([
     comp('1', 'GE Super Radio 7-2880 AM FM Portable Radio', 45),
     comp('2', 'GE Super Radio 7-2880 For Parts Not Working', 8),

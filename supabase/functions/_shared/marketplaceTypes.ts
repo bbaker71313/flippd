@@ -88,6 +88,31 @@ export interface MarketplaceEconomics {
   maxBuyPriceLimitedBy: 'minProfit' | 'targetRoi' | 'both' | 'none' | null
 }
 
+// R2 (§5.1): one capability contract for any market-evidence provider —
+// sold-comp or price-guide, single-marketplace or (once R5 lands a second
+// provider) cross-market. Encodes what the provider can actually supply so
+// query planning (queryPlanner.ts) and comp matching (compSelection.ts) stop
+// assuming a relevance-ranked search engine when the provider they're really
+// talking to (Trawl) is an all-terms-must-match one. Never widened by a
+// caller — a provider's own adapter is the only place this is constructed.
+export interface MarketEvidenceProviderCapabilities {
+  readonly marketplace: MarketplaceId
+  /** What class of fact this provider can actually supply. Caps evidence
+   *  quality downstream — see MarketplaceEvidence.evidenceType above. */
+  readonly evidenceClass: 'verified_transaction' | 'price_guide' | 'active_market' | 'other'
+  /** 'all_terms' = every query word must appear in the title (Trawl, eBay).
+   *  'identifier_only' = the provider resolves by release/part id, not free
+   *  text (future: Discogs, BrickLink). 'relevance' = a ranked search engine. */
+  readonly queryMatching: 'all_terms' | 'relevance' | 'identifier_only'
+  /** Beyond this, added terms shrink recall faster than they add precision. */
+  readonly maxUsefulQueryTerms: number
+  readonly supportsPagination: boolean
+  /** False => bestOfferAccepted is unknown, not false. */
+  readonly suppliesBestOfferFlag: boolean
+  /** Budget class for cost-ordered calling and quota accounting. */
+  readonly costClass: 'cached' | 'free' | 'metered_quota' | 'rate_limited'
+}
+
 export interface MarketplaceOpportunity {
   marketplace: MarketplaceId
   evidenceQuality: EvidenceQuality

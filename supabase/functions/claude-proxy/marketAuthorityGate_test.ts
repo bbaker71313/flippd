@@ -35,7 +35,7 @@ const SETTINGS = {
 
 const IDENTITY: IdentityCandidate = {
   itemName: 'Minolta X-700 35mm SLR Film Camera', brand: 'Minolta', model: 'X-700',
-  variant: null, gtin: null, gtinKind: null, manufacturerPartNumber: null,
+  variant: null, gtin: null, gtinKind: null, manufacturerPartNumber: null, modelFamilyHint: null,
   likelyEbayCategory: 'Cameras', categoryHints: ['Cameras'], conditionHints: null,
   unresolvedAttributes: [], identityConfidence: 80, evidenceUsed: ['visual_ai'],
   normalizedSearchTerms: ['Minolta X-700'], providerId: 'anthropic-claude-vision',
