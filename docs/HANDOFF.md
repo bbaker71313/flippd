@@ -4,6 +4,53 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-31 (part 2) — Profit Scanner plan correction: LIMITED EVIDENCE terminal-state rule superseded (docs only, no code)
+
+### Context
+The product owner supplied `docs/files/SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md`: the Profit Scanner implementation plan (Revision 2) and `DECISIONS.md` had carried forward, unexamined, the 2026-08-29 rule that weak/no market evidence terminates a scan in a `LIMITED EVIDENCE` / `decisionAvailable:false` state. That was correct as a stop-gap while the pipeline was actively fabricating/discarding evidence, but it now conflicts with the scanner's actual intended behavior: every **reasonably identifiable** item should reach an actionable HOT/LIST/SKIP, with evidence strength controlling confidence and decision strength (specifically whether HOT is reachable), not whether a decision happens at all. Only a genuine identification failure or a system/provider error may still withhold one. Hard scope: **documentation correction only** — no scanner code, no deploy. This session first reviewed the live repo (git log, `docs/HANDOFF.md`, `docs/files/DECISIONS.md`, `supabase/DEPLOYED.md`, and the live `claude-proxy` bundle via the Supabase MCP) to establish ground truth before touching any doc.
+
+### What R0/R1 actually are, verified against the live repo (not assumed)
+- **R0 — complete.** PRs #147–150 merged. G0 (Trawl spike) and G0b (Deno unblock) both PASS, recorded in `docs/HANDOFF.md`'s 2026-08-30/31 entries. §3.1 (20-item labeled corpus) is still open and blocks R3's acceptance instrument only, not R1/R2.
+- **R1 — code complete, merged (PR #151), and confirmed live.** §4.1/§4.2 shipped. `mcp__Supabase__list_edge_functions` shows `claude-proxy` live at **v96** (up from the v95 pre-deploy baseline `supabase/DEPLOYED.md` recorded before the §4.3 deploy attempt); fetching the live bundle via `mcp__Supabase__get_edge_function` and grepping it confirmed `unavailableReason`, `PROVIDER_THROTTLED`, `PROVIDER_QUOTA_EXHAUSTED`, `deriveUnavailableReason`, and `excludedOverflowCount` are all present in production. **Gap found:** `supabase/DEPLOYED.md`'s "R1 §4.3 deploy — 2026-08-31" entry still ends with the placeholder line *"Result recorded below once the deploy completes"* — the deploy evidently completed (v95→v96) but that entry was never finished, and there's no record that §4.3's other half (running 5–10 real scans and reading the resulting audit trail) was ever done. **Not fixed this session** — out of scope for a docs-only correction task, and closing it properly means running real scans against production. Flagged here as a loose end for the next session to close (either run the observation scans and finish the `DEPLOYED.md` entry, or explicitly decide it's not needed before R2 starts).
+
+### What changed
+- **`docs/files/SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md`** — new. The product owner's correction prompt, saved verbatim as the source instruction, matching the repo's existing convention of keeping prompt/audit inputs alongside the plan they informed (`REMEDIATION_PLAN_AUDIT_2026-08-30.md`, `SFP_PROFIT_SCANNER_FULL_REMEDIATION_PROMPT_20260830.md`).
+- **`docs/files/DECISIONS.md`** — added a new decision, "Evidence ladder: HOT/LIST/SKIP is the terminal outcome for every reasonably identifiable item" (2026-08-31), directly under the "Profit Scanner v2" entry it partially supersedes. States the corrected rule, why, exactly which sentence of the 2026-08-29 decision it supersedes (the `LIMITED EVIDENCE`-is-a-distinct-terminal-state sentence — everything else in that decision, including the HOT/LIST/SKIP formula and the marketplace-router architecture, stands), and an explicit "do not relitigate" note.
+- **`docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md`** — Revision 3. Surgical edits, not a rewrite:
+  - Header/status updated to reflect R0/R1 complete-and-merged, baseline bumped to current `HEAD` (`9792f04`) and live `claude-proxy` v96.
+  - New "Revision 3" entry in the revision history, plus a new "R0/R1 status (2026-08-31)" section carrying the verified-live-bundle finding and the `DEPLOYED.md` gap above.
+  - §2: added a correction note; moved "the rule that weak/no evidence never yields a decision" from "Explicitly unchanged" to an "Explicitly changed (Revision 3)" callout.
+  - §4.2: added a note that the 8 `ScanUnavailableReason` values are diagnostics, not the scanner's outcome set — `NO_MARKET_EVIDENCE`/`EVIDENCE_TOO_WEAK` should become rare/residual for identifiable items once R2/R3 land, not a routine result.
+  - §6 intro: added a note mapping the correction prompt's 5-tier evidence ladder onto what R3 (single-provider) vs R5 (federation) actually builds.
+  - §6.5: rewrote the shelf classification — dropped `LIMITED EVIDENCE` as a weak/none-evidence outcome; a shelf sub-item now walks the same ladder as a single-item scan and lands on a (possibly conservative) HOT/LIST/SKIP. `LIMITED EVIDENCE` survives only for a sub-item that is itself an identification failure.
+  - §8.2/§8.3: two references to "the LIMITED EVIDENCE symptom" reworded to name the actual diagnostic (`PROVIDER_QUOTA_EXHAUSTED`, `PROVIDER_UNAVAILABLE`) instead of the retired state.
+  - §10 (acceptance): rewrote A1 (≥70% → ~100% of the reasonably-identifiable subset), A2–A4 reworded around the corrected contract, and added three new absolute guardrails — **A11** (weak evidence must be visibly labeled, never presented as strong), **A12** (a provider/system failure must never silently become an item-level SKIP), **A13** (every reasonably-identifiable shelf sub-item gets its own result) — per the correction prompt's explicit acceptance bullet list. A9's wording fixed to name the real diagnostic.
+  - Risk register: rewrote the "loosening filters to hit A1" row — the risk direction flips (A1 is now the harder target to satisfy honestly), guarded by A2/A5/A11/A12 together; the two remaining LIMITED-EVIDENCE-worded rows reworded to name real diagnostics.
+  - §12 sequencing table: R0/R1 rows marked complete/live instead of "proposed."
+  - §13: resolved item 5 (A1 target) as answered by the new decision rather than open; added **L** (what a genuinely-zero-evidence-at-every-tier identifiable item resolves to — SKIP vs. a labeled zero-evidence variant) and **M** (an operational, in-code definition of "reasonably identifiable" for production traffic vs. the hand-labeled corpus) as new open implementation questions blocking R3. Per the correction prompt's own instruction, these are marked open rather than answered — this session did not invent the fallback algorithm or the fabrication-risk mitigations beyond what's needed for internal consistency.
+- **`docs/CURRENT_STATE.md`** — two normative-sounding lines (the "market evidence integrity" table row and the AI-market-authority-gate bullet) that described `LIMITED EVIDENCE`/`decisionAvailable:false` as intended behavior now note explicitly that this is current-but-superseded code, not approved product direction, and point to the new decision + Revision 3's R2/R3 scope. Bumped "Last updated." The dated 2026-08-29 changelog row describing the same thing was **left untouched** — it's a historical record of what shipped that date, not a normative statement of current intent.
+- **This file.**
+
+### Deliberately not touched (historical documents, per the correction prompt's explicit instruction)
+`docs/files/PROFIT_SCANNER_REVIEW_2026-08-30.md` (root-cause review), `docs/files/REMEDIATION_PLAN_AUDIT_2026-08-30.md` (audit of the prior plan), `docs/files/SFP_PROFIT_SCANNER_FULL_REMEDIATION_PROMPT_20260830.md` (the original remediation prompt) — all three record what was true/recommended at the time they were written and remain historically accurate. Not rewritten.
+
+### Testing
+None — no code changed. `git status` reviewed before every edit; no stray files.
+
+### Assumptions made
+The correction prompt itself is treated as an authorized product-owner instruction resolving the "does weak evidence block a decision" product question (per the Anti-Drift Contract, that question is otherwise squarely a product decision this session would not be authorized to make unilaterally) — it was supplied directly by the product owner as a plan-correction task, not inferred. No other product behavior was assumed or invented; two genuinely open implementation questions (L, M above) were surfaced rather than answered, per the correction prompt's own instruction not to invent fallback algorithms or thresholds.
+
+### Out-of-scope findings
+`supabase/DEPLOYED.md`'s incomplete "R1 §4.3 deploy" entry (see above) — a real doc-accuracy gap, not fixed here because closing it properly requires running live scans against production, which this task did not authorize.
+
+### Next task
+**R2** ("Fix the inputs" — §5: provider capabilities, transport reliability, identity validation/enrichment, provider-aware query planning) is next per the plan's sequencing, and is now unblocked by this revision landing. Before or alongside starting R2 code, the product owner should also: (1) decide whether to close out R1's dangling `DEPLOYED.md`/observation-scan gap now or defer it; (2) be aware that R3 (not R2) is blocked on open items T1–T3 plus this session's new L/M questions (§13) — R2 itself has no open product-decision blockers.
+
+### Blockers
+None for R2. R3 is blocked on §13 items T1–T3, L, and M (product-owner sign-off needed before R3 starts, not before R2).
+
+---
+
 ## Session: 2026-08-31 — R1 Instrumentation and honest failure (§4.1, §4.2 done; §4.3 needs a deploy decision)
 
 ### Context
