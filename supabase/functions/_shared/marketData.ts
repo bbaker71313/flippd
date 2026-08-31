@@ -9,6 +9,10 @@ export type IdentificationEvidenceKind =
   | 'model_number' | 'manufacturer_part_number'
   | 'ocr_label' | 'catalog_match'
   | 'verified_attributes' | 'visual_ai' | 'text_inference'
+  // R3: a confident SerpAPI Google Lens visual-product-search title match
+  // contributed identity.itemName — see serpApiIdentification.ts. Feeds the
+  // M "reasonably identifiable" gate (identityNormalization.ts).
+  | 'visual_product_search'
 
 export interface IdentityCandidate {
   itemName: string | null
@@ -81,9 +85,26 @@ export interface ActiveListingSummary {
   itemWebUrl: string | null
 }
 
+// R3 (DECISIONS.md T2): the provider's raw unfiltered result count and the
+// RETAINED (identity-matched) count are two different numbers with two
+// different jobs. totalActiveResultCount is informational competition-volume
+// only — it must never feed evidence quality and must never be treated as
+// if every result were a valid comparable. retainedCount (the length of
+// retainedListings after compSelection.ts's scorer runs) is the ONLY count
+// evidenceQuality.ts may read. sampledCount is how many raw listings were
+// actually fetched/considered before filtering — the denominator for T2's
+// ≥60% retained-proportion rule (marketDataPipeline.ts).
 export interface ActiveMarketEvidence {
-  matchingActiveCount: number
+  /** eBay's/the provider's own total-matches count — informational only,
+   *  can be thousands. NEVER an evidence-quality input. */
+  totalActiveResultCount: number
+  /** How many raw listings were fetched and run through the matcher. */
+  sampledCount: number
+  /** How many survived the scored matcher (compSelection.ts) — the ONLY
+   *  count evidenceQuality.ts's assessEvidenceQuality may consume. */
+  retainedCount: number
   sampledListings: ActiveListingSummary[]
+  retainedListings: ActiveListingSummary[]
   askingPriceLow: number | null
   askingPriceHigh: number | null
 }

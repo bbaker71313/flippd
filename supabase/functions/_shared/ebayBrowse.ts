@@ -75,9 +75,18 @@ export async function searchActiveListings(params: BrowseSearchParams): Promise<
 
     const prices = sampledListings.map(l => l.price).sort((a, b) => a - b);
 
+    // R3 (DECISIONS.md T2): this layer hasn't run identity matching yet
+    // (marketDataPipeline.ts does that next) — retainedListings/retainedCount
+    // start equal to the raw sample and are overwritten once the scorer
+    // narrows them. totalActiveResultCount is the provider's own raw total
+    // (can be thousands) — informational competition-volume ONLY, never an
+    // evidence-quality input downstream.
     return {
-      matchingActiveCount: data.total ?? sampledListings.length,
+      totalActiveResultCount: data.total ?? sampledListings.length,
+      sampledCount: sampledListings.length,
+      retainedCount: sampledListings.length,
       sampledListings,
+      retainedListings: sampledListings,
       askingPriceLow: prices.length ? prices[0] : null,
       askingPriceHigh: prices.length ? prices[prices.length - 1] : null,
     };

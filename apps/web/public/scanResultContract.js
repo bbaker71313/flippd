@@ -34,7 +34,14 @@
 
   var VALID_DECISIONS = ['HOT', 'LIST', 'SKIP'];
   var VALID_DEMAND_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'];
-  var VALID_DECISION_STATUSES = ['ok', 'insufficient_market_data'];
+  // R3 (docs/files/DECISIONS.md, item L): 'ok_no_evidence' is a THIRD
+  // decisionStatus — identity was reasonably identifiable (M), the pipeline
+  // ran to completion, and the full evidence ladder came up empty. decision
+  // is 'SKIP' and decisionAvailable is true, but every financial field and
+  // bestMarketplace stay null (never a fabricated price to justify it) —
+  // distinct from both 'ok' (a normal decision) and
+  // 'insufficient_market_data' (decisionAvailable:false).
+  var VALID_DECISION_STATUSES = ['ok', 'ok_no_evidence', 'insufficient_market_data'];
   var VALID_EVIDENCE_QUALITIES = ['strong', 'moderate', 'weak', 'none'];
   // R1 §4.2 (P1-9): why decisionAvailable is false — lets the client tell
   // "try again shortly" (transient) apart from "no comps" (a real data gap),
@@ -44,6 +51,10 @@
     'PROVIDER_NOT_CONFIGURED', 'IDENTIFICATION_UNRESOLVED', 'NO_MARKET_EVIDENCE',
     'EVIDENCE_TOO_WEAK', 'MARKETPLACE_AUTH_FAILED',
   ];
+  // R3: which of the two genuine-market-gap reasons produced an
+  // 'ok_no_evidence' result — non-null exactly when decisionStatus is
+  // 'ok_no_evidence', null otherwise (never present alongside unavailableReason).
+  var VALID_NO_EVIDENCE_REASONS = ['NO_MARKET_EVIDENCE', 'EVIDENCE_TOO_WEAK'];
   // Profit Scanner v2 (cross-market resale opportunity architecture).
   var VALID_MARKETPLACE_IDS = ['ebay', 'etsy', 'reverb', 'discogs', 'amazon', 'mercari', 'poshmark', 'facebook_local'];
 
@@ -110,6 +121,13 @@
   function asUnavailableReason(v, field) {
     if (v === null || v === undefined) return null;
     if (VALID_UNAVAILABLE_REASONS.indexOf(v) === -1) fail(field, 'a valid unavailableReason or null', v);
+    return v;
+  }
+
+  // R3: nullable — non-null exactly when decisionStatus is 'ok_no_evidence'.
+  function asNoEvidenceReason(v, field) {
+    if (v === null || v === undefined) return null;
+    if (VALID_NO_EVIDENCE_REASONS.indexOf(v) === -1) fail(field, 'a valid noEvidenceReason or null', v);
     return v;
   }
 
@@ -240,11 +258,23 @@
     if (decisionAvailable && unavailableReason !== null) fail('unavailableReason', 'null when decisionAvailable is true', unavailableReason);
     if (!decisionAvailable && unavailableReason === null) fail('unavailableReason', 'a real reason when decisionAvailable is false', unavailableReason);
 
+    // R3: non-null exactly when decisionStatus is 'ok_no_evidence'.
+    var noEvidenceReason = asNoEvidenceReason(r.noEvidenceReason, 'noEvidenceReason');
+    var isNoEvidence = decisionStatus === 'ok_no_evidence';
+    if (isNoEvidence && noEvidenceReason === null) fail('noEvidenceReason', 'a real reason when decisionStatus is ok_no_evidence', noEvidenceReason);
+    if (!isNoEvidence && noEvidenceReason !== null) fail('noEvidenceReason', 'null unless decisionStatus is ok_no_evidence', noEvidenceReason);
+
     var profit = asNullableNumber(r.estimatedProfit, 'estimatedProfit');
     var fee = asNullableNumber(r.feeAmount, 'feeAmount');
     var shipCost = asNullableNumber(r.shipCostAmount, 'shipCostAmount');
-    if (decisionAvailable && (profit === null || fee === null || shipCost === null)) {
-      fail('estimatedProfit/feeAmount/shipCostAmount', 'finite numbers when decisionAvailable is true', { profit: profit, fee: fee, shipCost: shipCost });
+    // R3: the zero-evidence SKIP is decisionAvailable:true but never has a
+    // financial basis (no expectedSalePrice to compute from) — only a
+    // normal 'ok' decision requires real finite numbers here.
+    if (decisionStatus === 'ok' && (profit === null || fee === null || shipCost === null)) {
+      fail('estimatedProfit/feeAmount/shipCostAmount', 'finite numbers when decisionStatus is ok', { profit: profit, fee: fee, shipCost: shipCost });
+    }
+    if (isNoEvidence && (profit !== null || fee !== null || shipCost !== null)) {
+      fail('estimatedProfit/feeAmount/shipCostAmount', 'null when decisionStatus is ok_no_evidence — never a fabricated financial basis', { profit: profit, fee: fee, shipCost: shipCost });
     }
     var fin = {
       profit: profit,
@@ -253,11 +283,12 @@
       shipCost: shipCost,
     };
     // Profit Scanner v2: which marketplace the decision/economics above are
-    // based on — null exactly when decisionAvailable is false (no marketplace
-    // had decision-capable evidence), same consistency rule as `decision`.
+    // based on — null exactly when decisionAvailable is false OR the R3
+    // zero-evidence SKIP (no marketplace had decision-capable evidence
+    // either way), same consistency rule as `decision`.
     var bestMarketplace = asMarketplaceId(r.bestMarketplace, 'bestMarketplace');
-    if (decisionAvailable && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionAvailable is true', bestMarketplace);
-    if (!decisionAvailable && bestMarketplace !== null) fail('bestMarketplace', 'null when decisionAvailable is false', bestMarketplace);
+    if (decisionStatus === 'ok' && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionStatus is ok', bestMarketplace);
+    if (decisionStatus !== 'ok' && bestMarketplace !== null) fail('bestMarketplace', 'null unless decisionStatus is ok', bestMarketplace);
 
     return {
       item: item,
@@ -270,6 +301,7 @@
       decisionAvailable: decisionAvailable,
       decisionStatus: decisionStatus,
       unavailableReason: unavailableReason,
+      noEvidenceReason: noEvidenceReason,
       decisionReasons: asDecisionReasons(r.decisionReasons, 'decisionReasons'),
       aiEstimate: asAiEstimate(r.aiEstimate, 'aiEstimate'),
       evidenceQuality: asEvidenceQuality(r.evidenceQuality, 'evidenceQuality'),
@@ -293,12 +325,19 @@
     var decision = asNullableDecision(i.decision, 'decision');
     if (decisionAvailable && decision === null) fail('decision', 'a real decision when decisionAvailable is true', decision);
     if (!decisionAvailable && decision !== null) fail('decision', 'null when decisionAvailable is false', decision);
+    // R3: bestMarketplace is real only for a normal 'ok' decision — both
+    // decisionAvailable:false and the zero-evidence SKIP ('ok_no_evidence')
+    // leave it null.
     var bestMarketplace = asMarketplaceId(i.bestMarketplace, 'bestMarketplace');
-    if (decisionAvailable && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionAvailable is true', bestMarketplace);
-    if (!decisionAvailable && bestMarketplace !== null) fail('bestMarketplace', 'null when decisionAvailable is false', bestMarketplace);
+    if (decisionStatus === 'ok' && bestMarketplace === null) fail('bestMarketplace', 'a real marketplace id when decisionStatus is ok', bestMarketplace);
+    if (decisionStatus !== 'ok' && bestMarketplace !== null) fail('bestMarketplace', 'null unless decisionStatus is ok', bestMarketplace);
     var unavailableReason = asUnavailableReason(i.unavailableReason, 'unavailableReason');
     if (decisionAvailable && unavailableReason !== null) fail('unavailableReason', 'null when decisionAvailable is true', unavailableReason);
     if (!decisionAvailable && unavailableReason === null) fail('unavailableReason', 'a real reason when decisionAvailable is false', unavailableReason);
+    var noEvidenceReason = asNoEvidenceReason(i.noEvidenceReason, 'noEvidenceReason');
+    var isNoEvidence = decisionStatus === 'ok_no_evidence';
+    if (isNoEvidence && noEvidenceReason === null) fail('noEvidenceReason', 'a real reason when decisionStatus is ok_no_evidence', noEvidenceReason);
+    if (!isNoEvidence && noEvidenceReason !== null) fail('noEvidenceReason', 'null unless decisionStatus is ok_no_evidence', noEvidenceReason);
     return {
       item_name: asString(i.itemName, 'itemName', ''),
       avg_sold_price: asNullableNumber(i.avgSoldPrice, 'avgSoldPrice'),
@@ -316,6 +355,7 @@
       decision_available: decisionAvailable,
       decision_status: decisionStatus,
       unavailable_reason: unavailableReason,
+      no_evidence_reason: noEvidenceReason,
       decision_reasons: asDecisionReasons(i.decisionReasons, 'decisionReasons'),
       ai_estimate: asAiEstimate(i.aiEstimate, 'aiEstimate'),
       evidence_quality: asEvidenceQuality(i.evidenceQuality, 'evidenceQuality'),

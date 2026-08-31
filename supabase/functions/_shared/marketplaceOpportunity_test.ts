@@ -80,3 +80,36 @@ Deno.test("blank acquisition cost solves a max-buy-price per marketplace, never 
 Deno.test("selectBestMarketplace returns null when there are no opportunities at all", () => {
   assertEquals(selectBestMarketplace([]), null);
 });
+
+// R3 (DECISIONS.md T3): facebook_local must not auto-win over its donor
+// merely from a lower fee profile / $0 shipping when both qualify.
+Deno.test("T3: facebook_local does NOT outrank its donor when the margin is under 25%/$10", () => {
+  // High-value item where eBay's 13% fee + shipping is a small dollar
+  // difference from local's $0-fee economics — local is a little ahead, but
+  // nowhere near 25%/$10 ahead.
+  const ebayEvidence = evidenceOk({ marketplace: 'ebay', expectedSalePrice: 500, evidenceQuality: 'strong', medianSoldPrice: 500 });
+  const opportunities = buildMarketplaceOpportunities({ ebay: ebayEvidence }, ['ebay', 'facebook_local'], 5, SETTINGS);
+  const ebayOpp = opportunities.find(o => o.marketplace === 'ebay')!;
+  const localOpp = opportunities.find(o => o.marketplace === 'facebook_local')!;
+  assertEquals(ebayOpp.qualifies, true);
+  assertEquals(localOpp.qualifies, true);
+  assert(localOpp.economics.netProfit! > ebayOpp.economics.netProfit!, 'local should still be nominally ahead (no fee/shipping)');
+  const best = selectBestMarketplace(opportunities);
+  assertEquals(best?.marketplace, 'ebay', 'local must not win purely from a smaller-than-threshold fee advantage');
+});
+
+Deno.test("T3: facebook_local DOES outrank its donor once it clears >=25% AND >=$10", () => {
+  // A cheap, bulky item where eBay's fee+shipping eat a large share of a
+  // small sale price — local's $0-fee economics clear both the 25% and $10
+  // absolute bars easily.
+  const ebayEvidence = evidenceOk({ marketplace: 'ebay', expectedSalePrice: 40, evidenceQuality: 'strong', medianSoldPrice: 40 });
+  const opportunities = buildMarketplaceOpportunities({ ebay: ebayEvidence }, ['ebay', 'facebook_local'], 5, SETTINGS);
+  const ebayOpp = opportunities.find(o => o.marketplace === 'ebay')!;
+  const localOpp = opportunities.find(o => o.marketplace === 'facebook_local')!;
+  assertEquals(ebayOpp.qualifies, true);
+  assertEquals(localOpp.qualifies, true);
+  const margin = localOpp.economics.netProfit! - ebayOpp.economics.netProfit!;
+  assert(margin >= 10 && localOpp.economics.netProfit! >= ebayOpp.economics.netProfit! * 1.25, 'fixture must actually clear the T3 bar');
+  const best = selectBestMarketplace(opportunities);
+  assertEquals(best?.marketplace, 'facebook_local');
+});

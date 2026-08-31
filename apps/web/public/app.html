@@ -6129,7 +6129,7 @@ async function analyze() {
       const scanLog=JSON.parse(localStorage.getItem('sfp_scan_log')||'[]');
       if(scanLog.length){scanLog[0].name=item.item_name;scanLog[0].potentialProfit=fin.profit;localStorage.setItem('sfp_scan_log',JSON.stringify(scanLog));}
     } catch(_){}
-    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, unavailableReason:normalized.unavailableReason, evidenceQuality:normalized.evidenceQuality, compMatchPrecision:normalized.compMatchPrecision, suggestedSearchQuery:normalized.suggestedSearchQuery, bestMarketplace:normalized.bestMarketplace, bestMarketplaceLabel:normalized.bestMarketplaceLabel, whyThisMarketplace:normalized.whyThisMarketplace, alternativeMarketplaces:normalized.alternativeMarketplaces});
+    renderSingle({item, cost:normalized.cost, fin, dec, maxBuyPrice:normalized.maxBuyPrice, maxBuyPriceLimitedBy:normalized.maxBuyPriceLimitedBy, marketDataSource:normalized.marketDataSource, decisionReasons:normalized.decisionReasons, decisionAvailable:normalized.decisionAvailable, decisionStatus:normalized.decisionStatus, unavailableReason:normalized.unavailableReason, noEvidenceReason:normalized.noEvidenceReason, evidenceQuality:normalized.evidenceQuality, compMatchPrecision:normalized.compMatchPrecision, suggestedSearchQuery:normalized.suggestedSearchQuery, bestMarketplace:normalized.bestMarketplace, bestMarketplaceLabel:normalized.bestMarketplaceLabel, whyThisMarketplace:normalized.whyThisMarketplace, alternativeMarketplaces:normalized.alternativeMarketplaces});
     renderScanHistory();
   } catch(e){resetBtn('analyze-btn','Run Profit Scanner','green');showError('Error: '+(e.message||'Try again.'));}
 }
@@ -6233,6 +6233,63 @@ function unavailableReasonCopy(reason) {
   return UNAVAILABLE_REASON_COPY[reason] || 'Not enough coherent, comparable marketplace evidence was found to make an honest HOT/LIST/SKIP recommendation. This is a data gap, not a SKIP.';
 }
 
+// R3 (docs/files/DECISIONS.md, item L): copy for the zero-evidence SKIP
+// state — decisionAvailable:true, decision:'SKIP', decisionStatus:
+// 'ok_no_evidence'. Distinct from unavailableReasonCopy above: this IS a
+// real SKIP (the item was reasonably identified and the evidence ladder was
+// genuinely exhausted), not a withheld decision.
+const NO_EVIDENCE_REASON_COPY = {
+  NO_MARKET_EVIDENCE: "We searched, but found no comparable sales or listings for this item.",
+  EVIDENCE_TOO_WEAK: 'We found some listings, but not enough coherent, comparable evidence to trust a recommendation.',
+};
+function noEvidenceReasonCopy(reason) {
+  return NO_EVIDENCE_REASON_COPY[reason] || 'Not enough market evidence was found to support a buy recommendation.';
+}
+
+// R3: an item that was reasonably identified but whose evidence ladder came
+// up empty — SKIP, low confidence, never a fabricated price. Distinct from
+// renderInsufficientEvidence above (identification/system failure — no
+// decision at all) and from the normal renderSingle path (real
+// profit/ROI-gated economics). No [ VERIFIED ] claim, no profit/ROI shown —
+// there is genuinely nothing defensible to show.
+function renderNoMarketSupportSkip({item, cost, suggestedSearchQuery, noEvidenceReason}) {
+  lastSingleResult = {item, cost, fin: {profit:null, roi:null, fee:null, shipCost:null}, dec:'SKIP'};
+  const costKnown = cost !== null && cost !== undefined;
+  const soldSearchQuery = suggestedSearchQuery || (item.search_keywords && item.search_keywords[0]) || item.item_name || '';
+  const soldSearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldSearchQuery)}&LH_Sold=1&LH_Complete=1`;
+  document.getElementById('results-content').innerHTML=`
+    <button class="back-btn" onclick="goSrcBack()">← New Analysis</button>
+    <div class="decision-banner is-skip">
+      <span class="d-icon">[ SKIP ]</span>
+      <div class="u-flex-col"><div class="d-label">SKIP THIS ONE</div><div class="d-name">${escHtml(item.item_name)}</div></div>
+      <div class="conf-pill">${escHtml(item.confidence)}%</div>
+    </div>
+    <div class="source-badge">[ NO MARKET SUPPORT ] ${escHtml(noEvidenceReasonCopy(noEvidenceReason))}</div>
+    <div class="skip-reasons"><div class="sr-title">WHY SKIP</div><ul><li>No defensible market evidence was found — we can't verify this is worth buying at any price.</li></ul></div>
+
+    <div class="buy-action-bar">
+      <div class="buy-action-title">What do you want to do?</div>
+      <div class="buy-action-sub">You can still add this to inventory manually and price it yourself.</div>
+      <div class="buy-action-btns">
+        <button class="action-btn action-buy" onclick="buyItem()">LIST<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Add to Inventory</span></button>
+        <button class="action-btn action-pass" onclick="goSrcBack()">SKIP<br><span class="u-text-xs" style="font-weight:600;opacity:0.9">Move On</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Your Cost</h3>
+      <div class="data-row"><span class="dl">Entered Cost</span><span class="dv">${costKnown?`$${Number(cost).toFixed(2)}`:'Not entered'}</span></div>
+      <div class="u-text-sm u-muted u-mt-1">This item was identified, but no comparable market evidence was found — net profit, ROI, and max-buy price can't be computed.</div>
+    </div>
+    <div class="card">
+      <h3 class="card-title">Verify on eBay</h3>
+      <div class="u-text-base u-soft u-mb-2">Check for yourself before buying.</div>
+      <a class="action-btn action-buy" href="${soldSearchUrl}" target="_blank" rel="noopener">Open eBay Sold Listings ↗</a>
+    </div>
+    ${item.notes?`<div class="card"><h3 class="card-title">Notes</h3><div class="u-text-base u-soft" style="line-height:1.7;font-weight:500">${escHtml(item.notes)}</div></div>`:''}`;
+  showSrcView('results');
+}
+
 // Profit Scanner v2 LIMITED EVIDENCE state (task doc §4): when no
 // marketplace had strong/moderate evidence, decisionAvailable is false and
 // dec/fin/maxBuyPrice/bestMarketplace are all null (never a HOT/LIST/SKIP
@@ -6284,9 +6341,13 @@ function renderInsufficientEvidence({item,cost,suggestedSearchQuery,unavailableR
   showSrcView('results');
 }
 
-function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,unavailableReason,evidenceQuality,compMatchPrecision,suggestedSearchQuery,bestMarketplace,bestMarketplaceLabel,whyThisMarketplace,alternativeMarketplaces}) {
+function renderSingle({item,cost,fin,dec,maxBuyPrice,maxBuyPriceLimitedBy,marketDataSource,decisionReasons,decisionAvailable,decisionStatus,unavailableReason,noEvidenceReason,evidenceQuality,compMatchPrecision,suggestedSearchQuery,bestMarketplace,bestMarketplaceLabel,whyThisMarketplace,alternativeMarketplaces}) {
   resetBtn('analyze-btn','Run Profit Scanner','green');
   if (decisionAvailable === false) { renderInsufficientEvidence({item, cost, suggestedSearchQuery, unavailableReason}); return; }
+  // R3 (item L): a real SKIP with genuinely zero market support — distinct
+  // from both the insufficient-evidence state above and the normal
+  // profit/ROI-based render below (which has no financial basis to show).
+  if (decisionStatus === 'ok_no_evidence') { renderNoMarketSupportSkip({item, cost, suggestedSearchQuery, noEvidenceReason}); return; }
   lastSingleResult = {item,cost,fin,dec};
   const{profit,roi,fee}=fin;
   const costKnown = cost !== null && cost !== undefined;
@@ -6466,28 +6527,39 @@ function renderShelf(shelfItems) {
   };
   const ri=(i,idx)=>{
     const isLimited = i.decision===null;
+    // R3 (item L): a real SKIP with genuinely zero market support — distinct
+    // from both isLimited (no decision at all) and a normal profit/ROI SKIP
+    // (which has real failingThresholds to explain).
+    const isNoEvidence = i.decision_status === 'ok_no_evidence';
     const cssState = isLimited ? 'unverified' : i.decision.toLowerCase();
     const badgeLabel = isLimited ? 'LIMITED EVIDENCE' : i.decision;
     // max_buy_price is the server's deterministic backward-solve result —
     // never invented client-side, since the shelf item hasn't been bought yet.
     const mc=i.max_buy_price;
     const mcHint=(mc>0)?`<div class="s-max-cost">if item is under $${Number(mc).toFixed(2)}</div>`:'';
-    // Reaching here with a real decision always means 'strong'/'moderate'
-    // evidence (weak/none routes to isLimited above) — always a genuine
-    // [VERIFIED] result, plus which marketplace it's verified against.
+    // Reaching here with a real 'ok' decision always means 'strong'/
+    // 'moderate' evidence (weak/none routes to isLimited/isNoEvidence) —
+    // always a genuine [VERIFIED] result, plus which marketplace it's
+    // verified against. ok_no_evidence gets its own honest tag instead —
+    // best_marketplace is null there, so [VERIFIED] would be misleading.
     const evidenceTag = isLimited ? ''
+      : isNoEvidence ? `<span class="u-text-xs" style="color:var(--muted);font-weight:700;margin-left:6px">[NO MARKET SUPPORT]</span>`
       : `<span class="u-text-xs" style="color:var(--green-border);font-weight:700;margin-left:6px">[VERIFIED · ${escHtml(i.best_marketplace_label || 'eBay')}]</span>`;
-    const skipReasons = (i.decision==='SKIP' && i.decision_reasons && i.decision_reasons.failingThresholds)
+    const skipReasons = (i.decision==='SKIP' && !isNoEvidence && i.decision_reasons && i.decision_reasons.failingThresholds)
       ? i.decision_reasons.failingThresholds.map(t=>SHELF_SKIP_LABEL[t]||t).join('; ')
       : '';
     const detailLine = isLimited
       ? `<span class="u-muted u-bold9">Not enough marketplace evidence yet</span>`
+      : isNoEvidence
+      ? `<span class="u-muted u-bold9">No comparable market evidence found</span>`
       : `<span class="u-pos u-bold9">~$${escHtml(i.avg_sold_price)}</span> &nbsp;·&nbsp; <span class="u-soft">Best: ${escHtml(i.best_marketplace_label || 'eBay')}</span>`;
     const reasonLine = isLimited
       ? escHtml(unavailableReasonCopy(i.unavailable_reason)) + ' Review completed listings before buying.'
+      : isNoEvidence
+      ? escHtml(noEvidenceReasonCopy(i.no_evidence_reason)) + ' Review completed listings before buying.'
       : escHtml(i.decision_reason);
     const soldSearch = i.suggested_search_query || i.item_name || '';
-    const soldSearchLink = isLimited
+    const soldSearchLink = (isLimited || isNoEvidence)
       ? `<a class="u-text-xs" style="display:inline-block;margin-top:6px;color:var(--green-border);font-weight:700" href="https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(soldSearch)}&LH_Sold=1&LH_Complete=1" target="_blank" rel="noopener">Open eBay Sold Listings ↗</a>` : '';
     return `<div class="shelf-item is-${cssState}">
       <span class="s-badge">${icon[isLimited?'LIMITED':i.decision]} ${badgeLabel}</span>${evidenceTag}${mcHint}

@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { parseModelToken, parseVariantToken, parseGtinToken } from "./identityNormalization.ts";
+import { parseModelToken, parseVariantToken, parseGtinToken, parseConditionToken, isReasonablyIdentifiable } from "./identityNormalization.ts";
+import type { IdentityCandidate } from "./marketData.ts";
 
 // ── parseModelToken — the two real production examples from the task doc ──
 
@@ -102,4 +103,74 @@ Deno.test('parseGtinToken: an implausible digit length is rejected', () => {
 
 Deno.test('parseGtinToken: null input is null/null', () => {
   assertEquals(parseGtinToken(null), { gtin: null, gtinKind: null });
+});
+
+// ── R3: parseConditionToken — binary NEW/USED only ──────────────────────────
+
+Deno.test('parseConditionToken: null/empty input is null (T1: missing scores neutral)', () => {
+  assertEquals(parseConditionToken(null), null);
+  assertEquals(parseConditionToken('   '), null);
+});
+
+Deno.test('parseConditionToken: "Brand new, sealed in box" is NEW', () => {
+  assertEquals(parseConditionToken('Brand new, sealed in box'), 'NEW');
+});
+
+Deno.test('parseConditionToken: anything else non-empty is USED — no grading tiers', () => {
+  assertEquals(parseConditionToken('Good condition, light wear'), 'USED');
+  assertEquals(parseConditionToken('Excellent, barely used'), 'USED');
+  assertEquals(parseConditionToken('Fair, some scratches'), 'USED');
+});
+
+Deno.test('parseConditionToken: "knobs appear new" hedge language never parses as NEW (DECISIONS.md named example)', () => {
+  assertEquals(parseConditionToken('Knobs appear new, case has scratches'), 'USED');
+  assertEquals(parseConditionToken('Looks almost new'), 'USED');
+});
+
+// ── R3: isReasonablyIdentifiable — the M gate ───────────────────────────────
+
+function baseIdentity(overrides: Partial<IdentityCandidate>): IdentityCandidate {
+  return {
+    itemName: null, brand: null, model: null, variant: null, gtin: null, gtinKind: null,
+    manufacturerPartNumber: null, modelFamilyHint: null, likelyEbayCategory: null,
+    categoryHints: [], conditionHints: null, unresolvedAttributes: [], identityConfidence: 0,
+    evidenceUsed: [], normalizedSearchTerms: [], providerId: 'test',
+    ...overrides,
+  };
+}
+
+Deno.test('isReasonablyIdentifiable: a validated GTIN alone qualifies', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({ gtin: '012345678905', gtinKind: 'UPC' })), true);
+});
+
+Deno.test('isReasonablyIdentifiable: brand+model together qualifies', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({ brand: 'GE', model: '7-2880' })), true);
+});
+
+Deno.test('isReasonablyIdentifiable: brand alone (no model) does NOT qualify without a distinguishing attribute', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({ brand: 'GE', itemName: 'radio' })), false);
+});
+
+Deno.test('isReasonablyIdentifiable: brand + a non-generic item name qualifies (product type + brand + distinguishing attribute)', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({ brand: 'GE', itemName: 'GE Super Radio' })), true);
+});
+
+Deno.test('isReasonablyIdentifiable: a confident SerpAPI title match qualifies even with no brand/model', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({
+    itemName: 'Minolta X-700 35mm SLR Film Camera', evidenceUsed: ['visual_product_search'],
+  })), true);
+});
+
+Deno.test('isReasonablyIdentifiable: a SerpAPI match that is still just a bare generic noun does NOT qualify', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({ itemName: 'camera', evidenceUsed: ['visual_product_search'] })), false);
+});
+
+Deno.test('isReasonablyIdentifiable: bare generic nouns ("radio", "shirt", "camera", "book") with nothing else do NOT qualify', () => {
+  for (const name of ['radio', 'shirt', 'camera', 'book']) {
+    assertEquals(isReasonablyIdentifiable(baseIdentity({ itemName: name })), false, `expected "${name}" alone to not qualify`);
+  }
+});
+
+Deno.test('isReasonablyIdentifiable: completely empty identity does not qualify', () => {
+  assertEquals(isReasonablyIdentifiable(baseIdentity({})), false);
 });

@@ -4,6 +4,183 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-31 (part 4) — R3 implemented, PR open (not yet deployed)
+
+R3 ("Stop discarding good evidence") was blocked on five open product decisions
+(T1–T3, L, M) per `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md`
+§13. The product owner resolved all five in one update
+(`docs/files/SFP_R3_REMEDIATION_PLAN_UPDATE_20260831.md`), plus changed R3's
+identification source (SerpAPI-first) and condition model (binary NEW/USED),
+and pulled a Reverb adapter forward into R3. Docs updated first (Revision 4 in
+the plan doc, new decisions recorded in `docs/files/DECISIONS.md`), then full
+implementation. Branch: `claude/r3-fix-filters`.
+
+**Docs (required before implementation, per the update instruction):**
+- `docs/files/PROFIT_SCANNER_IMPLEMENTATION_PLAN_2026-08-30.md` — Revision 4:
+  T1–T3/L/M marked resolved (§13), a Revision-4 summary section, R3's status
+  note.
+- `docs/files/DECISIONS.md` — new entries: "R3 tightenings T1–T3 and the L/M
+  open items — all approved," "R3 identification is SerpAPI-first,
+  AI-assisted — condition is binary NEW/USED only," "Reverb price-guide
+  evidence pulled into R3."
+
+**Comp matching rewrite (§6.1, T1) — `compSelection.ts`:**
+Replaced the old hard-exclude "majority of family tokens must match" filter
+(the exact P0-2 defect: discarded 34/34 real comps) with a scored/banded
+matcher (`scoreComp`, `CompMatchScore`: score/band/signals/rejection). Hard
+rejects ONLY for a contamination marker, a conflicting model (same
+length+skeleton, different value — e.g. "X-700" vs "X-900"), or a conflicting
+brand (a different, non-generic leading capitalized word AND our brand
+nowhere in the title AND no shared prefix with it — the "General Electric"
+vs "GE" false-positive this exact heuristic hit during testing was fixed by
+adding the shared-prefix check). Everything else is additive scoring — a
+missing token contributes 0 points, never rejects. Normalization fixed:
+"X-700"≡"X700", "1960'S"≡"1960s" (hyphens/apostrophes now join instead of
+becoming a space), and matching is now word-token-array based so "all" never
+matches inside "wall". Also added `rejectOutliers` (§6.3): MAD-based, drops
+at most 20% of a retained sold-comp set, requires ≥3 survivors (no rescue),
+every drop recorded in the audit trail.
+
+**T2 (retained count, not provider total, is authoritative) —
+`marketData.ts`/`ebayBrowse.ts`/`marketDataPipeline.ts`/`marketplaceProviders.ts`:**
+`ActiveMarketEvidence` restructured: `totalActiveResultCount` (informational,
+can be thousands) is now separate from `sampledCount`/`retainedCount`
+(retained = survived the scored matcher) and `sampledListings`/
+`retainedListings`. `marketDataPipeline.ts`'s active-evidence gate is now
+proportional (`retainedCount>=5 AND retainedCount/sampledCount>=0.60`),
+replacing the old all-or-nothing "every sampled listing must match" rule.
+
+**§6.3/§6.4 — `marketDataPipeline.ts` rewrite:** a sold-provider failure
+mid-cascade no longer discards partial evidence or skips active evidence —
+it's recorded (`soldProviderFailure`) and only surfaces as the final failure
+reason if nothing ends up qualifying (more actionable than a generic
+"no evidence" message). Catalog/Taxonomy calls wrapped in try/catch
+(`safeCatalogMatch`/`safeResolveCategory`) so a thrown `EbayAppAuthError`
+never discards an otherwise-qualified decision (P2-11). An unconfigured sold
+provider now reports `SOLDCOMPS_NOT_CONFIGURED` explicitly instead of
+masquerading as a market gap (P1-8).
+
+**T3 (facebook_local threshold) — `marketplaceOpportunity.ts`/`marketplaceTypes.ts`:**
+`MarketplaceOpportunity` gained `donorMarketplace`/`donorProfit`.
+`selectBestMarketplace` now walks the ranked list and skips a `facebook_local`
+candidate for the win (never for inclusion — it stays visible as an
+alternative) unless its profit is both ≥25% higher and ≥$10 higher than its
+donor's, and only when the donor is actually competing in the same pool.
+
+**L (zero-evidence SKIP) + M (reasonably identifiable) — `identityNormalization.ts`/`claude-proxy/index.ts`:**
+New `isReasonablyIdentifiable()` (the M gate: validated GTIN, or brand+model,
+or a confident SerpAPI title match, or brand+distinguishing attribute — a
+bare generic noun alone doesn't qualify) — used by BOTH the existing
+identification-failure gate and the new L gate, one implementation. New
+`decisionStatus:'ok_no_evidence'` — a THIRD state distinct from a normal
+`'ok'` decision and the existing `decisionAvailable:false` state:
+`decisionAvailable:true`, `decision:'SKIP'`, every financial field/
+`bestMarketplace` stays null, `noEvidenceReason` carries which of
+`NO_MARKET_EVIDENCE`/`EVIDENCE_TOO_WEAK` applied. Reached only via an
+allowlist (`isGenuineMarketGapReason`) — a system failure (throttled/quota/
+unavailable/not-configured/auth-failed) or an edge-case
+`IDENTIFICATION_UNRESOLVED` never falls into it; only a genuine "the
+pipeline ran to completion and found nothing/not enough" result does.
+
+**SerpAPI visual identification (new primary identity path) —
+`serpApiIdentification.ts` (new):** SerpAPI's Google Lens API needs a
+publicly-fetchable image URL (confirmed via web search; base64/data-URI
+upload is rejected — see the module's own header for sources). Since
+`app.html` never uploads scan photos to server storage, this uploads the
+photo to a new **private** Supabase Storage bucket (`scan-temp-images`,
+migration `20260831180000_r3_scan_temp_images_bucket.sql` — **not yet
+applied to production, needs a `supabase db push` or dashboard apply**),
+generates a 120s signed URL, calls SerpAPI, and deletes the object in a
+`finally` block regardless of outcome — never retained past one call. A
+confident top visual match's title takes priority over the AI vision call's
+own `item_name` guess (`mergeSerpApiIdentity` in `claude-proxy/index.ts`);
+Claude's own brand/model/variant/gtin/condition reads are kept. Wired into
+single/text scan only (`handleSingleScan` decodes `images[0]` to bytes) —
+**shelf scan does NOT get SerpAPI** (documented in `handleShelfScan`): a
+shelf photo has no per-item region-cropping in this repo, so there's no
+single-item photo to send Lens. Shelf items still get the M/L logic via the
+same `resolveScanResultCore`, just identify from Claude's vision call alone.
+SerpAPI's own visible prices (`matches[]`) are captured but **not yet wired
+into the evidence ladder as a scored rung** — flagged as a deliberate,
+documented scope boundary for this pass, not a silent gap (SerpAPI's
+identification role — the required, primary piece — is fully wired; its
+optional "weaker fallback evidence" role is not).
+
+**Reverb adapter — `reverbEvidence.ts` (new):** pulled forward from R5 per
+the update instruction. Deliberately does NOT call Reverb's undocumented,
+unauthenticated `/api/priceguide` path the original plan flagged as unstable
+(confirmed via web search — no auth required there at all, inconsistent
+with a configured `REVERB_API_KEY`) — instead calls Reverb's documented,
+authenticated Listings API (`GET /api/listings`, `Bearer` token) for active
+asking prices. `active_market` evidence class, capped at `moderate` (§8.1
+ceiling — never HOT-qualifying), reuses the same scored matcher and T2
+proportional-support rule every other provider uses. Wired into
+`marketplaceProviders.ts`'s `getReverbMarketplaceEvidence` (previously a
+`NOT_CONFIGURED` placeholder); `marketplaceRouter.ts`'s existing category
+gating (guitars/pedals/amps/synths/pro audio) is unchanged.
+
+**Client (`app.html`/`scanResultContract.js`):** the contract validator now
+accepts `decisionStatus:'ok_no_evidence'` with null financials/
+`bestMarketplace` (previously required non-null when `decisionAvailable`)
+and a new `noEvidenceReason` field. `renderSingle` and the shelf `ri()`
+renderer both branch on the new state — a dedicated `renderNoMarketSupportSkip`
+card (honest "SKIP — no observed market support" framing, never `[VERIFIED]`,
+never a `$NaN`/`~$null` render) instead of falling through to either the
+normal profit-based render or the old `renderInsufficientEvidence` card.
+
+**Tests:** 304/304 Deno tests pass (`_shared/` + `claude-proxy/`, `--no-check`
+for claude-proxy's pre-existing, confirmed-unrelated `esm.sh/supabase-js`
+generic-collapse type-check issue — same class as documented in prior
+sessions, reverified via `git stash` against the unmodified baseline this
+session). 48/48 Node tests pass (`scanResultContract.test.js`). New test
+files: `compSelection_test.ts` (rewritten), `identityNormalization_test.ts`
+(+12 tests), `serpApiIdentification_test.ts` (new, 5 tests),
+`reverbEvidence_test.ts` (new, 5 tests), `marketplaceOpportunity_test.ts`
+(+2 T3 tests), `ebayBrowse_test.ts`/`marketAuthorityGate_test.ts` updated
+for the new field shapes/L behavior. `tsc`/`deno check` clean on every
+changed/new module (claude-proxy/index.ts's pre-existing type-check issue
+confirmed unrelated to this session's changes).
+
+**Deliberately NOT done this session:**
+- **Not deployed to production.** PR not yet opened/merged as of this
+  writing — this is a large, decision-logic-touching change (comp matching,
+  evidence quality, Best Market ranking, a new external provider, a new
+  storage bucket) that should go through review before touching the live
+  scanner, same posture as R2.
+- **The `scan-temp-images` storage migration is not applied to production.**
+  SerpAPI identification will fail closed (informational-only miss, never
+  blocks the scan) until it is. Needs `npx supabase db push` or the
+  dashboard, same manual-deploy pattern R2 needed for the Edge Function
+  itself.
+- **SerpAPI's price signals are not yet a scored evidence-ladder rung** —
+  identification (required) is wired; "weaker fallback evidence" (explicitly
+  optional per the update instruction: "useful ... as weaker fallback
+  evidence where appropriate") is not. A reasonable, bounded follow-up.
+- **No live smoke test against real `SERP_API_KEY`/`REVERB_API_KEY`** — this
+  sandbox's egress to `serpapi.com`/`api.reverb.com` is blocked (same class
+  of restriction R0 hit with `deno.land`); both adapters were built against
+  publicly documented API contracts (verified via web search where this
+  sandbox could reach it) and defensively parsed (never crash/fabricate on
+  an unexpected shape), but neither has been exercised against a real
+  response. Recommend running one real single-item scan post-deploy and
+  reading the audit trail, same as R1's still-open observation step.
+- **Gate G2** (§5.4 corpus-based acceptance) and the **§3.1 labeled corpus**
+  remain the same open blockers noted since R0 — unaffected by this session.
+
+### Next task
+Open the PR, get it reviewed, then deploy the same way R2 was (Supabase CLI,
+not the MCP tool — `claude-proxy`'s dependency closure is now even larger).
+Before/alongside that deploy: apply the `scan-temp-images` storage migration.
+After deploy: run a handful of real scans (single-item, at least one
+instrument-category item to exercise Reverb, and one deliberately-generic
+item to confirm the M/L boundary) and read the audit trail — the first
+real-traffic look at R3's new code paths, same open item R1/R2 left
+unresolved for their own changes.
+
+### Blockers
+None for what's implemented. Deployment itself is a product-owner action
+(same CLI-deploy pattern as R2), not a code blocker.
+
 ## Session: 2026-08-31 (part 3, addendum) — R2 deployed to production
 
 PR #154 was merged, then the product owner asked to deploy. The Supabase MCP's

@@ -6,6 +6,13 @@
 // tokens (model/variant/gtin) before they reach the query planner
 // (queryPlanner.ts) or the comp scorer (compSelection.ts) — never AI's job
 // to decide what counts as a real identifier, only to report what it read.
+//
+// R3 (docs/files/DECISIONS.md "R3 tightenings..." / "...binary NEW/USED"):
+// also owns parseConditionToken (the binary NEW/USED condition model — no
+// grading tiers) and isReasonablyIdentifiable (the M gate, shared by the
+// identification-failure path and the L zero-evidence-SKIP path — one
+// definition, per CLAUDE.md Anti-Drift Contract rule 11).
+import type { IdentityCandidate } from "./marketData.ts"
 
 export interface ModelParseResult {
   model: string | null            // validated identifier, else null
@@ -137,4 +144,78 @@ export function parseGtinToken(raw: string | null): GtinParseResult {
 
   const gtinKind = classifyDigits(digitsOnly);
   return gtinKind ? { gtin: digitsOnly, gtinKind } : { gtin: null, gtinKind: null };
+}
+
+// R3 (DECISIONS.md "...binary NEW/USED only"): the scanner's ONLY condition
+// distinction. No Excellent/Very Good/Good/Fair/Poor tiers, no AI cosmetic-
+// condition percentage discount anywhere downstream. Null (never a
+// fabricated USED) when no condition text was supplied at all — T1's
+// "missing scores neutral" rule applies to condition exactly as it does to
+// every other match signal (compSelection.ts). When text IS present but
+// doesn't clearly say NEW, the approved rule is explicit: treat it as USED.
+const NEW_CONDITION_PATTERN = /\b(new|sealed|unopened|nwt|nib|brand new)\b/i;
+// A hedge/partial-description word near "new" means the text is describing
+// ONE ASPECT or a qualified impression ("knobs appear new", "looks almost
+// new"), not declaring the item's own condition NEW outright — this is
+// exactly the false-conflict case DECISIONS.md calls out by name. Erring
+// toward USED here (never NEW) matches the approved rule: "if the item is
+// not clearly new, it should be treated as USED."
+const NEW_HEDGE_PATTERN = /\b(appear|appears|look|looks|looking|seem|seems|almost|mostly|somewhat|partially)\b/i;
+
+export function parseConditionToken(raw: string | null): 'NEW' | 'USED' | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (NEW_CONDITION_PATTERN.test(trimmed) && !NEW_HEDGE_PATTERN.test(trimmed)) return 'NEW';
+  return 'USED';
+}
+
+// R3 (DECISIONS.md "R3 tightenings T1–T3 and the L/M open items", item M).
+// Qualifying identity — at least one of:
+//   - a validated GTIN/UPC/EAN/ISBN;
+//   - a validated brand AND model together;
+//   - a confident SerpAPI visual-product-search title match (marked via
+//     evidenceUsed including 'visual_product_search' — see
+//     serpApiIdentification.ts) that isn't just a bare generic noun;
+//   - brand/creator + product type + at least one distinguishing attribute
+//     (variant, a salvaged model-family hint, or a category hint) beyond a
+//     bare generic noun.
+// A bare generic noun ("radio", "shirt", "camera", "book") with nothing
+// else is NOT reasonably identifiable — that item stays
+// IDENTIFICATION_UNRESOLVED, the one exception the L evidence-ladder rule
+// does not touch. Used by BOTH the identification-failure gate and the L
+// zero-evidence-SKIP gate in claude-proxy/index.ts — one definition, never
+// two independently-maintained boundaries (CLAUDE.md Anti-Drift Contract
+// rule 11).
+const GENERIC_ITEM_NOUNS = new Set([
+  'radio', 'shirt', 'camera', 'book', 'shoe', 'shoes', 'watch', 'bag',
+  'toy', 'tool', 'lamp', 'chair', 'table', 'phone', 'case', 'jacket',
+  'coat', 'game', 'doll', 'clock', 'vase', 'box', 'speaker', 'headphones',
+  'blender', 'mixer', 'heater', 'fan', 'grill', 'mug', 'plate', 'basket',
+]);
+
+function isGenericStandaloneName(itemName: string | null): boolean {
+  if (!itemName) return true;
+  const tokens = itemName.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  if (tokens.length === 0) return true;
+  if (tokens.length === 1) return GENERIC_ITEM_NOUNS.has(tokens[0]);
+  return false;
+}
+
+export function isReasonablyIdentifiable(identity: IdentityCandidate): boolean {
+  if (identity.gtin) return true;
+  if (identity.brand && identity.model) return true;
+  if (
+    identity.evidenceUsed.includes('visual_product_search') &&
+    !isGenericStandaloneName(identity.itemName)
+  ) return true;
+  if (identity.brand) {
+    const hasDistinguishingAttribute =
+      !isGenericStandaloneName(identity.itemName) ||
+      !!identity.modelFamilyHint ||
+      !!identity.variant ||
+      identity.categoryHints.length > 0;
+    if (hasDistinguishingAttribute) return true;
+  }
+  return false;
 }

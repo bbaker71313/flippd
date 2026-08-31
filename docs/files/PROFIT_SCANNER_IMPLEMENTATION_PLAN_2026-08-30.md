@@ -1,24 +1,88 @@
 # Profit Scanner — Implementation Plan
 
-**Date:** 2026-08-30 (Revision 3: 2026-08-31)
+**Date:** 2026-08-30 (Revision 3: 2026-08-31; Revision 4: 2026-08-31)
 **Author:** Engineering
-**Revision:** **3** — corrects a stale terminal `LIMITED EVIDENCE` outcome
-that Revision 2 carried forward unchanged (see *Revision history* below)
+**Revision:** **4** — resolves R3's five blocking open items (T1–T3, L, M)
+and changes R3's identification source and condition model (see *Revision
+history* below)
 **Status:** R0, R1, and R2 **complete, merged, and deployed** (`claude-proxy`
-v102 — see the R2 status note below). R3–R6 still await product-owner
-sign-off on the open items in §13.
+v102 — see the R2 status note below). **R3 is now unblocked and in progress**
+against this revision's corrected scope — see the R3 status note below §5.
+R4–R6 still await product-owner sign-off on the remaining open items in §13.
 **Inputs:** `PROFIT_SCANNER_REVIEW_2026-08-30.md` (root cause) ·
 `REMEDIATION_PLAN_AUDIT_2026-08-30.md` (audit of the prior plan) ·
 `PROFIT_SCANNER_R0_TRAWL_VALIDATION_2026-08-30.md` (R0 spike — **G0 PASS**) ·
-`SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md` (this revision's
-source instruction — corrects the LIMITED EVIDENCE terminal-state rule)
-**Baseline:** repo `HEAD` = `9792f04`; live `claude-proxy` **v96** (R1's
-audit-trail + failure-classification code, confirmed live in the deployed
-bundle 2026-08-31 — see the R0/R1 status note below §1)
+`SFP_PROFIT_SCANNER_PLAN_CORRECTION_PROMPT_20260831.md` (Revision 3's source
+instruction) · `SFP_R3_REMEDIATION_PLAN_UPDATE_20260831.md` (Revision 4's
+source instruction — resolves T1–T3/L/M, changes identification + condition)
+**Baseline:** repo `HEAD` = `9792f04`; live `claude-proxy` **v102** (R2's
+provider-capabilities + transport + identity + query-planner code, confirmed
+live and deployed 2026-08-31 — see the R2 status note below §1)
 
 ---
 
 ## Revision history
+
+**Revision 4 (2026-08-31) — resolves R3's five blocking product decisions
+(T1–T3, L, M) and changes R3's identification source and condition model.
+No scope change to R0–R2; this is the update that actually unblocks R3
+implementation.** `SFP_R3_REMEDIATION_PLAN_UPDATE_20260831.md` (product
+owner) resolves every item §13 listed as blocking R3, and changes three more
+things this plan's R3 section (§6) was written against. Recorded in full in
+`docs/files/DECISIONS.md` ("R3 tightenings T1–T3 and the L/M open items",
+"R3 identification is SerpAPI-first...", "Reverb price-guide evidence pulled
+into R3") — summarized here so this plan stays the accurate implementation
+reference:
+
+- **T1, T2, T3, L, M are now approved, not open** — see DECISIONS.md for the
+  exact resolved wording. §6.1's "T1 is load-bearing" language, §6.2's T2
+  proportional-support rule, §6.5's T3 threshold, and §2/§4.2/§6/§6.5's L/M
+  open questions are no longer open — implement them as specified there and
+  in DECISIONS.md, not as still-pending product decisions.
+- **L's resolution is more specific than §6.5 anticipated:** the
+  genuinely-zero-evidence residual case is a **distinctly-labeled SKIP**
+  (`decisionAvailable:true`, `decision:'SKIP'`, `decisionStatus:
+  'ok_no_evidence'`, every financial field `null`) — not a plain
+  economics-based SKIP and not a fourth `decisionAvailable:false` state.
+  This is a third decision-availability state alongside the existing
+  "normal decision" and "identification/system failure" states; every
+  place in §4.2/§6/§6.5/§10/§13 that left this open should be read with
+  that specific shape.
+- **M's resolution is concrete, not just a corpus-labeling convention:**
+  "reasonably identifiable" is the operational gate in DECISIONS.md
+  (validated GTIN; validated brand+model; a confident SerpAPI title match;
+  or type+brand/creator+distinguishing attributes) — implemented once as
+  `isReasonablyIdentifiable()`, shared by the identification-failure gate
+  and the L gate, per the Anti-Drift Contract's "one authoritative
+  implementation" rule.
+- **R3's identification source changes.** §5.3/§6 assumed AI vision fields
+  (`identityFromAiScan`) were the identity authority feeding R3's matcher.
+  They are not anymore: identification is now **SerpAPI Google Lens visual
+  search first** (normalized product title), with Claude's vision call
+  retained for structured attributes (GTIN digits, condition, category,
+  `search_keywords`) it reads more reliably than a reverse-image match.
+  See DECISIONS.md for the mechanism (a private, single-call temporary
+  Supabase Storage upload, since SerpAPI's Lens API needs a fetchable URL).
+- **R3's condition model changes.** §6.1's scoring table's condition
+  handling and §9 category text should be read as **binary NEW/USED only**
+  — no multi-tier grading, no AI cosmetic discount. This *simplifies*
+  §6.1's condition signal (still −15 on conflict, never a hard reject) and
+  removes any implication elsewhere in this plan of finer-grained condition
+  handling.
+- **Reverb is pulled into R3**, category-gated, via the documented
+  authenticated Listings API (`active_market` evidence, capped at
+  `moderate`) rather than the undocumented/unauthenticated Price Guide path
+  §8.0 already flags as unstable — see DECISIONS.md for the reasoning. This
+  is the one piece of §8's federation provider map that ships before R5
+  rather than with it; §8.3's rollout ordering for Etsy/Discogs/Amazon is
+  otherwise unchanged and still R5-only.
+
+Nothing else in R3 (§6.1's scored-matcher structure, §6.2's active-evidence
+proportional rule mechanics, §6.3's partial-evidence preservation and
+outlier rule, §6.4's containment fixes, §9's routing/shelf semantics not
+touched above) changes — this revision resolves open decisions and adds two
+scope items (SerpAPI identification, Reverb), it does not redesign R3's
+engineering shape.
 
 **Revision 3 (2026-08-31) — corrects a carried-forward stale rule; no scope
 change to R0–R2.** Revision 2 restated the plan's thesis and added federation
@@ -1255,39 +1319,37 @@ dependency order is real; the release boundaries are where it is safe to stop.
 
 ## 13. Open items requiring product sign-off
 
-1. **T1** — confirm "absence is not conflict" as explicit matching policy.
-2. **T2** — confirm retained-sample count (not `data.total`) is authoritative for
-   evidence quality.
-3. **T3** — confirm or replace local Best-Market threshold (≥25% **and** ≥$10).
+1. ~~**T1** — confirm "absence is not conflict" as explicit matching
+   policy.~~ **Resolved 2026-08-31** — approved as written. See
+   `docs/files/DECISIONS.md` ("R3 tightenings T1–T3..."). Superseded, not
+   open.
+2. ~~**T2** — confirm retained-sample count (not `data.total`) is
+   authoritative for evidence quality.~~ **Resolved 2026-08-31** — approved
+   as written. See DECISIONS.md. Superseded, not open.
+3. ~~**T3** — confirm or replace local Best-Market threshold (≥25% **and**
+   ≥$10).~~ **Resolved 2026-08-31** — the proposed number is approved as
+   written, no replacement. See DECISIONS.md. Superseded, not open.
 4. **Latency budget** — confirm an acceptable p95 scan time. Current ~16s; the
-   retry budget adds up to 3s/item worst case.
+   retry budget adds up to 3s/item worst case. Still open — unaffected by the
+   2026-08-31 update.
 5. ~~**A1 target** — confirm 70% decision rate is the right bar for R3
    sign-off.~~ **Resolved by the 2026-08-31 evidence-ladder decision:** A1 is
    now ~100% of the reasonably-identifiable subset, not a negotiable
    decision-rate target — see §10. Superseded, not open.
 
-**Added in Revision 3 (2026-08-31) — these block R3 only:**
+**Added in Revision 3 (2026-08-31), resolved in Revision 4 (2026-08-31):**
 
-5a. **L — the genuinely-zero-evidence residual case.** When an identifiable
-    item's evidence ladder (§6) bottoms out with nothing at *any* tier —
-    including tier 5's conservative fallback — what does the scanner return?
-    A plain SKIP (economics unknown defaults to "don't buy"), or a
-    distinctly-labeled zero-evidence variant of SKIP that's honest about
-    *why* (so it isn't misread as "we checked the math and it's bad" when
-    the truth is "we found nothing to check")? The correction prompt
-    requires *a* decision either way; it does not specify which. Flagged at
-    §4.2, §6 intro, and §6.5; not decided here.
-5b. **M — an operational definition of "reasonably identifiable" for live
-    traffic.** §3.1's corpus hand-labels 18 identifiable items and 2
-    deliberate identification failures, which is sufficient to test A1/A3
-    against a fixed set. Production traffic has no human labeling a photo as
-    a bad scan of a real item. What in-code signal marks
-    `IDENTIFICATION_UNRESOLVED` (a real identification failure, A3's case)
-    versus "identified, but every evidence tier came up empty" (L's case,
-    which must still classify)? This is squarely `identityFromAiScan`/
-    `parseModelToken`'s territory (§5.3) but needs an explicit rule, not an
-    implicit one, since it decides which of two very different UI states a
-    borderline scan gets.
+5a. ~~**L** — the genuinely-zero-evidence residual case.~~ **Resolved:** a
+    distinctly-labeled SKIP (`decisionAvailable:true`, `decision:'SKIP'`,
+    `decisionStatus:'ok_no_evidence'`, every financial field `null`) — never
+    a plain economics-based SKIP, never folded into a system failure. See
+    DECISIONS.md. Superseded, not open.
+5b. ~~**M** — an operational definition of "reasonably identifiable" for
+    live traffic.~~ **Resolved:** validated GTIN, or validated brand+model,
+    or a confident SerpAPI visual-search title match, or type+brand/creator+
+    distinguishing attributes — implemented once as `isReasonablyIdentifiable()`
+    in `identityNormalization.ts`, shared by the identification-failure gate
+    and the L gate. See DECISIONS.md. Superseded, not open.
 
 **Added in Revision 2 — these block R5 and R6 only:**
 

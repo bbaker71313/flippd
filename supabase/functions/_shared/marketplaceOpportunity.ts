@@ -105,11 +105,18 @@ export function buildMarketplaceOpportunities(
     // after an isDecisive() guard, so donor.evidenceQuality is provably 'strong'
     // or 'moderate' at runtime even though MarketplaceOpportunity's field type
     // is the wider EvidenceQuality.
-    opportunities.push(buildOneOpportunity(
+    const local = buildOneOpportunity(
       'facebook_local', donor.expectedSalePrice, donor.evidenceQuality as DecisiveEvidenceQuality,
       donor.priceLow, donor.priceHigh, acquisitionCost, settings,
       `Local in-person sale — no marketplace fee, no shipping. Valuation from ${donor.marketplace}.`,
-    ))
+    )
+    // R3 (DECISIONS.md T3): local is still offered as a visible alternative
+    // regardless, but selectBestMarketplace below refuses to let it WIN over
+    // its own donor unless it clears the 25%/$10 bar — never merely from a
+    // lower fee profile or $0 shipping.
+    local.donorMarketplace = donor.marketplace
+    local.donorProfit = donor.economics.netProfit ?? donor.economics.maxBuyPrice
+    opportunities.push(local)
   }
 
   return opportunities
@@ -126,15 +133,45 @@ const EVIDENCE_RANK: Record<DecisiveEvidenceQuality, number> = { strong: 2, mode
 // non-qualifying pool, stronger evidence wins first; net profit — or, when
 // acquisition cost is unknown, max-buy-price headroom — breaks ties within
 // the same evidence tier.
+const rankValue = (o: MarketplaceOpportunity) => o.economics.netProfit ?? o.economics.maxBuyPrice ?? -Infinity
+
+// R3 (DECISIONS.md T3): facebook_local may outrank the marketplace that
+// supplied its borrowed valuation ONLY when local's own profit is both
+// >=25% higher AND >=$10 higher in absolute dollars than the donor's. Local
+// must never win merely from its lower fee profile or $0 shipping cost. A
+// non-local opportunity always passes trivially — this gate only constrains
+// facebook_local specifically, and only when its donor is ALSO competing in
+// the same pool (if the donor didn't itself qualify, local isn't "outranking"
+// anything — it's the only viable option and should win on its own economics).
+// Local-suitability-by-category is already enforced upstream
+// (marketplaceRouter.ts only routes facebook_local for bulky/furniture/
+// electronics categories in the first place).
+function passesLocalThreshold(o: MarketplaceOpportunity, pool: MarketplaceOpportunity[]): boolean {
+  if (o.marketplace !== 'facebook_local') return true
+  const donorInPool = pool.some((p) => p.marketplace === o.donorMarketplace)
+  if (!donorInPool) return true
+  const donorProfit = o.donorProfit
+  const localProfit = rankValue(o)
+  if (donorProfit === null || donorProfit === undefined || !Number.isFinite(localProfit)) return false
+  if (donorProfit <= 0) return localProfit - donorProfit >= 10
+  return localProfit >= donorProfit * 1.25 && (localProfit - donorProfit) >= 10
+}
+
 export function selectBestMarketplace(opportunities: MarketplaceOpportunity[]): MarketplaceOpportunity | null {
   if (!opportunities.length) return null
   const qualifying = opportunities.filter(o => o.qualifies)
   const pool = qualifying.length ? qualifying : opportunities
-  const rankValue = (o: MarketplaceOpportunity) => o.economics.netProfit ?? o.economics.maxBuyPrice ?? -Infinity
 
-  return [...pool].sort((a, b) => {
+  const ranked = [...pool].sort((a, b) => {
     const tierDiff = EVIDENCE_RANK[b.evidenceQuality as DecisiveEvidenceQuality] - EVIDENCE_RANK[a.evidenceQuality as DecisiveEvidenceQuality]
     if (tierDiff !== 0) return tierDiff
     return rankValue(b) - rankValue(a)
-  })[0]
+  })
+
+  // Walk the ranked list and return the first candidate that's actually
+  // allowed to win — a facebook_local candidate that fails T3's threshold is
+  // skipped for the win (it stays visible in the full opportunities list as
+  // an alternative), never silently promoted to best just by sorting first
+  // on profit alone.
+  return ranked.find((o) => passesLocalThreshold(o, pool)) ?? null
 }

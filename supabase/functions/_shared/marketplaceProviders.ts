@@ -11,6 +11,7 @@
 // economics (facebook_local's $0/no-shipping fee profile) — see
 // marketplaceOpportunity.ts.
 import { resolveVerifiedMarketData } from "./marketDataPipeline.ts"
+import { getReverbMarketplaceEvidence as getReverbEvidenceReal } from "./reverbEvidence.ts"
 import type { IdentityCandidate, MarketDataFailureReason, MarketDataResult } from "./marketData.ts"
 import type {
   MarketplaceEvidenceResult, MarketplaceId, ProviderFailureReason,
@@ -57,7 +58,10 @@ export function mapEbayResultToEvidence(result: MarketDataResult): MarketplaceEv
   }
   const stats = result.metrics.soldPriceStats
   const active = result.metrics.activeMarketEvidence
-  const askingPrices = active?.sampledListings.map(l => l.price).filter(p => Number.isFinite(p) && p > 0).sort((a, b) => a - b) ?? []
+  // R3 (T2): asking-price evidence is built from the RETAINED (identity-
+  // matched) listings, never the raw sample — retainedListings is what
+  // survived compSelection.ts's scorer.
+  const askingPrices = active?.retainedListings.map(l => l.price).filter(p => Number.isFinite(p) && p > 0).sort((a, b) => a - b) ?? []
   const medianAsking = medianOf(askingPrices)
 
   // Expected sale price: sold-comp median when real sold evidence exists
@@ -77,7 +81,9 @@ export function mapEbayResultToEvidence(result: MarketDataResult): MarketplaceEv
     evidence: {
       marketplace: 'ebay',
       evidenceType: stats.compCount > 0 ? 'verified_transaction' : 'active_market',
-      matchedItemCount: stats.compCount + (active?.matchingActiveCount ?? 0),
+      // R3 (T2): totalActiveResultCount (informational competition volume)
+      // here, never used as if every result were a matched comparable.
+      matchedItemCount: stats.compCount + (active?.totalActiveResultCount ?? 0),
       comparableCount: stats.compCount,
       askingPrices,
       medianSoldPrice: stats.compCount > 0 ? stats.medianSoldPrice : null,
@@ -111,8 +117,12 @@ export async function getEtsyMarketplaceEvidence(_identity: IdentityCandidate): 
   return notConfigured('etsy', 'ETSY_API_KEY')
 }
 
-export async function getReverbMarketplaceEvidence(_identity: IdentityCandidate): Promise<MarketplaceEvidenceResult> {
-  return notConfigured('reverb', 'REVERB_API_TOKEN')
+// R3: real adapter (reverbEvidence.ts), category-gated by
+// marketplaceRouter.ts — see DECISIONS.md "Reverb price-guide evidence
+// pulled into R3...". Reports NOT_CONFIGURED itself when REVERB_API_KEY is
+// absent, so no separate placeholder branch is needed here.
+export async function getReverbMarketplaceEvidence(identity: IdentityCandidate): Promise<MarketplaceEvidenceResult> {
+  return getReverbEvidenceReal(identity)
 }
 
 export async function getDiscogsMarketplaceEvidence(_identity: IdentityCandidate): Promise<MarketplaceEvidenceResult> {
