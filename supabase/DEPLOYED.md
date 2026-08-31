@@ -6,6 +6,18 @@ actually live right now, use `mcp__Supabase__list_edge_functions` (or the Supaba
 dashboard) directly; this file records what was last *deployed through a recorded
 mechanism*, which may lag a manual/ad-hoc deploy done another way.
 
+## R1 §4.3 deploy — 2026-08-31
+
+Pre-deploy rollback baseline, recorded before deploying per the task doc's
+§4.3 ("record the pre-deploy version... as the explicit rollback target"):
+`claude-proxy` was live at **v95**, ACTIVE, `verify_jwt:false`, deployed git
+SHA unknown (predates this session's DEPLOYED.md tracking of exact SHAs for
+ad-hoc deploys). Deploying commit `463f43e6ae4ba6fb402a3caf0c3cfc7926386369`
+(PR #151, merged to `main` — R1 §4.1/§4.2: audit-trail carry-through +
+honest failure classification, zero decision-path behavior change) through
+the Supabase MCP from the current 28-file repository dependency closure.
+Result recorded below once the deploy completes.
+
 ## Trawl sold-history provider — 2026-08-29
 
 `claude-proxy` was deployed through the Supabase MCP from the current 21-file
