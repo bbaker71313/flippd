@@ -4,6 +4,47 @@ This file is the persistent session context. Update it at the end of every Claud
 
 ---
 
+## Session: 2026-08-31 (part 3, addendum) — R2 deployed to production
+
+PR #154 was merged, then the product owner asked to deploy. The Supabase MCP's
+`deploy_edge_function` tool — the mechanism every prior deploy in this file used —
+could not do it: `claude-proxy`'s dependency closure is now 31 files (~254KB), and
+that tool requires the complete file set inlined as literal text in one call. Two
+attempts from this session, containing different file subsets, both truncated
+silently around ~25-26KB — well under what the bundle needs, confirmed reproducible
+across independent attempts and not fixable by restructuring the request (even
+stripping every comment from every file only gets total size to ~176KB). Both
+failed cleanly server-side before any bundle validation; `list_edge_functions`
+confirmed the live `ezbr_sha256` was unchanged after each attempt, so production
+was never at risk.
+
+**Resolution:** walked the product owner through installing and running the
+Supabase CLI locally (`git clone` → `npm install supabase` → `npx supabase login`
+→ `npx supabase functions deploy claude-proxy --project-ref dqgfpchkheznvanfgsmx`),
+which reads files straight from disk with no size constraint. Deploy succeeded:
+`claude-proxy` **v100 → v102**. Verified by fetching the live bundle
+(`mcp__Supabase__get_edge_function`) and grepping it — every R2 marker present
+(`identityNormalization`, `parseModelToken`, `modelFamilyHint`,
+`MarketEvidenceProviderCapabilities`, `planMarketEvidenceQueries`,
+`providerRateLimit`, `acquireSlot`, `shouldRetry`, `maxRetryAfterMs`,
+`SHELF_SCAN_CONCURRENCY`), R1's markers unaffected. Full account recorded in
+`supabase/DEPLOYED.md`'s "R2 deploy — 2026-08-31" entry.
+
+**Still open, unchanged from the pre-deploy entry below:** Gate G2 needs the §3.1
+corpus (doesn't exist yet); an authenticated production scan that actually
+exercises the new code paths (Trawl retry/pacing, identity validation, query
+planning) against real traffic hasn't been run — this verification only confirms
+the code is live and structurally intact, not that it behaves correctly end-to-end.
+
+### Next task
+Same as below: R3 next per sequencing, blocked on product-owner sign-off for §13's
+open items (T1–T3, L, M) — unaffected by this deploy.
+
+### Blockers
+None for what's live. R3 still blocked on §13 as before.
+
+---
+
 ## Session: 2026-08-31 (part 3) — R2 implemented: provider capabilities, transport reliability, identity validation, query planning
 
 ### Context

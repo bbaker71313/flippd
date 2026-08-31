@@ -6,6 +6,49 @@ actually live right now, use `mcp__Supabase__list_edge_functions` (or the Supaba
 dashboard) directly; this file records what was last *deployed through a recorded
 mechanism*, which may lag a manual/ad-hoc deploy done another way.
 
+## R2 deploy — 2026-08-31
+
+`claude-proxy` was deployed via the **Supabase CLI** (`npx supabase functions deploy
+claude-proxy --project-ref dqgfpchkheznvanfgsmx`), run by the product owner from a
+fresh local clone of `main` (commit range `e3c9f0c..e8ee420`, PR #154 — R2 "Fix the
+inputs": `MarketEvidenceProviderCapabilities` §5.1, `externalCall.ts` retry-policy
+extensions + `providerRateLimit.ts` + bounded shelf concurrency §5.2,
+`identityNormalization.ts` + `modelFamilyHint` §5.3, `queryPlanner.ts` §5.4). This is
+a different deploy mechanism than every prior entry below — those went through
+`mcp__Supabase__deploy_edge_function` (the Supabase MCP tool) directly from the
+session. That tool could not be used for this deploy: `claude-proxy`'s dependency
+closure has grown to 31 files (~254KB raw source, ~176KB even with every comment
+stripped), and the MCP tool requires the complete file set inlined as literal text
+in one tool call — two attempts from the session both truncated silently at
+~25-26KB, well under what the bundle needs, confirmed reproducible and not fixable
+by restructuring the request. Production was never at risk from those failed
+attempts: each returned a clean `BadRequestException` before any bundle validation
+completed, and `list_edge_functions` before/after showed an unchanged `ezbr_sha256`.
+
+**Result:** `claude-proxy` **v100 → v102** (v101 likely an interstitial CLI upload
+step or retry not surfaced as a separate deployed version — not investigated further,
+harmless), `status: ACTIVE`, `verify_jwt: false` (unchanged). New
+`entrypoint_path` (`/tmp/user_fn_..._102/source/supabase/functions/claude-proxy/index.ts`)
+and `ezbr_sha256` (`e5ad82d2ac24b2a6efb73721ea9fd282b7ac1ed8d9428147e31e0d73b9ec2a4c`,
+up from `1e09759103ca3b7c9404a48876ad80759e2c6342a3ecb54005857ef130ce9a78`) confirm a
+real, different bundle went live — not a no-op.
+
+Post-deploy verification (fetched the live bundle via `mcp__Supabase__get_edge_function`
+and grepped it): every R2 marker present —
+`identityNormalization`/`parseModelToken`/`modelFamilyHint` (§5.3),
+`MarketEvidenceProviderCapabilities`/`planMarketEvidenceQueries`/`queryPlanner` (§5.1/§5.4),
+`providerRateLimit`/`acquireSlot`/`TRAWL_PACING_MAX_WAIT_MS`/`shouldRetry`/`maxRetryAfterMs`
+(§5.2), `SHELF_SCAN_CONCURRENCY` (§5.2 shelf-concurrency bound). R1's markers
+(`unavailableReason`, `PROVIDER_THROTTLED`, `PROVIDER_QUOTA_EXHAUSTED`,
+`excludedOverflowCount`) are still present — no regression.
+
+**Not yet done:** an authenticated production scan (single, shelf, and a scan that
+actually exercises the Trawl retry/pacing path) to observe R2's behavior against
+real traffic — this deploy validates that the code is live and structurally intact,
+not that it behaves correctly end-to-end against production data. Gate **G2**
+(§5.4 corpus-based query-cascade acceptance check) still can't run — the §3.1
+labeled corpus doesn't exist yet, unchanged from every prior entry's note on this.
+
 ## R1 §4.3 deploy — 2026-08-31
 
 Pre-deploy rollback baseline, recorded before deploying per the task doc's
