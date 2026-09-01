@@ -15,7 +15,8 @@ import {
   type MarketplaceOpportunity, type ProviderFailureReason,
 } from "../_shared/marketplaceTypes.ts";
 import type { IdentityCandidate, IdentificationEvidenceKind } from "../_shared/marketData.ts";
-import { parseModelToken, parseVariantToken, parseGtinToken } from "../_shared/identityNormalization.ts";
+import { parseModelToken, parseVariantToken, parseGtinToken, isReasonablyIdentifiable } from "../_shared/identityNormalization.ts";
+import { identifyViaSerpApi } from "../_shared/serpApiIdentification.ts";
 import { computeStaleInventoryItems, type StaleCandidateRow } from "../_shared/staleInventory.ts";
 import { CLAUDE_MODEL, ANTHROPIC_MESSAGES_URL } from "../_shared/aiConfig.ts";
 
@@ -141,22 +142,57 @@ export interface MarketplaceEvidenceBundle {
   ebayInformational: { sellThroughRate: number | null; avgDaysToSell: number | null; demandLevel: DemandLevel | null };
 }
 
+// R3 (DECISIONS.md "R3 identification is SerpAPI-first..."): a confident
+// SerpAPI visual-search title takes priority over the AI vision call's own
+// item_name guess. Everything else Claude read (brand/model/variant/gtin/
+// condition/category/search_keywords) is kept — SerpAPI's reverse-image
+// match can't reliably read a label/barcode the way the vision call can.
+// A SerpAPI miss/failure is best-effort and never blocks the scan — the
+// base (Claude-only) identity is used as-is.
+function mergeSerpApiIdentity(
+  base: IdentityCandidate,
+  serp: { itemName: string | null },
+): IdentityCandidate {
+  if (!serp.itemName) return base;
+  return {
+    ...base,
+    itemName: serp.itemName,
+    evidenceUsed: base.evidenceUsed.includes('visual_product_search')
+      ? base.evidenceUsed
+      : [...base.evidenceUsed, 'visual_product_search'],
+  };
+}
+
 // Resolves identity from the AI scan's own identification fields, routes it
 // to relevant marketplaces (marketplaceRouter.ts), and fetches each routed
 // marketplace's evidence (marketplaceProviders.ts) — eBay via the real,
-// live-verified pipeline; every other marketplace via its provider-boundary
-// placeholder (task doc §9). Never throws — a hard provider outage degrades
-// to an explicit per-marketplace failure, never a fabricated fallback.
+// live-verified pipeline; Reverb via its real, category-gated adapter
+// (R3); every other marketplace via its provider-boundary placeholder (task
+// doc §9). Never throws — a hard provider outage degrades to an explicit
+// per-marketplace failure, never a fabricated fallback.
+//
+// `serpImage`, when supplied (single/text scan only — see handleSingleScan;
+// shelf scan has no per-item cropped photo to search, see the R3 session
+// note in handleShelfScan), runs the SerpAPI visual-identification call
+// against the scanned photo. A SerpAPI failure is best-effort/never fatal —
+// caught here, never propagated.
 async function resolveMarketplaceEvidenceBundle(
   ai: Record<string, unknown>,
   evidenceKind: IdentificationEvidenceKind,
+  supabase: ReturnType<typeof createClient>,
+  serpImage?: { bytes: Uint8Array; mimeType: string } | null,
 ): Promise<MarketplaceEvidenceBundle> {
   const noInformational: MarketplaceEvidenceBundle['ebayInformational'] = {
     sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
   };
-  const identity = identityFromAiScan(ai, evidenceKind);
+  let identity = identityFromAiScan(ai, evidenceKind);
   if (!identity) {
     return { identity: null, routedMarketplaces: [], evidenceByMarketplace: {}, ebayInformational: noInformational };
+  }
+
+  if (serpImage) {
+    const serp = await identifyViaSerpApi(supabase, serpImage.bytes, serpImage.mimeType).catch(() => null);
+    if (serp && serp.ok) identity = mergeSerpApiIdentity(identity, serp);
   }
 
   const routedMarketplaces = routeMarketplaces(identity);
@@ -232,6 +268,22 @@ export type ScanUnavailableReason =
   | 'EVIDENCE_TOO_WEAK'         // found some, not enough to trust
   | 'MARKETPLACE_AUTH_FAILED'   // eBay app credentials/entitlement
 
+// R3 (DECISIONS.md, item L): the zero-evidence SKIP is reachable ONLY for
+// these two reasons — both mean the market-data pipeline ran to completion
+// and genuinely found nothing/not enough. Everything else — a system
+// failure (PROVIDER_THROTTLED/QUOTA_EXHAUSTED/UNAVAILABLE/NOT_CONFIGURED/
+// MARKETPLACE_AUTH_FAILED) or the rare edge case where the eBay pipeline
+// itself reports IDENTIFICATION_UNRESOLVED even after the M gate already
+// passed (e.g. a validated identity that still produced zero usable search
+// terms) — is deliberately NOT eligible for L and falls through to the
+// existing decisionAvailable:false path. An allowlist, not a denylist: a
+// future ScanUnavailableReason value defaults to staying decisionAvailable
+// :false rather than silently becoming eligible for a fabricated-looking SKIP.
+const GENUINE_MARKET_GAP_REASONS: readonly ScanUnavailableReason[] = ['NO_MARKET_EVIDENCE', 'EVIDENCE_TOO_WEAK'];
+function isGenuineMarketGapReason(reason: ScanUnavailableReason): reason is 'NO_MARKET_EVIDENCE' | 'EVIDENCE_TOO_WEAK' {
+  return GENUINE_MARKET_GAP_REASONS.includes(reason);
+}
+
 // Maps eBay's own ProviderFailureReason (the only marketplace with a real
 // provider today) to the client-facing reason above. Every other marketplace
 // is a NOT_CONFIGURED placeholder, already covered here.
@@ -267,9 +319,21 @@ function deriveUnavailableReason(bundle: MarketplaceEvidenceBundle): ScanUnavail
 export interface ScanResultCore {
   decision: DecisionResult['decision'] | null;
   decisionAvailable: boolean;
-  decisionStatus: 'ok' | 'insufficient_market_data';
+  // R3 (DECISIONS.md, item L): 'ok_no_evidence' is a THIRD state — distinct
+  // from both 'ok' (a normal profit/ROI-gated decision) and
+  // 'insufficient_market_data' (decisionAvailable:false — identification or
+  // system failure). It means: identity was reasonably identifiable (M),
+  // the pipeline genuinely ran to completion, and the full evidence ladder
+  // came up empty — decision is 'SKIP', decisionAvailable is TRUE, but
+  // every financial field stays null (never a fabricated price to justify
+  // the SKIP).
+  decisionStatus: 'ok' | 'ok_no_evidence' | 'insufficient_market_data';
   // Non-null exactly when decisionAvailable is false — see ScanUnavailableReason.
   unavailableReason: ScanUnavailableReason | null;
+  // Non-null exactly when decisionStatus is 'ok_no_evidence' — which of the
+  // two genuine-market-gap reasons (never a system failure — those stay in
+  // unavailableReason with decisionAvailable:false).
+  noEvidenceReason: 'NO_MARKET_EVIDENCE' | 'EVIDENCE_TOO_WEAK' | null;
   decisionReasons: DecisionResult | null;
   acquisitionCost: number | null;
   estimatedSell: number | null;
@@ -330,7 +394,7 @@ function noDecisionResult(
 ): ScanResultCore {
   return {
     decision: null, decisionAvailable: false, decisionStatus: 'insufficient_market_data',
-    unavailableReason,
+    unavailableReason, noEvidenceReason: null,
     decisionReasons: null, acquisitionCost,
     estimatedSell: null, estimatedProfit: null, roi: null,
     feeAmount: null, shipCostAmount: null,
@@ -341,6 +405,33 @@ function noDecisionResult(
     suggestedSearchQuery,
     bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
     alternativeMarketplaces,
+  };
+}
+
+// R3 (DECISIONS.md, item L): the genuinely-zero-evidence residual case.
+// Identity was reasonably identifiable (M), the pipeline ran to completion,
+// and the full evidence ladder came up empty (or too weak to trust) — this
+// resolves conservatively to SKIP, never a terminal no-decision state and
+// never a fabricated price. Every financial field stays null; decide() is
+// never invoked (there is no expectedSalePrice to compute from).
+function zeroEvidenceSkipResult(
+  acquisitionCost: number | null,
+  suggestedSearchQuery: string | null,
+  noEvidenceReason: 'NO_MARKET_EVIDENCE' | 'EVIDENCE_TOO_WEAK',
+): ScanResultCore {
+  return {
+    decision: 'SKIP', decisionAvailable: true, decisionStatus: 'ok_no_evidence',
+    unavailableReason: null, noEvidenceReason,
+    decisionReasons: null, acquisitionCost,
+    estimatedSell: null, estimatedProfit: null, roi: null,
+    feeAmount: null, shipCostAmount: null,
+    maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+    priceLow: null, priceHigh: null, sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
+    marketDataSource: 'ai_estimate', aiEstimate: null,
+    evidenceQuality: 'none', compMatchPrecision: null,
+    suggestedSearchQuery,
+    bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
+    alternativeMarketplaces: [],
   };
 }
 
@@ -363,6 +454,13 @@ export function resolveScanResultCore(
 ): ScanResultCore {
   const suggested = suggestedSearchQueryFor(bundle, ai);
   if (!bundle.identity) return noDecisionResult(acquisitionCost, suggested, [], 'IDENTIFICATION_UNRESOLVED');
+  // R3 (DECISIONS.md, item M) — the SAME gate the L zero-evidence-SKIP
+  // branch below relies on. A bare generic noun with nothing else
+  // (identity.itemName present but not reasonably identifiable) is still an
+  // identification failure, not a candidate for the zero-evidence SKIP.
+  if (!isReasonablyIdentifiable(bundle.identity)) {
+    return noDecisionResult(acquisitionCost, suggested, [], 'IDENTIFICATION_UNRESOLVED');
+  }
 
   const opportunitySettings: OpportunitySettings = {
     ebayFeePct: settings.ebay_fee, pkgCost: settings.pkg_cost, shipCost: shipForCalc,
@@ -372,7 +470,19 @@ export function resolveScanResultCore(
     bundle.evidenceByMarketplace, bundle.routedMarketplaces, acquisitionCost, opportunitySettings,
   );
   const best = selectBestMarketplace(opportunities);
-  if (!best) return noDecisionResult(acquisitionCost, suggested, [], deriveUnavailableReason(bundle));
+  if (!best) {
+    const reason = deriveUnavailableReason(bundle);
+    // R3 (DECISIONS.md, item L): only a genuine market-evidence gap (the
+    // pipeline ran to completion and found nothing/not enough) on an
+    // already-identifiable item resolves to the zero-evidence SKIP. A
+    // system failure — or any reason not explicitly on the allowlist —
+    // still withholds a decision entirely (decisionAvailable:false), never
+    // masquerading as SKIP.
+    if (isGenuineMarketGapReason(reason)) {
+      return zeroEvidenceSkipResult(acquisitionCost, suggested, reason);
+    }
+    return noDecisionResult(acquisitionCost, suggested, [], reason);
+  }
 
   const alternatives = opportunities.filter((o) => o.marketplace !== best.marketplace).map(toAlternative);
   const bestEvidence = bundle.evidenceByMarketplace[best.marketplace];
@@ -382,7 +492,7 @@ export function resolveScanResultCore(
 
   return {
     decision: best.decisionReasons.decision, decisionAvailable: true, decisionStatus: 'ok',
-    unavailableReason: null,
+    unavailableReason: null, noEvidenceReason: null,
     decisionReasons: best.decisionReasons, acquisitionCost: resolvedCost,
     estimatedSell: best.expectedSalePrice, estimatedProfit: best.economics.netProfit, roi: best.economics.roi,
     feeAmount, shipCostAmount: best.economics.shipCost,
@@ -542,11 +652,12 @@ async function finalizeSingleOrTextScan(
   scanType: 'single' | 'text',
   ai: Record<string, unknown>,
   acquisitionCost: number | null,
+  serpImage: { bytes: Uint8Array; mimeType: string } | null = null,
 ) {
   // Resolve identity, route to relevant marketplaces, and fetch each routed
   // marketplace's evidence. Failure/absence of evidence preserves item
   // identification but never substitutes AI-created market numbers.
-  const bundle = await resolveMarketplaceEvidenceBundle(ai, scanType === 'single' ? 'visual_ai' : 'text_inference');
+  const bundle = await resolveMarketplaceEvidenceBundle(ai, scanType === 'single' ? 'visual_ai' : 'text_inference', supabase, serpImage);
   const confidence = (ai.confidence as number) ?? null;
 
   // Seller-paid shipping cost is included only when the seller actually
@@ -569,7 +680,7 @@ async function finalizeSingleOrTextScan(
       ai,
       decisionAudit: {
         decisionAvailable: core.decisionAvailable, decisionStatus: core.decisionStatus,
-        unavailableReason: core.unavailableReason,
+        unavailableReason: core.unavailableReason, noEvidenceReason: core.noEvidenceReason,
         acquisitionCost: core.acquisitionCost, maxBuyPrice: core.maxBuyPrice,
         maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
         settingsUsed: settings, marketDataSource: core.marketDataSource,
@@ -585,6 +696,7 @@ async function finalizeSingleOrTextScan(
     decisionAvailable: core.decisionAvailable,
     decisionStatus: core.decisionStatus,
     unavailableReason: core.unavailableReason,
+    noEvidenceReason: core.noEvidenceReason,
     itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
     acquisitionCost: core.acquisitionCost,
     estimatedSell: core.estimatedSell,
@@ -647,7 +759,19 @@ async function handleSingleScan(
       throw new Error('Could not analyze this photo. Try a clearer photo of a single item.');
     }
   }
-  return finalizeSingleOrTextScan(supabase, userId, settings, 'single', ai, acquisitionCost);
+  // R3: a single scan has exactly one photo of exactly one item — the
+  // well-defined case for SerpAPI visual identification (see
+  // resolveMarketplaceEvidenceBundle's serpImage param). Best-effort: a
+  // malformed/undecodable image never blocks the scan, just skips SerpAPI.
+  let serpImage: { bytes: Uint8Array; mimeType: string } | null = null;
+  if (images.length > 0) {
+    try {
+      const bytes = Uint8Array.from(atob(images[0]), (c) => c.charCodeAt(0));
+      const mimeType = (mimeTypes[0] as string) || 'image/jpeg';
+      serpImage = { bytes, mimeType };
+    } catch { serpImage = null; }
+  }
+  return finalizeSingleOrTextScan(supabase, userId, settings, 'single', ai, acquisitionCost, serpImage);
 }
 
 async function handleTextScan(
@@ -740,7 +864,15 @@ async function handleShelfScan(
   // Trawl calls (every item x its own query-cascade rungs), which was the
   // single largest source of the scanner tripping its own rate limit.
   const items = await mapWithConcurrencyLimit(aiItems, SHELF_SCAN_CONCURRENCY, async (ai) => {
-    const bundle = await resolveMarketplaceEvidenceBundle(ai, 'visual_ai');
+    // R3: no serpImage here — SerpAPI's Google Lens call needs one photo of
+    // one item, and a shelf scan has one photo of the WHOLE shelf with no
+    // per-item region-cropping in this repo today. Running SerpAPI against
+    // the full shelf photo for every detected item would search on the
+    // wrong subject, not a useful per-item signal. Shelf items still get
+    // the same M/L logic (isReasonablyIdentifiable gate, zero-evidence
+    // SKIP) via resolveScanResultCore below — they just identify from
+    // Claude's own vision call alone, same as before R3.
+    const bundle = await resolveMarketplaceEvidenceBundle(ai, 'visual_ai', supabase);
     const confidence = (ai.confidence as number) ?? null;
 
     // Same single authoritative gate as single/text scan (resolveScanResultCore)
@@ -754,6 +886,7 @@ async function handleShelfScan(
       decisionAvailable: core.decisionAvailable,
       decisionStatus: core.decisionStatus,
       unavailableReason: core.unavailableReason,
+      noEvidenceReason: core.noEvidenceReason,
       itemName: ai.item_name, category: ai.category, brand: (ai.brand as string) ?? null,
       avgSoldPrice: core.estimatedSell, maxBuyPrice: core.maxBuyPrice, maxBuyPriceLimitedBy: core.maxBuyPriceLimitedBy,
       confidence, sellThroughRate: core.sellThroughRate, avgDaysToSell: core.avgDaysToSell, demandLevel: core.demandLevel,
@@ -782,7 +915,7 @@ async function handleShelfScan(
         settingsUsed: settings,
         items: items.map(i => ({
           itemName: i.itemName, decision: i.decision, decisionAvailable: i.decisionAvailable,
-          decisionStatus: i.decisionStatus, unavailableReason: i.unavailableReason,
+          decisionStatus: i.decisionStatus, unavailableReason: i.unavailableReason, noEvidenceReason: i.noEvidenceReason,
           maxBuyPrice: i.maxBuyPrice, bestMarketplace: i.bestMarketplace,
           marketDataSource: i.marketDataSource, routedMarketplaces: i.routedMarketplaces,
           evidenceByMarketplace: i.evidenceByMarketplace,

@@ -127,4 +127,11 @@ export interface MarketplaceOpportunity {
   // to recompute the same decision a second time to get failingThresholds.
   decisionReasons: DecisionResult
   reason: string
+  // R3 (DECISIONS.md T3): set ONLY on the facebook_local opportunity — the
+  // marketplace its valuation was borrowed from, and that donor's own net
+  // profit (or max-buy-price headroom when cost is unknown). Lets
+  // selectBestMarketplace gate whether local may WIN over its donor without
+  // re-deriving the donor lookup a second time.
+  donorMarketplace?: MarketplaceId
+  donorProfit?: number | null
 }

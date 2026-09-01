@@ -116,6 +116,66 @@ test('normalizeSingleScanResult: throws on a non-object input', () => {
   assert.throws(() => normalizeSingleScanResult('not an object'));
 });
 
+// ── R3 (docs/files/DECISIONS.md, item L): the zero-evidence SKIP state ──
+
+// decisionAvailable:true, decision:'SKIP', decisionStatus:'ok_no_evidence'
+// — a reasonably identifiable item whose evidence ladder came up empty.
+// Every financial field and bestMarketplace stay null (never a fabricated
+// basis for the SKIP) — distinct from both a normal 'ok' SKIP and the
+// decisionAvailable:false 'insufficient_market_data' state.
+function zeroEvidenceSkipSingleScan(overrides) {
+  return Object.assign({
+    itemName: 'Acme Widget Model 42', estimatedSell: null, priceLow: null, priceHigh: null,
+    sellThroughRate: null, avgDaysToSell: null, demandLevel: null,
+    confidence: 65, reasoning: 'identified but no comparable market evidence found',
+    searchKeywords: ['acme widget 42'], listingTips: [], riskFlags: [],
+    conditionNotes: '', category: 'Tools', brand: 'Acme', notes: '',
+    decision: 'SKIP',
+    estimatedProfit: null, roi: null, feeAmount: null, shipCostAmount: null,
+    acquisitionCost: 20, maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+    marketDataSource: 'ai_estimate', decisionAvailable: true, decisionStatus: 'ok_no_evidence',
+    unavailableReason: null, noEvidenceReason: 'NO_MARKET_EVIDENCE',
+    decisionReasons: null, aiEstimate: null,
+    evidenceQuality: 'none', compMatchPrecision: null, suggestedSearchQuery: 'acme widget 42',
+    bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
+    alternativeMarketplaces: [],
+  }, overrides || {});
+}
+
+test('normalizeSingleScanResult: ok_no_evidence is a valid, distinct result shape', () => {
+  const out = normalizeSingleScanResult(zeroEvidenceSkipSingleScan());
+  assert.equal(out.decisionAvailable, true);
+  assert.equal(out.decisionStatus, 'ok_no_evidence');
+  assert.equal(out.dec, 'SKIP');
+  assert.equal(out.fin.profit, null);
+  assert.equal(out.fin.roi, null);
+  assert.equal(out.maxBuyPrice, null);
+  assert.equal(out.bestMarketplace, null);
+  assert.equal(out.decisionReasons, null);
+  assert.equal(out.noEvidenceReason, 'NO_MARKET_EVIDENCE');
+  assert.equal(out.unavailableReason, null); // decisionAvailable is true — this is NOT a system/identification failure
+});
+
+test('normalizeSingleScanResult: rejects ok_no_evidence with a non-null financial field (never a fabricated basis)', () => {
+  assert.throws(() => normalizeSingleScanResult(zeroEvidenceSkipSingleScan({ estimatedProfit: 10 })), /estimatedProfit/);
+});
+
+test('normalizeSingleScanResult: rejects ok_no_evidence with a non-null bestMarketplace', () => {
+  assert.throws(() => normalizeSingleScanResult(zeroEvidenceSkipSingleScan({ bestMarketplace: 'ebay' })), /bestMarketplace/);
+});
+
+test('normalizeSingleScanResult: rejects ok_no_evidence with a null noEvidenceReason', () => {
+  assert.throws(() => normalizeSingleScanResult(zeroEvidenceSkipSingleScan({ noEvidenceReason: null })), /noEvidenceReason/);
+});
+
+test('normalizeSingleScanResult: rejects a normal ok decision carrying a non-null noEvidenceReason', () => {
+  assert.throws(() => normalizeSingleScanResult(baseSingleScan({ noEvidenceReason: 'NO_MARKET_EVIDENCE' })), /noEvidenceReason/);
+});
+
+test('normalizeSingleScanResult: rejects an unrecognized noEvidenceReason', () => {
+  assert.throws(() => normalizeSingleScanResult(zeroEvidenceSkipSingleScan({ noEvidenceReason: 'MADE_UP' })), /noEvidenceReason/);
+});
+
 function baseShelfItem(overrides) {
   return Object.assign({
     itemName: 'Vintage Levi Jacket', avgSoldPrice: 45,
@@ -338,6 +398,49 @@ test('normalizeSingleScanResult: rejects an alternative marketplace entry with a
   assert.throws(() => normalizeSingleScanResult(baseSingleScan({
     alternativeMarketplaces: [{ marketplace: 'not-real', label: '', evidenceQuality: 'weak', priceLow: null, priceHigh: null, expectedSalePrice: 10, netProfit: null, roi: null, maxBuyPrice: null, qualifies: false, reason: '' }],
   })), /marketplace/);
+});
+
+// R3 (item L): shelf items reach ok_no_evidence exactly the same way single
+// scans do — same resolveScanResultCore, one implementation for every mode.
+function zeroEvidenceSkipShelfItem(overrides) {
+  return Object.assign({
+    itemName: 'Unbranded Metal Bracket', avgSoldPrice: null,
+    maxBuyPrice: null, maxBuyPriceLimitedBy: null,
+    demandLevel: null, decision: 'SKIP', notes: '',
+    conditionNotes: '', category: 'Tools', confidence: 60,
+    sellThroughRate: null, avgDaysToSell: null,
+    marketDataSource: 'ai_estimate', decisionAvailable: true, decisionStatus: 'ok_no_evidence',
+    unavailableReason: null, noEvidenceReason: 'EVIDENCE_TOO_WEAK',
+    decisionReasons: null, aiEstimate: null,
+    evidenceQuality: 'none', compMatchPrecision: null,
+    bestMarketplace: null, bestMarketplaceLabel: null, whyThisMarketplace: null,
+    alternativeMarketplaces: [],
+  }, overrides || {});
+}
+
+test('normalizeShelfScanItem: ok_no_evidence is a valid, distinct shelf-item shape', () => {
+  const out = normalizeShelfScanItem(zeroEvidenceSkipShelfItem());
+  assert.equal(out.decision, 'SKIP');
+  assert.equal(out.decision_available, true);
+  assert.equal(out.decision_status, 'ok_no_evidence');
+  assert.equal(out.best_marketplace, null);
+  assert.equal(out.unavailable_reason, null);
+  assert.equal(out.no_evidence_reason, 'EVIDENCE_TOO_WEAK');
+});
+
+test('normalizeShelfScanItem: rejects ok_no_evidence with a non-null bestMarketplace', () => {
+  assert.throws(() => normalizeShelfScanItem(zeroEvidenceSkipShelfItem({ bestMarketplace: 'ebay' })), /bestMarketplace/);
+});
+
+test('normalizeShelfScanResult: HOT, insufficient-evidence, and ok_no_evidence items all coexist in one shelf response', () => {
+  const out = normalizeShelfScanResult({
+    items: [baseShelfItem(), insufficientEvidenceShelfItem(), zeroEvidenceSkipShelfItem()],
+  });
+  assert.equal(out.length, 3);
+  assert.equal(out[0].decision_status, 'ok');
+  assert.equal(out[1].decision_status, 'insufficient_market_data');
+  assert.equal(out[2].decision_status, 'ok_no_evidence');
+  assert.equal(out[2].decision, 'SKIP');
 });
 
 test('normalizeShelfScanItem: best_marketplace/alternative_marketplaces map to snake_case', () => {

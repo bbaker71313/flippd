@@ -78,7 +78,8 @@ function verifiedStrongResult(): MarketDataSuccess {
         soldPriceLow: 60, soldPriceHigh: 110, evidenceQuality: 'strong',
       },
       activeMarketEvidence: {
-        matchingActiveCount: 5, sampledListings: [],
+        totalActiveResultCount: 5, sampledCount: 5, retainedCount: 5,
+        sampledListings: [], retainedListings: [],
         askingPriceLow: 70, askingPriceHigh: 100,
       },
       turnover: {
@@ -208,13 +209,25 @@ function verifiedWeakEvidenceResult(): MarketDataSuccess {
   };
 }
 
-Deno.test("weak evidenceQuality never produces HOT/LIST/SKIP — LIMITED EVIDENCE instead", () => {
+// R3 (docs/files/DECISIONS.md, item L): superseded the old "weak evidence
+// -> LIMITED EVIDENCE, decisionAvailable:false" behavior. On a reasonably
+// identifiable item (IDENTITY has brand+model here, passes the M gate),
+// weak/no evidence now resolves to a distinctly-labeled zero-evidence SKIP
+// — decisionAvailable:TRUE, decision:'SKIP', decisionStatus:
+// 'ok_no_evidence' — never a fabricated HOT/LIST/SKIP from profit math
+// (every financial field stays null), and never the old terminal no-
+// decision state either.
+Deno.test("weak evidenceQuality on an identifiable item resolves to the zero-evidence SKIP, never a fabricated profit-based decision", () => {
   const core = resolveScanResultCore(bundleFrom(verifiedWeakEvidenceResult()), AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0);
-  assertEquals(core.decisionAvailable, false);
-  assertEquals(core.decision, null);
+  assertEquals(core.decisionAvailable, true);
+  assertEquals(core.decision, 'SKIP');
+  assertEquals(core.decisionStatus, 'ok_no_evidence');
+  assertEquals(core.noEvidenceReason, 'NO_MARKET_EVIDENCE');
+  assertEquals(core.unavailableReason, null);
   assertEquals(core.estimatedProfit, null);
   assertEquals(core.roi, null);
   assertEquals(core.maxBuyPrice, null);
+  assertEquals(core.bestMarketplace, null);
 });
 
 Deno.test("verified path: strong evidenceQuality (unchanged fixture) still reaches HOT", () => {
@@ -271,21 +284,67 @@ Deno.test("unavailableReason: non-null exactly when decisionAvailable is false, 
   }
 });
 
-Deno.test("unavailableReason: maps each eBay provider failure to its distinct client-facing reason", () => {
+Deno.test("unavailableReason: maps each eBay SYSTEM-failure reason to its distinct client-facing reason (decisionAvailable stays false)", () => {
   const expected: Array<[MarketDataFailureReason, string]> = [
     ['SOLDCOMPS_NOT_CONFIGURED', 'PROVIDER_NOT_CONFIGURED'],
     ['PROVIDER_THROTTLED', 'PROVIDER_THROTTLED'],
     ['PROVIDER_QUOTA_EXHAUSTED', 'PROVIDER_QUOTA_EXHAUSTED'],
-    ['EVIDENCE_TOO_WEAK', 'EVIDENCE_TOO_WEAK'],
-    ['INSUFFICIENT_VERIFIED_MARKET_DATA', 'NO_MARKET_EVIDENCE'],
   ];
   for (const [reason, wanted] of expected) {
     const core = resolveScanResultCore(
       bundleFrom({ ok: false, reason, detail: 'test fixture' }),
       AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0,
     );
+    assertEquals(core.decisionAvailable, false, `expected decisionAvailable:false for ${reason}`);
     assertEquals(core.unavailableReason, wanted, `reason ${reason} should map to ${wanted}`);
   }
+});
+
+// R3 (item L): these two are NOT system failures — the pipeline ran to
+// completion and genuinely found nothing/not enough. On an identifiable
+// item they route to the zero-evidence SKIP instead of decisionAvailable
+// :false — unavailableReason stays null; noEvidenceReason carries the
+// distinction instead.
+Deno.test("unavailableReason: EVIDENCE_TOO_WEAK/INSUFFICIENT_VERIFIED_MARKET_DATA route to the zero-evidence SKIP, not decisionAvailable:false", () => {
+  const cases: Array<[MarketDataFailureReason, 'NO_MARKET_EVIDENCE' | 'EVIDENCE_TOO_WEAK']> = [
+    ['EVIDENCE_TOO_WEAK', 'EVIDENCE_TOO_WEAK'],
+    ['INSUFFICIENT_VERIFIED_MARKET_DATA', 'NO_MARKET_EVIDENCE'],
+  ];
+  for (const [reason, wantedNoEvidenceReason] of cases) {
+    const core = resolveScanResultCore(
+      bundleFrom({ ok: false, reason, detail: 'test fixture' }),
+      AI_HOT_LOOKING_ESTIMATE, 20, SETTINGS, 0,
+    );
+    assertEquals(core.decisionAvailable, true, `expected decisionAvailable:true for ${reason}`);
+    assertEquals(core.decision, 'SKIP');
+    assertEquals(core.decisionStatus, 'ok_no_evidence');
+    assertEquals(core.unavailableReason, null);
+    assertEquals(core.noEvidenceReason, wantedNoEvidenceReason, `reason ${reason} should set noEvidenceReason ${wantedNoEvidenceReason}`);
+  }
+});
+
+// R3 (item M): a bare generic noun with nothing else — no GTIN, no
+// brand+model, no SerpAPI title, no distinguishing attribute — is NOT
+// reasonably identifiable even though bundle.identity is non-null. It stays
+// IDENTIFICATION_UNRESOLVED, the one case L does not touch, never the
+// zero-evidence SKIP.
+Deno.test("M gate: a bare generic item name with no brand/model stays IDENTIFICATION_UNRESOLVED, never the zero-evidence SKIP", () => {
+  const genericBundle: MarketplaceEvidenceBundle = {
+    identity: {
+      itemName: 'radio', brand: null, model: null, variant: null, gtin: null, gtinKind: null,
+      manufacturerPartNumber: null, modelFamilyHint: null, likelyEbayCategory: null, categoryHints: [],
+      conditionHints: null, unresolvedAttributes: [], identityConfidence: 40, evidenceUsed: ['visual_ai'],
+      normalizedSearchTerms: [], providerId: 'anthropic-claude-vision',
+    },
+    routedMarketplaces: ['ebay'],
+    evidenceByMarketplace: {},
+    ebayInformational: { sellThroughRate: null, avgDaysToSell: null, demandLevel: null },
+  };
+  const core = resolveScanResultCore(genericBundle, { item_name: 'radio' }, 20, SETTINGS, 0);
+  assertEquals(core.decisionAvailable, false);
+  assertEquals(core.decisionStatus, 'insufficient_market_data');
+  assertEquals(core.unavailableReason, 'IDENTIFICATION_UNRESOLVED');
+  assertEquals(core.decision, null);
 });
 
 Deno.test("unavailableReason: no identity at all is classified as IDENTIFICATION_UNRESOLVED, not a generic no-evidence message", () => {

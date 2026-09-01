@@ -50,7 +50,7 @@ Deno.test('searchActiveListings: Browse success with 0 active listings is a real
     new Response(JSON.stringify({ itemSummaries: [], total: 0 }), { status: 200 }));
   try {
     const result = await withEnv(CREDS, () => searchActiveListings({ query: 'general electric all transistor am radio' }));
-    assertEquals(result?.matchingActiveCount, 0);
+    assertEquals(result?.totalActiveResultCount, 0);
     assertEquals(result?.sampledListings.length, 0);
   } finally { globalThis.fetch = originalFetch; }
 });
@@ -65,8 +65,9 @@ Deno.test('searchActiveListings: Browse success with positive active listings pa
   }), { status: 200 }));
   try {
     const result = await withEnv(CREDS, () => searchActiveListings({ query: 'ge radio' }));
-    assertEquals(result?.matchingActiveCount, 37);
+    assertEquals(result?.totalActiveResultCount, 37);
     assertEquals(result?.sampledListings.length, 2);
+    assertEquals(result?.retainedListings.length, 2);
     assertEquals(result?.askingPriceLow, 20);
     assertEquals(result?.askingPriceHigh, 35);
   } finally { globalThis.fetch = originalFetch; }
