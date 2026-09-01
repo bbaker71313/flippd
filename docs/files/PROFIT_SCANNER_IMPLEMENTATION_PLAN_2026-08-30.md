@@ -4,10 +4,9 @@
 **Author:** Engineering
 **Revision:** **3** — corrects a stale terminal `LIMITED EVIDENCE` outcome
 that Revision 2 carried forward unchanged (see *Revision history* below)
-**Status:** R0 and R1 **complete and merged**. R2 (§5.1–§5.4) is
-**code-complete, open as a pull request, not yet deployed** — see the R2
-status note below. R3–R6 still await product-owner sign-off on the open
-items in §13.
+**Status:** R0, R1, and R2 **complete, merged, and deployed** (`claude-proxy`
+v102 — see the R2 status note below). R3–R6 still await product-owner
+sign-off on the open items in §13.
 **Inputs:** `PROFIT_SCANNER_REVIEW_2026-08-30.md` (root cause) ·
 `REMEDIATION_PLAN_AUDIT_2026-08-30.md` (audit of the prior plan) ·
 `PROFIT_SCANNER_R0_TRAWL_VALIDATION_2026-08-30.md` (R0 spike — **G0 PASS**) ·
@@ -107,7 +106,7 @@ authorized to do.
 
 ## R2 status (2026-08-31)
 
-**R2 — code-complete, PR open, not yet deployed.** §5.1–§5.4 are implemented
+**R2 — code-complete, merged (PR #154), and deployed.** §5.1–§5.4 are implemented
 in full against the baseline above: `MarketEvidenceProviderCapabilities`
 (§5.1, `marketplaceTypes.ts`, implemented by both sold-comp providers);
 `externalCall.ts`'s `maxRetryAfterMs`/`totalRetryBudgetMs`/`shouldRetry`
@@ -120,17 +119,26 @@ cascade replacing `compSelection.ts`'s provider-naive `buildSoldCompsQueries`
 (§5.4). Every new pure module has unit tests, including the exact production
 hedge-word examples and the GE-radio query this section's own examples cite.
 
-**Not yet deployed to production, and deliberately so.** This session opened
-a pull request rather than pushing straight to `main` and deploying through
-the Supabase MCP the way the R0/P0/R1 entries in `supabase/DEPLOYED.md` were
-— R2 touches live transport/retry/rate-limiting behavior against Trawl's
-scarce 250-request/month quota, and shipping that to production ahead of any
-review is exactly the kind of hard-to-reverse, shared-system action that
-belongs behind a review gate, not a documentation-correction judgment call.
+**Deployed 2026-08-31 via the Supabase CLI, not the Supabase MCP tool.** PR
+#154 was reviewed and merged first — this session deliberately did not
+deploy ahead of review, since R2 touches live transport/retry/rate-limiting
+behavior against Trawl's scarce 250-request/month quota. Once merged, the
+product owner ran `npx supabase functions deploy claude-proxy` from a local
+clone, because the Supabase MCP's `deploy_edge_function` tool — the
+mechanism every prior deploy in `supabase/DEPLOYED.md` used — could not
+handle this deploy: `claude-proxy`'s dependency closure is now 31 files
+(~254KB), and that tool requires the complete file set inlined as literal
+text in one call, which exceeded this session's per-call output ceiling
+(confirmed via two failed attempts, see `supabase/DEPLOYED.md`'s "R2 deploy"
+entry for the full account). `claude-proxy` v100 → v102, live bundle
+grepped and confirmed to contain every R2 marker with no R1 regression.
+
 Gate **G2** (§5.4: ≥80% of the §3.1 corpus produces ≥1 rung returning ≥3 raw
-comps) cannot be run yet for the same reason §3.1 blocks R3's acceptance
-instrument — the labeled corpus doesn't exist. Deploying and running G2 (or
-explicitly deciding to skip it) is the next concrete step once this PR lands.
+comps) still cannot be run — the §3.1 labeled corpus doesn't exist, same
+blocker as R3's acceptance instrument. Also still open: an authenticated
+production scan actually exercising the new code paths (Trawl retry/pacing,
+identity validation, query planning) against real traffic — the deploy
+verification so far only confirms the code is live and structurally intact.
 
 ## 1. The thesis
 
@@ -1205,7 +1213,7 @@ is **v93**.
 |---|---|---:|---|
 | **R0** | Trawl spike · corpus · Deno unblock | 0.5d | **Complete** — G0/G0b PASS; §3.1 corpus still open, blocks R3 only |
 | **R1** | Audit trail · failure classification | 1.0d | **Complete, merged, live** (`claude-proxy` v96) — §4.3's observation-scan step wasn't recorded, see R0/R1 status note above |
-| **R2** | Provider caps · transport · identity · query planner | 2.0d | **Code-complete, PR open** — not yet deployed, see R2 status note above |
+| **R2** | Provider caps · transport · identity · query planner | 2.0d | **Complete, merged, live** (`claude-proxy` v102) — see R2 status note above |
 | **R3** | Comp scoring · active evidence · partial · containment · routing · shelf | 2.5d | Yes |
 | **R4** | Best-offer · dead branch · pagination · fees · modularization | 2.0d | Yes (separate PRs) |
 | **R5** | Provider map · class ceiling · call budget · Reverb · Discogs · Etsy · Amazon | 3.0d | Yes — one PR per provider |
